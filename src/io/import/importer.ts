@@ -40,15 +40,15 @@ export function baseNameFrom(fileName: string): string {
 }
 
 /** Name for the Nth attempt: "Tasks.tablify", "Tasks 2.tablify", "Tasks 3.tablify", ... */
-export function candidatePath(folder: string, base: string, n: number): string {
-  const name = n === 1 ? `${base}.tablify` : `${base} ${n}.tablify`;
+export function candidatePath(folder: string, base: string, n: number, ext = 'tablify'): string {
+  const name = n === 1 ? `${base}.${ext}` : `${base} ${n}.${ext}`;
   return folder === '' ? name : `${folder}/${name}`;
 }
 
-/** First candidate path that does not exist. */
-export function pickFreePath(folder: string, base: string, exists: (p: string) => boolean): string | null {
+/** First candidate path that does not exist. Shared by import and export (never overwrite). */
+export function pickFreePath(folder: string, base: string, exists: (p: string) => boolean, ext = 'tablify'): string | null {
   for (let n = 1; n <= MAX_NAME_ATTEMPTS; n++) {
-    const p = candidatePath(folder, base, n);
+    const p = candidatePath(folder, base, n, ext);
     if (!exists(p)) return p;
   }
   return null;

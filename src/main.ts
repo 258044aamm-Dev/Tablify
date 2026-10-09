@@ -1,5 +1,6 @@
 import { Plugin } from 'obsidian';
 import { registerImportCommand } from './commands/import.js';
+import { registerExportCommand } from './commands/export.js';
 
 export default class TablifyPlugin extends Plugin {
 	async onload() {
@@ -11,5 +12,6 @@ export default class TablifyPlugin extends Plugin {
 			},
 		});
 		registerImportCommand(this);
+		registerExportCommand(this);
 	}
 }

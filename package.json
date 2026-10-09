@@ -40,6 +40,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "read-excel-file": "8.0.3"
+    "read-excel-file": "8.0.3",
+    "write-excel-file": "1.4.30"
   }
 }

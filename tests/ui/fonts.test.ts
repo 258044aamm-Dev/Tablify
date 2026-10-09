@@ -79,7 +79,13 @@ describe('P3-10 — Bundle and load fonts', () => {
     const total = mainJs.size + styles.size + fontBytes + licenseBytes;
     console.log(`P3-10 bundle: main.js=${mainJs.size} styles.css=${styles.size} fonts=${fontBytes} (${fonts.join(',')}) license=${licenseBytes} total=${total}`);
     expect(total).toBeGreaterThan(50000); // fonts dominate
-    expect(total).toBeLessThan(200_000); // keep release reasonable
+    // Sanity guard on the dev build that is committed as main.js. Raised in P4-05 from 200,000 to
+    // 1,500,000 because the XLSX libraries (P4-02 decision) were added. The dev build embeds an inline
+    // sourcemap, which grows with them: dev main.js 1,343,109 B, dev total about 1,415,481 B.
+    // Production (minified, no sourcemap) main.js is 201,817 B. Owner decision on the release build
+    // is recorded in docs/evidence/P4-05.md. Note: this test runs before the build in `npm run check`,
+    // so it measures the previous build's output (pre-existing ordering).
+    expect(total).toBeLessThan(1_500_000);
   });
 
   it('build output lists fonts and license (manifest check)', () => {
