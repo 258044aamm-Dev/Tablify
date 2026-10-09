@@ -1,14 +1,48 @@
-/* Tablify — table theme (plugin-scoped, no Obsidian global override) */
+/* Tablify — fonts (bundled, offline) + theme (plugin-scoped, no Obsidian global override) */
+/* Fonts: Poppins for headings, Lora for body — SIL OFL, bundled under assets/fonts/, fallbacks Arial/Georgia */
 /* Colors come from src/ui/theme/tokens.ts via CSS variables set by applyTheme. No hex literals here. */
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('assets/fonts/Poppins-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('assets/fonts/Poppins-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lora';
+  src: url('assets/fonts/Lora-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Lora';
+  src: url('assets/fonts/Lora-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
 
 .tablify {
   background: var(--tablify-bg);
   color: var(--tablify-text);
   border: 1px solid var(--tablify-border);
-  font-family: var(--tablify-font-body, inherit);
+  font-family: 'Lora', Georgia, serif;
 }
 
-.tablify__header {
+.tablify__header,
+.tablify h1,
+.tablify h2,
+.tablify h3 {
+  font-family: 'Poppins', Arial, sans-serif;
   background: var(--tablify-bg-subtle);
   color: var(--tablify-text);
   border-bottom: 1px solid var(--tablify-border);
