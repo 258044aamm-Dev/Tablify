@@ -60,6 +60,11 @@
   outline: 2px solid var(--tablify-focus);
 }
 
+.tablify__cell--invalid {
+  border: 1px solid var(--tablify-accent-primary);
+  background: var(--tablify-bg);
+}
+
 .tablify--light,
 .tablify--dark {
   /* theme class is set by src/ui/theme/tokens.ts applyTheme(); variables are set inline */
