@@ -19,9 +19,21 @@
       "name": "Status",
       "type": "single_select",
       "options": [
-        { "id": "opt_todo", "name": "To do", "color": "gray" },
-        { "id": "opt_progress", "name": "In progress", "color": "blue" },
-        { "id": "opt_done", "name": "Done", "color": "green" }
+        {
+          "id": "opt_todo",
+          "name": "To do",
+          "color": "gray"
+        },
+        {
+          "id": "opt_progress",
+          "name": "In progress",
+          "color": "blue"
+        },
+        {
+          "id": "opt_done",
+          "name": "Done",
+          "color": "green"
+        }
       ]
     },
     {
@@ -46,9 +58,21 @@
       "name": "Tags",
       "type": "multi_select",
       "options": [
-        { "id": "opt_frontend", "name": "frontend", "color": "purple" },
-        { "id": "opt_backend", "name": "backend", "color": "orange" },
-        { "id": "opt_urgent", "name": "urgent", "color": "red" }
+        {
+          "id": "opt_frontend",
+          "name": "frontend",
+          "color": "purple"
+        },
+        {
+          "id": "opt_backend",
+          "name": "backend",
+          "color": "orange"
+        },
+        {
+          "id": "opt_urgent",
+          "name": "urgent",
+          "color": "red"
+        }
       ]
     },
     {
@@ -74,7 +98,9 @@
         "fld_priority": 3,
         "fld_active": true,
         "fld_due": "2026-10-15",
-        "fld_tags": ["opt_frontend"],
+        "fld_tags": [
+          "opt_frontend"
+        ],
         "fld_link": "https://example.com/homepage",
         "fld_email": "alice@example.com"
       },
@@ -91,7 +117,10 @@
         "fld_priority": 5,
         "fld_active": true,
         "fld_due": "2026-10-20",
-        "fld_tags": ["opt_backend", "opt_urgent"],
+        "fld_tags": [
+          "opt_backend",
+          "opt_urgent"
+        ],
         "fld_link": null,
         "fld_email": "bob@example.com"
       },
@@ -125,7 +154,9 @@
         "fld_priority": 4,
         "fld_active": true,
         "fld_due": "2026-10-25",
-        "fld_tags": ["opt_backend"],
+        "fld_tags": [
+          "opt_backend"
+        ],
         "fld_link": "https://staging.example.com",
         "fld_email": "deploy@example.com"
       },
@@ -142,7 +173,10 @@
         "fld_priority": 3,
         "fld_active": false,
         "fld_due": "2026-10-30",
-        "fld_tags": ["opt_frontend", "opt_backend"],
+        "fld_tags": [
+          "opt_frontend",
+          "opt_backend"
+        ],
         "fld_link": null,
         "fld_email": "reviewer@example.com"
       },
@@ -176,7 +210,10 @@
         "fld_priority": 4,
         "fld_active": true,
         "fld_due": "2026-10-18",
-        "fld_tags": ["opt_backend", "opt_urgent"],
+        "fld_tags": [
+          "opt_backend",
+          "opt_urgent"
+        ],
         "fld_link": null,
         "fld_email": "perf@example.com"
       },
@@ -193,7 +230,9 @@
         "fld_priority": 5,
         "fld_active": false,
         "fld_due": "2026-11-15",
-        "fld_tags": ["opt_backend"],
+        "fld_tags": [
+          "opt_backend"
+        ],
         "fld_link": null,
         "fld_email": "security@example.com"
       },
@@ -210,7 +249,9 @@
         "fld_priority": 3,
         "fld_active": true,
         "fld_due": "2026-10-28",
-        "fld_tags": ["opt_frontend"],
+        "fld_tags": [
+          "opt_frontend"
+        ],
         "fld_link": "https://example.com/mobile",
         "fld_email": "mobile@example.com"
       },
@@ -227,7 +268,10 @@
         "fld_priority": 4,
         "fld_active": false,
         "fld_due": "2026-11-05",
-        "fld_tags": ["opt_backend", "opt_urgent"],
+        "fld_tags": [
+          "opt_backend",
+          "opt_urgent"
+        ],
         "fld_link": null,
         "fld_email": "dba@example.com"
       },
@@ -239,7 +283,10 @@
       "id": "view_default",
       "name": "Default",
       "sort": [
-        { "fieldId": "fld_priority", "direction": "desc" }
+        {
+          "fieldId": "fld_priority",
+          "direction": "desc"
+        }
       ],
       "groupBy": null,
       "hidden": [],
