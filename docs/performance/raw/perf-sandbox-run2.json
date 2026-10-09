@@ -1,0 +1,149 @@
+{
+  "run": "run2",
+  "recordedAt": "2026-10-09T16:27:41.888Z",
+  "environment": "Node v20.20.2 + jsdom, sandbox container (NOT recorded user hardware; G-A4)",
+  "fixtures": {
+    "FX-M": "1,000 rows × 12 fields (generateFXM seed 42)",
+    "CSV-1k": "1,000 rows × 6 columns",
+    "CSV-10k": "10,000 rows × 6 columns (deterministic, in-script)"
+  },
+  "benchmarks": [
+    {
+      "name": "PERF-1 open FX-M (read+parse+validate+store+first paint, jsdom)",
+      "median": 102.761,
+      "p95": 170.867,
+      "raw": [
+        170.867,
+        114.292,
+        164.094,
+        102.761,
+        99.586,
+        92.954,
+        99.717,
+        152.01,
+        98.566,
+        90.795
+      ]
+    },
+    {
+      "name": "PERF-2 filter update on FX-M (parseQuery+evaluateQuery)",
+      "median": 0.188,
+      "p95": 3.404,
+      "raw": [
+        1.093,
+        0.188,
+        0.134,
+        0.225,
+        3.404,
+        0.939,
+        0.139,
+        0.075,
+        0.045,
+        0.052
+      ]
+    },
+    {
+      "name": "PERF-3 save FX-M (serialize + atomic-style write)",
+      "median": 2.323,
+      "p95": 3.828,
+      "raw": [
+        2.309,
+        2.327,
+        3.828,
+        2.323,
+        2.319,
+        2.178,
+        2.269,
+        3.012,
+        2.122,
+        2.357
+      ]
+    },
+    {
+      "name": "PERF-5 parse 10,000-row CSV",
+      "median": 14.284,
+      "p95": 62.525,
+      "raw": [
+        13.73,
+        10.457,
+        14.284,
+        10.82,
+        62.525,
+        10.496,
+        15.104,
+        16.792,
+        12.473,
+        15.625
+      ]
+    },
+    {
+      "name": "PERF-6 import FX-M CSV (parse+infer+build+write, memory adapter)",
+      "median": 18.516,
+      "p95": 54.547,
+      "raw": [
+        16.858,
+        15.998,
+        23.813,
+        54.547,
+        18.516,
+        15.095,
+        24.404,
+        19.046,
+        14.395,
+        13.6
+      ]
+    },
+    {
+      "name": "PERF-7 export FX-M → CSV (full table, memory adapter)",
+      "median": 1.873,
+      "p95": 17.019,
+      "raw": [
+        1.873,
+        14.466,
+        2.803,
+        5.623,
+        1.692,
+        1.687,
+        17.019,
+        1.698,
+        1.637,
+        1.647
+      ]
+    },
+    {
+      "name": "PERF-7 export FX-M → XLSX (full table, memory adapter)",
+      "median": 20.444,
+      "p95": 48.879,
+      "raw": [
+        29.504,
+        17.847,
+        16.244,
+        16.517,
+        17.645,
+        20.444,
+        18.722,
+        48.879,
+        20.947,
+        21.168
+      ]
+    },
+    {
+      "name": "PERF-7 export FX-M → MD (full table, memory adapter)",
+      "median": 3.544,
+      "p95": 12.722,
+      "raw": [
+        3.766,
+        2.996,
+        3.08,
+        3.559,
+        2.899,
+        3.112,
+        3.544,
+        12.722,
+        3.898,
+        3.108
+      ]
+    }
+  ],
+  "filterMatches": 135
+}

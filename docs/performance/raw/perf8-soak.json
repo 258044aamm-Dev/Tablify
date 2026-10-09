@@ -1,0 +1,56 @@
+{
+  "perf": "PERF-8",
+  "environment": "jsdom/Node (sandbox approximation — not an Obsidian vault)",
+  "durationMinutes": 10,
+  "cycles": 11332,
+  "heapSamples": [
+    {
+      "t": 0,
+      "heapMB": 44.03
+    },
+    {
+      "t": 59,
+      "heapMB": 43.7
+    },
+    {
+      "t": 119,
+      "heapMB": 43.77
+    },
+    {
+      "t": 179,
+      "heapMB": 43.85
+    },
+    {
+      "t": 239,
+      "heapMB": 44.05
+    },
+    {
+      "t": 299,
+      "heapMB": 43.99
+    },
+    {
+      "t": 359,
+      "heapMB": 43.9
+    },
+    {
+      "t": 419,
+      "heapMB": 43.92
+    },
+    {
+      "t": 479,
+      "heapMB": 43.91
+    },
+    {
+      "t": 539,
+      "heapMB": 44.13
+    },
+    {
+      "t": 599,
+      "heapMB": 43.94
+    }
+  ],
+  "heapFirstMB": 44.03,
+  "heapLastMB": 43.88,
+  "growthPercent": -0.34,
+  "target": "< 10% growth after 10 minutes of scroll and edit on FX-M"
+}
