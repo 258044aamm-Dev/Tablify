@@ -6,13 +6,6 @@ import { registerFileMenu } from './menus/fileMenu.js';
 
 export default class TablifyPlugin extends Plugin {
 	async onload() {
-		this.addCommand({
-			id: 'tablify-hello',
-			name: 'Hello from Tablify',
-			callback: () => {
-				console.log('Tablify plugin loaded successfully');
-			},
-		});
 		registerImportCommand(this);
 		registerExportCommand(this);
 		// P5-00: open .tablify files in the table view (undoable grid, save through TextFileView).
