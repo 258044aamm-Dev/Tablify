@@ -1,0 +1,177 @@
+# Tablify user guide
+
+Everything in this guide covers the 1.0.0 (MVP) feature set, on desktop and mobile.
+
+## Contents
+
+1. [Creating a table](#1-creating-a-table)
+2. [The `.tablify` file format](#2-the-tablify-file-format)
+3. [Fields and field types](#3-fields-and-field-types)
+4. [Editing cells](#4-editing-cells)
+5. [Keyboard use](#5-keyboard-use)
+6. [Select options](#6-select-options)
+7. [Attachments](#7-attachments)
+8. [Validation](#8-validation)
+9. [Undo and redo](#9-undo-and-redo)
+10. [Filtering and search](#10-filtering-and-search)
+11. [View settings: width, order, hide, freeze, sort, row height](#11-view-settings)
+12. [Importing CSV and Excel](#12-importing-csv-and-excel)
+13. [Exporting CSV, Excel, Markdown](#13-exporting-csv-excel-markdown)
+14. [The file-explorer menu](#14-the-file-explorer-menu)
+15. [The table context menu](#15-the-table-context-menu)
+16. [Mobile: long-press](#16-mobile-long-press)
+17. [Troubleshooting](#17-troubleshooting)
+
+---
+
+## 1. Creating a table
+
+Right-click a folder in the file explorer → **New table**. Tablify creates `Untitled table.tablify` (numbered on collision, e.g. `Untitled table 2.tablify`) and opens it in the grid. A new table has one primary text field, `Name`.
+
+The primary field cannot be hidden or deleted; it labels each row.
+
+## 2. The `.tablify` file format
+
+A `.tablify` file is pretty-printed JSON with:
+
+- `tableId` — a stable, unique table identifier,
+- `fields` — typed column definitions,
+- `rows` — each row has a stable `id`, a `rev` (revision, bumped on each edit), `updatedAt`, and its values keyed by field ID,
+- `views` — your saved layout (sort, hidden fields, widths, freeze, row height).
+
+Because values are keyed by field ID, **renaming a field never breaks data**. Because the view settings live in the file, your layout travels with the file (sync, backup, share).
+
+Tablify supports **only its own `.tablify` extension** — see the note below.
+
+> **Note:** Tablify does not support `.tabula` files. It never opens, imports, detects, or migrates them.
+
+## 3. Fields and field types
+
+Use the header menu (**Change field type…**) to change a column's type. A type is offered only when **every** existing value converts cleanly — otherwise nothing changes and the menu shows the reason. This protects you from silent data loss.
+
+| Type | Accepts |
+|---|---|
+| Text | any string |
+| Long text | multi-line strings |
+| Number | integers or decimals |
+| Date | ISO `yyyy-mm-dd` |
+| Checkbox | true/false |
+| Single select | one option from a list (with optional color) |
+| Attachment | references to files in your vault |
+
+## 4. Editing cells
+
+- Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits.
+- Paste tab-separated text (e.g. copied from a spreadsheet) with **Ctrl/Cmd+V** — a rectangular range is filled; **Ctrl/Cmd+C** copies the selected range as tab-separated text.
+
+## 5. Keyboard use
+
+The grid handles keys only when the grid has focus. Full table in [docs/shortcuts.md](shortcuts.md):
+
+| Shortcut | Action |
+|---|---|
+| Arrow keys | Move selection |
+| Tab / Shift+Tab | Next / previous cell |
+| Enter | Edit cell / commit |
+| Escape | Cancel edit |
+| Ctrl/Cmd+Z | Undo |
+| Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y | Redo |
+| Ctrl/Cmd+C | Copy range (tab-separated) |
+| Ctrl/Cmd+V | Paste range |
+
+Accessibility: the grid exposes ARIA grid semantics (`role="grid"`, row/column counts and indices, sorted-column announcement, invalid-cell announcement). Screen-reader results are recorded in [docs/accessibility/audit.md](accessibility/audit.md).
+
+## 6. Select options
+
+Single-select cells open a searchable dropdown:
+
+- Type to filter; **Enter** picks the highlighted option.
+- Type a new name and choose **Create** to add the option.
+- Rename, recolor, reorder, or delete options from the option manager. Deleting an option that is in use asks for confirmation and **clears those cells** (no dangling references). The rename/delete step is undoable.
+
+## 7. Attachments
+
+Attachment cells reference files **already in your vault** (for example a PDF next to your table). Tablify validates the path and asks for confirmation; it never copies or moves your files.
+
+## 8. Validation
+
+A field can be marked **required** or **unique**; number fields can have a min/max. Invalid cells get a visible marker, `aria-invalid`, and a tooltip explaining the rule (hover or focus the cell). Validation runs on edit and when the file changes on disk.
+
+## 9. Undo and redo
+
+**Ctrl/Cmd+Z** / **Ctrl/Cmd+Shift+Z** (or Ctrl/Cmd+Y). Every local edit is undoable: cell edits, row insert/duplicate/delete, clear, paste, sort, hide, freeze, field-type change. Undo restores deleted rows with their **original row IDs and positions**. Undo covers local edits only.
+
+## 10. Filtering and search
+
+The filter bar has two paths to the same engine:
+
+- **Query**: type `status:Done amount:>100` or a free-text search (matches visible text).
+- **Builder**: pick field / operator / value; combine multiple terms.
+
+Both always return the same rows. An invalid query shows an explanatory message instead of guessing.
+
+## 11. View settings
+
+From the header menu and the table menu:
+
+- **Column width** — drag the column edge (stored per field).
+- **Column order** — drag, or use the menu to move left/right.
+- **Hide field** — from the header menu; the primary field cannot be hidden.
+- **Freeze** — freeze the first N columns; frozen columns stay visible while scrolling.
+- **Sort** — ascending/descending on any column; the sorted column is announced to screen readers (`aria-sort`).
+- **Row height** — compact / medium / tall.
+
+All of it is saved in the file's `views` section and restored on reopen (verified by scenario A11 in the test matrix).
+
+## 12. Importing CSV and Excel
+
+Right-click a folder → **Import CSV / Excel as table**, or run the command **Import CSV / Excel as table** from the command palette.
+
+- **CSV**: RFC 4180 (quoted fields, CRLF, embedded newlines, BOM handled; delimiter detection).
+- **XLSX**: reads the first sheet; dates come in as dates.
+- Column types are **inferred** from the values with strict, documented rules (ambiguous values become text rather than a wrong type — see the measured accuracy note in the [changelog](../CHANGELOG.md#known-limitations)).
+- The new file opens in the grid; import is atomic — a failure leaves **no partial file**.
+
+## 13. Exporting CSV, Excel, Markdown
+
+Run **Export table (CSV, Excel, Markdown)** from the command palette or the file-explorer menu. The dialog has:
+
+- **Format** — CSV, XLSX, or Markdown.
+- **Full table** checkbox — **off (default): export the current view** (your filter, sort, visible fields, column order); **on**: every field and row.
+
+Export writes a new file next to the table (collision-safe naming) and never modifies the table.
+
+## 14. The file-explorer menu
+
+Right-click in the file explorer:
+
+| Target | Items |
+|---|---|
+| `.tablify` file | Open, Duplicate, Export |
+| Folder | New table, Import CSV / Excel as table |
+| Other files / vault root | (no items) |
+
+**Duplicate** creates `<name> copy.tablify` with a new table ID but the same rows and revisions.
+
+## 15. The table context menu
+
+Right-click (or **Menu key** / **Shift+F10**) in the grid:
+
+| Target | Items |
+|---|---|
+| Cell | Copy, Paste, Clear |
+| Row | Insert row above, Insert row below, Duplicate row, Copy row, Delete row |
+| Header | Change field type…, Hide field, Sort ascending, Sort descending, Freeze |
+
+Disabled items show why they are disabled. Undoable actions are undoable from here too.
+
+## 16. Mobile: long-press
+
+On iOS and Android, **press and hold (~0.5 s)** a row to open the same menu as a desktop right-click. Normal scrolling still works: scrolling, short taps, or moving your finger during the hold never open the menu.
+
+## 17. Troubleshooting
+
+- **"Broken table" file**: if a `.tablify` file contains invalid JSON, Tablify shows an error and **leaves the file unchanged on disk**. Fix the JSON (or restore from backup) and reopen.
+- **Imported column came out as text**: type inference is deliberately strict; mixed or ambiguous columns stay text. Change the type from the header menu — it converts only when every value converts cleanly.
+- **Table did not reload after I edited the JSON by hand**: close and reopen the view; Tablify re-reads and re-validates the file (schema-validated, `formatVersion: 1`).
+- **`.tabula` files**: not supported, on purpose. Tablify ignores them.

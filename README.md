@@ -1,0 +1,67 @@
+# Tablify
+
+Airtable-like tables in Obsidian, stored as `.tablify` files. Works on **desktop and mobile**.
+
+Tablify adds typed, structured tables to your vault: text, numbers, dates, checkboxes, single-select options, attachments and more — with filtering, sorting, frozen columns, undo/redo, keyboard editing, CSV/Excel import and CSV/Excel/Markdown export.
+
+> **Supported file type: `.tablify` only.** Tablify does **not** support `.tabula` files: it never opens, imports, detects, or migrates them.
+
+## Features
+
+- **Typed fields** — text, long text, number, date, checkbox, single select (with color), attachment, plus system fields (row ID, revision, updated at).
+- **Grid editing** — spreadsheet-style grid with virtualized rows, so 1,000-row tables stay smooth; click or keyboard navigation; copy/paste ranges as tab-separated text.
+- **Filtering and search** — a query bar (`status:Done amount:>100`) plus a filter builder; both use the same engine.
+- **View settings in the file** — column width, order, hidden fields, frozen columns, row height, and sorting are saved inside the `.tablify` file and travel with it.
+- **Undo/redo** — every edit is undoable (Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z).
+- **Validation** — required/unique/number-range rules with visible invalid-cell markers.
+- **Import** — CSV (RFC 4180, Excel-compatible) and XLSX files become new `.tablify` tables, with type inference.
+- **Export** — the current filtered view or the full table, to CSV, XLSX, or Markdown.
+- **Context menus** — right-click in the file explorer (new table, import, duplicate, export), right-click in the grid (cell/row/header actions), and long-press on mobile.
+
+## Requirements
+
+- Obsidian **1.14.0** or newer.
+- Desktop (Windows, macOS, Linux) and mobile (iOS, Android).
+
+## Installation
+
+### From the Community directory (when approved)
+
+1. Open **Settings → Community plugins**.
+2. **Browse** and search for "Tablify".
+3. **Install**, then **Enable**.
+
+### Manual installation
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/258044aamm-Dev/Tablify/releases/latest).
+2. Put them in `<vault>/.obsidian/plugins/tablify/`.
+3. Reload Obsidian and enable **Tablify** under **Settings → Community plugins**.
+
+### With BRAT
+
+1. Install and enable [BRAT](https://github.com/TfTHacker/obsidian42-brat).
+2. Run **BRAT: Add a beta plugin for testing** and enter `258044aamm-Dev/Tablify`.
+
+## Getting started
+
+1. Right-click a folder in the file explorer → **New table**. A `.tablify` file opens in the grid with a primary text field `Name`.
+2. Double-click (or press Enter on) a cell to edit. Use the header menu to change field types, sort, hide, or freeze columns.
+3. See the [user guide](docs/user-guide.md) for every feature, and the [shortcut table](docs/shortcuts.md) for keyboard use.
+
+## Documentation
+
+- [User guide](docs/user-guide.md) — every MVP feature explained.
+- [Keyboard shortcuts](docs/shortcuts.md).
+- [Changelog](CHANGELOG.md).
+
+## Known limitations in 1.0.0
+
+See the [changelog](CHANGELOG.md#known-limitations) for the current, measured list.
+
+## Data and privacy
+
+Tables are plain JSON files in your vault. Tablify makes **no network requests** and collects nothing. Attachment fields only reference files already in your vault.
+
+## License
+
+[MIT](LICENSE) © MD Limon Islam. Bundled fonts (Poppins, Lora) are under the SIL Open Font License — see [LICENSE-FONTS](LICENSE-FONTS).
