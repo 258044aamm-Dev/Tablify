@@ -12,8 +12,16 @@ export function registerImportCommand(plugin: Plugin): void {
   plugin.addCommand({
     id: IMPORT_COMMAND_ID,
     name: IMPORT_COMMAND_NAME,
-    callback: () => pickFile(plugin.app),
+    callback: () => startImport(plugin.app),
   });
+}
+
+/**
+ * Start the import flow. With `presetFolder` (from the folder menu, P5-01) the folder picker is skipped.
+ * '' means the vault root.
+ */
+export function startImport(app: App, presetFolder?: string): void {
+  pickFile(app, presetFolder);
 }
 
 function kindOf(name: string): ImportKind | null {
@@ -23,24 +31,28 @@ function kindOf(name: string): ImportKind | null {
   return null;
 }
 
-function pickFile(app: App): void {
+function pickFile(app: App, presetFolder?: string): void {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.csv,.xlsx';
   input.onchange = () => {
     const file = input.files?.[0];
-    if (file) void readThenChooseFolder(app, file);
+    if (file) void readThenChooseFolder(app, file, presetFolder);
   };
   input.click();
 }
 
-async function readThenChooseFolder(app: App, file: File): Promise<void> {
+async function readThenChooseFolder(app: App, file: File, presetFolder?: string): Promise<void> {
   const kind = kindOf(file.name);
   if (kind === null) {
     new Notice('Choose a .csv or .xlsx file.');
     return;
   }
   const data = kind === 'csv' ? await file.text() : await file.arrayBuffer();
+  if (presetFolder !== undefined) {
+    void runImport(app, kind, file.name, data, presetFolder);
+    return;
+  }
   new FolderPicker(app, (folder) => void runImport(app, kind, file.name, data, folder)).open();
 }
 

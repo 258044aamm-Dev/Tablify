@@ -24,6 +24,11 @@ export function registerExportCommand(plugin: Plugin): void {
   });
 }
 
+/** Open the export modal for a given table file (used by the file explorer menu, P5-01). */
+export function openExportModal(app: App, file: TFile): void {
+  new ExportModal(app, file).open();
+}
+
 class ExportModal extends Modal {
   private format: ExportFormat = 'csv';
   private fullTable = false;
