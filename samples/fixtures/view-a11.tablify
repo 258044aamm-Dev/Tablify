@@ -1,0 +1,76 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_01J8Z5VIEW",
+  "name": "View Settings A11",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "id": "fld_qty",
+      "name": "Qty",
+      "type": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_01J8Z5V001",
+      "rev": 1,
+      "updatedAt": "2026-10-09T08:00:00Z",
+      "values": {
+        "fld_name": "Alpha",
+        "fld_qty": 3
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z5V002",
+      "rev": 1,
+      "updatedAt": "2026-10-09T08:01:00Z",
+      "values": {
+        "fld_name": "Beta",
+        "fld_qty": 1
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z5V003",
+      "rev": 1,
+      "updatedAt": "2026-10-09T08:02:00Z",
+      "values": {
+        "fld_name": "Gamma",
+        "fld_qty": 2
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [
+        {
+          "fieldId": "fld_qty",
+          "direction": "desc"
+        }
+      ],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {
+        "fld_name": 240,
+        "fld_qty": 90
+      },
+      "columnOrder": [
+        "fld_name",
+        "fld_qty"
+      ],
+      "warnings": []
+    }
+  ],
+  "syncLink": null
+}

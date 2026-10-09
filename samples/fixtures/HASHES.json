@@ -1,4 +1,9 @@
 {
   "fx-xlsx.xlsx": "eff54b8c877ac28f0dcf97d2263a7a7da6162931bc16c452b1e9ef3d92089f5c",
-  "labeled/labeled-set.json": "5ae454b222a0a2d8d716dfb0498bdd74682a6be3424645f142355ee017a284b1"
+  "labeled/labeled-set.json": "5ae454b222a0a2d8d716dfb0498bdd74682a6be3424645f142355ee017a284b1",
+  "import-a2.csv": "970cc466c99104277f7f82bcdfee9dbb209e7d35aa55d749f0de686f19a2e55c",
+  "import-a3.xlsx": "aa5943d7f00fcde6a471072fc75d292196707a7cf277dba2b1e476f912ee16e0",
+  "decoy.tabula": "9fdfa7d4cb423fc10e7f2eb62eafb19c2dac6293ff6d9c8054f9c4383dfd2ab3",
+  "broken.tablify": "cb6e36b398b9822624d87c4ce4d015855e716e83b040d5b9f298ec0f33c38329",
+  "view-a11.tablify": "33217efff5a583c98d317066333e8e7179d5a440483195a3ab09b6008a5fb914"
 }

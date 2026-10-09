@@ -97,6 +97,131 @@ function sha256(buf) {
   return createHash('sha256').update(buf).digest('hex');
 }
 
+// ---------------------------------------------------------------------------
+// P6-01 fixtures (Phase 6 test matrix): deterministic scripted-case inputs for
+// scenarios A2, A3, A9, A10, A11. Seed 60101. The 500 rows are shared by the
+// CSV (A2) and XLSX (A3) so both imports can be cross-checked cell-by-cell.
+// ---------------------------------------------------------------------------
+export function buildP6Fixtures() {
+  const rand = mulberry32(60101);
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const header = ['id', 'name', 'amount', 'date', 'active', 'category', 'note'];
+  const rows = [];
+  for (let i = 1; i <= 500; i++) {
+    rows.push({
+      i,
+      name: `Item ${i}`,
+      amount: Math.round((rand() * 900 - 100) * 100) / 100,
+      date: `${2020 + Math.floor(rand() * 7)}-${pad2(1 + Math.floor(rand() * 12))}-${pad2(1 + Math.floor(rand() * 28))}`,
+      active: rand() < 0.5,
+      category: CATEGORIES[Math.floor(rand() * CATEGORIES.length)],
+      note: NOTE_PARTS[Math.floor(rand() * NOTE_PARTS.length)],
+    });
+  }
+
+  // A2 — 500-row CSV (RFC 4180: quote fields containing comma/quote/newline; CRLF).
+  const q = (v) => {
+    const s = String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csvLines = [header].concat(
+    rows.map((r) => [r.i, r.name, r.amount, r.date, r.active, r.category, r.note].map(q).join(',')),
+  );
+  const csv = Buffer.from(csvLines.join('\r\n') + '\r\n', 'utf8');
+
+  // A3 — 500-row XLSX with the same rows; dates as Excel serials with a date format.
+  const aoa = [header].concat(
+    rows.map((r) => {
+      const [y, m, d] = r.date.split('-').map(Number);
+      return [r.i, r.name, r.amount, { v: excelSerial(y, m, d), t: 'n', z: 'yyyy-mm-dd' }, r.active, r.category, r.note];
+    }),
+  );
+  const ws = XLSX.utils.aoa_to_sheet([header]); // header only; data cells added below to keep date metadata
+  for (let rIdx = 1; rIdx < aoa.length; rIdx++) {
+    aoa[rIdx].forEach((cell, cIdx) => {
+      const addr = XLSX.utils.encode_cell({ r: rIdx, c: cIdx });
+      if (cell !== null && typeof cell === 'object') ws[addr] = { t: cell.t, v: cell.v, z: cell.z };
+      else if (typeof cell === 'boolean') ws[addr] = { t: 'b', v: cell };
+      else if (typeof cell === 'number') ws[addr] = { t: 'n', v: cell };
+      else ws[addr] = { t: 's', v: String(cell) };
+    });
+  }
+  ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: aoa.length - 1, c: header.length - 1 } });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Data');
+  const xlsx = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx', cellDates: false }));
+
+  // A9 — decoy .tabula file: Tablify must never open, import, or migrate it.
+  const tabula = Buffer.from(
+    'Decoy .tabula file (P6-01 A9). Tablify must not open, import, detect, or migrate this file.\n',
+    'utf8',
+  );
+
+  // A10 — broken .tablify: truncated JSON. Expected: error shown, file unchanged on disk.
+  const broken = Buffer.from(
+    '{\n  "formatVersion": 1,\n  "tableId": "tbl_01J8Z5BROKE",\n  "name": "Broken",\n  "fields": [',
+    'utf8',
+  );
+
+  // A11 — valid v1 table carrying view settings: column width, freeze, sort.
+  const viewA11 = Buffer.from(
+    JSON.stringify(
+      {
+        formatVersion: 1,
+        tableId: 'tbl_01J8Z5VIEW',
+        name: 'View Settings A11',
+        fields: [
+          { id: 'fld_name', name: 'Name', type: 'text', primary: true },
+          { id: 'fld_qty', name: 'Qty', type: 'number' },
+        ],
+        rows: [
+          {
+            id: 'row_01J8Z5V001',
+            rev: 1,
+            updatedAt: '2026-10-09T08:00:00Z',
+            values: { fld_name: 'Alpha', fld_qty: 3 },
+            sync: null,
+          },
+          {
+            id: 'row_01J8Z5V002',
+            rev: 1,
+            updatedAt: '2026-10-09T08:01:00Z',
+            values: { fld_name: 'Beta', fld_qty: 1 },
+            sync: null,
+          },
+          {
+            id: 'row_01J8Z5V003',
+            rev: 1,
+            updatedAt: '2026-10-09T08:02:00Z',
+            values: { fld_name: 'Gamma', fld_qty: 2 },
+            sync: null,
+          },
+        ],
+        views: [
+          {
+            id: 'view_default',
+            name: 'Default',
+            sort: [{ fieldId: 'fld_qty', direction: 'desc' }],
+            groupBy: null,
+            hidden: [],
+            frozenColumns: 1,
+            rowHeight: 'medium',
+            columnWidths: { fld_name: 240, fld_qty: 90 },
+            columnOrder: ['fld_name', 'fld_qty'],
+            warnings: [],
+          },
+        ],
+        syncLink: null,
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
+
+  return { csv, xlsx, tabula, broken, viewA11, rowCount: rows.length, columns: header };
+}
+
 // Only run when executed directly.
 if (import.meta.url === `file://${process.argv[1]}`) {
   mkdirSync(join(OUT, 'labeled'), { recursive: true });
@@ -107,6 +232,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     'fx-xlsx.xlsx': sha256(bytes),
     'labeled/labeled-set.json': sha256(Buffer.from(labeledJson)),
   };
+  const p6 = buildP6Fixtures();
+  hashes['import-a2.csv'] = sha256(p6.csv);
+  hashes['import-a3.xlsx'] = sha256(p6.xlsx);
+  hashes['decoy.tabula'] = sha256(p6.tabula);
+  hashes['broken.tablify'] = sha256(p6.broken);
+  hashes['view-a11.tablify'] = sha256(p6.viewA11);
   const hashFile = join(OUT, 'HASHES.json');
   if (process.argv.includes('--check')) {
     const recorded = existsSync(hashFile) ? JSON.parse(readFileSync(hashFile, 'utf8')) : {};
@@ -122,8 +253,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   writeFileSync(join(OUT, 'fx-xlsx.xlsx'), bytes);
   writeFileSync(join(OUT, 'labeled', 'labeled-set.json'), labeledJson);
+  writeFileSync(join(OUT, 'import-a2.csv'), p6.csv);
+  writeFileSync(join(OUT, 'import-a3.xlsx'), p6.xlsx);
+  writeFileSync(join(OUT, 'decoy.tabula'), p6.tabula);
+  writeFileSync(join(OUT, 'broken.tablify'), p6.broken);
+  writeFileSync(join(OUT, 'view-a11.tablify'), p6.viewA11);
   writeFileSync(hashFile, JSON.stringify(hashes, null, 2) + '\n');
-  console.log(`wrote fx-xlsx.xlsx (${bytes.length} bytes, rows=${expected.data.length - 1}) and labeled-set.json (${labeled.columns.length} columns x ${labeled.rows} values)`);
+  console.log(`wrote fx-xlsx.xlsx (${bytes.length} bytes, rows=${expected.data.length - 1}), labeled-set.json (${labeled.columns.length} columns x ${labeled.rows} values), and P6 fixtures: import-a2.csv (${p6.csv.length} B), import-a3.xlsx (${p6.xlsx.length} B, rows=${p6.rowCount}), decoy.tabula, broken.tablify, view-a11.tablify`);
   console.log(JSON.stringify(hashes));
 }
 
