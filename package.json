@@ -8,8 +8,8 @@
     "lint": "eslint src/ tests/",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "check:guard": "bash scripts/check-tabula-guard.sh || true",
-    "check": "npm run lint && npm run test && npm run build"
+    "check:guard": "bash scripts/check-tabula-guard.sh",
+    "check": "npm run lint && npm run test && npm run check:guard && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
