@@ -66,6 +66,23 @@ const MONTHS: Readonly<Record<string, number>> = {
   jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
+/**
+ * Calendar day (UTC) of a Date that is exactly UTC midnight, or null.
+ * read-excel-file returns integer Excel date serials as UTC midnight in every time zone (verified in
+ * UTC, Asia/Dhaka, America/Los_Angeles). A Date with a time-of-day is not date-only: importing it
+ * would silently drop the time, so it is not a date.
+ */
+export function dateOnlyIso(d: Date): string | null {
+  if (Number.isNaN(d.getTime())) return null;
+  if (d.getUTCHours() !== 0 || d.getUTCMinutes() !== 0 || d.getUTCSeconds() !== 0 || d.getUTCMilliseconds() !== 0) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+/** Key used for distinct counting and select option matching: trimmed text, or ISO for Dates. */
+export function cellKey(v: InputCell): string {
+  return v instanceof Date ? v.toISOString() : String(v).trim();
+}
+
 /** True for null, undefined, and empty or whitespace-only text. */
 export function isEmptyCell(v: InputCell): boolean {
   return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
@@ -146,7 +163,7 @@ function matchesNumber(v: InputCell): boolean {
 }
 
 function matchesDate(v: InputCell): boolean {
-  if (v instanceof Date) return !Number.isNaN(v.getTime());
+  if (v instanceof Date) return dateOnlyIso(v) !== null;
   if (typeof v === 'string') return parseDateText(v) !== null;
   return false;
 }
@@ -170,7 +187,7 @@ export function inferColumn(values: readonly InputCell[], options: InferenceOpti
   const distinctSet = new Set<string>();
   const selectOptions: string[] = [];
   for (const v of nonEmptyValues) {
-    const key = v instanceof Date ? v.toISOString() : String(v).trim();
+    const key = cellKey(v);
     if (!distinctSet.has(key)) {
       distinctSet.add(key);
       selectOptions.push(key);

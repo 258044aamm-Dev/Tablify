@@ -152,3 +152,9 @@ describe('inferTable', () => {
     expect(cols.map((c) => c.type)).toEqual(['date', 'number', 'checkbox']);
   });
 });
+
+describe('Date values (native)', () => {
+  it('a Date with a time-of-day is not a date (would lose the time)', () => {
+    expect(inferColumn([new Date(Date.UTC(2026, 0, 2, 12, 30)), new Date(Date.UTC(2026, 0, 3))]).type).toBe('text');
+  });
+});

@@ -38,5 +38,8 @@
     "table",
     "airtable"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "read-excel-file": "8.0.3"
+  }
 }
