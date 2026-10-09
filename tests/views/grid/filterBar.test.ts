@@ -65,7 +65,7 @@ describe('P3-08 — Filter bar', () => {
   });
 
   it('invalid filter query shows message with line:column, position', () => {
-    const { error } = parseQueryInput('Text:\"unclosed');
+    const { error } = parseQueryInput('Text:"unclosed');
     // our parser should emit error with position/line/column; if input is valid but unclosed quote, expect error not null
     // For a truly invalid syntax, construct one that parser rejects — trailing colon with nothing is valid empty, so use bad quote
     if (error) {
@@ -75,7 +75,7 @@ describe('P3-08 — Filter bar', () => {
     } else {
       // fallback: make a query that is known invalid — use empty field name with colon? parser currently treats as ok,
       // so we just verify that parseQuery for this input is ok==false for some malformed input
-      const res = parseQuery('Text:\"unclosed');
+      const res = parseQuery('Text:"unclosed');
       expect(res.ok).toBe(false);
       if (!res.ok) expect((res as any).error.position).toBeGreaterThanOrEqual(0);
     }
@@ -95,6 +95,7 @@ describe('P3-08 — Filter bar', () => {
   it('toolbar input debounce does not apply instantly (250ms)', async () => {
     let applied: unknown = null;
     const cancel = debounceApply('Text:hello', (ast) => { applied = ast; }, 50);
+    expect(typeof cancel).toBe('function');
     expect(applied).toBeNull();
     await new Promise((r) => setTimeout(r, 70));
     expect(applied).not.toBeNull();

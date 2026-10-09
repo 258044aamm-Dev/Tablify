@@ -4,7 +4,7 @@
  */
 
 import { parseQuery, printQuery } from '../../query/parse.js';
-import type { QueryAST, QueryError, QueryTerm } from '../../query/parse.js';
+import type { QueryAST, QueryError } from '../../query/parse.js';
 
 export type SortEntry = { fieldId: string; direction: 'asc' | 'desc' };
 
