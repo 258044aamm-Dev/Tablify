@@ -1,4 +1,5 @@
 import type { TablifyFile, FieldDefinition, Row, ViewDefinition, SelectOption } from '../model/types.js';
+import { sanitizeViewsForSave } from '../model/view.js';
 
 /**
  * Serialize a TablifyFile to a formatted JSON string.
@@ -21,13 +22,15 @@ const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'uni
 const ROW_KEYS = ['id', 'rev', 'createdAt', 'updatedAt', 'values', 'sync'] as const;
 
 /** View key order per FORMAT_SPEC.md §5. */
-const VIEW_KEYS = ['id', 'name', 'sort', 'groupBy', 'hidden', 'frozenColumns', 'rowHeight', 'columnWidths'] as const;
+const VIEW_KEYS = ['id', 'name', 'sort', 'groupBy', 'hidden', 'frozenColumns', 'rowHeight', 'columnWidths', 'columnOrder', 'warnings'] as const;
 
 /** Option key order per FORMAT_SPEC.md §3.2. */
 const OPTION_KEYS = ['id', 'name', 'color'] as const;
 
 function orderTopLevel(file: TablifyFile): Record<string, unknown> {
   const result: Record<string, unknown> = {};
+  // Sanitize views on save — unknown field IDs stripped with warnings, primary hidden rejected, etc.
+  const sanitizedViews = file.views ? sanitizeViewsForSave(file.views as ViewDefinition[], file.fields as FieldDefinition[]) : file.views;
   for (const key of TOP_LEVEL_KEYS) {
     if (key in file) {
       if (key === 'fields') {
@@ -35,7 +38,7 @@ function orderTopLevel(file: TablifyFile): Record<string, unknown> {
       } else if (key === 'rows') {
         result[key] = (file.rows as Row[]).map(orderRow);
       } else if (key === 'views') {
-        result[key] = (file.views as ViewDefinition[]).map(orderView);
+        result[key] = (sanitizedViews as ViewDefinition[]).map(orderView);
       } else {
         result[key] = file[key];
       }

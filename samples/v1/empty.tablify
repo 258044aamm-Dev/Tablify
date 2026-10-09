@@ -25,7 +25,11 @@
       "hidden": [],
       "frozenColumns": 1,
       "rowHeight": "medium",
-      "columnWidths": {}
+      "columnWidths": {},
+      "columnOrder": [
+        "fld_name"
+      ],
+      "warnings": []
     }
   ],
   "syncLink": null

@@ -201,7 +201,7 @@
         },
         "frozenColumns": {
           "type": "integer",
-          "minimum": 1,
+          "minimum": 0,
           "description": "Number of frozen columns from the left."
         },
         "rowHeight": {
@@ -213,6 +213,16 @@
           "type": "object",
           "additionalProperties": { "type": "integer", "minimum": 1 },
           "description": "Map of field ID to column width in pixels."
+        },
+        "columnOrder": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ordered list of field IDs defining column display order."
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Non-fatal warnings recorded during view normalization (e.g., unknown field IDs ignored)."
         }
       },
       "additionalProperties": true

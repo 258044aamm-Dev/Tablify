@@ -71,6 +71,8 @@ export interface ViewDefinition {
   frozenColumns: number;
   rowHeight: RowHeight;
   columnWidths: Record<string, number>;
+  columnOrder: string[];
+  warnings?: string[];
 }
 
 // ---- Table (top-level) ----

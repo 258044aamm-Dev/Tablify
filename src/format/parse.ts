@@ -1,4 +1,5 @@
-import type { TablifyFile } from '../model/types.js';
+import type { TablifyFile, FieldDefinition, ViewDefinition } from '../model/types.js';
+import { validateView } from '../model/view.js';
 
 export interface ParseSuccess {
   ok: true;
@@ -126,7 +127,8 @@ export function parse(input: string): ParseResult {
     }
   }
 
-  // Step 8: Validate views
+  // Step 8: Validate views (basic shape + view-specific normalization)
+  const fieldsForView = obj.fields as unknown as FieldDefinition[];
   for (let i = 0; i < obj.views.length; i++) {
     const view = obj.views[i] as Record<string, unknown>;
     if (typeof view !== 'object' || view === null) {
@@ -135,6 +137,57 @@ export function parse(input: string): ParseResult {
     if (typeof view.id !== 'string') {
       return { ok: false, error: `views[${i}].id must be a string` };
     }
+  }
+
+  // Normalize views: unknown field IDs ignored with warning, not error.
+  // We use validateView to derive warnings and columnOrder defaults.
+  // Parsing never fails because of unknown field IDs in a view — they are stripped.
+  try {
+    const normalizedViews = (obj.views as unknown as ViewDefinition[]).map((v, idx) => {
+      // Ensure minimal defaults before validation to avoid crashes on missing keys
+      const viewWithDefaults = {
+        id: v.id,
+        name: v.name ?? 'Default',
+        sort: Array.isArray(v.sort) ? v.sort : [],
+        groupBy: v.groupBy ?? null,
+        hidden: Array.isArray(v.hidden) ? v.hidden : [],
+        frozenColumns: typeof v.frozenColumns === 'number' ? v.frozenColumns : 0,
+        rowHeight: v.rowHeight ?? 'medium',
+        columnWidths: v.columnWidths && typeof v.columnWidths === 'object' ? v.columnWidths : {},
+        columnOrder: Array.isArray((v as unknown as Record<string, unknown>).columnOrder)
+          ? ((v as unknown as Record<string, unknown>).columnOrder as string[])
+          : fieldsForView.map((f) => f.id),
+        warnings: Array.isArray((v as unknown as Record<string, unknown>).warnings)
+          ? ((v as unknown as Record<string, unknown>).warnings as string[])
+          : [],
+      } as unknown as ViewDefinition;
+      const result = validateView(viewWithDefaults, fieldsForView);
+      // For file load, even if primary hidden error, auto-fix by removing primary from hidden (warnings)
+      // This keeps the file usable — the error is surfaced via validation result but not as parse failure.
+      if (!result.ok && result.errors.length > 0) {
+        // Check if error is primary hidden → auto-correct with warning
+        const primary = fieldsForView.find((f) => f.primary);
+        if (primary && result.view.hidden.includes(primary.id)) {
+          result.view.hidden = result.view.hidden.filter((id) => id !== primary.id);
+          result.view.warnings = [...(result.view.warnings ?? []), `Primary field "${primary.name}" cannot be hidden — removed on load`];
+          result.warnings.push(`Primary field "${primary.name}" cannot be hidden — removed on load`);
+          result.errors = result.errors.filter((e) => !e.includes('Primary field'));
+          result.ok = result.errors.length === 0;
+        }
+      }
+      // Preserve unknown keys from original view
+      const original = obj.views[idx] as Record<string, unknown>;
+      for (const k of Object.keys(original)) {
+        if (!(k in result.view)) {
+          (result.view as Record<string, unknown>)[k] = original[k];
+        }
+      }
+      return result.view;
+    });
+    obj.views = normalizedViews as unknown as typeof obj.views;
+  } catch {
+    // If view normalization throws, never fail parse with exception — return error
+    return { ok: false, error: 'Failed to normalize views' };
   }
 
   // Step 9: syncLink must be null

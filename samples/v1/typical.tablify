@@ -297,7 +297,18 @@
         "fld_status": 120,
         "fld_priority": 80,
         "fld_due": 120
-      }
+      },
+      "columnOrder": [
+        "fld_name",
+        "fld_status",
+        "fld_priority",
+        "fld_active",
+        "fld_due",
+        "fld_tags",
+        "fld_link",
+        "fld_email"
+      ],
+      "warnings": []
     }
   ],
   "syncLink": null
