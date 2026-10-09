@@ -6,13 +6,15 @@
 
 export const OVERSCAN = 5;
 
-export function rowHeightPx(rowHeight: 'compact' | 'medium' | 'tall'): number {
+export function rowHeightPx(rowHeight: string): number {
   switch (rowHeight) {
     case 'compact':
+    case 'small':
       return 28;
     case 'medium':
       return 36;
     case 'tall':
+    case 'large':
       return 48;
     default:
       return 36;

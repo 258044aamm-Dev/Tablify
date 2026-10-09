@@ -12,7 +12,7 @@ export interface ViewValidationResult {
   ok: boolean;
 }
 
-const VALID_ROW_HEIGHTS: ReadonlySet<string> = new Set(['small', 'medium', 'large']);
+const VALID_ROW_HEIGHTS: ReadonlySet<string> = new Set(['small', 'medium', 'large', 'compact', 'tall']);
 const VALID_DIRECTIONS: ReadonlySet<string> = new Set(['asc', 'desc']);
 
 function cloneView(view: ViewDefinition): ViewDefinition {

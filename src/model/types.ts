@@ -55,7 +55,7 @@ export interface Row {
 // ---- View types ----
 
 export type SortDirection = 'asc' | 'desc';
-export type RowHeight = 'small' | 'medium' | 'large';
+export type RowHeight = 'small' | 'medium' | 'large' | 'compact' | 'tall';
 
 export interface SortEntry {
   fieldId: string;
