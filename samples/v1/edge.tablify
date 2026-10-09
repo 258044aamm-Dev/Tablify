@@ -1,0 +1,85 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_01J8Z5EDGE",
+  "name": "Edge Cases 🗂️",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name (日本語)",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "id": "fld_notes",
+      "name": "Notes",
+      "type": "long_text"
+    },
+    {
+      "id": "fld_score",
+      "name": "Score",
+      "type": "number"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_01J8Z5E001",
+      "rev": 1,
+      "updatedAt": "2026-10-09T08:00:00Z",
+      "values": {
+        "fld_name": "Unicode: 日本語テスト 🎉 Ñoño — café",
+        "fld_notes": "Contains unicode characters and emoji",
+        "fld_score": 42
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z5E002",
+      "rev": 1,
+      "updatedAt": "2026-10-09T09:00:00Z",
+      "values": {
+        "fld_name": "Escaped \"quotes\" and \\backslashes\\",
+        "fld_notes": "Line 1\nLine 2\nLine 3 with embedded newlines",
+        "fld_score": null
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z5E003",
+      "rev": 2,
+      "updatedAt": "2026-10-09T10:00:00Z",
+      "values": {
+        "fld_name": "",
+        "fld_notes": "",
+        "fld_score": 0
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z5E004",
+      "rev": 1,
+      "updatedAt": "2026-10-09T11:00:00Z",
+      "values": {
+        "fld_name": "Sparse values",
+        "fld_notes": null,
+        "fld_score": null
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "large",
+      "columnWidths": {
+        "fld_name": 250
+      }
+    }
+  ],
+  "syncLink": null,
+  "unknownTopLevel": "this key is unknown and should be preserved on round-trip"
+}

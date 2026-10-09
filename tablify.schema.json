@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tablify.dev/schemas/tablify.schema.json",
+  "title": "Tablify v1 File Format",
+  "description": "JSON Schema for .tablify files (formatVersion 1). See FORMAT_SPEC.md for the authoritative specification.",
+  "type": "object",
+  "required": ["formatVersion", "tableId", "name", "fields", "rows", "views", "syncLink"],
+  "properties": {
+    "formatVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "File format version. Must be 1."
+    },
+    "tableId": {
+      "type": "string",
+      "pattern": "^tbl_[A-Za-z0-9]+$",
+      "description": "Unique table identifier with tbl_ prefix."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable table name."
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/field" },
+      "description": "Array of field definitions. At least one field required."
+    },
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/row" },
+      "description": "Array of row objects. May be empty."
+    },
+    "views": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/view" },
+      "description": "Array of view definitions. At least one view required."
+    },
+    "syncLink": {
+      "type": "null",
+      "description": "Reserved for v1.1 Airtable sync link metadata. Must be null in v1."
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "field": {
+      "type": "object",
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^fld_[A-Za-z0-9_]+$",
+          "description": "Stable field identifier with fld_ prefix."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable field name."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text", "long_text", "number", "currency", "percent",
+            "duration", "rating", "checkbox", "date", "date_time",
+            "url", "email", "phone",
+            "single_select", "multi_select", "attachment",
+            "auto_number", "created_time", "modified_time"
+          ],
+          "description": "Field type. One of 19 supported types."
+        },
+        "primary": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this is the primary field. Exactly one field must be primary."
+        },
+        "options": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/selectOption" },
+          "description": "Options for single_select and multi_select fields."
+        },
+        "required": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether cells must have a non-empty value."
+        },
+        "unique": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether values must be unique across rows. Case-sensitive."
+        },
+        "min": {
+          "type": ["number", "string", "null"],
+          "description": "Minimum value constraint. Number for numeric types, ISO date string for date types."
+        },
+        "max": {
+          "type": ["number", "string", "null"],
+          "description": "Maximum value constraint."
+        },
+        "regex": {
+          "type": ["string", "null"],
+          "description": "Regular expression for text validation."
+        }
+      },
+      "additionalProperties": true
+    },
+    "selectOption": {
+      "type": "object",
+      "required": ["id", "name", "color"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^opt_[A-Za-z0-9_]+$",
+          "description": "Option identifier."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Option display name."
+        },
+        "color": {
+          "type": "string",
+          "enum": ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"],
+          "description": "Option color."
+        }
+      },
+      "additionalProperties": true
+    },
+    "row": {
+      "type": "object",
+      "required": ["id", "rev", "updatedAt", "values", "sync"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^row_[A-Za-z0-9]+$",
+          "description": "Stable row identifier with row_ prefix."
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Revision counter. Starts at 1, increments by 1 per edit."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 last-modified timestamp."
+        },
+        "values": {
+          "type": "object",
+          "description": "Cell values keyed by field ID.",
+          "additionalProperties": true
+        },
+        "sync": {
+          "type": "null",
+          "description": "Reserved for v1.1. Must be null in v1."
+        }
+      },
+      "additionalProperties": true
+    },
+    "view": {
+      "type": "object",
+      "required": ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "View identifier."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "View display name."
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["fieldId", "direction"],
+            "properties": {
+              "fieldId": { "type": "string" },
+              "direction": { "type": "string", "enum": ["asc", "desc"] }
+            },
+            "additionalProperties": true
+          },
+          "description": "Sort entries."
+        },
+        "groupBy": {
+          "type": ["string", "null"],
+          "description": "Field ID to group by, or null."
+        },
+        "hidden": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of hidden field IDs."
+        },
+        "frozenColumns": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of frozen columns from the left."
+        },
+        "rowHeight": {
+          "type": "string",
+          "enum": ["small", "medium", "large"],
+          "description": "Row height setting."
+        },
+        "columnWidths": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 },
+          "description": "Map of field ID to column width in pixels."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_INVALID01",
+  "name": "Wrong Type Test",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name",
+      "type": "text",
+      "primary": true
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_INVALID001",
+      "rev": "not-a-number",
+      "updatedAt": "2026-10-09T08:00:00Z",
+      "values": {
+        "fld_name": "This row has rev as a string instead of integer"
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {}
+    }
+  ],
+  "syncLink": null
+}

@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_01J8Z3K9Q4",
+  "name": "Empty Table",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name",
+      "type": "text",
+      "primary": true,
+      "required": false,
+      "unique": false,
+      "min": null,
+      "max": null,
+      "regex": null
+    }
+  ],
+  "rows": [],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {}
+    }
+  ],
+  "syncLink": null
+}

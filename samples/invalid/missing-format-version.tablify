@@ -1,0 +1,26 @@
+{
+  "tableId": "tbl_INVALID02",
+  "name": "Missing formatVersion",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name",
+      "type": "text",
+      "primary": true
+    }
+  ],
+  "rows": [],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {}
+    }
+  ],
+  "syncLink": null
+}

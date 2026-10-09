@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_INVALID04",
+  "name": "Unknown Row Field Reference",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name",
+      "type": "text",
+      "primary": true
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_INVALID003",
+      "rev": 1,
+      "updatedAt": "2026-10-09T08:00:00Z",
+      "values": {
+        "fld_name": "Test",
+        "fld_nonexistent": "This field ID does not exist in the fields array"
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {}
+    }
+  ],
+  "syncLink": null
+}

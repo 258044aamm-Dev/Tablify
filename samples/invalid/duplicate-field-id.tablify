@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_INVALID03",
+  "name": "Duplicate Field ID",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name",
+      "type": "text",
+      "primary": true
+    },
+    {
+      "id": "fld_name",
+      "name": "Status",
+      "type": "single_select"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_INVALID002",
+      "rev": 1,
+      "updatedAt": "2026-10-09T08:00:00Z",
+      "values": {
+        "fld_name": "Duplicate field ID test"
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {}
+    }
+  ],
+  "syncLink": null
+}

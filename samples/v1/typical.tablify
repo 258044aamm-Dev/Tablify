@@ -1,0 +1,257 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_01J8Z3M2A7",
+  "name": "Task Tracker",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Task Name",
+      "type": "text",
+      "primary": true,
+      "required": true,
+      "unique": false,
+      "min": null,
+      "max": null,
+      "regex": null
+    },
+    {
+      "id": "fld_status",
+      "name": "Status",
+      "type": "single_select",
+      "options": [
+        { "id": "opt_todo", "name": "To do", "color": "gray" },
+        { "id": "opt_progress", "name": "In progress", "color": "blue" },
+        { "id": "opt_done", "name": "Done", "color": "green" }
+      ]
+    },
+    {
+      "id": "fld_priority",
+      "name": "Priority",
+      "type": "number",
+      "min": 1,
+      "max": 5
+    },
+    {
+      "id": "fld_active",
+      "name": "Active",
+      "type": "checkbox"
+    },
+    {
+      "id": "fld_due",
+      "name": "Due Date",
+      "type": "date"
+    },
+    {
+      "id": "fld_tags",
+      "name": "Tags",
+      "type": "multi_select",
+      "options": [
+        { "id": "opt_frontend", "name": "frontend", "color": "purple" },
+        { "id": "opt_backend", "name": "backend", "color": "orange" },
+        { "id": "opt_urgent", "name": "urgent", "color": "red" }
+      ]
+    },
+    {
+      "id": "fld_link",
+      "name": "Documentation",
+      "type": "url"
+    },
+    {
+      "id": "fld_email",
+      "name": "Contact",
+      "type": "email"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_01J8Z4A001",
+      "rev": 1,
+      "createdAt": "2026-10-01T08:00:00Z",
+      "updatedAt": "2026-10-01T08:00:00Z",
+      "values": {
+        "fld_name": "Design homepage",
+        "fld_status": "opt_done",
+        "fld_priority": 3,
+        "fld_active": true,
+        "fld_due": "2026-10-15",
+        "fld_tags": ["opt_frontend"],
+        "fld_link": "https://example.com/homepage",
+        "fld_email": "alice@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A002",
+      "rev": 2,
+      "createdAt": "2026-10-02T09:30:00Z",
+      "updatedAt": "2026-10-05T14:00:00Z",
+      "values": {
+        "fld_name": "Build API endpoint",
+        "fld_status": "opt_progress",
+        "fld_priority": 5,
+        "fld_active": true,
+        "fld_due": "2026-10-20",
+        "fld_tags": ["opt_backend", "opt_urgent"],
+        "fld_link": null,
+        "fld_email": "bob@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A003",
+      "rev": 1,
+      "createdAt": "2026-10-03T10:00:00Z",
+      "updatedAt": "2026-10-03T10:00:00Z",
+      "values": {
+        "fld_name": "Write unit tests",
+        "fld_status": "opt_todo",
+        "fld_priority": 2,
+        "fld_active": false,
+        "fld_due": null,
+        "fld_tags": [],
+        "fld_link": null,
+        "fld_email": null
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A004",
+      "rev": 3,
+      "createdAt": "2026-10-04T11:00:00Z",
+      "updatedAt": "2026-10-07T16:30:00Z",
+      "values": {
+        "fld_name": "Deploy to staging",
+        "fld_status": "opt_progress",
+        "fld_priority": 4,
+        "fld_active": true,
+        "fld_due": "2026-10-25",
+        "fld_tags": ["opt_backend"],
+        "fld_link": "https://staging.example.com",
+        "fld_email": "deploy@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A005",
+      "rev": 1,
+      "createdAt": "2026-10-05T08:00:00Z",
+      "updatedAt": "2026-10-05T08:00:00Z",
+      "values": {
+        "fld_name": "Code review",
+        "fld_status": "opt_todo",
+        "fld_priority": 3,
+        "fld_active": false,
+        "fld_due": "2026-10-30",
+        "fld_tags": ["opt_frontend", "opt_backend"],
+        "fld_link": null,
+        "fld_email": "reviewer@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A006",
+      "rev": 1,
+      "createdAt": "2026-10-06T09:00:00Z",
+      "updatedAt": "2026-10-06T09:00:00Z",
+      "values": {
+        "fld_name": "Update documentation",
+        "fld_status": "opt_todo",
+        "fld_priority": 1,
+        "fld_active": true,
+        "fld_due": "2026-11-01",
+        "fld_tags": [],
+        "fld_link": "https://docs.example.com",
+        "fld_email": "docs@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A007",
+      "rev": 2,
+      "createdAt": "2026-10-07T10:00:00Z",
+      "updatedAt": "2026-10-08T12:00:00Z",
+      "values": {
+        "fld_name": "Performance testing",
+        "fld_status": "opt_done",
+        "fld_priority": 4,
+        "fld_active": true,
+        "fld_due": "2026-10-18",
+        "fld_tags": ["opt_backend", "opt_urgent"],
+        "fld_link": null,
+        "fld_email": "perf@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A008",
+      "rev": 1,
+      "createdAt": "2026-10-08T11:00:00Z",
+      "updatedAt": "2026-10-08T11:00:00Z",
+      "values": {
+        "fld_name": "Security audit",
+        "fld_status": "opt_todo",
+        "fld_priority": 5,
+        "fld_active": false,
+        "fld_due": "2026-11-15",
+        "fld_tags": ["opt_backend"],
+        "fld_link": null,
+        "fld_email": "security@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A009",
+      "rev": 1,
+      "createdAt": "2026-10-09T08:00:00Z",
+      "updatedAt": "2026-10-09T08:00:00Z",
+      "values": {
+        "fld_name": "Mobile responsive layout",
+        "fld_status": "opt_progress",
+        "fld_priority": 3,
+        "fld_active": true,
+        "fld_due": "2026-10-28",
+        "fld_tags": ["opt_frontend"],
+        "fld_link": "https://example.com/mobile",
+        "fld_email": "mobile@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J8Z4A010",
+      "rev": 1,
+      "createdAt": "2026-10-09T09:00:00Z",
+      "updatedAt": "2026-10-09T09:00:00Z",
+      "values": {
+        "fld_name": "Database migration",
+        "fld_status": "opt_todo",
+        "fld_priority": 4,
+        "fld_active": false,
+        "fld_due": "2026-11-05",
+        "fld_tags": ["opt_backend", "opt_urgent"],
+        "fld_link": null,
+        "fld_email": "dba@example.com"
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [
+        { "fieldId": "fld_priority", "direction": "desc" }
+      ],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {
+        "fld_name": 200,
+        "fld_status": 120,
+        "fld_priority": 80,
+        "fld_due": 120
+      }
+    }
+  ],
+  "syncLink": null
+}
