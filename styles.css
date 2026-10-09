@@ -1,0 +1,32 @@
+/* Tablify — table theme (plugin-scoped, no Obsidian global override) */
+/* Colors come from src/ui/theme/tokens.ts via CSS variables set by applyTheme. No hex literals here. */
+
+.tablify {
+  background: var(--tablify-bg);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border);
+  font-family: var(--tablify-font-body, inherit);
+}
+
+.tablify__header {
+  background: var(--tablify-bg-subtle);
+  color: var(--tablify-text);
+  border-bottom: 1px solid var(--tablify-border);
+}
+
+.tablify__row--stripe {
+  background: var(--tablify-bg-stripe);
+}
+
+.tablify__cell--selected {
+  outline: 2px solid var(--tablify-selection);
+}
+
+.tablify__cell:focus {
+  outline: 2px solid var(--tablify-focus);
+}
+
+.tablify--light,
+.tablify--dark {
+  /* theme class is set by src/ui/theme/tokens.ts applyTheme(); variables are set inline */
+}
