@@ -1,0 +1,9 @@
+{
+  "id": "tablify",
+  "name": "Tablify",
+  "version": "0.0.1",
+  "minAppVersion": "1.14",
+  "description": "Airtable-like tables in .tablify files. Desktop and mobile.",
+  "author": "258044aamm-Dev",
+  "isDesktopOnly": false
+}
