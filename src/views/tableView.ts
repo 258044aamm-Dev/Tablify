@@ -13,6 +13,7 @@ import { createEditor, isReadOnly, parseInput } from './grid/editors/index.js';
 import { GridView, type GridSelection } from './grid/GridView.js';
 import { getGridAction, shouldHandleForGrid } from './grid/keyboard.js';
 import { isMoveAction, moveSelection } from './tableController.js';
+import { LongPressDetector } from './longPress.js';
 import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
 import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
 
@@ -35,6 +36,13 @@ export class TableView extends TextFileView {
   private menuTarget: MenuTarget | null = null;
   /** Text copied from a cell or row (system clipboard is also written when available). */
   private clipboardText: string | null = null;
+  /** Long-press state for touch (P5-03). */
+  private readonly press = new LongPressDetector({ onLongPress: (p) => this.onLongPress(p) });
+  private pressTarget: HTMLElement | null = null;
+  /** Set when a long press opened the menu, so the following click does nothing. */
+  private suppressClick = false;
+  /** Time of the last touch, used to ignore the native touch context menu (P5-03). */
+  private lastTouchAt = 0;
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -138,6 +146,7 @@ export class TableView extends TextFileView {
       this.grid.root.tabIndex = 0;
       this.grid.root.addEventListener('keydown', (e) => this.onKeyDown(e));
       this.grid.root.addEventListener('contextmenu', (e) => this.onContextMenu(e));
+      this.wirePressEvents(this.grid.root);
     } else {
       this.grid.setModel(rows, fields, s.getView());
     }
@@ -192,21 +201,79 @@ export class TableView extends TextFileView {
   // ---- context menus (P5-02) ----
 
   private onContextMenu(e: MouseEvent): void {
-    if (!this.grid) return;
-    const target = e.target as HTMLElement | null;
-    const headerCell = target?.closest?.('.tablify__header-cell') as HTMLElement | null;
-    if (headerCell) {
+    // A touch long press opens the menu through LongPressDetector. The native touch context menu
+    // that follows is ignored, so the menu does not open twice (P5-03).
+    if (Date.now() - this.lastTouchAt < 1500) {
       e.preventDefault();
-      this.openHeaderMenu(Number(headerCell.dataset.colIndex), e);
       return;
     }
+    if (this.openMenuFromTarget(e.target as HTMLElement | null, e)) e.preventDefault();
+  }
+
+  /** Open the header or cell menu for a DOM target. Returns false when the target is neither. */
+  private openMenuFromTarget(target: HTMLElement | null, pos: MouseEvent | { x: number; y: number }): boolean {
+    if (!this.grid) return false;
+    const headerCell = target?.closest?.('.tablify__header-cell') as HTMLElement | null;
+    if (headerCell) {
+      this.openHeaderMenu(Number(headerCell.dataset.colIndex), pos);
+      return true;
+    }
     const cell = target?.closest?.('.tablify__cell') as HTMLElement | null;
-    if (!cell) return;
-    e.preventDefault();
+    if (!cell) return false;
     const row = Number((cell.parentElement as HTMLElement).dataset.rowIndex);
     const col = Number(cell.dataset.colIndex);
     this.grid.setSelection({ row, col });
-    this.openCellMenu(row, col, e);
+    this.openCellMenu(row, col, pos);
+    return true;
+  }
+
+  // ---- touch long press (P5-03) ----
+
+  private wirePressEvents(root: HTMLElement): void {
+    root.addEventListener('pointerdown', (e) => {
+      // Reset on every press, so a long press that gets no click cannot swallow the next click.
+      this.suppressClick = false;
+      if (this.editing || e.pointerType !== 'touch') return;
+      this.lastTouchAt = Date.now();
+      this.pressTarget = e.target as HTMLElement | null;
+      this.press.pointerDown(e.clientX, e.clientY, e.pointerType);
+    });
+    root.addEventListener('pointermove', (e) => this.press.pointerMove(e.clientX, e.clientY));
+    root.addEventListener('pointerup', () => {
+      this.lastTouchAt = Date.now();
+      this.suppressClick = this.press.pointerUp() || this.suppressClick;
+    });
+    root.addEventListener('pointercancel', () => {
+      this.lastTouchAt = Date.now();
+      this.press.pointerCancel();
+    });
+    // A scroll that starts on a cell cancels the press, so the menu does not open (P5-03).
+    root.addEventListener('scroll', () => this.press.scroll());
+    // Block native text selection while a touch press is being evaluated.
+    root.addEventListener('selectstart', (e) => {
+      if (this.press.isPending() || this.press.state === 'fired') e.preventDefault();
+    });
+    // Swallow the click that follows a fired long press.
+    root.addEventListener(
+      'click',
+      (e) => {
+        if (this.suppressClick) {
+          this.suppressClick = false;
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      },
+      true,
+    );
+    root.style.setProperty('-webkit-touch-callout', 'none');
+  }
+
+  private onLongPress(point: { x: number; y: number }): void {
+    const target = this.pressTarget;
+    this.pressTarget = null;
+    if (!target || this.editing) return;
+    this.suppressClick = true;
+    this.openMenuFromTarget(target, point);
   }
 
   private openCellMenu(row: number, col: number, pos: MouseEvent | { x: number; y: number }): void {
