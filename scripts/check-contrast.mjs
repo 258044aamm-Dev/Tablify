@@ -55,5 +55,18 @@ for (const p of pairs) {
   // hard requirement: body text pairs must pass AA
   if ((p.name === 'light: text on bg' || p.name === 'dark: text on bg') && !passAA) ok = false;
 }
+
+// P6-03 — focus indicator visibility (WCAG 2.1 1.4.11 non-text contrast, ≥ 3:1).
+// The focus ring token is --tablify-focus (src/ui/theme/tokens.ts) = accentOrange
+// in both themes; the cell focus outline uses it (styles.css .tablify__cell:focus).
+// Informational: the light-theme result is recorded in docs/accessibility/audit.md;
+// changing the palette belongs to P3-11/branding, not here.
+console.log('\nFocus indicator (WCAG 1.4.11 — UI component ≥ 3:1):');
+for (const theme of ['light', 'dark']) {
+  const bg = palette[theme];
+  const r = ratio(palette.accentOrange, bg);
+  console.log(`focus (${palette.accentOrange}) on ${theme} (${bg}) → ${r.toFixed(2)}:1 — 1.4.11 ${r >= 3 ? 'PASS' : 'FAIL (marginal)'}`);
+}
+
 console.log('\n' + (ok ? 'Body text pairs PASS AA (4.5:1) — accents documented as non-body-text where they fail.' : 'FAIL — body text pair does not meet AA'));
 process.exit(ok ? 0 : 1);

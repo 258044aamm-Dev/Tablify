@@ -44,6 +44,7 @@ export class GridView {
   private fields: FieldDefinition[];
   private rows: Row[];
   private selected: GridSelection | null = null;
+  private sortState: { fieldId: string; direction: string }[] = [];
 
   constructor(private opts: GridOptions) {
     this.fields = opts.fields;
@@ -53,6 +54,13 @@ export class GridView {
 
     this.root = document.createElement('div');
     this.root.className = 'tablify tablify--grid';
+    // P6-03 (a11y): grid semantics. Attribute-only; no behavior change.
+    this.root.setAttribute('role', 'grid');
+    this.root.setAttribute('aria-rowcount', String(this.totalRows + 1)); // +1 header row
+    this.root.setAttribute('aria-colcount', String(this.fields.length));
+    this.sortState = Array.isArray(opts.view.sort)
+      ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction }))
+      : [];
     // touch scrolling without blocking page
     this.root.style.overflow = 'auto';
     this.root.style.webkitOverflowScrolling = 'touch' as unknown as string;
@@ -74,12 +82,14 @@ export class GridView {
 
     this.viewport = document.createElement('div');
     this.viewport.className = 'tablify__viewport';
+    this.viewport.setAttribute('role', 'presentation'); // keep grid → row ownership intact for assistive tech
     this.viewport.style.position = 'relative';
     this.viewport.style.height = `${totalHeight(this.totalRows, this.rowHeight)}px`;
     this.viewport.style.overflowX = 'auto';
 
     this.content = document.createElement('div');
     this.content.className = 'tablify__content';
+    this.content.setAttribute('role', 'presentation'); // keep grid → row ownership intact for assistive tech
     this.content.style.position = 'absolute';
     this.content.style.top = '0';
     this.content.style.left = '0';
@@ -125,6 +135,11 @@ export class GridView {
     this.fields = fields;
     this.totalRows = rows.length;
     this.rowHeight = rowHeightPx(view.rowHeight);
+    this.sortState = Array.isArray(view.sort)
+      ? view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction }))
+      : [];
+    this.root.setAttribute('aria-rowcount', String(this.totalRows + 1)); // keep counts in sync (P6-03)
+    this.root.setAttribute('aria-colcount', String(this.fields.length));
     this.viewport.style.height = `${totalHeight(this.totalRows, this.rowHeight)}px`;
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
       this.selected = null;
@@ -201,12 +216,20 @@ export class GridView {
 
   private renderHeader(): void {
     this.header.innerHTML = '';
+    const primarySort = this.sortState[0];
     this.fields.forEach((field, colIndex) => {
       const cell = document.createElement('div');
       this.styleCell(cell);
       cell.classList.add('tablify__header-cell');
       cell.style.fontWeight = '600';
       cell.setAttribute('role', 'columnheader');
+      cell.setAttribute('aria-colindex', String(colIndex + 1));
+      // P6-03 (a11y): announce the primary sort column (attribute-only).
+      if (primarySort && primarySort.fieldId === field.id) {
+        cell.setAttribute('aria-sort', primarySort.direction === 'desc' ? 'descending' : 'ascending');
+      } else {
+        cell.removeAttribute('aria-sort');
+      }
       cell.dataset.colIndex = String(colIndex);
       cell.setAttribute('data-field-id', field.id);
       cell.textContent = field.name;
@@ -227,6 +250,8 @@ export class GridView {
       const rowIdx = start + i;
       rowEl.dataset.rowIndex = String(rowIdx);
       rowEl.setAttribute('role', 'row');
+      // P6-03 (a11y): 1-based row index; the header is row 1 (attribute-only).
+      rowEl.setAttribute('aria-rowindex', String(rowIdx + 2));
       // Render cells for all fields (no column virtualization)
       // Clear previous cells
       rowEl.innerHTML = '';
@@ -243,6 +268,10 @@ export class GridView {
           cell.setAttribute('data-field-id', field.id);
           cell.dataset.colIndex = String(colIndex);
           cell.setAttribute('role', 'gridcell');
+          cell.setAttribute('aria-colindex', String(colIndex + 1));
+          // P6-03 (a11y): give screen readers a stable name for each cell
+          // ("RowIndex, ColumnName, value") without changing any behavior.
+          cell.setAttribute('aria-description', `Row ${rowIdx + 1}, column ${field.name}`);
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
             cell.classList.add('tablify__cell--selected');
             cell.setAttribute('aria-selected', 'true');
