@@ -43,6 +43,11 @@ export interface TableStore {
 
   /** Get the current auto-number counter (without incrementing). */
   getAutoNumberCounter(): number;
+  /**
+   * Replace one field definition and set the given cell values (rowId → value for that field).
+   * Used by the change-field-type command (P5-02). Each changed row gets rev + 1.
+   */
+  replaceField(field: FieldDefinition, valuesByRow: Record<string, CellValue>): void;
 }
 
 export interface CreateStoreOptions {
@@ -139,6 +144,15 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
     }
   }
 
+  function replaceField(field: FieldDefinition, valuesByRow: Record<string, CellValue>): void {
+    const idx = fields.findIndex((f) => f.id === field.id);
+    if (idx === -1) throw new Error(`Field not found: ${field.id}`);
+    fields[idx] = { ...field };
+    for (const [rowId, value] of Object.entries(valuesByRow)) {
+      if (rowMap.has(rowId)) updateRow(rowId, { [field.id]: value });
+    }
+  }
+
   function restoreRow(row: Row, index?: number): void {
     if (rowMap.has(row.id)) {
       throw new Error(`Row already exists: ${row.id}`);
@@ -171,6 +185,7 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
     updateRow,
     deleteRow,
     restoreRow,
+    replaceField,
     moveRow,
     getNextAutoNumber,
     getFieldCount: () => fields.length,

@@ -1,4 +1,4 @@
-import type { CellValue, Row } from './types.js';
+import type { CellValue, FieldDefinition, Row } from './types.js';
 import type { TableStore } from './tableStore.js';
 
 /**
@@ -221,6 +221,81 @@ export function createDeleteRowCommand(data: DeleteRowData): Command {
       if (deletedRow) {
         store.restoreRow(deletedRow, deletedIndex);
       }
+    },
+  };
+}
+
+// ---- P5-02 commands: row insert at a position, view change, field type change ----
+
+export interface InsertRowData {
+  /** Display index (in stored order) where the row is placed. */
+  index: number;
+  values: Record<string, CellValue>;
+}
+
+/**
+ * Insert a row at a position. The first do() creates the row; redo restores the same row id,
+ * so later commands that refer to it still work. Undo deletes it.
+ */
+// Unique keys so these commands never coalesce with each other (see execute() above).
+let uniqueSeq = 0;
+const uniqueKey = (prefix: string) => `${prefix}:${++uniqueSeq}`;
+
+export function createInsertRowCommand(data: InsertRowData): Command {
+  let created: Row | undefined;
+  return {
+    type: 'insertRow',
+    targetKey: uniqueKey('insertRow'),
+    do(store: TableStore): void {
+      if (created) {
+        store.restoreRow(created, data.index);
+      } else {
+        created = store.createRow(data.values);
+        store.moveRow(created.id, data.index);
+      }
+    },
+    undo(store: TableStore): void {
+      if (created && store.getRow(created.id)) store.deleteRow(created.id);
+    },
+  };
+}
+
+export interface SetViewData<T> {
+  /** Apply a view state. The owner of the view (the session) keeps the reference. */
+  apply: (view: T) => void;
+  before: T;
+  after: T;
+}
+
+/** Change view state (sort, hidden, frozen). View state is not table data, but the change is undoable. */
+export function createSetViewCommand<T>(data: SetViewData<T>): Command {
+  return {
+    type: 'setView',
+    targetKey: uniqueKey('setView'),
+    do(): void {
+      data.apply(data.after);
+    },
+    undo(): void {
+      data.apply(data.before);
+    },
+  };
+}
+
+export interface FieldSnapshot {
+  field: FieldDefinition;
+  valuesByRow: Record<string, CellValue>;
+}
+
+/** Change a field's type and its cell values together. Undo restores the old definition and values. */
+export function createChangeFieldTypeCommand(data: { before: FieldSnapshot; after: FieldSnapshot }): Command {
+  return {
+    type: 'changeFieldType',
+    targetKey: uniqueKey('changeFieldType'),
+    do(store: TableStore): void {
+      store.replaceField(data.after.field, data.after.valuesByRow);
+    },
+    undo(store: TableStore): void {
+      store.replaceField(data.before.field, data.before.valuesByRow);
     },
   };
 }
