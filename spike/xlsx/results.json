@@ -1,0 +1,98 @@
+{
+  "environment": {
+    "node": "v20.20.2",
+    "platform": "linux x64",
+    "cpu": "Intel Xeon @ 2.60GHz, 2 vCPU"
+  },
+  "bundle": {
+    "stub": {
+      "outfile": "/home/user/Tablify/spike/xlsx/build/stub.mjs",
+      "bytes": 28,
+      "gzip": 48,
+      "nodeImportHits": []
+    },
+    "candA": {
+      "outfile": "/home/user/Tablify/spike/xlsx/build/candA.mjs",
+      "bytes": 155721,
+      "gzip": 47030,
+      "nodeImportHits": [],
+      "deltaMinBytes": 155693,
+      "deltaGzipBytes": 46982
+    },
+    "candB": {
+      "outfile": "/home/user/Tablify/spike/xlsx/build/candB.mjs",
+      "bytes": 429174,
+      "gzip": 142543,
+      "nodeImportHits": [],
+      "deltaMinBytes": 429146,
+      "deltaGzipBytes": 142495
+    }
+  },
+  "readA": {
+    "sheets": [
+      "Data",
+      "Summary",
+      "Notes"
+    ],
+    "data": {
+      "rowCountGot": 5001,
+      "rowCountWant": 5001,
+      "cellMismatches": 0,
+      "examples": []
+    }
+  },
+  "readB": {
+    "sheets": [
+      "Data",
+      "Summary",
+      "Notes"
+    ],
+    "data": {
+      "rowCountGot": 5001,
+      "rowCountWant": 5001,
+      "cellMismatches": 0,
+      "examples": []
+    }
+  },
+  "readTiming": {
+    "A": {
+      "medianMs": 2062.2,
+      "p95Ms": 2362,
+      "rawMs": [
+        1862.1,
+        2062.2,
+        2033.5,
+        1983.3,
+        2362,
+        1991.7,
+        2193.5,
+        2327.8,
+        1964.3,
+        2206.3
+      ]
+    },
+    "B": {
+      "medianMs": 206.5,
+      "p95Ms": 317,
+      "rawMs": [
+        206.5,
+        241.5,
+        200.6,
+        206.3,
+        200.1,
+        214.4,
+        216.2,
+        204.9,
+        317,
+        195.1
+      ]
+    }
+  },
+  "writeRoundTrip": {
+    "A_write_B_read_rows": 501,
+    "A_write_B_read_head_ok": true,
+    "B_write_A_read_rows": 501,
+    "sizeA_bytes": 97940,
+    "sizeB_bytes": 106032
+  }
+}
