@@ -20,6 +20,8 @@ export interface TableStore {
 
   /** Delete a row by ID. */
   deleteRow(id: string): void;
+  /** Re-insert a previously deleted row with its original id, revision, and position (used by undo). */
+  restoreRow(row: Row, index?: number): void;
 
   /** Move a row to a new position in display order. */
   moveRow(id: string, newIndex: number): void;
@@ -137,6 +139,15 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
     }
   }
 
+  function restoreRow(row: Row, index?: number): void {
+    if (rowMap.has(row.id)) {
+      throw new Error(`Row already exists: ${row.id}`);
+    }
+    rowMap.set(row.id, cloneRow(row));
+    const at = index === undefined ? displayOrder.length : Math.max(0, Math.min(index, displayOrder.length));
+    displayOrder.splice(at, 0, row.id);
+  }
+
   function moveRow(id: string, newIndex: number): void {
     const oldIdx = displayOrder.indexOf(id);
     if (oldIdx === -1) {
@@ -159,6 +170,7 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
     getAllRows,
     updateRow,
     deleteRow,
+    restoreRow,
     moveRow,
     getNextAutoNumber,
     getFieldCount: () => fields.length,

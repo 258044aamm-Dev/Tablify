@@ -1,9 +1,13 @@
 /**
- * Grid shell with virtual rows — MVP shell.
+ * Grid view with virtual rows.
  * Renders only visible rows + overscan, recycles row elements, supports touch scrolling.
- * Column virtualization is NOT implemented; all columns are rendered per row (horizontal scroll via overflow-x).
+ * Column virtualization is NOT implemented; all visible columns are rendered per row (horizontal scroll via overflow-x).
  * Row height comes from ViewDefinition.rowHeight via src/model/view.ts (compact/medium/tall).
  * Theme is applied via src/ui/theme/tokens.ts applyTheme on the root.
+ *
+ * P5-00: adds a sticky header, a single selected cell, click-to-select, and setModel() so the
+ * table view can swap rows/fields after each undoable change. Fields passed in are already
+ * in view order and exclude hidden columns (see src/model/viewOrder.ts).
  */
 
 import { getVisibleRange, rowHeightPx, totalHeight, OVERSCAN } from './virtual.js';
@@ -19,10 +23,18 @@ export interface GridOptions {
   theme: 'light' | 'dark';
   viewportHeight?: number; // default 600
   viewportWidth?: number; // default 800, for column measurement
+  /** Called when a body cell is clicked. Indexes refer to the current rows and fields. */
+  onCellClick?: (rowIndex: number, colIndex: number) => void;
+}
+
+export interface GridSelection {
+  row: number;
+  col: number;
 }
 
 export class GridView {
   root: HTMLElement;
+  header: HTMLElement;
   viewport: HTMLElement;
   content: HTMLElement;
   private pool: RowPool;
@@ -31,6 +43,7 @@ export class GridView {
   private totalRows: number;
   private fields: FieldDefinition[];
   private rows: Row[];
+  private selected: GridSelection | null = null;
 
   constructor(private opts: GridOptions) {
     this.fields = opts.fields;
@@ -47,6 +60,17 @@ export class GridView {
     this.root.style.width = `${opts.viewportWidth ?? 800}px`;
     this.root.style.position = 'relative';
     applyTheme(this.root, opts.theme);
+
+    this.header = document.createElement('div');
+    this.header.className = 'tablify__header';
+    this.header.setAttribute('role', 'row');
+    this.header.style.position = 'sticky';
+    this.header.style.top = '0';
+    this.header.style.zIndex = '1';
+    this.header.style.display = 'flex';
+    this.header.style.background = 'var(--background-primary)';
+    this.header.style.borderBottom = '1px solid var(--tablify-border)';
+    this.root.appendChild(this.header);
 
     this.viewport = document.createElement('div');
     this.viewport.className = 'tablify__viewport';
@@ -78,7 +102,58 @@ export class GridView {
       this.render();
     });
 
+    // click-to-select (delegated)
+    this.root.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement | null;
+      const cell = target?.closest?.('.tablify__cell') as HTMLElement | null;
+      if (!cell) return;
+      const rowEl = cell.parentElement as HTMLElement | null;
+      const row = Number(rowEl?.dataset.rowIndex);
+      const col = Number(cell.dataset.colIndex);
+      if (Number.isNaN(row) || Number.isNaN(col)) return;
+      this.setSelection({ row, col });
+      this.opts.onCellClick?.(row, col);
+    });
+
+    this.renderHeader();
     this.render();
+  }
+
+  /** Replace rows, fields, and view settings, then re-render. Scroll position is kept. */
+  setModel(rows: Row[], fields: FieldDefinition[], view: ViewDefinition): void {
+    this.rows = rows;
+    this.fields = fields;
+    this.totalRows = rows.length;
+    this.rowHeight = rowHeightPx(view.rowHeight);
+    this.viewport.style.height = `${totalHeight(this.totalRows, this.rowHeight)}px`;
+    if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
+      this.selected = null;
+    }
+    this.renderHeader();
+    this.render();
+  }
+
+  /** Current selection, or null. */
+  getSelection(): GridSelection | null {
+    return this.selected ? { ...this.selected } : null;
+  }
+
+  /** Select one body cell (no-op if out of range). Pass null to clear. */
+  setSelection(sel: GridSelection | null): void {
+    if (sel && (sel.row < 0 || sel.row >= this.totalRows || sel.col < 0 || sel.col >= this.fields.length)) return;
+    this.selected = sel ? { ...sel } : null;
+    this.render();
+  }
+
+  /** Scroll so that the given row is inside the viewport. */
+  scrollToRow(rowIndex: number): void {
+    const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
+    const top = rowIndex * this.rowHeight;
+    const bodyTop = this.header.offsetHeight;
+    if (top < this.scrollTop) this.setScrollTop(top);
+    else if (top + this.rowHeight > this.scrollTop + viewportH - bodyTop) {
+      this.setScrollTop(top + this.rowHeight - (viewportH - bodyTop));
+    }
   }
 
   /** Set scrollTop programmatically (for tests/benchmark) */
@@ -108,6 +183,37 @@ export class GridView {
     return getVisibleRange(this.scrollTop, viewportHeight, this.rowHeight, this.totalRows, OVERSCAN);
   }
 
+  /** Header labels in column order (for tests and accessibility checks). */
+  getHeaderLabels(): string[] {
+    return Array.from(this.header.children).map((c) => c.textContent ?? '');
+  }
+
+  private styleCell(cell: HTMLElement): void {
+    cell.className = 'tablify__cell';
+    cell.style.flex = '1';
+    cell.style.minWidth = '120px';
+    cell.style.padding = '4px 8px';
+    cell.style.overflow = 'hidden';
+    cell.style.textOverflow = 'ellipsis';
+    cell.style.whiteSpace = 'nowrap';
+    cell.style.borderRight = '1px solid var(--tablify-border)';
+  }
+
+  private renderHeader(): void {
+    this.header.innerHTML = '';
+    this.fields.forEach((field, colIndex) => {
+      const cell = document.createElement('div');
+      this.styleCell(cell);
+      cell.classList.add('tablify__header-cell');
+      cell.style.fontWeight = '600';
+      cell.setAttribute('role', 'columnheader');
+      cell.dataset.colIndex = String(colIndex);
+      cell.setAttribute('data-field-id', field.id);
+      cell.textContent = field.name;
+      this.header.appendChild(cell);
+    });
+  }
+
   private render(): void {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
     const { start, end } = getVisibleRange(this.scrollTop, viewportH, this.rowHeight, this.totalRows, OVERSCAN);
@@ -120,6 +226,7 @@ export class GridView {
       const rowEl = rows[i];
       const rowIdx = start + i;
       rowEl.dataset.rowIndex = String(rowIdx);
+      rowEl.setAttribute('role', 'row');
       // Render cells for all fields (no column virtualization)
       // Clear previous cells
       rowEl.innerHTML = '';
@@ -128,21 +235,22 @@ export class GridView {
         // stripe
         if (rowIdx % 2 === 1) rowEl.classList.add('tablify__row--stripe');
         else rowEl.classList.remove('tablify__row--stripe');
-        for (const field of this.fields) {
+        this.fields.forEach((field, colIndex) => {
           const cell = document.createElement('div');
-          cell.className = 'tablify__cell';
-          cell.style.flex = '1';
-          cell.style.minWidth = '120px';
-          cell.style.padding = '4px 8px';
-          cell.style.overflow = 'hidden';
-          cell.style.textOverflow = 'ellipsis';
-          cell.style.whiteSpace = 'nowrap';
-          cell.style.borderRight = '1px solid var(--tablify-border)';
+          this.styleCell(cell);
           const val = row.values[field.id];
           cell.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
           cell.setAttribute('data-field-id', field.id);
+          cell.dataset.colIndex = String(colIndex);
+          cell.setAttribute('role', 'gridcell');
+          if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
+            cell.classList.add('tablify__cell--selected');
+            cell.setAttribute('aria-selected', 'true');
+            cell.style.outline = '2px solid var(--interactive-accent)';
+            cell.style.outlineOffset = '-2px';
+          }
           rowEl.appendChild(cell);
-        }
+        });
       }
       this.content.appendChild(rowEl);
     }

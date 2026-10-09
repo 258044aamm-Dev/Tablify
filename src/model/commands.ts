@@ -204,6 +204,7 @@ export interface DeleteRowData {
 
 export function createDeleteRowCommand(data: DeleteRowData): Command {
   let deletedRow: Row | undefined;
+  let deletedIndex: number | undefined;
   return {
     type: 'deleteRow',
     targetKey: `deleteRow:${data.rowId}`,
@@ -211,12 +212,14 @@ export function createDeleteRowCommand(data: DeleteRowData): Command {
       const row = store.getRow(data.rowId);
       if (row) {
         deletedRow = row;
+        deletedIndex = store.getAllRows().findIndex((r) => r.id === data.rowId);
         store.deleteRow(data.rowId);
       }
     },
     undo(store: TableStore): void {
+      // Restore the same row id, revision, and position (a new id would break row identity).
       if (deletedRow) {
-        store.createRow(deletedRow.values);
+        store.restoreRow(deletedRow, deletedIndex);
       }
     },
   };
