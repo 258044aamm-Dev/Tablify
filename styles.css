@@ -48,8 +48,11 @@
   border-bottom: 1px solid var(--tablify-border);
 }
 
+/* SAD-71 Step 4: striping retired — capsule gaps carry the vertical rhythm. The class
+   still lands on odd rows (harmless); the bgStripe token stays asserted in contrast
+   tests for any future dense layout. */
 .tablify__row--stripe {
-  background: var(--tablify-bg-stripe);
+  background: transparent;
 }
 
 .tablify__cell--selected {
@@ -355,6 +358,12 @@
   min-height: 160px;
   width: 100%;
   box-sizing: border-box;
+  /* SAD-71 Step 4: the shell is the prototype's tinted inner container — rounded,
+     subtly bordered, and the surface the header/body capsules float on. */
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 16px;
+  padding: 10px;
 }
 
 /* Empty-state hint + bottom Insert Row pill (prototype parity, SAD-71 Step 1). */
@@ -394,18 +403,92 @@
   border-radius: 16px;
 }
 
+/* ---- Capsule grid (SAD-71 Step 4) ----------------------------------------------
+   Every header and body cell is a detached rounded capsule floating on the shell,
+   per Prototype/Anthropic Table Workspace.html (border-separate + spacing). The gap
+   is a transparent 3px border inside each border-box capsule, so outer geometry —
+   column widths, frozen offsets, row pitch — is bit-identical to SAD-69 C. */
+.tablify__cell {
+  display: flex;
+  align-items: center;
+  border: 3px solid transparent;
+  border-radius: 16px;
+  background: var(--tablify-bg-capsule);
+  background-clip: padding-box;
+  box-shadow:
+    inset 0 0 0 1px var(--tablify-border-subtle),
+    0 1px 2px rgba(0, 0, 0, 0.05);
+  padding: 0 10px;
+  min-width: 0;
+}
+
+.tablify__cell-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+/* Header capsules: grip dots + name + type badge (::after reads data-field-type, so
+   the badge never enters textContent). Muted uppercase label, prototype language. */
+.tablify__header-cell {
+  gap: 6px;
+  padding: 6px 10px;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__header-cell::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 5px;
+  height: 14px;
+  background-image: radial-gradient(currentColor 1px, transparent 1.3px);
+  background-size: 3px 4px;
+  opacity: 0.45;
+}
+
+.tablify__header-cell::after {
+  content: attr(data-field-type);
+  margin-left: auto;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--tablify-text-muted);
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+/* The header keeps an opaque inner-surface paint so capsules scrolling underneath
+   stay masked through the capsule gaps; its old flat band + separator are gone. */
+.tablify__header {
+  background: var(--tablify-bg-inner);
+  border-bottom: none;
+  margin-bottom: 6px;
+}
+
 /* Frozen columns (SAD-69 C). The position and offset are set inline, because they depend on
    the resolved column geometry; only the opaque background belongs here. A frozen cell has
    to hide the columns that scroll underneath it, and it has to do that with the right
    colour, or a pinned cell sits on a striped row looking like a different row. */
 .tablify__cell--frozen {
-  background: var(--tablify-bg);
+  background: var(--tablify-bg-capsule);
 }
 
 .tablify__row--stripe .tablify__cell--frozen {
-  background: var(--tablify-bg-stripe);
+  background: var(--tablify-bg-capsule);
 }
 
 .tablify__header .tablify__cell--frozen {
-  background: var(--tablify-bg-subtle);
+  background: var(--tablify-bg-capsule);
 }

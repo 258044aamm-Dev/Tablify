@@ -83,7 +83,7 @@ describe('SAD-71 — the last column has no trailing divider', () => {
     document.body.innerHTML = '';
   });
 
-  it('draws separators between columns only', () => {
+  it('draws no inline column separators (capsule gaps since Step 4)', () => {
     const f = fields(3);
     const grid = new GridView({
       rows: rows(2, f),
@@ -96,11 +96,10 @@ describe('SAD-71 — the last column has no trailing divider', () => {
     document.body.appendChild(grid.root);
     const header = Array.from(grid.header.children) as HTMLElement[];
     expect(header).toHaveLength(3);
-    // Interior separators stay…
-    expect(header[0].style.borderRight).toContain('solid');
-    expect(header[1].style.borderRight).toContain('solid');
-    // …the trailing one goes, or the filler reads as an unnamed column.
-    expect(header[2].style.borderRight).not.toContain('solid');
+    // SAD-71 Step 4: separation is the capsule gap now; no inline separators anywhere.
+    for (const c of header) {
+      expect(c.style.borderRight).not.toContain('solid');
+    }
     const row = grid.content.querySelector<HTMLElement>('.tablify__row');
     const cells = Array.from(row?.children ?? []) as HTMLElement[];
     expect(cells[2].style.borderRight).not.toContain('solid');

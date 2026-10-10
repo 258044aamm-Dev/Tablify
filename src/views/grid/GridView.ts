@@ -123,7 +123,9 @@ export class GridView {
     // in styles.css (.tablify__header { background: var(--tablify-bg-subtle) }) and made the
     // header follow the host Obsidian theme instead of the Tablify theme. That broke P3-09.
     // The opaque background now comes from styles.css, which also keeps sticky rows hidden.
-    this.header.style.borderBottom = '1px solid var(--tablify-border)';
+    // SAD-71 Step 4: no inline bottom separator either — header capsules float on the
+    // shell, and styles.css paints the header with the inner surface so capsules
+    // scrolling underneath stay masked.
     this.root.appendChild(this.header);
 
     this.viewport = document.createElement('div');
@@ -148,7 +150,7 @@ export class GridView {
       el.className = 'tablify__row';
       el.style.display = 'flex';
       el.style.height = `${this.rowHeight}px`;
-      el.style.borderBottom = '1px solid var(--tablify-border)';
+      // SAD-71 Step 4: no row separator — capsule gaps carry the vertical rhythm.
       return el;
     });
 
@@ -296,17 +298,10 @@ export class GridView {
     cell.style.flex = '0 0 auto';
     cell.style.boxSizing = 'border-box';
     cell.style.width = `${this.widths[colIndex] ?? DEFAULT_COLUMN_WIDTH}px`;
-    cell.style.padding = '4px 8px';
-    cell.style.overflow = 'hidden';
-    cell.style.textOverflow = 'ellipsis';
-    cell.style.whiteSpace = 'nowrap';
-    // SAD-71 Step 1: separators between columns only. A trailing right border on the last
-    // cell made the filler space beside it read as an unnamed column (owner screenshot).
-    if (colIndex < this.fields.length - 1) {
-      cell.style.borderRight = '1px solid var(--tablify-border)';
-    } else {
-      cell.style.borderRight = 'none';
-    }
+    // SAD-71 Step 4: capsule language. Padding, separators and ellipsis live in CSS
+    // (.tablify__cell / .tablify__cell-text); the capsule gap is a transparent 3px border
+    // inside the border-box, so outer geometry — widths, frozen offsets, row pitch — is
+    // exactly what the SAD-69 C tests assert. Nothing inline but the geometry itself.
     if (colIndex < this.frozenColumns) {
       // Pinned to a fixed offset, so it holds position while the rest scrolls under it.
       // The opaque background comes from .tablify__cell--frozen in styles.css, which
@@ -332,6 +327,9 @@ export class GridView {
       cell.style.fontWeight = '600';
       cell.setAttribute('role', 'columnheader');
       cell.setAttribute('aria-colindex', String(colIndex + 1));
+      // SAD-71 Step 4: the header capsule's type badge is a ::after reading this
+      // attribute, so the prototype's badge ships without touching textContent.
+      cell.setAttribute('data-field-type', field.type);
       // P6-03 (a11y): announce the primary sort column (attribute-only).
       if (primarySort && primarySort.fieldId === field.id) {
         cell.setAttribute('aria-sort', primarySort.direction === 'desc' ? 'descending' : 'ascending');
@@ -380,7 +378,12 @@ export class GridView {
           const cell = document.createElement('div');
           this.styleCell(cell, colIndex, '1');
           const val = row.values[field.id];
-          cell.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
+          // SAD-71 Step 4: the value lives in a span so the capsule can be a flex box with
+          // a real ellipsis; cell.textContent is unchanged for every consumer.
+          const text = document.createElement('span');
+          text.className = 'tablify__cell-text';
+          text.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
+          cell.appendChild(text);
           cell.setAttribute('data-field-id', field.id);
           cell.dataset.colIndex = String(colIndex);
           cell.setAttribute('role', 'gridcell');
