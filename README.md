@@ -65,3 +65,14 @@ Tables are plain JSON files in your vault. Tablify makes **no network requests**
 ## License
 
 [MIT](LICENSE) © MD Limon Islam. Bundled fonts (Poppins, Lora) are under the SIL Open Font License — see [LICENSE-FONTS](LICENSE-FONTS).
+
+## Airtable sync (v1.1, optional)
+
+Sync is optional. Tablify works fully offline when it is not configured.
+
+1. Create an Airtable personal access token. Grant these scopes: `data.records:read`, `data.records:write`, and `schema.bases:read`.
+2. Add `schema.bases:write` only if you want Tablify to create missing fields in Airtable. Without it, field creation fails with a clear message and nothing is created.
+3. In Tablify settings, paste the token under **Airtable sync**. It is stored in the plugin's settings only. It is never written to a `.tablify` file, an export, or a log.
+4. Open a `.tablify` table and run the command **Airtable sync for this table**. Link it to a base and table, then pull or push.
+
+Conflicts (a row changed both here and in Airtable) are never overwritten silently. You choose keep local, keep remote, or keep both. Deleting records in Airtable never removes rows here without your choice.

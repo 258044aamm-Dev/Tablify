@@ -153,6 +153,7 @@ export class App {
   };
   workspace = {
     getActiveFile: (): TFile | null => null,
+    getActiveViewOfType: (): null => null,
     getLeaf: () => null,
     iterateAllLeaves: (): void => {
       /* no-op */

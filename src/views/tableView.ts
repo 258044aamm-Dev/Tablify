@@ -248,6 +248,15 @@ export class TableView extends TextFileView {
     this.requestSave();
   }
 
+  /** Sync hooks (P7-10). The sync modal works on this view's session and saves through the view. */
+  syncSession(): TableSession | null {
+    return this.session;
+  }
+
+  afterSyncChange(): void {
+    this.afterChange();
+  }
+
   private renderGrid(): void {
     // Refresh the toolbar on every render: row counts, hidden fields, row height, theme and
     // the persisted search/query all feed it. Runs before the guard so it also resets when
