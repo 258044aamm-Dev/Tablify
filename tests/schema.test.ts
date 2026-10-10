@@ -17,7 +17,7 @@ describe('tablify.schema.json validation', () => {
   });
 
   describe('valid samples (samples/v1/)', () => {
-    const validFiles = ['empty.tablify', 'typical.tablify', 'edge.tablify'];
+    const validFiles = ['empty.tablify', 'typical.tablify', 'edge.tablify', 'synced.tablify'];
 
     for (const file of validFiles) {
       it(`accepts ${file}`, () => {
@@ -134,8 +134,8 @@ describe('tablify.schema.json validation', () => {
     });
   });
 
-  describe('syncLink and sync must be null in v1', () => {
-    it('rejects non-null syncLink', () => {
+  describe('syncLink and sync (P7-04): valid structures accepted, malformed rejected', () => {
+    it('rejects a syncLink that is missing required keys', () => {
       const data = JSON.parse(
         readFileSync(join(process.cwd(), 'samples', 'v1', 'empty.tablify'), 'utf-8')
       );
@@ -144,13 +144,37 @@ describe('tablify.schema.json validation', () => {
       expect(valid).toBe(false);
     });
 
-    it('rejects non-null sync in rows', () => {
+    it('rejects a row sync block that is missing required keys', () => {
       const data = JSON.parse(
         readFileSync(join(process.cwd(), 'samples', 'v1', 'typical.tablify'), 'utf-8')
       );
       data.rows[0].sync = { airtableId: 'rec123' };
       const valid = validate(data);
       expect(valid).toBe(false);
+    });
+  });
+
+  describe('sync structures (P7-04)', () => {
+    it('rejects samples/invalid/bad-sync.tablify (bad record ID, hash, and base ID)', () => {
+      const data = JSON.parse(
+        readFileSync(join(process.cwd(), 'samples', 'invalid', 'bad-sync.tablify'), 'utf-8')
+      );
+      expect(validate(data)).toBe(false);
+    });
+
+    it('accepts a fully valid syncLink and row sync block', () => {
+      const data = JSON.parse(
+        readFileSync(join(process.cwd(), 'samples', 'v1', 'synced.tablify'), 'utf-8')
+      );
+      expect(validate(data)).toBe(true);
+    });
+
+    it('rejects a row sync block with a non-hex remoteHash', () => {
+      const data = JSON.parse(
+        readFileSync(join(process.cwd(), 'samples', 'v1', 'synced.tablify'), 'utf-8')
+      );
+      data.rows[0].sync.remoteHash = 'not-a-hash';
+      expect(validate(data)).toBe(false);
     });
   });
 

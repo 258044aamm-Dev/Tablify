@@ -1,5 +1,6 @@
 import type { TablifyFile, FieldDefinition, ViewDefinition } from '../model/types.js';
 import { validateView } from '../model/view.js';
+import { validateFieldAirtableMeta, validateRowSync, validateSyncLink } from './syncSchema.js';
 
 export interface ParseSuccess {
   ok: true;
@@ -102,6 +103,11 @@ export function parse(input: string): ParseResult {
     if (typeof field.type !== 'string') {
       return { ok: false, error: `fields[${i}].type must be a string` };
     }
+    // P7-05: optional Airtable link metadata. Absent or null = local-only field.
+    const airtableErr = validateFieldAirtableMeta(field.airtable);
+    if (airtableErr) {
+      return { ok: false, error: `fields[${i}].airtable: ${airtableErr}` };
+    }
   }
 
   // Step 7: Validate rows
@@ -122,8 +128,13 @@ export function parse(input: string): ParseResult {
     if (typeof row.values !== 'object' || row.values === null) {
       return { ok: false, error: `rows[${i}].values must be an object` };
     }
-    if (row.sync !== null) {
-      return { ok: false, error: `rows[${i}].sync must be null in v1` };
+    // P7-04: sync is null for a local-only row, or a validated sync block. The key must be present.
+    if (!('sync' in row)) {
+      return { ok: false, error: `rows[${i}].sync is required (null or a sync object)` };
+    }
+    const syncErr = validateRowSync(row.sync);
+    if (syncErr) {
+      return { ok: false, error: `rows[${i}].sync: ${syncErr}` };
     }
   }
 
@@ -200,9 +211,10 @@ export function parse(input: string): ParseResult {
     return { ok: false, error: 'Failed to normalize views' };
   }
 
-  // Step 9: syncLink must be null
-  if (obj.syncLink !== null) {
-    return { ok: false, error: 'syncLink must be null in v1' };
+  // Step 9: syncLink is null for a local-only table, or a validated link (P7-04)
+  const syncLinkErr = validateSyncLink(obj.syncLink);
+  if (syncLinkErr) {
+    return { ok: false, error: `syncLink: ${syncLinkErr}` };
   }
 
   // All checks passed — return the data as TablifyFile

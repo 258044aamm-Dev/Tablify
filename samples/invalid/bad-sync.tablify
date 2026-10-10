@@ -1,0 +1,147 @@
+{
+  "formatVersion": 1,
+  "tableId": "tbl_SYNCED01",
+  "name": "Synced sample",
+  "fields": [
+    {
+      "id": "fld_name",
+      "name": "Name",
+      "type": "text",
+      "primary": true,
+      "airtable": {
+        "id": "fldAbC123xyz",
+        "type": "singleLineText",
+        "readOnly": false
+      }
+    },
+    {
+      "id": "fld_status",
+      "name": "Status",
+      "type": "single_select",
+      "options": [
+        {
+          "id": "opt_todo",
+          "name": "Todo",
+          "color": "gray"
+        },
+        {
+          "id": "opt_done",
+          "name": "Done",
+          "color": "green"
+        }
+      ],
+      "airtable": {
+        "id": "fldStat0001",
+        "type": "singleSelect",
+        "readOnly": false
+      }
+    },
+    {
+      "id": "fld_formula",
+      "name": "Total",
+      "type": "text",
+      "airtable": {
+        "id": "fldTot0001",
+        "type": "formula",
+        "readOnly": true
+      }
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_AAA111",
+      "rev": 3,
+      "createdAt": "2026-10-09T10:00:00.000Z",
+      "updatedAt": "2026-10-09T11:00:00.000Z",
+      "values": {
+        "fld_name": "Alpha",
+        "fld_status": "opt_done",
+        "fld_formula": "42"
+      },
+      "sync": {
+        "airtableId": "notARecord",
+        "syncedRev": 2,
+        "syncedAt": "2026-10-09T11:00:00.000Z",
+        "remoteHash": "abc",
+        "remoteDeleted": false,
+        "conflict": null
+      }
+    },
+    {
+      "id": "row_BBB222",
+      "rev": 1,
+      "createdAt": "2026-10-09T10:05:00.000Z",
+      "updatedAt": "2026-10-09T10:05:00.000Z",
+      "values": {
+        "fld_name": "Beta",
+        "fld_status": null,
+        "fld_formula": null
+      },
+      "sync": {
+        "airtableId": "recBBB222bbb",
+        "syncedRev": 1,
+        "syncedAt": "2026-10-09T11:00:00.000Z",
+        "remoteHash": "50d15a533966990ce10c959f5c62ec615d0ebe036647500a1791ce3c8f557f7f",
+        "conflict": {
+          "kind": "both_changed",
+          "decision": "keep_local",
+          "localRev": 1,
+          "remoteHash": "50d15a533966990ce10c959f5c62ec615d0ebe036647500a1791ce3c8f557f7f",
+          "decidedAt": "2026-10-09T11:30:00.000Z"
+        }
+      }
+    },
+    {
+      "id": "row_CCC333",
+      "rev": 1,
+      "createdAt": "2026-10-09T12:00:00.000Z",
+      "updatedAt": "2026-10-09T12:00:00.000Z",
+      "values": {
+        "fld_name": "Local only",
+        "fld_status": null,
+        "fld_formula": null
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {},
+      "columnOrder": [
+        "fld_name",
+        "fld_status",
+        "fld_formula"
+      ],
+      "warnings": []
+    }
+  ],
+  "syncLink": {
+    "baseId": "base123",
+    "tableId": "tblTEST0000000001",
+    "tableName": "Tasks",
+    "linkedAt": "2026-10-09T10:00:00.000Z",
+    "lastSync": {
+      "at": "2026-10-09T11:00:00.000Z",
+      "direction": "pull",
+      "ok": true,
+      "summary": "2 updated, 0 added"
+    },
+    "records": [
+      {
+        "airtableId": "recAAA111aaa",
+        "remoteHash": "548d44c7672ab1544f7bb3eebeb098f432bdf7d44b02b7996eb8cd761d994b55"
+      },
+      {
+        "airtableId": "recBBB222bbb",
+        "remoteHash": "50d15a533966990ce10c959f5c62ec615d0ebe036647500a1791ce3c8f557f7f"
+      }
+    ]
+  }
+}

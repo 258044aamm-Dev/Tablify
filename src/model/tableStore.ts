@@ -102,7 +102,17 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
       ...(row.createdAt !== undefined ? { createdAt: row.createdAt } : {}),
       updatedAt: row.updatedAt,
       values: { ...row.values },
-      sync: null,
+      // P7-04: keep the sync block. Dropping it here would silently unlink every synced row
+      // on the next save. A deep copy keeps callers from mutating store state.
+      sync: cloneSync(row.sync),
+    };
+  }
+
+  function cloneSync(sync: Row['sync']): Row['sync'] {
+    if (!sync) return null;
+    return {
+      ...sync,
+      ...(sync.conflict ? { conflict: { ...sync.conflict } } : {}),
     };
   }
 

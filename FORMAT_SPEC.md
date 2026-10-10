@@ -15,7 +15,7 @@ The `.tablify` format is a plain-text JSON file that stores an Airtable-like tab
 - Storage format: Pretty-printed JSON text
 - Version: `formatVersion: 1`
 - Row identity: Stable IDs keyed by field ID (not name)
-- Reserved keys: `sync` (per row) and `syncLink` (per table) exist as `null` for forward compatibility with v1.1
+- Sync keys: `sync` (per row, §4.3) and `syncLink` (per table, §2.2) are `null` for a local-only table or row. Since v1.1 (P7-04) they may hold a validated sync object. Field-level `airtable` (§3.3) is optional.
 - Unknown keys: Preserved on round-trip save
 
 ---
@@ -58,7 +58,7 @@ The file is a single JSON object with these keys **in this exact order**:
 | `fields` | array | ✅ | Array of field (column) definitions. At least one field required. See §3. |
 | `rows` | array | ✅ | Array of row objects. May be empty. See §4. |
 | `views` | array | ✅ | Array of view definitions. At least one view required. See §5. |
-| `syncLink` | null \| object | ✅ | Reserved for v1.1 Airtable sync link metadata. Must be `null` in v1. |
+| `syncLink` | null \| object | ✅ | Airtable link metadata (§2.2). `null` for a local-only table. |
 
 ### 2.1 Rules
 
@@ -68,6 +68,32 @@ The file is a single JSON object with these keys **in this exact order**:
 - `.tabula` files are never read, written, imported, detected, or migrated by this plugin.
 
 ---
+
+### 2.2 Sync link (`syncLink`, v1.1)
+
+When the table is linked to an Airtable table, `syncLink` holds:
+
+```json
+"syncLink": {
+  "baseId": "appXXXXXXXXXXXXXX",
+  "tableId": "tblXXXXXXXXXXXXXX",
+  "tableName": "Tasks",
+  "linkedAt": "2026-10-09T10:00:00.000Z",
+  "lastSync": { "at": "2026-10-09T11:00:00.000Z", "direction": "pull", "ok": true, "summary": "2 updated, 0 added" },
+  "records": [ { "airtableId": "recXXXXXXXXXXXXXX", "remoteHash": "<64 lowercase hex>" } ]
+}
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `baseId` | string | ✅ | Airtable base ID, pattern `^app[A-Za-z0-9]+$`. |
+| `tableId` | string | ✅ | Airtable table ID, pattern `^tbl[A-Za-z0-9]+$`. |
+| `tableName` | string | ✅ | Table name at link time, for display only. |
+| `linkedAt` | string | ✅ | ISO 8601 time the link was created. |
+| `lastSync` | null \| object | ✅ | Last run: `at` (ISO 8601), `direction` (`link`, `pull`, `push`), `ok` (boolean), `summary` (short text, never contains the token). |
+| `records` | array | ✅ | Snapshot of every synced row at the last successful write. Each entry has `airtableId` and `remoteHash`. A record listed here whose row no longer exists was deleted locally. |
+
+The Airtable token is never stored here (P7-03).
 
 ## 3. Field definition
 
@@ -127,6 +153,20 @@ Each field object has these keys **in this order**:
 
 **System types** (17–19) are read-only. They are computed automatically and cannot be edited by the user.
 
+### 3.3 Airtable field link (`airtable`, v1.1)
+
+Optional. Present on a field that is linked to an Airtable field (P7-05). Absent or `null` for a local-only field.
+
+```json
+"airtable": { "id": "fldXXXXXXXXXXXXXX", "type": "singleSelect", "readOnly": false }
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `id` | string | ✅ | Airtable field ID, pattern `^fld[A-Za-z0-9]+$`. Stable across renames. |
+| `type` | string | ✅ | Airtable field type at link time. |
+| `readOnly` | boolean | ✅ | `true` for Airtable types with no Tablify equivalent. These fields are shown but never pushed. |
+
 ### 3.2 Select option
 
 ```json
@@ -170,7 +210,7 @@ Each row object has these keys **in this order**:
 | `createdAt` | string | optional | ISO 8601 timestamp of row creation. Set once, never changed. |
 | `updatedAt` | string | ✅ | ISO 8601 timestamp of last modification. Updated on every edit. |
 | `values` | object | ✅ | Cell values keyed by **field ID** (R-D8). See §4.1. |
-| `sync` | null \| object | ✅ | Reserved for v1.1 Airtable sync metadata. Must be `null` in v1. |
+| `sync` | null \| object | ✅ | Airtable sync state (§4.3). `null` for a local-only row. |
 
 ### 4.1 Values object
 
@@ -188,6 +228,30 @@ Each row object has these keys **in this order**:
 - Duplicate row (R-D11): new row gets a new `id` and `rev: 1`, but row IDs within the duplicate are kept.
 
 ---
+
+### 4.3 Sync block (`sync`, v1.1)
+
+Present on a row linked to an Airtable record. `null` for a local-only row.
+
+```json
+"sync": {
+  "airtableId": "recXXXXXXXXXXXXXX",
+  "syncedRev": 2,
+  "syncedAt": "2026-10-09T11:00:00.000Z",
+  "remoteHash": "<64 lowercase hex>",
+  "remoteDeleted": false,
+  "conflict": null
+}
+```
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `airtableId` | string | ✅ | Airtable record ID, pattern `^rec[A-Za-z0-9]+$`. |
+| `syncedRev` | integer ≥ 0 | ✅ | The row's `rev` at the last successful sync. `rev !== syncedRev` means the row changed locally. |
+| `syncedAt` | string | ✅ | ISO 8601 time of the last successful sync for this row. |
+| `remoteHash` | string | ✅ | SHA-256 (lowercase hex) of the normalized remote values at the last successful sync. A different hash on the next pull means the record changed remotely. |
+| `remoteDeleted` | boolean | ❌ | `true` when the record was deleted in Airtable. The row is kept, never silently removed. |
+| `conflict` | null \| object | ❌ | The user's last conflict decision: `kind` (`both_changed`, `remote_deleted`), `decision` (`keep_local`, `keep_remote`, `keep_both`), `localRev`, `remoteHash`, `decidedAt`. Stored so the same conflict is not asked again. |
 
 ## 5. View definition
 
@@ -234,10 +298,10 @@ Each view object has these keys **in this order**:
 
 | Key | Level | v1 value | Purpose |
 |-----|-------|----------|---------|
-| `sync` | Per row | `null` | v1.1 Airtable sync metadata (airtableId, syncedRev) |
-| `syncLink` | Top level | `null` | v1.1 Airtable link configuration (baseId, tableId, etc.) |
+| `sync` | Per row | `null` | Defined in v1.1 (P7-04, §4.3). `null` for a local-only row. |
+| `syncLink` | Top level | `null` | Defined in v1.1 (P7-04, §2.2). `null` for a local-only table. |
 
-These keys exist in v1 as `null` so that v1.1 can add sync metadata without requiring a file format migration.
+These keys were reserved as `null` in v1, so v1.1 adds sync metadata with no file format migration. Files written before v1.1 (`sync: null`, `syncLink: null`) load and save unchanged.
 
 ---
 
@@ -291,9 +355,9 @@ Every field from the roadmap §7 contract appears in this spec:
 | `fields[].options` for select types | §3, §3.2 |
 | `rows[]` with `id`, `rev`, `updatedAt` | §4 |
 | `rows[].values` keyed by field ID | §4.1, R-D8 |
-| `rows[].sync` reserved | §4, §6 |
+| `rows[].sync` defined (v1.1) | §4.3, §6 |
 | `views[]` with sort, groupBy, hidden, etc. | §5 |
-| `syncLink` reserved | §2, §6 |
+| `syncLink` defined (v1.1) | §2.2, §6 |
 | Unknown keys preserved | §7 |
 | `.tabula` not read | §9 |
 | Never contains Airtable token | §10 |

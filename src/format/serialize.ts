@@ -16,7 +16,7 @@ export function serialize(file: TablifyFile): string {
 const TOP_LEVEL_KEYS = ['formatVersion', 'tableId', 'name', 'fields', 'rows', 'views', 'syncLink'] as const;
 
 /** Field key order per FORMAT_SPEC.md §3. */
-const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'unique', 'min', 'max', 'regex'] as const;
+const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'unique', 'min', 'max', 'regex', 'airtable'] as const;
 
 /** Row key order per FORMAT_SPEC.md §4. */
 const ROW_KEYS = ['id', 'rev', 'createdAt', 'updatedAt', 'values', 'sync'] as const;
@@ -24,6 +24,12 @@ const ROW_KEYS = ['id', 'rev', 'createdAt', 'updatedAt', 'values', 'sync'] as co
 /** View key order per FORMAT_SPEC.md §5. */
 /** SAD-69: `search` and `query` are appended last so existing files keep their key order. */
 const VIEW_KEYS = ['id', 'name', 'sort', 'groupBy', 'hidden', 'frozenColumns', 'rowHeight', 'columnWidths', 'columnOrder', 'warnings', 'search', 'query'] as const;
+
+/** Row sync key order per FORMAT_SPEC.md §4.1 (P7-04). */
+const ROW_SYNC_KEYS = ['airtableId', 'syncedRev', 'syncedAt', 'remoteHash', 'remoteDeleted', 'conflict'] as const;
+
+/** Sync link key order per FORMAT_SPEC.md §2.1 (P7-04). */
+const SYNC_LINK_KEYS = ['baseId', 'tableId', 'tableName', 'linkedAt', 'lastSync', 'records'] as const;
 
 /** Option key order per FORMAT_SPEC.md §3.2. */
 const OPTION_KEYS = ['id', 'name', 'color'] as const;
@@ -40,6 +46,8 @@ function orderTopLevel(file: TablifyFile): Record<string, unknown> {
         result[key] = (file.rows as Row[]).map(orderRow);
       } else if (key === 'views') {
         result[key] = (sanitizedViews as ViewDefinition[]).map(orderView);
+      } else if (key === 'syncLink' && file.syncLink) {
+        result[key] = orderOrdered(file.syncLink as unknown as Record<string, unknown>, SYNC_LINK_KEYS);
       } else {
         result[key] = file[key];
       }
@@ -60,6 +68,8 @@ function orderField(field: FieldDefinition): Record<string, unknown> {
     if (key in field) {
       if (key === 'options' && field.options) {
         result[key] = field.options.map(orderOption);
+      } else if (key === 'airtable' && field.airtable) {
+        result[key] = orderOrdered(field.airtable as unknown as Record<string, unknown>, ['id', 'type', 'readOnly']);
       } else {
         result[key] = field[key as keyof FieldDefinition];
       }
@@ -78,7 +88,11 @@ function orderRow(row: Row): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const key of ROW_KEYS) {
     if (key in row) {
-      result[key] = (row as Record<string, unknown>)[key];
+      if (key === 'sync' && row.sync) {
+        result[key] = orderOrdered(row.sync as unknown as Record<string, unknown>, ROW_SYNC_KEYS);
+      } else {
+        result[key] = (row as Record<string, unknown>)[key];
+      }
     }
   }
   // Preserve unknown keys in row
@@ -118,6 +132,21 @@ function orderOption(option: SelectOption): Record<string, unknown> {
     if (!(OPTION_KEYS as readonly string[]).includes(key)) {
       result[key] = (option as Record<string, unknown>)[key];
     }
+  }
+  return result;
+}
+
+/**
+ * Copy the known keys in the given order, then any unknown keys in their original order.
+ * Used for the sync structures so that the same logical state always serializes the same way.
+ */
+function orderOrdered(source: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (key in source) result[key] = source[key];
+  }
+  for (const key of Object.keys(source)) {
+    if (!keys.includes(key)) result[key] = source[key];
   }
   return result;
 }

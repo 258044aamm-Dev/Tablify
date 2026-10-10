@@ -134,13 +134,42 @@ describe('Parser', () => {
     }
   });
 
-  it('rejects non-null syncLink', () => {
+  it('rejects a malformed syncLink (missing required keys)', () => {
     const file = JSON.parse(readFileSync(join(SAMPLES_DIR, 'v1', 'empty.tablify'), 'utf-8'));
     file.syncLink = { baseId: 'app123' };
     const result = parse(JSON.stringify(file));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain('syncLink');
+    }
+  });
+
+  // P7-04: valid sync structures load; the same file round-trips byte-identical.
+  it('accepts the synced sample and round-trips it byte-identical', () => {
+    const text = readFileSync(join(SAMPLES_DIR, 'v1', 'synced.tablify'), 'utf-8');
+    const result = parse(text);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(serialize(result.data)).toBe(text);
+    }
+  });
+
+  it('rejects the invalid bad-sync sample with a message that names the row sync block', () => {
+    const text = readFileSync(join(SAMPLES_DIR, 'invalid', 'bad-sync.tablify'), 'utf-8');
+    const result = parse(text);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('rows[0].sync');
+    }
+  });
+
+  it('rejects a row whose sync key is missing (must be null or an object)', () => {
+    const file = JSON.parse(readFileSync(join(SAMPLES_DIR, 'v1', 'typical.tablify'), 'utf-8'));
+    delete file.rows[0].sync;
+    const result = parse(JSON.stringify(file));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain('sync');
     }
   });
 

@@ -26,6 +26,16 @@ export interface SelectOption {
   color: OptionColor;
 }
 
+/**
+ * Airtable link for one field (P7-05, FORMAT_SPEC §3.3). `id` is the Airtable field ID
+ * (`fld…`), which survives renames. `readOnly` fields are shown but never pushed.
+ */
+export interface AirtableFieldMeta {
+  id: string;
+  type: string;        // Airtable field type name, as returned by the metadata API
+  readOnly: boolean;
+}
+
 export interface FieldDefinition {
   id: string;          // pattern: fld_[A-Za-z0-9_]+
   name: string;
@@ -37,11 +47,42 @@ export interface FieldDefinition {
   min?: number | string | null;
   max?: number | string | null;
   regex?: string | null;
+  /** Reserved for v1.1 sync (P7-05). Absent or null on a local-only field. */
+  airtable?: AirtableFieldMeta | null;
 }
 
 // ---- Row types ----
 
 export type CellValue = string | number | boolean | string[] | null;
+
+/** Why a row and its remote record both changed (P7-08). */
+export type SyncConflictKind = 'both_changed' | 'remote_deleted';
+
+/** The user's choice for a conflict. Stored so the same conflict is not asked again. */
+export type SyncConflictDecision = 'keep_local' | 'keep_remote' | 'keep_both';
+
+export interface RowSyncConflict {
+  kind: SyncConflictKind;
+  decision: SyncConflictDecision;
+  /** Row revision at the moment the decision was made. A new local edit makes it stale. */
+  localRev: number;
+  /** Remote hash at the moment the decision was made. A new remote change makes it stale. */
+  remoteHash: string | null;
+  decidedAt: string;   // ISO 8601
+}
+
+/** Per-row sync state (FORMAT_SPEC §4.1). Present on a row that is linked to an Airtable record. */
+export interface RowSync {
+  airtableId: string;  // pattern: rec[A-Za-z0-9]+
+  /** Row `rev` at the last successful sync. `rev !== syncedRev` means the row changed locally. */
+  syncedRev: number;
+  syncedAt: string;    // ISO 8601
+  /** SHA-256 (hex) of the normalized remote values at the last successful sync. */
+  remoteHash: string;
+  /** True when the Airtable record was deleted remotely and the row was kept (never silently removed). */
+  remoteDeleted?: boolean;
+  conflict?: RowSyncConflict | null;
+}
 
 export interface Row {
   id: string;          // pattern: row_[A-Za-z0-9]+
@@ -49,7 +90,7 @@ export interface Row {
   createdAt?: string;  // ISO 8601
   updatedAt: string;   // ISO 8601
   values: Record<string, CellValue>;
-  sync: null;          // reserved for v1.1
+  sync: RowSync | null;
 }
 
 // ---- View types ----
@@ -86,6 +127,36 @@ export interface ViewDefinition {
   query?: string | null;
 }
 
+// ---- Sync link (table-level) ----
+
+/** Result of the last sync run, shown in the sync status line (P7-10). */
+export interface SyncRunStatus {
+  at: string;          // ISO 8601
+  direction: 'link' | 'pull' | 'push';
+  ok: boolean;
+  summary: string;     // short, never contains the token
+}
+
+/** Snapshot of one synced row as of the last successful sync (FORMAT_SPEC §2.1). */
+export interface SyncRecordState {
+  airtableId: string;
+  remoteHash: string;
+}
+
+/**
+ * Table-level Airtable link (FORMAT_SPEC §2.1). Null for a local-only table.
+ * `records` lets a later pull detect rows that were deleted locally: a record listed here whose
+ * row no longer exists was deleted by the user (P7-06, P7-08).
+ */
+export interface SyncLink {
+  baseId: string;      // pattern: app[A-Za-z0-9]+
+  tableId: string;     // pattern: tbl[A-Za-z0-9]+
+  tableName: string;
+  linkedAt: string;    // ISO 8601
+  lastSync: SyncRunStatus | null;
+  records: SyncRecordState[];
+}
+
 // ---- Table (top-level) ----
 
 export interface TablifyFile {
@@ -95,6 +166,6 @@ export interface TablifyFile {
   fields: FieldDefinition[];
   rows: Row[];
   views: ViewDefinition[];
-  syncLink: null;
+  syncLink: SyncLink | null;
   [unknownKey: string]: unknown;
 }
