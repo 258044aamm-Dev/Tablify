@@ -8,6 +8,10 @@ import { generateRowId } from '../utils/idGen.js';
 export interface TableStore {
   /** Create a new row with the given values. Returns the new row (copy). */
   createRow(values: Record<string, CellValue>): Row;
+  /** Sets a row's sync block (P7-06..08). Does not bump rev, so it is not an edit. */
+  setRowSync(id: string, sync: Row['sync']): void;
+  /** Sets a field's Airtable link (P7-09). Does not touch cell values or rev. */
+  setFieldAirtable(fieldId: string, airtable: FieldDefinition['airtable']): void;
 
   /** Get a row by ID. Returns a copy or undefined. */
   getRow(id: string): Row | undefined;
@@ -136,6 +140,18 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
     return cloneRow(row);
   }
 
+  function setRowSync(id: string, sync: Row['sync']): void {
+    const row = rowMap.get(id);
+    if (!row) throw new Error(`Row not found: ${id}`);
+    row.sync = cloneSync(sync);
+  }
+
+  function setFieldAirtable(fieldId: string, airtable: FieldDefinition['airtable']): void {
+    const field = fields.find((f) => f.id === fieldId);
+    if (!field) throw new Error(`Field not found: ${fieldId}`);
+    field.airtable = airtable ? { ...airtable } : airtable;
+  }
+
   function getRow(id: string): Row | undefined {
     const row = rowMap.get(id);
     return row ? cloneRow(row) : undefined;
@@ -224,6 +240,8 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
 
   return {
     createRow,
+    setRowSync,
+    setFieldAirtable,
     getRow,
     getAllRows,
     updateRow,

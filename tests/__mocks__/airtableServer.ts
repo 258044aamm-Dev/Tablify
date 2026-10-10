@@ -56,6 +56,10 @@ export interface FakeAirtableOptions {
   bases: FakeBase[];
   pageSize?: number;
   writeAllowed?: boolean;
+  /** Field creation needs schema.bases:write (P7-09). Defaults to true. */
+  schemaWriteAllowed?: boolean;
+  /** Record IDs that the fake rejects with a 422 when they appear in a write (P7-07 row-level failure). */
+  rejectRecordIds?: string[];
   now?: () => number;
 }
 
@@ -92,6 +96,8 @@ function rawResponse(status: number, text: string): RequestUrlResponse {
 export function createFakeAirtable(options: FakeAirtableOptions): FakeAirtable {
   const pageSize = options.pageSize ?? 100;
   const writeAllowed = options.writeAllowed ?? true;
+  const schemaWriteAllowed = options.schemaWriteAllowed ?? true;
+  const rejectIds = new Set(options.rejectRecordIds ?? []);
   const now = options.now ?? (() => 0);
   const state: FakeAirtable = {
     handler: async () => jsonResponse(500, {}),
@@ -143,6 +149,20 @@ export function createFakeAirtable(options: FakeAirtableOptions): FakeAirtable {
       );
     }
 
+    const fieldsMatch = /^\/v0\/meta\/bases\/(app[A-Za-z0-9]+)\/tables\/(tbl[A-Za-z0-9]+)\/fields$/.exec(url.pathname);
+    if (method === 'POST' && fieldsMatch) {
+      if (!schemaWriteAllowed) {
+        return jsonResponse(403, { error: { type: 'INVALID_PERMISSIONS', message: 'missing schema.bases:write' } });
+      }
+      const base = state.bases.find((b) => b.id === fieldsMatch[1]);
+      const table = base?.tables.find((t) => t.id === fieldsMatch[2]);
+      if (!base || !table) return jsonResponse(404, { error: { type: 'NOT_FOUND' } });
+      const spec = (body ?? {}) as { name?: string; type?: string };
+      const field = { id: 'fld' + String(table.fields.length + 1).padStart(6, '0'), name: spec.name ?? '', type: spec.type ?? 'singleLineText' };
+      table.fields.push(field);
+      return jsonResponse(200, field);
+    }
+
     const tablesMatch = /^\/v0\/meta\/bases\/(app[A-Za-z0-9]+)\/tables$/.exec(url.pathname);
     if (method === 'GET' && tablesMatch) {
       const base = state.bases.find((b) => b.id === tablesMatch[1]);
@@ -179,6 +199,9 @@ export function createFakeAirtable(options: FakeAirtableOptions): FakeAirtable {
         const incoming = (body as { records?: { id?: string; fields: Record<string, unknown> }[] } | undefined)?.records ?? [];
         if (incoming.length > 10) {
           return jsonResponse(422, { error: { type: 'TOO_MANY_RECORDS' } });
+        }
+        if (method === 'PATCH' && incoming.some((r) => r.id && rejectIds.has(r.id))) {
+          return jsonResponse(422, { error: { type: 'INVALID_VALUE_FOR_COLUMN', message: 'rejected' } });
         }
         const out: FakeRecord[] = [];
         for (const r of incoming) {

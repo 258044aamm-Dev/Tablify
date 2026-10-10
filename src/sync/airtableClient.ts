@@ -247,6 +247,25 @@ export class AirtableClient {
     return this.writeBatches(baseId, tableId, records, 'PATCH');
   }
 
+  /**
+   * Creates one field (P7-09). Needs schema.bases:write. The caller must have shown the user the
+   * exact field list and got explicit confirmation first.
+   */
+  async createField(baseId: string, tableId: string, spec: { name: string; type: string; options?: unknown }): Promise<AirtableFieldSchema> {
+    const base = requireId(baseId, BASE_ID, 'base');
+    const table = requireId(tableId, TABLE_ID, 'table');
+    const body = await this.send(base, 'POST', `/v0/meta/bases/${base}/tables/${table}/fields`, undefined, {
+      name: spec.name,
+      type: spec.type,
+      ...(spec.options === undefined ? {} : { options: spec.options }),
+    });
+    const created = body as { id?: unknown; name?: unknown; type?: unknown } | null;
+    if (!created || typeof created.id !== 'string' || typeof created.type !== 'string') {
+      throw new AirtableError('bad_response', null, 1, 'Airtable returned an unexpected field response.');
+    }
+    return { id: created.id, name: typeof created.name === 'string' ? created.name : spec.name, type: created.type };
+  }
+
   private async writeBatches(
     baseId: string,
     tableId: string,

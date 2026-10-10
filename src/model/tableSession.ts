@@ -2,7 +2,7 @@
 // Wraps the store and the command stack so every change is undoable (R-D14).
 // Pure model code, no Obsidian or DOM imports.
 
-import type { CellValue, FieldDefinition, FieldTypeName, Row, TablifyFile, ViewDefinition } from './types.js';
+import type { CellValue, FieldDefinition, FieldTypeName, Row, SyncLink, TablifyFile, ViewDefinition } from './types.js';
 import { createTableStore, type TableStore } from './tableStore.js';
 import {
   createCommandStack,
@@ -75,6 +75,9 @@ export interface TableSession {
   redo(): boolean;
   /** Serializable file with current fields, rows, and views. Unknown top-level keys are kept. */
   toFile(): TablifyFile;
+  /** The Airtable link, or null for a local-only table (P7-06). Not undoable. */
+  getSyncLink(): SyncLink | null;
+  setSyncLink(link: SyncLink | null): void;
 }
 
 export function createSession(file: TablifyFile): TableSession {
@@ -84,6 +87,8 @@ export function createSession(file: TablifyFile): TableSession {
   });
   const stack = createCommandStack({ store });
   let view: ViewDefinition = file.views[0];
+  // P7-06: the Airtable link is session state, so toFile() never writes a stale copy.
+  let syncLink: SyncLink | null = file.syncLink ?? null;
 
   const setViewState = (next: ViewDefinition) => {
     view = next;
@@ -189,10 +194,16 @@ export function createSession(file: TablifyFile): TableSession {
     redo() {
       return stack.redo();
     },
+    getSyncLink() {
+      return syncLink;
+    },
+    setSyncLink(link: SyncLink | null) {
+      syncLink = link;
+    },
     toFile() {
       const views = file.views.slice();
       views[0] = view;
-      return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows: store.getAllRows(), views };
+      return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows: store.getAllRows(), views, syncLink };
     },
   };
 }
