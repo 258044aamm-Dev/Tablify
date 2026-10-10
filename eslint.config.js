@@ -31,6 +31,7 @@ export default tseslint.config(
       "node_modules/",
       "main.js",
       "coverage/",
+      "tests/visual/vendor/", // pinned third-party copies (Tailwind play CDN); not our code
       "esbuild.config.mjs",
       "vitest.config.ts",
       "eslint.config.js",
