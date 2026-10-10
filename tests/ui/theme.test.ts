@@ -21,6 +21,13 @@ describe('P3-09 — Design tokens', () => {
       capsuleLight: '#FFFFFF',
       borderDark: '#38342E',
       borderLight: '#E6E0D5',
+      // SAD-76: prototype .pill-btn / .header-capsule values (Prototype/style.css).
+      pillDark: '#24221E',
+      pillHoverDark: '#2D2A25',
+      pillBorderHoverDark: '#4A453E',
+      pillHoverLight: '#F6F2EA',
+      pillBorderHoverLight: '#D3CAB9',
+      capsuleBorderDark: '#3A3630',
       textOnDark: '#ECE7E1',
       textOnLight: '#1E1B18',
       mutedDark: '#9CA3AF',

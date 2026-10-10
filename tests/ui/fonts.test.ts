@@ -15,6 +15,10 @@ describe('P3-10 — Bundle and load fonts', () => {
     expect(fs.existsSync(path.join(fontsDir, 'Lora-Italic.woff2'))).toBe(true);
     // SAD-71 Step 5: mono face for badges/row-count (owner D-2).
     expect(fs.existsSync(path.join(fontsDir, 'JetBrainsMono-Regular.woff2'))).toBe(true);
+    // SAD-76: the remaining weights Prototype/index.html loads.
+    for (const f of ['Poppins-Medium.woff2', 'Lora-Medium.woff2', 'Lora-SemiBold.woff2', 'JetBrainsMono-Medium.woff2']) {
+      expect(fs.existsSync(path.join(fontsDir, f)), f).toBe(true);
+    }
     // size sanity — each woff2 should be >4KB and <100KB
     for (const f of ['Poppins-Regular.woff2', 'Poppins-SemiBold.woff2', 'Lora-Regular.woff2', 'Lora-Italic.woff2', 'JetBrainsMono-Regular.woff2']) {
       const st = fs.statSync(path.join(fontsDir, f));
@@ -38,16 +42,47 @@ describe('P3-10 — Bundle and load fonts', () => {
     expect(css).toMatch(/@font-face/);
     expect(css).toMatch(/font-family:\s*'Poppins'/);
     expect(css).toMatch(/font-family:\s*'Lora'/);
-    expect(css).toMatch(/assets\/fonts\/Poppins-Regular\.woff2/);
-    expect(css).toMatch(/assets\/fonts\/Lora-Regular\.woff2/);
     expect(css).toMatch(/font-family:\s*'JetBrains Mono'/);
-    expect(css).toMatch(/assets\/fonts\/JetBrainsMono-Regular\.woff2/);
     // fallbacks: Arial for headings, Georgia for body — check they appear
     // We set heading fallback via Poppins, Arial and body via Lora, Georgia — check strings exist
     expect(css).toMatch(/Poppins/);
     expect(css).toMatch(/Lora/);
     // font-display swap ensures fallback visible while loading — first render still meets PERF-1
     expect(css).toMatch(/font-display:\s*swap/);
+  });
+
+  // SAD-76 (RC-A): Obsidian injects styles.css as an inline <style>, so relative url()s resolve
+  // against the app origin and never load. Every face must be a data URI generated from assets/fonts.
+  it('SAD-76: faces are embedded as data URIs; no relative url() remains', () => {
+    const css = fs.readFileSync(stylePath, 'utf8');
+    const urls = [...css.matchAll(/url\(\s*['"]?([^'")]+)/g)].map((m) => m[1]);
+    expect(urls.length).toBeGreaterThan(0);
+    const relative = urls.filter((u) => !u.startsWith('data:'));
+    expect(relative, `relative url()s in styles.css: ${relative.join(', ')}`).toEqual([]);
+  });
+
+  it('SAD-76: every prototype face (family/weight/style) is present and embedded', async () => {
+    const css = fs.readFileSync(stylePath, 'utf8');
+    const faces = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => {
+      const body = m[1];
+      return {
+        family: /font-family:\s*'([^']+)'/.exec(body)?.[1],
+        weight: /font-weight:\s*(\d+)/.exec(body)?.[1],
+        style: /font-style:\s*(\w+)/.exec(body)?.[1],
+        data: /url\('data:font\/woff2;base64,/.test(body),
+      };
+    });
+    const want = [
+      'Poppins/400/normal', 'Poppins/500/normal', 'Poppins/600/normal',
+      'Lora/400/normal', 'Lora/400/italic', 'Lora/500/normal', 'Lora/600/normal',
+      'JetBrains Mono/400/normal', 'JetBrains Mono/500/normal',
+    ];
+    expect(faces.map((f) => `${f.family}/${f.weight}/${f.style}`).sort()).toEqual([...want].sort());
+    expect(faces.every((f) => f.data)).toBe(true);
+    // The generated block must match assets/fonts byte-for-byte (catches a stale styles.css).
+    // @ts-expect-error -- plain .mjs build script, no type declarations
+    const { embed } = await import('../../scripts/embed-fonts.mjs');
+    expect(embed(css) === css, 'styles.css font block is stale: run node scripts/embed-fonts.mjs').toBe(true);
   });
 
   it('no external font requests (offline)', () => {

@@ -56,4 +56,52 @@ describe('SAD-71 — form-control selectors outrank Obsidian element rules', () 
     expect(css).toMatch(/\.tablify__toolbar input\.tablify__search-input/);
     expect(css).toMatch(/\.tablify__toolbar input\.tablify__query-input/);
   });
+
+  // SAD-76 (RC-B): Obsidian's `button:not(.clickable-icon)` is 0,1,1 (hover 0,2,1) and repainted
+  // every pill with the host theme (#313244 fill, blue bold text in the owner screenshot).
+  it('SAD-76: every Tablify button class is element-qualified inside the .tablify scope', () => {
+    const buttonClasses = ['tablify__toolbar-button', 'tablify__option-button', 'tablify__insert-row'];
+    const offenders: string[] = [];
+    for (const group of ruleSelectors(css)) {
+      for (const sel of group.split(',')) {
+        const s = sel.trim();
+        for (const cls of buttonClasses) {
+          if (!new RegExp(`\\.${cls}(?![\\w-])`).test(s)) continue;
+          const ok = new RegExp(`\\.tablify\\s+button\\.${cls}(?![\\w-])`).test(s);
+          if (!ok) offenders.push(s);
+        }
+      }
+    }
+    expect(offenders, `button selectors Obsidian can out-specify: ${offenders.join(' | ')}`).toEqual([]);
+  });
+
+  it('SAD-76: pill buttons reset the properties the host button rule sets', () => {
+    const body = /\.tablify button\.tablify__toolbar-button\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    for (const prop of ['background', 'color', 'border', 'font-family', 'font-size', 'font-weight', 'height', 'line-height', 'box-shadow', 'padding']) {
+      expect(body, `toolbar pill must set ${prop}`).toMatch(new RegExp(`(^|\\s|;)${prop}\\s*:`));
+    }
+  });
+
+  // SAD-76 (RC-C): the magnifier gutter must be at the scoped specificity, or the scoped
+  // `padding` shorthand wins and the icon covers the first letter.
+  it('SAD-76: the search gutter is declared at the scoped specificity', () => {
+    expect(css).toMatch(/\.tablify__toolbar input\.tablify__search-input\s*\{\s*padding-left:\s*40px/);
+  });
+
+  // SAD-76 (RC-D): a `background` shorthand on a frozen capsule resets background-clip to
+  // border-box and paints the 3px gutter, drawing a double ring.
+  it('SAD-76: frozen capsules keep the capsule paint on the padding box', () => {
+    const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]*\.tablify__cell--frozen[^{}]*)\{([^}]*)\}/g)];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const [, sel, body] of rules) {
+      if (!/background\s*:/.test(body)) continue;
+      expect(body, `frozen rule ${sel.trim()} must clip the capsule to padding-box`).toMatch(/padding-box/);
+    }
+  });
+
+  // SAD-76: `.tablify__options { display: flex }` overrode the [hidden] attribute, so the Options
+  // popover was always open (owner screenshot).
+  it('SAD-76: the hidden attribute wins over class display rules inside the plugin', () => {
+    expect(css).toMatch(/\.tablify \[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/);
+  });
 });

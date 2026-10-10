@@ -12140,6 +12140,18 @@ var palette = {
   borderDark: "#38342E",
   /** #E6E0D5 — light subtle border (prototype `paper-border`) */
   borderLight: "#E6E0D5",
+  /** #24221E — dark pill surface: toolbar buttons, search input, float panels (prototype `.pill-btn`) */
+  pillDark: "#24221E",
+  /** #2D2A25 — dark pill hover surface (prototype `.pill-btn:hover`) */
+  pillHoverDark: "#2D2A25",
+  /** #4A453E — dark pill hover border (prototype `.pill-btn:hover`) */
+  pillBorderHoverDark: "#4A453E",
+  /** #F6F2EA — light pill hover surface (prototype `.pill-btn:hover`) */
+  pillHoverLight: "#F6F2EA",
+  /** #D3CAB9 — light pill hover border (prototype `.pill-btn:hover`) */
+  pillBorderHoverLight: "#D3CAB9",
+  /** #3A3630 — dark header/cell capsule border (prototype `.header-capsule`, `.cell-capsule`) */
+  capsuleBorderDark: "#3A3630",
   /** #ECE7E1 — body text on dark surfaces */
   textOnDark: "#ECE7E1",
   /** #1E1B18 — body text on light surfaces (prototype `charcoal`) */
@@ -12177,7 +12189,11 @@ var lightTheme = {
   accentSuccess: palette.accentGreen,
   selection: palette.terracotta,
   focus: palette.terracotta,
-  onAccent: palette.textOnLight
+  onAccent: palette.textOnLight,
+  bgPill: palette.cardLight,
+  bgPillHover: palette.pillHoverLight,
+  borderPillHover: palette.pillBorderHoverLight,
+  borderCapsule: palette.borderLight
 };
 var darkTheme = {
   bg: palette.dark,
@@ -12195,7 +12211,11 @@ var darkTheme = {
   accentSuccess: palette.accentGreen,
   selection: palette.accentOrange,
   focus: palette.accentOrange,
-  onAccent: palette.dark
+  onAccent: palette.dark,
+  bgPill: palette.pillDark,
+  bgPillHover: palette.pillHoverDark,
+  borderPillHover: palette.pillBorderHoverDark,
+  borderCapsule: palette.capsuleBorderDark
 };
 var themes = {
   light: lightTheme,
@@ -12217,7 +12237,11 @@ var cssVars = {
   accentSuccess: "--tablify-accent-success",
   selection: "--tablify-selection",
   focus: "--tablify-focus",
-  onAccent: "--tablify-on-accent"
+  onAccent: "--tablify-on-accent",
+  bgPill: "--tablify-bg-pill",
+  bgPillHover: "--tablify-bg-pill-hover",
+  borderPillHover: "--tablify-border-pill-hover",
+  borderCapsule: "--tablify-border-capsule"
 };
 function applyTheme(root, theme) {
   root.classList.remove("tablify--light", "tablify--dark");
@@ -12239,6 +12263,10 @@ function applyTheme(root, theme) {
   root.style.setProperty(cssVars.selection, t.selection);
   root.style.setProperty(cssVars.focus, t.focus);
   root.style.setProperty(cssVars.onAccent, t.onAccent);
+  root.style.setProperty(cssVars.bgPill, t.bgPill);
+  root.style.setProperty(cssVars.bgPillHover, t.bgPillHover);
+  root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
+  root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
 }
 
 // src/views/grid/GridView.ts

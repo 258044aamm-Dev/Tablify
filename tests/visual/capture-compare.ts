@@ -72,7 +72,15 @@ async function snap(page: Page, selectors: string[], props: string[]): Promise<S
 
 async function crop(page: Page, s: StyleSnap): Promise<PNG | null> {
   if (!s.found || s.w < 1 || s.h < 1) return null;
-  const buf = await page.screenshot({ clip: { x: s.x, y: s.y, width: s.w, height: s.h } });
+  // Clamp to the viewport: on mobile the toolbar overflows horizontally, so some regions are
+  // partly or fully offscreen. Fully offscreen regions get no pixel comparison.
+  const vp = page.viewportSize() ?? { width: 0, height: 0 };
+  const x0 = Math.max(0, s.x);
+  const y0 = Math.max(0, s.y);
+  const x1 = Math.min(vp.width, s.x + s.w);
+  const y1 = Math.min(vp.height, s.y + s.h);
+  if (x1 - x0 < 1 || y1 - y0 < 1) return null;
+  const buf = await page.screenshot({ clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } });
   return PNG.sync.read(buf);
 }
 
