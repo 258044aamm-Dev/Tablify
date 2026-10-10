@@ -21,6 +21,7 @@ Everything in this guide covers the 1.0.0 (MVP) feature set, on desktop and mobi
 15. [The table context menu](#15-the-table-context-menu)
 16. [Mobile: long-press](#16-mobile-long-press)
 17. [Troubleshooting](#17-troubleshooting)
+18. [Formula and link fields](#18-formula-and-link-fields)
 
 ---
 
@@ -60,6 +61,8 @@ Use the header menu (**Change field type…**) to change a column's type. A type
 | Checkbox | true/false |
 | Single select | one option from a list (with optional color) |
 | Attachment | references to files in your vault |
+| Formula | the result of an expression over other fields in the same row. Read-only (section 18) |
+| Link | rows in another table (section 18) |
 
 ## 4. Editing cells
 
@@ -185,3 +188,28 @@ On iOS and Android, **press and hold (~0.5 s)** a row to open the same menu as a
 - **Imported column came out as text**: type inference is deliberately strict; mixed or ambiguous columns stay text. Change the type from the header menu — it converts only when every value converts cleanly.
 - **Table did not reload after I edited the JSON by hand**: close and reopen the view; Tablify re-reads and re-validates the file (schema-validated, `formatVersion: 1`).
 - **`.tabula` files**: not supported, on purpose. Tablify ignores them.
+
+---
+
+## 18. Formula and link fields
+
+These two types are new in format version 2. A table that uses one is saved as version 2. Older versions of Tablify cannot open version 2 files, so update the plugin on every device that uses the vault before you add one.
+
+### Formula fields
+
+- Add a field, choose **Formula**, and type an expression. Refer to other fields in the same row with braces, for example `{Price} * {Quantity}`.
+- The cell shows the computed value and updates when a field it uses changes. You cannot type into a formula cell. To change it, use **Edit formula…** from the column's header menu.
+- If a formula cannot be computed, the cell shows a short code such as `#DIV/0!`, `#NAME?` (unknown field name), or `#CYCLE!` (the formula depends on itself). Hover over the cell to read the reason.
+- Formula results are not saved in the file. They are computed when the table opens.
+- Dates and times use your local time zone.
+- The full list of functions and the rules are in `docs/formula-spec.md`.
+
+### Link fields
+
+- Add a field, choose **Link**, and pick the table it links to. Then open the cell (Enter, double-click, or **Choose linked rows…** in the cell menu) to pick rows in a search list.
+- Each linked row appears as a chip in the cell.
+- A link stays linked when you rename the other file or its rows. The link is stored by ID, not by name.
+- If a linked row is deleted, its chip is dashed and the cell is marked as broken. The link is kept, so you can see what was lost. Uncheck the row in the picker to remove the link.
+- To find every broken link in your vault, run **Check link integrity (all tables)** from the command palette.
+- Limits: copying a table file with Obsidian's own **Duplicate** keeps the same table ID, so links keep pointing at the original and the integrity check reports the duplicate. Lookups and rollups are not available.
+
