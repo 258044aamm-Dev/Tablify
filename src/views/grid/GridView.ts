@@ -76,7 +76,11 @@ export class GridView {
     this.header.style.top = '0';
     this.header.style.zIndex = '1';
     this.header.style.display = 'flex';
-    this.header.style.background = 'var(--background-primary)';
+    // SAD-69 D: no inline background here. An inline value used to be
+    // `var(--background-primary)`, an Obsidian variable, which overrode the plugin token
+    // in styles.css (.tablify__header { background: var(--tablify-bg-subtle) }) and made the
+    // header follow the host Obsidian theme instead of the Tablify theme. That broke P3-09.
+    // The opaque background now comes from styles.css, which also keeps sticky rows hidden.
     this.header.style.borderBottom = '1px solid var(--tablify-border)';
     this.root.appendChild(this.header);
 
@@ -275,7 +279,9 @@ export class GridView {
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
             cell.classList.add('tablify__cell--selected');
             cell.setAttribute('aria-selected', 'true');
-            cell.style.outline = '2px solid var(--interactive-accent)';
+            // SAD-69 D: was `var(--interactive-accent)`, an Obsidian variable. The plugin
+            // token carries the same value on both themes and keeps the grid theme-independent.
+            cell.style.outline = '2px solid var(--tablify-selection)';
             cell.style.outlineOffset = '-2px';
           }
           rowEl.appendChild(cell);

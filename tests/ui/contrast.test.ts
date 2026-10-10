@@ -35,6 +35,32 @@ describe('P3-11 — Contrast and visual verification', () => {
     expect(contrastRatio(palette.accentGreen, palette.dark)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it('body text on bgSubtle passes AA 4.5:1 in both themes (header and subtle surfaces)', () => {
+    // SAD-69 D: styles.css paints .tablify__header with --tablify-bg-subtle, so body text
+    // must be readable on that surface, not only on the base background.
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      const ratio = contrastRatio(t.text, t.bgSubtle);
+      expect(ratio, `${name}: text ${t.text} on bgSubtle ${t.bgSubtle} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      expect(meetsAA(ratio), `${name}: bgSubtle fails AA`).toBe(true);
+    }
+  });
+
+  it('body text on bgStripe passes AA 4.5:1 in both themes (striped rows)', () => {
+    // SAD-69 D: odd rows are painted with --tablify-bg-stripe. Dark used the mid-gray
+    // #b0aea5, which put body text at 2.11:1 — a hard AA failure on every other row.
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      const ratio = contrastRatio(t.text, t.bgStripe);
+      expect(ratio, `${name}: text ${t.text} on bgStripe ${t.bgStripe} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      expect(meetsAA(ratio), `${name}: bgStripe fails AA`).toBe(true);
+    }
+  });
+
   it('muted/border on light fails AA — used for borders/striping, not body text', () => {
     const r = contrastRatio(palette.midGray, palette.light);
     expect(r).toBeLessThan(4.5);

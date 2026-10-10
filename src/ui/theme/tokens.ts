@@ -22,6 +22,21 @@ export const palette = {
   accentBlue: '#6a9bcc',
   /** #788c5d — success and tertiary accent */
   accentGreen: '#788c5d',
+  /**
+   * #2a2926 — dark-theme row striping.
+   * Added by Tablify; NOT part of the unverified third-party summary above.
+   * The summary's mid-gray (#b0aea5) was reused for dark subtle/stripe surfaces and put
+   * body text (#faf9f5) at 2.11:1 — a hard WCAG AA failure on every striped row.
+   * This value gives 13.81:1 while staying a subtle step above the dark background.
+   * See SAD-69 D and spec/branding.md §5.
+   */
+  darkSurface: '#2a2926',
+  /**
+   * #33322d — dark-theme header and subtle surfaces.
+   * Added by Tablify for the same reason; 12.19:1 on body text, 1.44:1 against the
+   * dark background so the header reads as a surface without becoming a divider.
+   */
+  darkHeader: '#33322d',
 } as const;
 
 // Keep palette values as the only literals — tests enforce no hex outside this file.
@@ -57,8 +72,9 @@ export const lightTheme: Theme = {
 
 export const darkTheme: Theme = {
   bg: palette.dark,
-  bgSubtle: palette.midGray,
-  bgStripe: palette.midGray,
+  // Was palette.midGray (#b0aea5) — 2.11:1 against body text. See SAD-69 D.
+  bgSubtle: palette.darkHeader,
+  bgStripe: palette.darkSurface,
   text: palette.light,
   textMuted: palette.midGray,
   border: palette.midGray,

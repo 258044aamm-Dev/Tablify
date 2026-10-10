@@ -42,6 +42,25 @@ Status: decisions recorded from owner answers on 2026-10-09. No code written.
 | accent-blue | #6a9bcc | secondary accent (links, info) |
 | accent-green | #788c5d | success and tertiary accent |
 
+### 5.1 Tokens added by Tablify
+
+These two are **not** part of the third-party summary above. They were added while fixing
+[SAD-69](https://linear.app/sad-mod/issue/SAD-69) (dark-theme contrast failure) and are
+Tablify's own values, so they do not depend on G-B1 being resolved.
+
+| Token | Hex | Intended use | Contrast on body text |
+| --- | --- | --- | --- |
+| dark-surface | #2a2926 | dark-theme row striping (`bgStripe`) | 13.81:1 ✅ AA |
+| dark-header | #33322d | dark-theme header and subtle surfaces (`bgSubtle`) | 12.19:1 ✅ AA |
+
+Why they exist: the summary's mid-gray `#b0aea5` was reused for the dark theme's subtle and
+striped surfaces. Body text `#faf9f5` on `#b0aea5` measures **2.11:1**, far below the WCAG 2.1 AA
+minimum of 4.5:1, so every striped row was illegible in dark mode. The new values stay a
+deliberate, subtle step above the `#141413` background (1.27:1 for the stripe, 1.44:1 for the
+header) so they read as surfaces rather than dividers.
+
+The light theme needed no change: text `#141413` on the light-gray stripe `#e8e6dc` is 14.73:1.
+
 Open item: confirm these values against an official Anthropic source before release. Until confirmed, label them "unverified" in the plugin docs.
 
 Accessibility rule: every text/background pair must meet WCAG 2.1 AA (4.5:1 for body text). Check the orange and green accents as text on light backgrounds before use; use them for non-text elements if they fail.
