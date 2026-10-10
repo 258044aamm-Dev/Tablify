@@ -104,6 +104,8 @@ describe('P3-10 — Bundle and load fonts', () => {
     // Raised again in P7-01 from 1,850,000 to 1,900,000 (owner-approved, 2026-10-10): the P7-01 embed
     // fence (src/embed/) grew the committed dev main.js from 1,727,602 B to 1,783,397 B, so the total is
     // about 1.89 MB. Production (minified) assets are far smaller. See docs/evidence/P7-01.md.
+    // Owner decision, 2026-10-10: the dev sourcemap is written to main.js.map (git-ignored), not inlined.
+    // The committed main.js is about 0.53 MB, so the total is far below this cap.
     expect(total).toBeLessThan(1_900_000);
   });
 
