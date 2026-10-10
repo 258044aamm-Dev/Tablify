@@ -12,8 +12,10 @@ import {
   createEditCellCommand,
   createInsertRowCommand,
   createSetViewCommand,
+  createAddFieldCommand,
   type CommandStack,
 } from './commands.js';
+import { generateFieldId } from '../utils/idGen.js';
 import { sortRows, visibleFields } from './viewOrder.js';
 import { filterRows, compileQuery } from './rowFilter.js';
 import type { QueryError } from '../query/parse.js';
@@ -61,6 +63,12 @@ export interface TableSession {
    * (sort, hidden, freeze, row height) still go through setView() and stay undoable.
    */
   patchView(patch: Partial<ViewDefinition>): void;
+  /**
+   * Add a field, appending it to the view's column order so the column appears immediately
+   * (SAD-70). The field and the column order move together in one undo step.
+   * Returns the new definition, including its generated id.
+   */
+  addField(name: string, type: FieldTypeName): FieldDefinition;
   /** Change a field's type with value conversion. Blocked (no change) unless every value converts. */
   changeFieldType(fieldId: string, target: FieldTypeName): TypeChangePlan;
   undo(): boolean;
@@ -144,6 +152,18 @@ export function createSession(file: TablifyFile): TableSession {
       // Deliberately no stack.execute — see the interface note. The caller is responsible
       // for re-rendering and requesting a save, exactly as it is after setView().
       setViewState(next);
+    },
+    addField(name, type) {
+      const field: FieldDefinition = { id: generateFieldId(), name, type };
+      const viewBefore = view;
+      const viewAfter: ViewDefinition = {
+        ...view,
+        columnOrder: [...view.columnOrder, field.id],
+      };
+      stack.execute(
+        createAddFieldCommand({ field, applyView: setViewState, viewBefore, viewAfter }),
+      );
+      return field;
     },
     changeFieldType(fieldId, target) {
       const field = store.getFields().find((f) => f.id === fieldId);

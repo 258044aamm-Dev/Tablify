@@ -1,4 +1,4 @@
-import type { CellValue, FieldDefinition, Row } from './types.js';
+import type { CellValue, FieldDefinition, Row, ViewDefinition } from './types.js';
 import type { TableStore } from './tableStore.js';
 
 /**
@@ -277,6 +277,36 @@ export function createSetViewCommand<T>(data: SetViewData<T>): Command {
     },
     undo(): void {
       data.apply(data.before);
+    },
+  };
+}
+
+export interface AddFieldData {
+  /** Field definition to add. */
+  field: FieldDefinition;
+  /** Applies a view definition to the session — the same seam createSetViewCommand uses. */
+  applyView: (view: ViewDefinition) => void;
+  viewBefore: ViewDefinition;
+  viewAfter: ViewDefinition;
+}
+
+/**
+ * Add a field and update the view together (SAD-70).
+ *
+ * Bundling them is the whole point. Applied as two commands, undo would take two steps and
+ * could leave the session in a state where columnOrder references a field that no longer
+ * exists. No targetKey: every added field is distinct, so nothing should coalesce.
+ */
+export function createAddFieldCommand(data: AddFieldData): Command {
+  return {
+    type: 'addField',
+    do(store: TableStore): void {
+      store.addField(data.field);
+      data.applyView(data.viewAfter);
+    },
+    undo(store: TableStore): void {
+      store.removeField(data.field.id);
+      data.applyView(data.viewBefore);
     },
   };
 }

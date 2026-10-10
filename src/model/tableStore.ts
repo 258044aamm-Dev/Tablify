@@ -48,6 +48,22 @@ export interface TableStore {
    * Used by the change-field-type command (P5-02). Each changed row gets rev + 1.
    */
   replaceField(field: FieldDefinition, valuesByRow: Record<string, CellValue>): void;
+
+  /**
+   * Append a field definition (SAD-70). Stores a defensive copy so the caller's object
+   * cannot be mutated into the model afterwards. Throws on a duplicate id.
+   */
+  addField(field: FieldDefinition): void;
+
+  /**
+   * Remove a field definition and drop its value from every row (SAD-70).
+   *
+   * Stripping the values matters: serialize copies `row.values` through unchanged, so a
+   * definition removed without them would leave orphan keys in the saved .tablify file.
+   * Revisions are deliberately NOT incremented — this backs out an add, and undo must
+   * restore the prior state exactly rather than look like a fresh edit.
+   */
+  removeField(fieldId: string): void;
 }
 
 export interface CreateStoreOptions {
@@ -153,6 +169,24 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
     }
   }
 
+  function addField(field: FieldDefinition): void {
+    if (fields.some((f) => f.id === field.id)) {
+      throw new Error(`Field already exists: ${field.id}`);
+    }
+    fields.push({ ...field });
+  }
+
+  function removeField(fieldId: string): void {
+    const idx = fields.findIndex((f) => f.id === fieldId);
+    if (idx === -1) throw new Error(`Field not found: ${fieldId}`);
+    fields.splice(idx, 1);
+    // Direct mutation, not updateRow(): updateRow would bump rev and updatedAt, which
+    // would make an undo look like a brand-new edit. See the interface note.
+    for (const row of rowMap.values()) {
+      if (fieldId in row.values) delete row.values[fieldId];
+    }
+  }
+
   function restoreRow(row: Row, index?: number): void {
     if (rowMap.has(row.id)) {
       throw new Error(`Row already exists: ${row.id}`);
@@ -186,6 +220,8 @@ export function createTableStore(options: CreateStoreOptions): TableStore {
     deleteRow,
     restoreRow,
     replaceField,
+    addField,
+    removeField,
     moveRow,
     getNextAutoNumber,
     getFieldCount: () => fields.length,
