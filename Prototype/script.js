@@ -704,6 +704,21 @@ document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && panelCtx) closePanel();
 });
 
+// Tapping/clicking anywhere outside the grid clears the focused-cell highlight
+// (mousedown, not click: by click-time a re-render may have detached ev.target,
+// which would make closest() checks unreliable).
+function outsideTapClear(ev) {
+  if (!state.focus && !state.anchor && !state.editing) return;
+  if (anyModalOpen()) return;
+  const t = ev.target;
+  if (t && t.closest && (t.closest('#mainTable') || t.closest('#floatPanel'))) return;
+  if (state.editing) commitEditor(false); // commit the pending edit before re-rendering, never lose input
+  state.focus = null;
+  state.anchor = null;
+  renderGrid();
+}
+document.addEventListener('mousedown', outsideTapClear);
+
 // ===== select dropdown (Feature 3: searchable, create-on-type, colored) =====
 function openSelectPanel(anchorEl, rowId, fieldId) {
   panelCtx = { kind: 'select', rowId, fieldId, search: '' };
