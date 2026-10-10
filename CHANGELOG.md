@@ -6,6 +6,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Insert Row button spans the full scrollable table width (prototype)** — the button's wrapper
+  was a plain block inside the overflow-x container, so it only covered the visible width and was
+  left behind when scrolling right. `syncInsertRowWidth()` now sizes it to the table's full width
+  after every grid render and live during column-resize drags, keeping it aligned with the grid at
+  any viewport size.
+
 - **Fixed, uniform cell dimensions (prototype)** — `#mainTable` now uses `table-layout: fixed`;
   every column carries an explicit width (default 160px or the user's resize), so content can
   never widen a column. Cell capsules have fixed heights matching the previous single-line

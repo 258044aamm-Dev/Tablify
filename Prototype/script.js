@@ -197,6 +197,16 @@ function syncFrozenOffsets() {
     });
   });
 }
+// Insert Row button: a plain block inside the overflow-x scroll container only
+// spans the visible width — size it to the table's full scrollable width so it
+// stays aligned with the grid during horizontal scrolling.
+function syncInsertRowWidth() {
+  const table = document.getElementById('mainTable');
+  const wrap = document.getElementById('insertRowWrap');
+  if (!table || !wrap) return;
+  const w = table.offsetWidth;
+  wrap.style.width = w ? w + 'px' : '';
+}
 let _freezeRsT = null;
 window.addEventListener('resize', () => {
   clearTimeout(_freezeRsT);
@@ -601,6 +611,7 @@ function renderGrid() {
   }
   document.getElementById('tableBody').innerHTML = bodyHtml;
   syncFrozenOffsets();
+  syncInsertRowWidth();
   // @@GRIDBODY-END
 
   // counts + selection
@@ -1559,6 +1570,7 @@ function colResizeStart(ev, fieldId) {
     const t = document.querySelector('th[data-fld="' + _drag.fieldId + '"]');
     if (t) { t.style.width = w + 'px'; t.style.minWidth = w + 'px'; }
     _drag.cur = w;
+    syncInsertRowWidth();
   };
   const up = () => {
     document.removeEventListener('mousemove', move);

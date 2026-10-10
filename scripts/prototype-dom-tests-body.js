@@ -168,5 +168,21 @@
   docView(doc9).rowHeight = 'm';
   renderGrid();
 
+  // ---- S10: Insert Row button spans the full scrollable table width ----
+  renderGrid();
+  const wrap10 = document.getElementById('insertRowWrap');
+  A('S10 wrapper exists and survives re-renders', !!wrap10 && !!wrap10.querySelector('button'));
+  // simulate a table wider than the container (layout stubbed: jsdom has no layout)
+  Object.defineProperty(document.getElementById('mainTable'), 'offsetWidth', { value: 1480, configurable: true });
+  syncInsertRowWidth();
+  A('S10 wrapper sized to full table width', wrap10.style.width === '1480px');
+  // narrower table (fits container): width tracks the table exactly
+  Object.defineProperty(document.getElementById('mainTable'), 'offsetWidth', { value: 920, configurable: true });
+  syncInsertRowWidth();
+  A('S10 wrapper tracks table width changes', wrap10.style.width === '920px');
+  // renderGrid re-syncs automatically (hook present)
+  renderGrid();
+  A('S10 renderGrid keeps wrapper + button intact', !!document.getElementById('insertRowWrap') && !!document.querySelector('#insertRowWrap button'));
+
   window.__log('DOM TEST DONE');
 })();
