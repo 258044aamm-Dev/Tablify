@@ -16,6 +16,8 @@ export type EditorCommitResult = { ok: true; value: CellValue } | { ok: false; e
 const READONLY_TYPES = new Set(['auto_number', 'created_time', 'modified_time']);
 
 export function isReadOnly(field: FieldDefinition): boolean {
+  // P7-05: an Airtable field Tablify cannot write back is read-only, whatever its Tablify type.
+  if (field.airtable?.readOnly) return true;
   return READONLY_TYPES.has(field.type) || getFieldType(field.type).readOnly;
 }
 
