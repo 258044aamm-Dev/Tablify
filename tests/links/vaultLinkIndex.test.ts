@@ -11,7 +11,7 @@ import { VaultLinkIndex } from '../../src/links/vaultLinkIndex.js';
 import { createSession } from '../../src/model/tableSession.js';
 import { parse } from '../../src/format/parse.js';
 import { serialize } from '../../src/format/serialize.js';
-import { snapshotTable, summarizeLinks } from '../../src/links/linkModel.js';
+import { snapshotTable, summarizeLinks } from '../../src/model/link.js';
 import type { LinkRef, TablifyFile } from '../../src/model/types.js';
 
 function sample(name: string): string {
@@ -60,6 +60,7 @@ describe('VaultLinkIndex (P8-04 adapter)', () => {
     expect(summarizeLinks(orders.rows[0].values['fld_customer'] as LinkRef[], idx.index)).toEqual({
       text: 'Ada Lovelace',
       broken: 0,
+      chips: [{ label: 'Ada Lovelace', broken: false }],
     });
   });
 
@@ -76,7 +77,7 @@ describe('VaultLinkIndex (P8-04 adapter)', () => {
     await idx.refresh();
     expect(idx.index.paths().sort()).toEqual([ORDERS, 'people/Clients.tablify']);
     expect(idx.index.duplicates()).toEqual([]);
-    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Ada Lovelace', broken: 0 });
+    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Ada Lovelace', broken: 0, chips: [{ label: 'Ada Lovelace', broken: false }] });
   });
 
   it('an open table publishes live state: unsaved edits resolve, and the disk copy does not win meanwhile', async () => {
@@ -87,7 +88,7 @@ describe('VaultLinkIndex (P8-04 adapter)', () => {
     session.setValue('row_01J9B9C001', 'fld_cname', 'Augusta Ada');
     idx.noteLive(CUSTOMERS, snapshotTable(session.toFile(), CUSTOMERS));
     await idx.refresh(); // the disk still says "Ada Lovelace"; the open view wins
-    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Augusta Ada', broken: 0 });
+    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Augusta Ada', broken: 0, chips: [{ label: 'Augusta Ada', broken: false }] });
   });
 
   it('T-I deleting a target row in an open table shows the broken marker at once', async () => {
@@ -97,7 +98,7 @@ describe('VaultLinkIndex (P8-04 adapter)', () => {
     const session = createSession(loadSample('customers.tablify'));
     session.deleteRow('row_01J9B9C001');
     idx.noteLive(CUSTOMERS, snapshotTable(session.toFile(), CUSTOMERS));
-    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Missing row', broken: 1 });
+    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Missing row', broken: 1, chips: [{ label: 'Missing row', broken: true }] });
   });
 
   it('closing the view returns the table to the disk copy on the next refresh', async () => {
@@ -109,7 +110,7 @@ describe('VaultLinkIndex (P8-04 adapter)', () => {
     idx.noteLive(CUSTOMERS, snapshotTable(session.toFile(), CUSTOMERS));
     idx.dropLive(CUSTOMERS);
     await idx.refresh();
-    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Ada Lovelace', broken: 0 });
+    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Ada Lovelace', broken: 0, chips: [{ label: 'Ada Lovelace', broken: false }] });
   });
 
   it('a deleted target file leaves the index, so its links are broken with a table reason', async () => {
@@ -122,7 +123,7 @@ describe('VaultLinkIndex (P8-04 adapter)', () => {
     delete files[CUSTOMERS];
     await idx.refresh();
     expect(idx.index.has(CUSTOMERS)).toBe(false);
-    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Missing table', broken: 1 });
+    expect(summarizeLinks([CUSTOMER_LINK], idx.index)).toEqual({ text: 'Missing table', broken: 1, chips: [{ label: 'Missing table', broken: true }] });
   });
 
   it('listeners are told when the index changes, and not when nothing changed', async () => {

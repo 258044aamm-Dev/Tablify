@@ -2,7 +2,7 @@
 // exception out of the engine, and every result must be a valid Value.
 import { describe, expect, it } from 'vitest';
 import { compileFormula, evaluate, type EvalContext } from '../../src/formula';
-import { BLANK, type Value } from '../../src/formula/value';
+import { BLANK, at, type Value } from '../../src/formula/value';
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -47,7 +47,7 @@ const BINOPS = ['+', '-', '*', '/', '^', '&', '=', '!=', '<', '<=', '>', '>='];
 
 /** Grammar-aware generator: mostly valid syntax with random types, arities, and operators. */
 function structuredFormula(rand: () => number, depth: number): string {
-  const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)]!;
+  const pick = <T,>(xs: readonly T[]): T => at(xs, Math.floor(rand() * xs.length));
   if (depth <= 0 || rand() < 0.3) return pick(LEAVES);
   const r = rand();
   if (r < 0.35) {

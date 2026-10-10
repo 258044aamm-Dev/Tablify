@@ -211,7 +211,7 @@ export function createSession(file: TablifyFile): TableSession {
         name,
         type,
         ...(type === 'formula' ? { formula: formula ?? '' } : {}),
-        // P8-04: a link field's default target table (FORMAT_SPEC §8).
+        // P8-04: a link field's default target table (FORMAT_SPEC §12).
         ...(type === 'link' ? { linkTableId: linkTableId ?? file.tableId } : {}),
       };
       const viewBefore = view;

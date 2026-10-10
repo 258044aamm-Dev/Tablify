@@ -1,5 +1,5 @@
 /**
- * Vault-side link index (P8-04, SAD-63). Thin Obsidian layer over `linkModel.ts`.
+ * Vault-side link index (P8-04, SAD-63). Thin Obsidian layer over `src/model/link.ts`.
  *
  * - Reads every .tablify file in the vault (cached by mtime) and keeps one snapshot per file.
  * - An open table publishes its live state, so unsaved edits resolve correctly and a deleted
@@ -10,7 +10,7 @@
 
 import type { App, Plugin } from 'obsidian';
 import { parse } from '../format/parse.js';
-import { createLinkIndex, snapshotTable, type LinkIndex, type TableSnapshot } from './linkModel.js';
+import { createLinkIndex, snapshotTable, type LinkIndex, type TableSnapshot } from '../model/link.js';
 
 const DEBOUNCE_MS = 250;
 

@@ -22,7 +22,7 @@ import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolba
 import { AddFieldModal } from './grid/AddFieldModal.js';
 import { LinkPickerModal } from './grid/LinkPickerModal.js';
 import { linkIndexFor } from '../links/vaultLinkIndex.js';
-import { snapshotTable, summarizeLinks } from '../links/linkModel.js';
+import { snapshotTable, summarizeLinks } from '../model/link.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 

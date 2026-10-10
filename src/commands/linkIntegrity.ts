@@ -1,10 +1,10 @@
-// Obsidian wiring for "Check link integrity" (P8-04). Logic is in src/links/linkModel.ts.
+// Obsidian wiring for "Check link integrity" (P8-04). Logic is in src/model/link.ts.
 // Flow: refresh the vault index, check every link cell in every table, show the broken ones.
 // Read-only: the check never changes a file.
 
 import { App, Modal, Plugin } from 'obsidian';
 import { linkIndexFor } from '../links/vaultLinkIndex.js';
-import { checkIntegrity, type IntegrityReport } from '../links/linkModel.js';
+import { checkIntegrity, type IntegrityReport } from '../model/link.js';
 
 export const LINK_INTEGRITY_COMMAND_ID = 'tablify-link-integrity';
 export const LINK_INTEGRITY_COMMAND_NAME = 'Check link integrity (all tables)';

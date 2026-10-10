@@ -12,7 +12,7 @@ import { getGridAction } from '../views/grid/keyboard.js';
 import { moveSelection } from '../views/tableController.js';
 import type { EmbedDocument } from './embedDocument.js';
 import type { VaultLinkIndex } from '../links/vaultLinkIndex.js';
-import { summarizeLinks } from '../links/linkModel.js';
+import { summarizeLinks } from '../model/link.js';
 import { Notice } from 'obsidian';
 
 /** Height limit for an embed. The full view is not limited. */

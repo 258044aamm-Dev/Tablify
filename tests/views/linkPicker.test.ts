@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { App, Modal } from 'obsidian';
 import { LinkPickerModal } from '../../src/views/grid/LinkPickerModal.js';
 import { LinkIntegrityModal } from '../../src/commands/linkIntegrity.js';
-import { createLinkIndex, snapshotTable, checkIntegrity } from '../../src/links/linkModel.js';
+import { createLinkIndex, snapshotTable, checkIntegrity } from '../../src/model/link.js';
 import { parse } from '../../src/format/parse.js';
 import type { FieldDefinition, LinkRef, TablifyFile } from '../../src/model/types.js';
 import { readFileSync } from 'node:fs';

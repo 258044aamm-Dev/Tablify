@@ -24,6 +24,7 @@ import {
   textValue,
   type Parts,
   type Value,
+  at,
 } from './value';
 
 export interface FnContext {
@@ -124,8 +125,8 @@ function roundTo(n: number, digits: number, mode: 'nearest' | 'up' | 'down'): nu
 }
 
 function roundArgs(args: Value[], mode: 'nearest' | 'up' | 'down'): Value {
-  const n = asNumber(args[0]!);
-  const digits = args.length > 1 ? asInt(args[1]!) : 0;
+  const n = asNumber(at(args, 0));
+  const digits = args.length > 1 ? asInt(at(args, 1)) : 0;
   if (digits < -15 || digits > 15) return err('#NUM!');
   return numValue(roundTo(n, digits, mode));
 }
@@ -158,6 +159,12 @@ function monthsBetween(a: Value, b: Value, perMonth: number): number {
 
 const UNITS = new Set(['days', 'weeks', 'months', 'years', 'hours', 'minutes', 'seconds']);
 const TIME_UNIT_MS: Record<string, number> = { hours: 3_600_000, minutes: 60_000, seconds: 1_000 };
+/** Milliseconds per hour, minute, or second. Units are validated before this is reached. */
+function timeUnitMs(unit: string): number {
+  const ms = TIME_UNIT_MS[unit];
+  if (ms === undefined) fault('#VALUE!');
+  return ms;
+}
 
 function dateAdd(v: Value, n: number, unit: string): Value {
   const isDate = v.t === 'date';
@@ -184,7 +191,7 @@ function dateAdd(v: Value, n: number, unit: string): Value {
       return { t: 'dt', ms: partsToMs(r) };
     }
     default: {
-      const ms = temporalMs(v) + n * TIME_UNIT_MS[unit]!;
+      const ms = temporalMs(v) + n * timeUnitMs(unit);
       return { t: 'dt', ms };
     }
   }
@@ -200,7 +207,7 @@ function dateDiff(a: Value, b: Value, unit: string): number {
   const dms = temporalMs(a) - temporalMs(b);
   if (unit === 'days') return Math.trunc(dms / DAY_MS);
   if (unit === 'weeks') return Math.trunc(dms / (7 * DAY_MS));
-  return Math.trunc(dms / TIME_UNIT_MS[unit]!);
+  return Math.trunc(dms / timeUnitMs(unit));
 }
 
 function weekdayIso(p: Parts): number {
@@ -244,29 +251,29 @@ const cell = (fn: (args: Value[], ctx: FnContext) => Value, min: number, max: nu
 /** Arguments are already evaluated and error-free when these run. */
 export const FUNCTIONS: Readonly<Record<string, FnDef>> = {
   // ----- numeric (15) -----
-  ABS: cell((a) => numValue(Math.abs(asNumber(a[0]!))), 1, 1),
+  ABS: cell((a) => numValue(Math.abs(asNumber(at(a, 0)))), 1, 1),
   ROUND: cell((a) => roundArgs(a, 'nearest'), 1, 2),
   ROUNDUP: cell((a) => roundArgs(a, 'up'), 1, 2),
   ROUNDDOWN: cell((a) => roundArgs(a, 'down'), 1, 2),
-  CEILING: cell((a) => numValue(Math.ceil(asNumber(a[0]!))), 1, 1),
-  FLOOR: cell((a) => numValue(Math.floor(asNumber(a[0]!))), 1, 1),
-  INT: cell((a) => numValue(Math.floor(asNumber(a[0]!))), 1, 1),
+  CEILING: cell((a) => numValue(Math.ceil(asNumber(at(a, 0)))), 1, 1),
+  FLOOR: cell((a) => numValue(Math.floor(asNumber(at(a, 0)))), 1, 1),
+  INT: cell((a) => numValue(Math.floor(asNumber(at(a, 0)))), 1, 1),
   MOD: cell((a) => {
-    const n = asNumber(a[0]!);
-    const m = asNumber(a[1]!);
+    const n = asNumber(at(a, 0));
+    const m = asNumber(at(a, 1));
     if (m === 0) return err('#DIV/0!');
     return numValue(n - m * Math.floor(n / m));
   }, 2, 2),
   POWER: cell((a) => {
-    const x = asNumber(a[0]!);
-    const y = asNumber(a[1]!);
+    const x = asNumber(at(a, 0));
+    const y = asNumber(at(a, 1));
     if (x === 0 && y < 0) return err('#DIV/0!');
     const r = x ** y;
     if (Number.isNaN(r)) return err('#NUM!');
     return numValue(r);
   }, 2, 2),
   SQRT: cell((a) => {
-    const n = asNumber(a[0]!);
+    const n = asNumber(at(a, 0));
     if (n < 0) return err('#NUM!');
     return numValue(Math.sqrt(n));
   }, 1, 1),
@@ -294,56 +301,56 @@ export const FUNCTIONS: Readonly<Record<string, FnDef>> = {
 
   // ----- text (14) -----
   CONCATENATE: cell((a) => textValue(a.map(asText).join('')), 1, VARIADIC),
-  LEN: cell((a) => numValue(cps(asText(a[0]!)).length), 1, 1),
-  LOWER: cell((a) => textValue(asText(a[0]!).toLowerCase()), 1, 1),
-  UPPER: cell((a) => textValue(asText(a[0]!).toUpperCase()), 1, 1),
-  TRIM: cell((a) => textValue(asText(a[0]!).replace(/ +/g, ' ').replace(/^ | $/g, '')), 1, 1),
+  LEN: cell((a) => numValue(cps(asText(at(a, 0))).length), 1, 1),
+  LOWER: cell((a) => textValue(asText(at(a, 0)).toLowerCase()), 1, 1),
+  UPPER: cell((a) => textValue(asText(at(a, 0)).toUpperCase()), 1, 1),
+  TRIM: cell((a) => textValue(asText(at(a, 0)).replace(/ +/g, ' ').replace(/^ | $/g, '')), 1, 1),
   LEFT: cell((a) => {
-    const s = cps(asText(a[0]!));
-    const n = a.length > 1 ? asInt(a[1]!) : 1;
+    const s = cps(asText(at(a, 0)));
+    const n = a.length > 1 ? asInt(at(a, 1)) : 1;
     if (n < 0) return err('#NUM!');
     return textValue(s.slice(0, n).join(''));
   }, 1, 2),
   RIGHT: cell((a) => {
-    const s = cps(asText(a[0]!));
-    const n = a.length > 1 ? asInt(a[1]!) : 1;
+    const s = cps(asText(at(a, 0)));
+    const n = a.length > 1 ? asInt(at(a, 1)) : 1;
     if (n < 0) return err('#NUM!');
     return textValue(s.slice(Math.max(0, s.length - n)).join(''));
   }, 1, 2),
   MID: cell((a) => {
-    const s = cps(asText(a[0]!));
-    const start = asInt(a[1]!);
-    const n = asInt(a[2]!);
+    const s = cps(asText(at(a, 0)));
+    const start = asInt(at(a, 1));
+    const n = asInt(at(a, 2));
     if (start < 1 || n < 0) return err('#NUM!');
     return textValue(s.slice(start - 1, start - 1 + n).join(''));
   }, 3, 3),
   FIND: cell((a) => findText(a, false), 2, 3),
   SEARCH: cell((a) => findText(a, true), 2, 3),
   SUBSTITUTE: cell((a) => {
-    const s = asText(a[0]!);
-    const oldText = asText(a[1]!);
-    const newText = asText(a[2]!);
+    const s = asText(at(a, 0));
+    const oldText = asText(at(a, 1));
+    const newText = asText(at(a, 2));
     if (oldText === '') return textValue(s);
     return textValue(s.split(oldText).join(newText));
   }, 3, 3),
   REPLACE: cell((a) => {
-    const s = cps(asText(a[0]!));
-    const start = asInt(a[1]!);
-    const count = asInt(a[2]!);
-    const repl = asText(a[3]!);
+    const s = cps(asText(at(a, 0)));
+    const start = asInt(at(a, 1));
+    const count = asInt(at(a, 2));
+    const repl = asText(at(a, 3));
     if (start < 1 || count < 0) return err('#NUM!');
     if (start > s.length) return textValue(s.join('') + repl);
     return textValue(s.slice(0, start - 1).join('') + repl + s.slice(start - 1 + count).join(''));
   }, 4, 4),
   REPT: cell((a) => {
-    const s = asText(a[0]!);
-    const n = asInt(a[1]!);
+    const s = asText(at(a, 0));
+    const n = asInt(at(a, 1));
     if (n < 0) return err('#NUM!');
     if (s.length * n > MAX_TEXT) return err('#OVERFLOW!');
     return textValue(s.repeat(n));
   }, 2, 2),
   VALUE: cell((a) => {
-    const v = a[0]!;
+    const v = at(a, 0);
     if (v.t === 'num') return v;
     if (v.t !== 'text') return err('#VALUE!');
     const t = v.v.replace(/^ +| +$/g, '');
@@ -355,14 +362,14 @@ export const FUNCTIONS: Readonly<Record<string, FnDef>> = {
   IF: { min: 2, max: 3, lazy: true },
   AND: { min: 1, max: VARIADIC, lazy: true },
   OR: { min: 1, max: VARIADIC, lazy: true },
-  NOT: cell((a) => ({ t: 'bool', v: !asBool(a[0]!) }), 1, 1),
-  XOR: cell((a) => ({ t: 'bool', v: asBool(a[0]!) !== asBool(a[1]!) }), 2, 2),
+  NOT: cell((a) => ({ t: 'bool', v: !asBool(at(a, 0)) }), 1, 1),
+  XOR: cell((a) => ({ t: 'bool', v: asBool(at(a, 0)) !== asBool(at(a, 1)) }), 2, 2),
   SWITCH: { min: 3, max: VARIADIC, lazy: true },
   BLANK: cell(() => BLANK, 0, 0),
 
   // ----- date and time (15) -----
   DATE: cell((a) => {
-    const p = parseDateText(asText(a[0]!));
+    const p = parseDateText(asText(at(a, 0)));
     if (!p) return err('#VALUE!');
     return { t: 'date', y: p.y, m: p.m, d: p.d };
   }, 1, 1),
@@ -372,39 +379,39 @@ export const FUNCTIONS: Readonly<Record<string, FnDef>> = {
   }, 0, 0),
   NOW: cell((_a, ctx) => ({ t: 'dt', ms: ctx.now }), 0, 0),
   DATEADD: cell((a) => {
-    const v = asTemporal(a[0]!);
-    const n = Math.trunc(asNumber(a[1]!));
-    const unit = asText(a[2]!).toLowerCase();
+    const v = asTemporal(at(a, 0));
+    const n = Math.trunc(asNumber(at(a, 1)));
+    const unit = asText(at(a, 2)).toLowerCase();
     if (!UNITS.has(unit)) return err('#VALUE!');
     return dateAdd(v, n, unit);
   }, 3, 3),
   DATETIME_DIFF: cell((a) => {
-    const x = asTemporal(a[0]!);
-    const y = asTemporal(a[1]!);
-    const unit = asText(a[2]!).toLowerCase();
+    const x = asTemporal(at(a, 0));
+    const y = asTemporal(at(a, 1));
+    const unit = asText(at(a, 2)).toLowerCase();
     if (!UNITS.has(unit)) return err('#VALUE!');
     return numValue(dateDiff(x, y, unit));
   }, 3, 3),
   IS_BEFORE: cell((a) => {
-    const x = asTemporal(a[0]!);
-    const y = asTemporal(a[1]!);
+    const x = asTemporal(at(a, 0));
+    const y = asTemporal(at(a, 1));
     return { t: 'bool', v: temporalMs(x) < temporalMs(y) };
   }, 2, 2),
   IS_AFTER: cell((a) => {
-    const x = asTemporal(a[0]!);
-    const y = asTemporal(a[1]!);
+    const x = asTemporal(at(a, 0));
+    const y = asTemporal(at(a, 1));
     return { t: 'bool', v: temporalMs(x) > temporalMs(y) };
   }, 2, 2),
-  YEAR: cell((a) => numValue(partsOf(asTemporal(a[0]!)).y), 1, 1),
-  MONTH: cell((a) => numValue(partsOf(asTemporal(a[0]!)).m), 1, 1),
-  DAY: cell((a) => numValue(partsOf(asTemporal(a[0]!)).d), 1, 1),
-  WEEKDAY: cell((a) => numValue(weekdayIso(partsOf(asTemporal(a[0]!)))), 1, 1),
-  HOUR: cell((a) => numValue(partsOf(asTemporal(a[0]!)).hh), 1, 1),
-  MINUTE: cell((a) => numValue(partsOf(asTemporal(a[0]!)).mm), 1, 1),
-  SECOND: cell((a) => numValue(partsOf(asTemporal(a[0]!)).ss), 1, 1),
+  YEAR: cell((a) => numValue(partsOf(asTemporal(at(a, 0))).y), 1, 1),
+  MONTH: cell((a) => numValue(partsOf(asTemporal(at(a, 0))).m), 1, 1),
+  DAY: cell((a) => numValue(partsOf(asTemporal(at(a, 0))).d), 1, 1),
+  WEEKDAY: cell((a) => numValue(weekdayIso(partsOf(asTemporal(at(a, 0))))), 1, 1),
+  HOUR: cell((a) => numValue(partsOf(asTemporal(at(a, 0))).hh), 1, 1),
+  MINUTE: cell((a) => numValue(partsOf(asTemporal(at(a, 0))).mm), 1, 1),
+  SECOND: cell((a) => numValue(partsOf(asTemporal(at(a, 0))).ss), 1, 1),
   DATETIME_FORMAT: cell((a) => {
-    const v = asTemporal(a[0]!);
-    return textValue(formatPattern(v, asText(a[1]!)));
+    const v = asTemporal(at(a, 0));
+    return textValue(formatPattern(v, asText(at(a, 1))));
   }, 2, 2),
 
   // ----- record (3) -----
@@ -414,9 +421,9 @@ export const FUNCTIONS: Readonly<Record<string, FnDef>> = {
 };
 
 function findText(a: Value[], ci: boolean): Value {
-  const hay = cps(asText(a[1]!));
-  const needle = cps(asText(a[0]!));
-  const start = a.length > 2 ? asInt(a[2]!) : 1;
+  const hay = cps(asText(at(a, 1)));
+  const needle = cps(asText(at(a, 0)));
+  const start = a.length > 2 ? asInt(at(a, 2)) : 1;
   if (start < 1 || start > hay.length + 1) return err('#NUM!');
   if (needle.length === 0) return numValue(start);
   const norm = (c: string): string => (ci ? lowerCp(c) : c);

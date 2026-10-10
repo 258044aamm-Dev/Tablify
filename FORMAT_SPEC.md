@@ -363,7 +363,7 @@ Every field from the roadmap §7 contract appears in this spec:
 | Never contains Airtable token | §10 |
 | `formatVersion` unknown = error | §8 |
 
-## 8. formatVersion 2 (P8)
+## 12. formatVersion 2 (P8)
 
 Status: approved with the P8-01 spec (2026-10-10). Implemented in P8-03 (parser, serializer, schema).
 

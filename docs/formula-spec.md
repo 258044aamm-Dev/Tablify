@@ -210,7 +210,7 @@ Total: **54 functions** (15 numeric, 14 text, 7 logic, 15 date and time, 3 recor
 - Golden cases live in `tests/formula/golden.cases.ts`. Each case has an id, a function group, the formula, the input fields, the context (`now`, row id, created and modified times), and the expected result.
 - **Minimum:** at least 3 cases per function, plus core cases for operators, blanks, errors, and evaluation order.
 - **Time zone for tests:** `Asia/Dhaka` (UTC+6, no DST), so datetime cases are stable.
-- **Review:** the owner reviews each case for an unambiguous expected value. Cases are not yet run against the engine (P8-02).
+- **Review:** the owner reviews each case for an unambiguous expected value. All 204 cases were run against the engine in P8-02 and pass (see `docs/evidence/P8-02.md`).
 
 ## 12. Review decisions (accepted as proposed)
 

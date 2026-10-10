@@ -10,7 +10,7 @@
  */
 import { compileFormula, type Compiled } from './parser';
 import { evaluate, type EvalContext } from './evaluate';
-import { BLANK, err, type Value } from './value';
+import { BLANK, at, err, type Value } from './value';
 
 export interface FieldSpec {
   readonly id: string;
@@ -83,7 +83,7 @@ export class FormulaEngine {
       if (c.ok) {
         for (const ref of c.refs) {
           const ids = this.nameToIds.get(ref);
-          if (ids && ids.length === 1) ds.add(ids[0]!);
+          if (ids && ids.length === 1) ds.add(at(ids, 0));
         }
       }
       this.deps.set(f.id, ds);
@@ -172,7 +172,7 @@ export class FormulaEngine {
       field: (name: string): Value | undefined => {
         const ids = this.nameToIds.get(name);
         if (!ids || ids.length !== 1) return undefined;
-        return this.valueOf(row, ids[0]!);
+        return this.valueOf(row, at(ids, 0));
       },
     };
     try {
@@ -186,8 +186,7 @@ export class FormulaEngine {
   private dirtyFrom(fieldId: string): string[] {
     const seen = new Set<string>();
     const stack = [fieldId];
-    while (stack.length > 0) {
-      const x = stack.pop()!;
+    for (let x = stack.pop(); x !== undefined; x = stack.pop()) {
       for (const f of this.dependents.get(x) ?? []) {
         if (!seen.has(f)) {
           seen.add(f);
@@ -195,9 +194,10 @@ export class FormulaEngine {
         }
       }
     }
+    // Every filtered id has a rank, so the fallback is never used.
     return [...seen]
       .filter((f) => this.rank.has(f))
-      .sort((a, b) => this.rank.get(a)! - this.rank.get(b)!);
+      .sort((a, b) => (this.rank.get(a) ?? 0) - (this.rank.get(b) ?? 0));
   }
 
   private formulaDeps(id: string): string[] {
@@ -222,16 +222,17 @@ export class FormulaEngine {
       for (const w of this.formulaDeps(v)) {
         if (!index.has(w)) {
           strong(w);
-          low.set(v, Math.min(low.get(v)!, low.get(w)!));
+          low.set(v, Math.min(low.get(v) ?? Infinity, low.get(w) ?? Infinity));
         } else if (onStack.has(w)) {
-          low.set(v, Math.min(low.get(v)!, index.get(w)!));
+          low.set(v, Math.min(low.get(v) ?? Infinity, index.get(w) ?? Infinity));
         }
       }
       if (low.get(v) === index.get(v)) {
         const comp: string[] = [];
-        let w: string;
+        let w: string | undefined;
         do {
-          w = stack.pop()!;
+          w = stack.pop();
+          if (w === undefined) break; // v is always on the stack, so this does not happen.
           onStack.delete(w);
           comp.push(w);
         } while (w !== v);

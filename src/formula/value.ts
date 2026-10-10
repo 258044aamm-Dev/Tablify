@@ -45,6 +45,16 @@ export function fault(code: ErrorCode): never {
   throw new FormulaFault(code);
 }
 
+/**
+ * Element `i` of a list the caller has already bounds-checked (argument lists after the arity
+ * check, token lists before EOF). A missing element is an internal fault, so it becomes #VALUE!.
+ */
+export function at<T>(xs: readonly T[], i: number): T {
+  const x = xs[i];
+  if (x === undefined) fault('#VALUE!');
+  return x;
+}
+
 export function err(code: ErrorCode): Value {
   return { t: 'err', code };
 }
@@ -230,8 +240,8 @@ function compareCodePoints(a: string, b: string): number {
   const B = Array.from(b);
   const n = Math.min(A.length, B.length);
   for (let i = 0; i < n; i++) {
-    const x = A[i]!.codePointAt(0)!;
-    const y = B[i]!.codePointAt(0)!;
+    const x = at(A, i).codePointAt(0) ?? 0;
+    const y = at(B, i).codePointAt(0) ?? 0;
     if (x !== y) return x < y ? -1 : 1;
   }
   if (A.length === B.length) return 0;

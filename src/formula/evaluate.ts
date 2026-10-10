@@ -6,6 +6,7 @@ import type { Node } from './parser';
 import { FUNCTIONS, asBool, asNumber, asText, type FnContext } from './functions';
 import {
   BLANK,
+  at,
   equalValues,
   err,
   faultValue,
@@ -109,8 +110,9 @@ function call(name: string, args: readonly Node[], ctx: EvalContext): Value {
     if (v.t === 'err') return v;
     vals.push(v);
   }
+  if (!def.run) return err('#NAME?'); // lazy functions are handled above; every other entry has run.
   try {
-    return def.run!(vals, ctx);
+    return def.run(vals, ctx);
   } catch (e) {
     return faultValue(e);
   }
@@ -119,7 +121,7 @@ function call(name: string, args: readonly Node[], ctx: EvalContext): Value {
 function lazyCall(name: string, args: readonly Node[], ctx: EvalContext): Value {
   switch (name) {
     case 'IF': {
-      const c = evaluate(args[0]!, ctx);
+      const c = evaluate(at(args, 0), ctx);
       if (c.t === 'err') return c;
       let b: boolean;
       try {
@@ -127,7 +129,7 @@ function lazyCall(name: string, args: readonly Node[], ctx: EvalContext): Value 
       } catch (e) {
         return faultValue(e);
       }
-      if (b) return evaluate(args[1]!, ctx);
+      if (b) return evaluate(at(args, 1), ctx);
       return args[2] ? evaluate(args[2], ctx) : BLANK;
     }
     case 'AND':
@@ -148,11 +150,11 @@ function lazyCall(name: string, args: readonly Node[], ctx: EvalContext): Value 
       return isAnd ? TRUE : FALSE;
     }
     case 'SWITCH': {
-      const x = evaluate(args[0]!, ctx);
+      const x = evaluate(at(args, 0), ctx);
       if (x.t === 'err') return x;
       const pairs = Math.floor((args.length - 1) / 2);
       for (let i = 0; i < pairs; i++) {
-        const v = evaluate(args[1 + 2 * i]!, ctx);
+        const v = evaluate(at(args, 1 + 2 * i), ctx);
         if (v.t === 'err') return v;
         let eq: boolean;
         try {
@@ -160,9 +162,9 @@ function lazyCall(name: string, args: readonly Node[], ctx: EvalContext): Value 
         } catch (e) {
           return faultValue(e);
         }
-        if (eq) return evaluate(args[2 + 2 * i]!, ctx);
+        if (eq) return evaluate(at(args, 2 + 2 * i), ctx);
       }
-      if ((args.length - 1) % 2 === 1) return evaluate(args[args.length - 1]!, ctx);
+      if ((args.length - 1) % 2 === 1) return evaluate(at(args, args.length - 1), ctx);
       return BLANK;
     }
     default:

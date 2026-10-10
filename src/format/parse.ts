@@ -50,7 +50,7 @@ export function parse(input: string): ParseResult {
   if (!('formatVersion' in obj)) {
     return { ok: false, error: 'Missing required key: formatVersion' };
   }
-  // P8-03: readers accept 1 and 2 (FORMAT_SPEC §8). Anything else is refused, never migrated.
+  // P8-03: readers accept 1 and 2 (FORMAT_SPEC §12). Anything else is refused, never migrated.
   if (obj.formatVersion !== 1 && obj.formatVersion !== 2) {
     return {
       ok: false,

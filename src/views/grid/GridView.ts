@@ -30,7 +30,11 @@ export interface GridOptions {
   /** P8-03: error state of a formula cell (tooltip and styling). Null for a good value. */
   formulaError?: (rowId: string, fieldId: string) => { code: string; message: string } | null;
   /** P8-04: label text for a link cell, and how many of its links are broken. */
-  linkSummary?: (value: CellValue | undefined) => { text: string; broken: number };
+  linkSummary?: (value: CellValue | undefined) => {
+    text: string;
+    broken: number;
+    chips?: Array<{ label: string; broken: boolean }>;
+  };
 }
 
 export interface GridSelection {
@@ -399,7 +403,17 @@ export class GridView {
             const summary = this.opts.linkSummary
               ? this.opts.linkSummary(val)
               : { text: getFieldType('link').format(val ?? null, field), broken: 0 };
-            text.textContent = summary.text;
+            if (summary.chips && summary.chips.length > 0) {
+              // One chip per link. A broken link keeps its chip, dashed and muted.
+              for (const chip of summary.chips) {
+                text.createSpan({
+                  cls: chip.broken ? 'tablify-link-chip tablify-link-chip--broken' : 'tablify-link-chip',
+                  text: chip.label,
+                });
+              }
+            } else {
+              text.textContent = summary.text;
+            }
             if (summary.broken > 0) {
               cell.classList.add('tablify__cell--broken-link');
               cell.title = `${summary.broken} broken ${summary.broken === 1 ? 'link' : 'links'}: the linked row or table was not found.`;

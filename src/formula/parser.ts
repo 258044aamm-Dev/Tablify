@@ -3,7 +3,7 @@
  * Precedence, lowest first: comparison, &, + -, * /, unary -, ^ (left-assoc).
  * Unary minus binds looser than ^, so -2^2 = -4.
  */
-import { FormulaFault, err, fault, type ErrorCode, type Value } from './value';
+import { FormulaFault, at, err, fault, type ErrorCode, type Value } from './value';
 import { tokenize, type Token } from './lexer';
 
 export type Node =
@@ -30,10 +30,10 @@ class Parser {
   constructor(private readonly toks: Token[]) {}
 
   private peek(): Token {
-    return this.toks[this.pos]!;
+    return at(this.toks, this.pos);
   }
   private next(): Token {
-    return this.toks[this.pos++]!;
+    return at(this.toks, this.pos++);
   }
   private isOp(v: string): boolean {
     const t = this.peek();

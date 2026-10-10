@@ -27,16 +27,16 @@ export function decodeField(v: FieldValue | undefined): Value {
 /** Build an engine: one formula field F plus one input field per name, and one row. */
 export function singleFormulaEngine(
   formula: string,
-  inputs: Record<string, FieldValue> | undefined,
+  inputs: Record<string, FieldValue> = {},
   nowMs: number,
   row: { id: string; createdMs: number; modifiedMs: number },
 ): { engine: FormulaEngine; rowId: string; fieldId: string } {
-  const names = Object.keys(inputs ?? {});
+  const names = Object.keys(inputs);
   const fields: FieldSpec[] = names.map((n, i) => ({ id: `in${i}`, name: n }));
   fields.push({ id: 'F', name: 'F', formula });
   const values: Record<string, Value> = {};
   names.forEach((n, i) => {
-    values[`in${i}`] = decodeField(inputs![n]);
+    values[`in${i}`] = decodeField(inputs[n]);
   });
   const rows: RowSpec[] = [{ id: row.id, createdMs: row.createdMs, modifiedMs: row.modifiedMs, inputs: values }];
   const engine = new FormulaEngine({ fields, rows, now: () => nowMs });

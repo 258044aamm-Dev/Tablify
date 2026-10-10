@@ -32,7 +32,8 @@ interface ElOptions {
 function applyOptions(el: HTMLElement, options: ElOptions): HTMLElement {
   if (options.cls) {
     const classes = Array.isArray(options.cls) ? options.cls : [options.cls];
-    for (const c of classes) if (c) el.classList.add(c);
+    // Obsidian splits a class string on spaces (createEl({ cls: 'a b' })).
+    for (const c of classes) if (c) el.classList.add(...c.split(/\s+/).filter(Boolean));
   }
   if (options.text !== undefined) el.textContent = options.text;
   if (options.attr) {
@@ -70,7 +71,7 @@ if (!proto[AUGMENTED]) {
     return (this as unknown as { createEl: typeof createEl }).createEl('span', options);
   };
   proto.addClass = function addClass(this: HTMLElement, ...classes: string[]): void {
-    for (const c of classes) if (c) this.classList.add(c);
+    for (const c of classes) if (c) this.classList.add(...c.split(/\s+/).filter(Boolean));
   };
   proto.removeClass = function removeClass(this: HTMLElement, ...classes: string[]): void {
     for (const c of classes) this.classList.remove(c);

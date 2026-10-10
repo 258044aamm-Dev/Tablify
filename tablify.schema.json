@@ -17,7 +17,7 @@
     "formatVersion": {
       "type": "integer",
       "enum": [1, 2],
-      "description": "File format version. 1, or 2 when a table has a formula or link field (FORMAT_SPEC §8)."
+      "description": "File format version. 1, or 2 when a table has a formula or link field (FORMAT_SPEC §12)."
     },
     "tableId": {
       "type": "string",

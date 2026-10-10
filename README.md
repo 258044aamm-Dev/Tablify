@@ -66,6 +66,14 @@ Tables are plain JSON files in your vault. Tablify makes **no network requests**
 
 [MIT](LICENSE) © MD Limon Islam. Bundled fonts (Poppins, Lora) are under the SIL Open Font License — see [LICENSE-FONTS](LICENSE-FONTS).
 
+## Formulas and linked records (format version 2)
+
+- **Formula** fields compute a value from other fields in the same row. The language is in [`docs/formula-spec.md`](docs/formula-spec.md). Formula results are not saved in the file.
+- **Link** fields point at rows in other tables, by table ID and row ID. A link survives renaming a file or a row. A link to a deleted row is shown as broken, and the saved value is kept. Run **Check link integrity (all tables)** to list broken links.
+- A table that uses a formula or link field is saved as **format version 2**. A table without them is saved as version 1, as before.
+- **Update before you use them.** Versions of Tablify released before Phase 8 refuse to open a version 2 file ("Unsupported formatVersion") and never write to it. Update the plugin on every device that uses the vault before adding a formula or link field.
+- **Limits.** Copying a file with Obsidian's own Duplicate keeps its table ID, so links keep pointing at the original, and the integrity check reports the duplicate. Lookups and rollups are not included.
+
 ## Airtable sync (v1.1, optional)
 
 Sync is optional. Tablify works fully offline when it is not configured.

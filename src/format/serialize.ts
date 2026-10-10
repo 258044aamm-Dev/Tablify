@@ -16,7 +16,7 @@ export function serialize(file: TablifyFile): string {
 const TOP_LEVEL_KEYS = ['formatVersion', 'tableId', 'name', 'fields', 'rows', 'views', 'syncLink'] as const;
 
 /**
- * FORMAT_SPEC §8: write formatVersion 2 only when the table has a formula or link field.
+ * FORMAT_SPEC §12: write formatVersion 2 only when the table has a formula or link field.
  * Otherwise keep the file's own version, so a plain v1 table stays v1.
  */
 export function formatVersionFor(file: TablifyFile): 1 | 2 {

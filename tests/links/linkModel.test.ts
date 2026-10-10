@@ -19,7 +19,7 @@ import {
   snapshotTable,
   summarizeLinks,
   type TableSnapshot,
-} from '../../src/links/linkModel.js';
+} from '../../src/model/link.js';
 
 function loadSample(name: string): TablifyFile {
   const result = parse(readFileSync(join(process.cwd(), 'samples', 'v2', name), 'utf-8'));
@@ -72,7 +72,7 @@ describe('P8-04 linked records (T-I)', () => {
     const customers = loadSample('customers.tablify');
     const index = indexOf(['samples/v2/formula-link.tablify', orders], ['samples/v2/customers.tablify', customers]);
     const cell = orders.rows[0].values['fld_customer'] as LinkRef[];
-    expect(summarizeLinks(cell, index)).toEqual({ text: 'Ada Lovelace', broken: 0 });
+    expect(summarizeLinks(cell, index)).toEqual({ text: 'Ada Lovelace', broken: 0, chips: [{ label: 'Ada Lovelace', broken: false }] });
   });
 
   it('T-I rename the target file: the link still resolves (IDs, not names)', () => {
@@ -85,7 +85,7 @@ describe('P8-04 linked records (T-I)', () => {
     index.remove('samples/v2/customers.tablify');
     index.put(snapshotTable(customers, 'people/Clients 2026.tablify'));
 
-    expect(summarizeLinks(cell, index)).toEqual({ text: 'Ada Lovelace', broken: 0 });
+    expect(summarizeLinks(cell, index)).toEqual({ text: 'Ada Lovelace', broken: 0, chips: [{ label: 'Ada Lovelace', broken: false }] });
     expect(index.byTableId('tbl_01J9B7CUST')?.name).toBe('Clients 2026');
     expect(index.tables().map((t) => t.path)).toEqual(['people/Clients 2026.tablify', 'samples/v2/formula-link.tablify']);
   });
@@ -101,7 +101,7 @@ describe('P8-04 linked records (T-I)', () => {
 
     const index = indexOf(['samples/v2/customers.tablify', target.toFile()], ['samples/v2/formula-link.tablify', source.toFile()]);
     const cell = source.toFile().rows[0].values['fld_customer'] as LinkRef[];
-    expect(summarizeLinks(cell, index)).toEqual({ text: 'Missing row', broken: 1 });
+    expect(summarizeLinks(cell, index)).toEqual({ text: 'Missing row', broken: 1, chips: [{ label: 'Missing row', broken: true }] });
     // Nothing was removed from the source: the same reference is still in the file.
     expect(JSON.stringify(source.toFile().rows[0].values['fld_customer'])).toBe(before);
     expect(cell).toEqual([{ tableId: 'tbl_01J9B7CUST', rowId: 'row_01J9B9C001' }]);
@@ -109,7 +109,7 @@ describe('P8-04 linked records (T-I)', () => {
 
   it('a link to a table that is not in the vault is broken with a table reason', () => {
     const index = indexOf(['a.tablify', makeTable('tbl_a', [{ id: 'r1', name: 'One', links: [{ tableId: 'tbl_gone', rowId: 'x' }] }])]);
-    expect(summarizeLinks([{ tableId: 'tbl_gone', rowId: 'x' }], index)).toEqual({ text: 'Missing table', broken: 1 });
+    expect(summarizeLinks([{ tableId: 'tbl_gone', rowId: 'x' }], index)).toEqual({ text: 'Missing table', broken: 1, chips: [{ label: 'Missing table', broken: true }] });
   });
 
   it('T-I integrity check: output matches a known set of broken links', () => {

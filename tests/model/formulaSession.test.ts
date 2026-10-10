@@ -68,6 +68,13 @@ describe('P8-03 formula fields (T-E)', () => {
     expect(totalOf(session, 0)).toBe('#CYCLE!');
   });
 
+  it('P8-04: a formula that reads a link field gives #VALUE! (formula-spec §4.1, §12.2)', () => {
+    const session = createSession(loadSample());
+    const result = session.setFormula('fld_total', '{Customer} & "x"');
+    expect(result.ok).toBe(true);
+    expect(totalOf(session, 0)).toBe('#VALUE!');
+  });
+
   it('unknown field name shows #NAME? on the cell', () => {
     const session = createSession(loadSample());
     const rowId = session.getDisplayRows()[0].id;

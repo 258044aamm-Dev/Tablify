@@ -637,6 +637,26 @@
   text-decoration: underline dashed;
 }
 
+/* P8-04: link chips, one per linked row. Broken chips are dashed and muted. */
+.tablify-link-chip {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0 4px 0 0;
+  padding: 0 8px;
+  border: 1px solid var(--tablify-border, currentColor);
+  border-radius: 999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  line-height: 20px;
+}
+.tablify-link-chip--broken {
+  border-style: dashed;
+  opacity: 0.7;
+  text-decoration: underline dashed;
+}
+
 /* P8-04: row picker for link cells. Full-width rows are touch-friendly. */
 .tablify-link-picker__note {
   color: var(--tablify-text-muted);

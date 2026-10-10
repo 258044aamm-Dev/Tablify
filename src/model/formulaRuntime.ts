@@ -80,7 +80,7 @@ export function cellToValue(field: FieldDefinition, cell: CellValue | undefined)
       return { t: 'text', v: names.filter((n) => n !== '').join(', ') };
     }
     case 'link':
-      // FORMAT_SPEC §8 / formula-spec §12: a link reference is #VALUE! in v2.
+      // FORMAT_SPEC §12 / formula-spec §12: a link reference is #VALUE! in v2.
       return { t: 'err', code: '#VALUE!' };
     case 'attachment':
       return Array.isArray(v) ? { t: 'text', v: (v as string[]).join(', ') } : BLANK;

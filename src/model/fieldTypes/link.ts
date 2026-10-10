@@ -1,7 +1,7 @@
 import type { CellValue, LinkRef } from '../types.js';
 import type { FieldType } from './interface.js';
 
-/** True for a `{ tableId, rowId }` pair, the v2 link cell shape (FORMAT_SPEC §8). */
+/** True for a `{ tableId, rowId }` pair, the v2 link cell shape (FORMAT_SPEC §12). */
 export function isLinkRef(v: unknown): v is LinkRef {
   if (typeof v !== 'object' || v === null) return false;
   const r = v as Record<string, unknown>;

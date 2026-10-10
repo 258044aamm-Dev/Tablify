@@ -1,13 +1,13 @@
 /**
  * Link model (P8-04, SAD-63). Pure: no Obsidian imports, so it is unit-tested.
  *
- * A link cell stores `{ tableId, rowId }` (FORMAT_SPEC §8). Links resolve by ID, never by file
+ * A link cell stores `{ tableId, rowId }` (FORMAT_SPEC §12). Links resolve by ID, never by file
  * path or name, so renaming a file keeps every link. A target that cannot be found is a broken
  * link: it is reported and marked, and the source value is never removed.
  */
 
-import type { CellValue, FieldDefinition, LinkRef, Row, TablifyFile } from '../model/types.js';
-import { getFieldType } from '../model/fieldTypes/registry.js';
+import type { CellValue, FieldDefinition, LinkRef, Row, TablifyFile } from './types.js';
+import { getFieldType } from './fieldTypes/registry.js';
 
 /** Label shown for a row with an empty primary field. */
 export const UNTITLED_ROW = 'Untitled row';
@@ -183,21 +183,33 @@ export function createLinkIndex(): LinkIndex {
   return new LinkIndex();
 }
 
-/** Text for a link cell: resolved row labels, with broken links counted separately. */
-export function summarizeLinks(value: CellValue | undefined, index: LinkIndex): { text: string; broken: number } {
-  if (!isNonEmptyLinkArray(value)) return { text: '', broken: 0 };
-  const parts: string[] = [];
+/** One link in a link cell: its label, and whether it is broken. */
+export interface LinkChip {
+  label: string;
+  broken: boolean;
+}
+
+/**
+ * Display for a link cell: one chip per link (resolved row label, or "Missing row" / "Missing
+ * table"), the joined text, and the number of broken links. Broken links stay in the list.
+ */
+export function summarizeLinks(
+  value: CellValue | undefined,
+  index: LinkIndex,
+): { text: string; broken: number; chips: LinkChip[] } {
+  if (!isNonEmptyLinkArray(value)) return { text: '', broken: 0, chips: [] };
+  const chips: LinkChip[] = [];
   let broken = 0;
   for (const ref of value) {
     const res = index.resolve(ref);
     if (res.ok) {
-      parts.push(res.rowLabel);
+      chips.push({ label: res.rowLabel, broken: false });
     } else {
       broken++;
-      parts.push(res.reason === 'missing-table' ? 'Missing table' : 'Missing row');
+      chips.push({ label: res.reason === 'missing-table' ? 'Missing table' : 'Missing row', broken: true });
     }
   }
-  return { text: parts.join(', '), broken };
+  return { text: chips.map((c) => c.label).join(', '), broken, chips };
 }
 
 /** Full vault check: every link reference, resolved against the index. Deterministic order. */

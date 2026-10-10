@@ -12,7 +12,7 @@
 import { App, Modal, Setting } from 'obsidian';
 import type { FieldDefinition, LinkRef } from '../../model/types.js';
 import { applyTheme } from '../../ui/theme/tokens.js';
-import { buildSelection, filterRows, type LinkableRow, type LinkIndex } from '../../links/linkModel.js';
+import { buildSelection, filterRows, type LinkableRow, type LinkIndex } from '../../model/link.js';
 
 export interface LinkPickerOptions {
   app: App;

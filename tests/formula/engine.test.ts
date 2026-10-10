@@ -2,7 +2,7 @@
 // per-edit call counts, and the FX-M timing check (proposed target, see evidence).
 import { describe, expect, it } from 'vitest';
 import { FormulaEngine, type FieldSpec, type RowSpec } from '../../src/formula/engine';
-import { BLANK, err, type Value } from '../../src/formula/value';
+import { BLANK, at, err, type Value } from '../../src/formula/value';
 import { sameValue, showValue } from './helpers';
 
 function mulberry32(seed: number): () => number {
@@ -62,8 +62,8 @@ describe('incremental equals full recalculation', () => {
     const now = () => NOW;
     const engine = new FormulaEngine({ fields: CHAIN_FIELDS, rows, now });
     for (let step = 0; step < 500; step++) {
-      const row = rows[Math.floor(rand() * rows.length)]!;
-      const kind = (['a', 'b', 'c'] as const)[Math.floor(rand() * 3)]!;
+      const row = at(rows, Math.floor(rand() * rows.length));
+      const kind = at(['a', 'b', 'c'] as const, Math.floor(rand() * 3));
       const v = randomInput(rand, kind);
       expect(engine.setInput(row.id, kind, v)).toBe(true);
       (row.inputs as Record<string, Value>)[kind] = v;
@@ -72,8 +72,8 @@ describe('incremental equals full recalculation', () => {
       const got = snapshot(engine, rows, CHAIN_FIELDS);
       const want = snapshot(fresh, rows, CHAIN_FIELDS);
       for (let i = 0; i < got.length; i++) {
-        if (!sameValue(got[i]!, want[i]!)) {
-          throw new Error(`step ${step}: cell ${i} incremental ${showValue(got[i]!)} vs full ${showValue(want[i]!)}`);
+        if (!sameValue(at(got, i), at(want, i))) {
+          throw new Error(`step ${step}: cell ${i} incremental ${showValue(at(got, i))} vs full ${showValue(at(want, i))}`);
         }
       }
     }
@@ -228,13 +228,13 @@ describe('FX-M performance (proposed targets, reported)', () => {
 
     const samples: number[] = [];
     for (let k = 0; k < 20; k++) {
-      const row = rows[(k * 37) % rows.length]!;
+      const row = at(rows, (k * 37) % rows.length);
       const s = performance.now();
       engine.setInput(row.id, 'in0', { t: 'num', v: k });
       samples.push(performance.now() - s);
     }
     samples.sort((a, b) => a - b);
-    const p95 = samples[Math.floor(samples.length * 0.95)] ?? samples[samples.length - 1]!;
+    const p95 = samples[Math.floor(samples.length * 0.95)] ?? samples[samples.length - 1] ?? 0;
     // Recorded for docs/evidence/P8-02.md.
     console.log(
       `FX-M build ${buildMs.toFixed(1)} ms; full recalc (1,000 rows x 5 formulas) ${fullMs.toFixed(1)} ms; single edit p95 ${p95.toFixed(3)} ms (target 200 ms, proposed)`,

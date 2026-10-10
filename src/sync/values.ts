@@ -16,6 +16,8 @@ export function syncedFields(fields: readonly FieldDefinition[]): FieldDefinitio
 }
 
 function isWritable(field: FieldDefinition): boolean {
+  // P8: formula results and link references are never written to Airtable, even if a link exists.
+  if (field.type === 'formula' || field.type === 'link') return false;
   return !!field.airtable && !field.airtable.readOnly;
 }
 
