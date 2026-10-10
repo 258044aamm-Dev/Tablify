@@ -344,12 +344,18 @@ export class Setting {
     return this;
   }
 
+  setHeading(): this {
+    this.settingEl.classList.add('setting-item-heading');
+    return this;
+  }
+
   // Component APIs mirror Obsidian: every setter returns the component, so calls chain
   // (`.setValue(x).onChange(fn)`), which is how src/ uses them.
   addText(cb: (text: TextComponent) => void): this {
     const input = this.controlEl.createEl('input', { type: 'text' });
     const api: TextComponent = {
       input,
+      inputEl: input,
       setValue(v: string) {
         input.value = v;
         return api;
@@ -462,6 +468,7 @@ export class Setting {
 }
 
 export interface TextComponent {
+  inputEl: HTMLInputElement;
   input: HTMLInputElement;
   setValue(v: string): TextComponent;
   getValue(): string;
@@ -617,6 +624,27 @@ export class Plugin {
   }
 }
 
+/** P7-03 test-only: Obsidian's settings tab base class. */
+export class PluginSettingTab {
+  app: App;
+  plugin: unknown;
+  containerEl: HTMLElement;
+
+  constructor(app: App, plugin: unknown) {
+    this.app = app;
+    this.plugin = plugin;
+    this.containerEl = document.createElement('div');
+  }
+
+  display(): void {
+    /* overridden by subclasses */
+  }
+
+  hide(): void {
+    /* overridden by subclasses */
+  }
+}
+
 /** Stub for Obsidian's normalizePath — the real one lives behind the Obsidian runtime. */
 export function normalizePath(path: string): string {
   return path.replace(/\\/g, '/').replace(/\/+/g, '/');
@@ -627,3 +655,46 @@ export function addIcon(): void {
 }
 
 export type { App as AppType };
+
+// ---------------------------------------------------------------------------
+// P7-02 test-only addition: requestUrl
+//
+// Production code calls Obsidian's requestUrl for every network call. Tests install a
+// handler (a mock server, see tests/__mocks__/airtableServer.ts) with setRequestUrlHandler.
+// With no handler installed, any call fails loudly so that no test can reach the network.
+// ---------------------------------------------------------------------------
+
+export interface RequestUrlParam {
+  url: string;
+  method?: string;
+  contentType?: string;
+  body?: string | ArrayBuffer;
+  headers?: Record<string, string>;
+  throw?: boolean;
+}
+
+export interface RequestUrlResponse {
+  status: number;
+  headers: Record<string, string>;
+  arrayBuffer: ArrayBuffer;
+  json: unknown;
+  text: string;
+}
+
+export type RequestUrlHandler = (param: RequestUrlParam) => Promise<RequestUrlResponse>;
+
+let requestUrlHandler: RequestUrlHandler | null = null;
+
+export function setRequestUrlHandler(handler: RequestUrlHandler | null): void {
+  requestUrlHandler = handler;
+}
+
+export async function requestUrl(
+  param: RequestUrlParam | string,
+): Promise<RequestUrlResponse> {
+  const p: RequestUrlParam = typeof param === 'string' ? { url: param } : param;
+  if (!requestUrlHandler) {
+    throw new Error('requestUrl called in a test with no handler installed (network is disabled in tests)');
+  }
+  return requestUrlHandler(p);
+}
