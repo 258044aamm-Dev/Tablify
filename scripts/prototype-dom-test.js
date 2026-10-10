@@ -1,9 +1,8 @@
 // Real-DOM regression test for the prototype (Prototype/index.html + script.js).
 // Usage:  npm i jsdom && node scripts/prototype-dom-test.js
-// Covers the outside-tap selection-clear behavior end-to-end:
-//   S1 focus-only cell  S2 editing cell (bug SAD-72 follow-up)  S3 cell-to-cell
-//   S4 modal open       S5 touch devices                        S6 dropdown open
-//   S7 shift-click range
+// Scenarios:
+//   S1-S7  outside-tap selection clearing (focus, editing, modals, touch, dropdown, range)
+//   S8     row drag-and-drop reordering (move, drop-at-end, no-op, undo, sort-blocked)
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
@@ -99,6 +98,66 @@ const tests = `
   A('S7 range rendered', document.querySelectorAll('.cell-range').length > 0);
   md(document.body);
   A('S7 range cleared on outside tap', state.focus === null && state.anchor === null && !document.querySelector('.cell-range'));
+
+  // ---- S8: row drag-and-drop reordering ----
+  window.scrollBy = window.scrollBy || function(){};
+  renderGrid();
+  const ids0 = activeDoc().rows.map(r => r.id);
+  // stub layout: row i at top=40*i, height 36; container at 0
+  const stubRects = () => {
+    document.querySelectorAll('#tableBody tr[data-row]').forEach((tr, i) => {
+      tr.getBoundingClientRect = () => ({ top: 40 * i, bottom: 40 * i + 36, height: 36, left: 0, right: 600, width: 600 });
+    });
+    document.getElementById('tableInnerContainer').getBoundingClientRect = () => ({ top: 0, left: 0, right: 600, bottom: 400, width: 600, height: 400 });
+  };
+  const pev = (type, el, y) => el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: 10, clientY: y }));
+  const handleOf = rid => document.querySelector('tr[data-row="' + rid + '"] td.row-drag-handle');
+  A('S8 drag handles rendered', !!handleOf(ids0[0]));
+
+  // drag row0 to before row3
+  stubRects();
+  pev('pointerdown', handleOf(ids0[0]), 18);
+  pev('pointermove', document, 30);   // crosses threshold -> drag activates
+  A('S8 drag active + row dimmed', document.body.classList.contains('row-dragging-active') && !!document.querySelector('tr.row-dragging'));
+  pev('pointermove', document, 130);  // between row2 mid(98) and row3 mid(138) -> before row3
+  A('S8 indicator visible', document.getElementById('rowDropIndicator').style.display === 'block');
+  pev('pointerup', document, 130);
+  const ids1 = activeDoc().rows.map(r => r.id);
+  A('S8 row0 moved before row3', JSON.stringify(ids1) === JSON.stringify([ids0[1], ids0[2], ids0[0], ids0[3], ids0[4]].concat(ids0.slice(5))));
+  A('S8 drag state cleaned up', !document.body.classList.contains('row-dragging-active') && document.getElementById('rowDropIndicator').style.display === 'none' && !document.querySelector('tr.row-dragging'));
+
+  // undo restores original order (data integrity)
+  undo();
+  A('S8 undo restores order', JSON.stringify(activeDoc().rows.map(r => r.id)) === JSON.stringify(ids0));
+
+  // drag row1 to the end (below last row)
+  renderGrid(); stubRects();
+  pev('pointerdown', handleOf(ids0[1]), 58);
+  pev('pointermove', document, 70);
+  pev('pointermove', document, 3000); // far below every midpoint -> end
+  pev('pointerup', document, 3000);
+  const idsEnd = activeDoc().rows.map(r => r.id);
+  A('S8 drop at end', idsEnd[idsEnd.length - 1] === ids0[1]);
+  undo();
+
+  // no-op drop (back onto its own position) creates no undo entry
+  renderGrid(); stubRects();
+  const undoDepth = UNDO.length;
+  pev('pointerdown', handleOf(ids0[0]), 18);
+  pev('pointermove', document, 30);
+  pev('pointermove', document, 10);   // before row0 mid -> before itself -> noop
+  pev('pointerup', document, 10);
+  A('S8 noop drop: order + undo stack unchanged', JSON.stringify(activeDoc().rows.map(r => r.id)) === JSON.stringify(ids0) && UNDO.length === undoDepth);
+
+  // sorting active -> drag refused, order unchanged
+  docView(activeDoc()).sorts = [{ fieldId: activeDoc().fields[0].id, dir: 1 }];
+  renderGrid(); stubRects();
+  pev('pointerdown', handleOf(ids0[0]), 18);
+  pev('pointermove', document, 130);
+  pev('pointerup', document, 130);
+  A('S8 sorted view: reorder refused', JSON.stringify(activeDoc().rows.map(r => r.id)) === JSON.stringify(ids0) && !document.body.classList.contains('row-dragging-active'));
+  docView(activeDoc()).sorts = [];
+  renderGrid();
 
   window.__log('DOM TEST DONE');
 })();

@@ -4,6 +4,15 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- **Row drag-and-drop reordering (prototype)** — drag the row-number cell (grip handle) to move a
+  row; works with mouse and touch via Pointer Events (`touch-action: none` on the handle, so pages
+  still scroll normally elsewhere). Terracotta drop-indicator line, dimmed dragged row, edge
+  auto-scroll. Reorders go through `mutate()` (undo/redo + persistence); no-op drops create no
+  history entry; row ids/cells/`modifiedTime` are untouched. Manual reordering is refused with a
+  toast while sorting or grouping controls the row order.
+
 ### Changed
 
 - **Prototype refactored into three files** (`ce7870c`) — `Prototype/Anthropic Table Workspace.html`

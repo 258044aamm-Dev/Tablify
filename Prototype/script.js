@@ -560,7 +560,7 @@ function renderGrid() {
   const renderRowTr = (row, index) => {
     let h = '<tr data-row="' + row.id + '">';
     h += '<td class="text-center py-1' + (frozenOn ? stickyTd : '') + '"' + (frozenOn ? ' style="left:0"' : '') + '><input type="checkbox" ' + (state.selected[row.id] ? 'checked' : '') + ' onchange="toggleSelectRow(\'' + row.id + '\')" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></td>';
-    h += '<td class="text-center py-1 text-tablify-clay dark:text-gray-400 font-mono text-xs select-none' + (frozenOn ? stickyTd : '') + '"' + (frozenOn ? ' style="left:38px"' : '') + '>' + (index + 1) + '</td>';
+    h += '<td class="text-center py-1 text-tablify-clay dark:text-gray-400 font-mono text-xs select-none row-drag-handle' + (frozenOn ? stickyTd : '') + '"' + (frozenOn ? ' style="left:38px"' : '') + ' onpointerdown="rowDragStart(event,\'' + row.id + '\')" title="Drag to reorder row"><i class="fa-solid fa-grip-vertical text-[8px] text-tablify-clay/40 dark:text-gray-600 mr-1"></i>' + (index + 1) + '</td>';
     fields.forEach(f => { h += cellHtml(doc, row, f, pad, frozenOn && f.primary); });
     return h + '</tr>';
   };
@@ -739,6 +739,99 @@ document.addEventListener('mousedown', ev => {
 document.addEventListener('keydown', ev => {
   if (ev.key === 'Escape' && panelCtx) closePanel();
 });
+
+// ===== Row drag-and-drop reordering (Pointer Events: works for mouse AND touch) =====
+let _rowDrag = null;
+// Core reorder: move rowId so it sits immediately before beforeRowId
+// (beforeRowId null = end of table). Pure data move — ids, cells and
+// modifiedTime untouched; callers wrap it in mutate() for undo/redo + save.
+function moveRowBefore(doc, rowId, beforeRowId) {
+  const i = doc.rows.findIndex(r => r.id === rowId);
+  if (i < 0) return false;
+  const [r] = doc.rows.splice(i, 1);
+  let j = beforeRowId ? doc.rows.findIndex(x => x.id === beforeRowId) : doc.rows.length;
+  if (j < 0) j = doc.rows.length;
+  doc.rows.splice(j, 0, r);
+  return true;
+}
+function rowDragStart(ev, rowId) {
+  if (ev.button !== undefined && ev.button !== 0) return; // primary button / touch only
+  _rowDrag = { rowId: rowId, startX: ev.clientX, startY: ev.clientY, active: false, before: undefined };
+  document.addEventListener('pointermove', rowDragMove);
+  document.addEventListener('pointerup', rowDragEnd);
+  document.addEventListener('pointercancel', rowDragCancel);
+}
+function rowDragMove(ev) {
+  if (!_rowDrag) return;
+  if (!_rowDrag.active) {
+    if (Math.abs(ev.clientX - _rowDrag.startX) + Math.abs(ev.clientY - _rowDrag.startY) < 5) return; // drag threshold
+    const view = docView(activeDoc());
+    if (view.sorts.length) { showToast('Clear sorting to reorder rows manually'); rowDragCancel(); return; }
+    if (view.groupBy) { showToast('Disable grouping to reorder rows manually'); rowDragCancel(); return; }
+    if (state.editing) commitEditor(false); // don't lose a pending edit to the drop re-render
+    _rowDrag.active = true;
+    document.body.classList.add('row-dragging-active');
+    const tr = document.querySelector('#tableBody tr[data-row="' + _rowDrag.rowId + '"]');
+    if (tr) tr.classList.add('row-dragging');
+  }
+  if (ev.cancelable) ev.preventDefault();
+  // find the insertion boundary: first visible row whose midpoint is below the pointer
+  const trs = Array.prototype.slice.call(document.querySelectorAll('#tableBody tr[data-row]'));
+  let before = null;
+  let beforeTr = null;
+  for (const tr of trs) {
+    const rect = tr.getBoundingClientRect();
+    if (ev.clientY < rect.top + rect.height / 2) { before = tr.getAttribute('data-row'); beforeTr = tr; break; }
+  }
+  _rowDrag.before = before;
+  // position the indicator line inside the (position:relative) container
+  const cont = document.getElementById('tableInnerContainer');
+  const ind = document.getElementById('rowDropIndicator');
+  if (cont && ind && cont.getBoundingClientRect) {
+    const crect = cont.getBoundingClientRect();
+    let y;
+    if (beforeTr) y = beforeTr.getBoundingClientRect().top - 5;
+    else if (trs.length) y = trs[trs.length - 1].getBoundingClientRect().bottom + 2;
+    else y = crect.top;
+    ind.style.top = (y - crect.top) + 'px';
+    ind.style.display = 'block';
+  }
+  // edge auto-scroll so long tables can be traversed mid-drag
+  if (ev.clientY < 70) window.scrollBy(0, -14);
+  else if (ev.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+}
+function rowDragEnd() {
+  const d = _rowDrag;
+  rowDragCancel();
+  if (!d || !d.active || d.before === undefined) return;
+  const doc = activeDoc();
+  const before = d.before;
+  const i = doc.rows.findIndex(r => r.id === d.rowId);
+  if (i < 0) return;
+  const noop = before === d.rowId ||
+    (before === null && i === doc.rows.length - 1) ||
+    (before !== null && doc.rows[i + 1] && doc.rows[i + 1].id === before);
+  if (!noop) {
+    mutate('Reorder rows', () => { moveRowBefore(doc, d.rowId, before); });
+    showToast('Row moved');
+  }
+  renderGrid();
+}
+function rowDragCancel() {
+  document.removeEventListener('pointermove', rowDragMove);
+  document.removeEventListener('pointerup', rowDragEnd);
+  document.removeEventListener('pointercancel', rowDragCancel);
+  document.body.classList.remove('row-dragging-active');
+  const ind = document.getElementById('rowDropIndicator');
+  if (ind) ind.style.display = 'none';
+  const tr = document.querySelector('#tableBody tr.row-dragging');
+  if (tr) tr.classList.remove('row-dragging');
+  _rowDrag = null;
+}
+// touch long-press on the handle must not pop the row context menu mid-drag
+window.addEventListener('contextmenu', ev => {
+  if (_rowDrag) { ev.preventDefault(); ev.stopPropagation(); }
+}, true);
 
 // Tapping/clicking anywhere outside the grid clears the focused-cell highlight
 // (mousedown, not click: by click-time a re-render may have detached ev.target,

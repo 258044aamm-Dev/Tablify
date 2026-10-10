@@ -49,3 +49,11 @@ th.sticky-col { z-index: 6; }
 .dark .cell-focus { outline-color: #D97757; }
 .cell-range { background-color: rgba(204,120,92,0.14) !important; }
 /* @@CSS */
+
+/* Row drag-and-drop reordering */
+.row-drag-handle { cursor: grab; touch-action: none; }
+.row-drag-handle:active { cursor: grabbing; }
+tr.row-dragging td { opacity: 0.45; }
+body.row-dragging-active { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+#rowDropIndicator { display: none; position: absolute; left: 10px; right: 10px; height: 3px; border-radius: 2px; background: #CC785C; z-index: 20; pointer-events: none; box-shadow: 0 0 0 1px rgba(204,120,92,0.25); }
+.dark #rowDropIndicator { background: #D97757; box-shadow: 0 0 0 1px rgba(217,119,87,0.3); }
