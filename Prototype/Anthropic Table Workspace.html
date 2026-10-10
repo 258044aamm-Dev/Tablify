@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anthropic Studio | Workspace Table View</title>
+  <title>Tablify — Table Prototype</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome 6 Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Fonts: DM Serif Display, Inter & JetBrains Mono -->
+  <!-- Google Fonts: Poppins (headings), Lora (body) & JetBrains Mono (badges) — per spec/branding.md §4 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <script>
     tailwind.config = {
@@ -40,8 +40,8 @@
             }
           },
           fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            serif: ['"DM Serif Display"', 'serif'],
+            sans: ['Lora', 'serif'],
+            serif: ['Poppins', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
           }
         }
@@ -134,14 +134,6 @@
       color: #ECE7E1;
     }
 
-    /* Subtle shimmer for Claude AI generation */
-    @keyframes aiGlow {
-      0%, 100% { opacity: 0.8; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.05); }
-    }
-    .ai-sparkle-glow {
-      animation: aiGlow 2s infinite ease-in-out;
-    }
   </style>
 </head>
 
@@ -150,25 +142,19 @@
   <!-- Top Brand Navigation Bar -->
   <header class="w-full max-w-5xl mx-auto flex items-center justify-between mb-4 px-2">
     <div class="flex items-center gap-3">
-      <!-- Anthropic Logo Mark SVG -->
+      <!-- Tablify Logo Mark -->
       <div class="w-8 h-8 rounded-lg bg-anthropic-terracotta flex items-center justify-center text-white shadow-md">
         <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-          <path d="M13.82 3.5l5.68 17h-3.24l-1.34-4.16H8.92L7.58 20.5H4.34l5.68-17h3.8zm-1.12 4.14L10.3 13.5h3.25l-2.4-5.86z"/>
+          <path d="M4 5h16v3H14v11h-4V8H4V5z"/>
         </svg>
       </div>
       <div>
-        <h1 class="text-xs font-semibold uppercase tracking-wider text-anthropic-clay dark:text-gray-400">Anthropic Studio</h1>
-        <p class="text-sm font-serif text-anthropic-charcoal dark:text-anthropic-paper font-semibold leading-none">Workspace Tables</p>
+        <h1 class="text-xs font-semibold uppercase tracking-wider text-anthropic-clay dark:text-gray-400 font-serif">Tablify</h1>
+        <p class="text-sm font-serif text-anthropic-charcoal dark:text-anthropic-paper font-semibold leading-none">Table Prototype</p>
       </div>
     </div>
 
     <div class="flex items-center gap-2">
-      <!-- Claude AI Assist Button -->
-      <button onclick="openClaudeModal()" class="px-3 py-1.5 rounded-full text-xs font-medium bg-anthropic-terracotta/10 text-anthropic-terracotta hover:bg-anthropic-terracotta/20 border border-anthropic-terracotta/30 flex items-center gap-1.5 transition">
-        <i class="fa-solid fa-wand-magic-sparkles text-[11px] ai-sparkle-glow"></i>
-        <span>Ask Claude</span>
-      </button>
-
       <!-- Theme Switcher -->
       <button onclick="toggleTheme()" class="anthropic-pill-btn p-2 rounded-full text-xs w-8 h-8 flex items-center justify-center" title="Toggle Theme">
         <i id="themeIcon" class="fa-solid fa-moon"></i>
@@ -199,7 +185,7 @@
         
         <div class="flex items-center gap-2">
           <span id="savedIndicator" class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 opacity-100 transition-opacity">
-            <i class="fa-solid fa-circle-check text-[10px]"></i> Saved to Anthropic Cloud
+            <i class="fa-solid fa-circle-check text-[10px]"></i> Saved locally
           </span>
           <button onclick="addNewTable()" class="anthropic-pill-btn px-3.5 py-1.5 text-xs font-medium rounded-xl flex items-center gap-1.5 active:scale-95">
             <i class="fa-solid fa-plus text-[10px] text-anthropic-terracotta"></i>
@@ -297,7 +283,7 @@
 
   <!-- Footer Copyright & Info -->
   <footer class="w-full max-w-5xl mx-auto mt-6 text-center text-[11px] text-anthropic-clay">
-    <p>Anthropic Studio Workspace &bull; Powered by Claude AI Datasets &bull; Built with HTML & Tailwind CSS</p>
+    <p>Tablify Prototype &bull; Feature reference for <span class="font-mono">spec/features.md</span> &bull; Single-file HTML</p>
   </footer>
 
   <!-- Add Field Modal -->
@@ -332,48 +318,6 @@
       <div class="mt-5 flex justify-end space-x-2">
         <button onclick="hideAddFieldModal()" class="px-3.5 py-2 text-xs text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner rounded-xl">Cancel</button>
         <button onclick="confirmAddField()" class="px-4 py-2 bg-anthropic-terracotta hover:bg-anthropic-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Add Field</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Claude AI Assistant Modal -->
-  <div id="claudeModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-anthropic-paper-card dark:bg-anthropic-dark-card border border-anthropic-terracotta/40 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <div class="w-6 h-6 rounded bg-anthropic-terracotta text-white flex items-center justify-center text-xs">
-            <i class="fa-solid fa-sparkles"></i>
-          </div>
-          <h3 class="text-base font-serif font-semibold text-anthropic-charcoal dark:text-anthropic-paper">Ask Claude Assistant</h3>
-        </div>
-        <button onclick="closeClaudeModal()" class="text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <p class="text-xs text-anthropic-clay mb-4">Generate synthetic benchmark data or optimize your table rows with Claude AI.</p>
-
-      <div class="space-y-3">
-        <button onclick="generateAiRows('eval')" class="w-full text-left p-3 rounded-xl border border-anthropic-paper-border dark:border-anthropic-dark-border hover:border-anthropic-terracotta hover:bg-anthropic-terracotta/5 transition flex items-center justify-between group">
-          <div>
-            <div class="text-xs font-semibold text-anthropic-charcoal dark:text-anthropic-paper group-hover:text-anthropic-terracotta">Generate 3 Prompt Eval Test Cases</div>
-            <div class="text-[11px] text-anthropic-clay">Creates prompt test cases with parameters</div>
-          </div>
-          <i class="fa-solid fa-arrow-right text-xs text-anthropic-clay group-hover:text-anthropic-terracotta"></i>
-        </button>
-
-        <button onclick="generateAiRows('benchmark')" class="w-full text-left p-3 rounded-xl border border-anthropic-paper-border dark:border-anthropic-dark-border hover:border-anthropic-terracotta hover:bg-anthropic-terracotta/5 transition flex items-center justify-between group">
-          <div>
-            <div class="text-xs font-semibold text-anthropic-charcoal dark:text-anthropic-paper group-hover:text-anthropic-terracotta">Simulate Model Latency & Pass Rates</div>
-            <div class="text-[11px] text-anthropic-clay">Populates Claude 3.5 Sonnet vs Haiku tests</div>
-          </div>
-          <i class="fa-solid fa-arrow-right text-xs text-anthropic-clay group-hover:text-anthropic-terracotta"></i>
-        </button>
-      </div>
-
-      <div id="claudeLoading" class="hidden mt-4 text-center py-3 text-xs text-anthropic-terracotta font-medium flex items-center justify-center gap-2">
-        <i class="fa-solid fa-circle-notch fa-spin"></i>
-        <span>Claude is generating rows...</span>
       </div>
     </div>
   </div>
@@ -721,34 +665,6 @@
       document.getElementById('newFieldName').value = '';
       renderTable();
       showToast(`Added field "${name}"`);
-    }
-
-    // Claude Assistant Modal Simulations
-    function openClaudeModal() { document.getElementById('claudeModal').classList.remove('hidden'); }
-    function closeClaudeModal() { document.getElementById('claudeModal').classList.add('hidden'); }
-
-    function generateAiRows(type) {
-      const loading = document.getElementById('claudeLoading');
-      loading.classList.remove('hidden');
-
-      setTimeout(() => {
-        loading.classList.add('hidden');
-        closeClaudeModal();
-
-        if (type === 'eval') {
-          datasets.prompts.rows.push(
-            { id: Date.now() + 1, selected: false, name: "Summarize legal NDA clause", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" },
-            { id: Date.now() + 2, selected: false, name: "Extract JSON entities from unstructured chat", model: "Claude 3.5 Haiku", score: 4, status: "In Review" }
-          );
-        } else {
-          datasets.tasks.rows.push(
-            { id: Date.now() + 3, selected: false, name: "HumanEval multi-file TS synthesis", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" }
-          );
-        }
-
-        renderTable();
-        showToast("Claude generated new table rows!");
-      }, 1200);
     }
 
     // Export & Utilities
