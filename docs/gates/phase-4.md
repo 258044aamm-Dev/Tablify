@@ -24,6 +24,8 @@
 
 ## Open decisions for the owner
 
+**Owner decision (2026-10-10): strict inference is kept.** Ambiguous values stay text. The 73.3% result (22 of 30) is accepted in place of the 90% target. This is recorded here; the gate itself still needs the owner's manual checks.
+
 1. **Type inference threshold (condition 7).** Strict inference scored 73.3% against the proposed 90%. The open question (C7 in the session record) is whether to keep strict inference (ambiguous values become text), switch to tolerant inference, or lower the threshold. This gate does not decide it.
 2. **Bundle guard.** The P4-05 limit of 1,500,000 B was reached by dev builds. The P5 steps raised it to 1,750,000 B (see `docs/evidence/P5-01.md`). Owner to confirm.
 

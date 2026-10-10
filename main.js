@@ -6564,6 +6564,10 @@ function isLinkRef(v) {
   const r = v;
   return typeof r.tableId === "string" && typeof r.rowId === "string";
 }
+var labelResolver = null;
+function setLinkLabelResolver(resolver) {
+  labelResolver = resolver;
+}
 var linkType = {
   readOnly: false,
   validate(value) {
@@ -6574,10 +6578,17 @@ var linkType = {
   parse(_input) {
     return null;
   },
-  /** Count only. Grid labels come from the link index (summarizeLinks). Sort and filter use this. */
+  /**
+   * Text for sort, filter and export. With a resolver: the linked row names, joined with ", ", and
+   * "Missing row" for a broken link. Without one: the count (the fallback used before the index exists).
+   */
   format(value) {
     if (!Array.isArray(value) || value.length === 0)
       return "";
+    const resolve = labelResolver;
+    if (resolve) {
+      return value.map((ref) => resolve(ref) ?? "Missing row").join(", ");
+    }
     return `${value.length} linked`;
   },
   defaultValue() {
@@ -9562,6 +9573,15 @@ function buildSelection(current, targetTableId, selectedRowIds) {
   }
   return kept.length > 0 ? kept : null;
 }
+function countForeignRefs(value, targetTableId) {
+  if (!isNonEmptyLinkArray(value))
+    return 0;
+  return value.filter((ref) => ref.tableId !== targetTableId).length;
+}
+function removeForeignRefs(current, targetTableId) {
+  const kept = current.filter((ref) => ref.tableId === targetTableId);
+  return kept.length > 0 ? kept : null;
+}
 function filterRows(rows, query) {
   const q = query.trim().toLowerCase();
   if (q === "")
@@ -9672,6 +9692,13 @@ function linkIndexFor(app) {
     indexes.set(app, idx);
   }
   return idx;
+}
+function installLinkLabelResolver(app) {
+  const idx = linkIndexFor(app);
+  setLinkLabelResolver((ref) => {
+    const res = idx.index.resolve(ref);
+    return res.ok ? res.rowLabel : null;
+  });
 }
 
 // src/commands/linkIntegrity.ts
@@ -12729,6 +12756,9 @@ function cellEntries(ctx) {
   const entries = [{ id: "cell.copy", label: "Copy", enabled: true }];
   if (ctx.isLink) {
     entries.push({ id: "cell.links", label: "Choose linked rows\u2026", enabled: !ctx.readOnly });
+    if ((ctx.foreignLinks ?? 0) > 0) {
+      entries.push({ id: "cell.removeForeign", label: "Remove links to other tables", enabled: !ctx.readOnly });
+    }
   }
   return [
     ...entries,
@@ -13861,7 +13891,8 @@ var TableView = class extends import_obsidian8.TextFileView {
       readOnly: isReadOnly(field),
       cellEmpty: isEmptyValue(value),
       hasClipboard: this.clipboardText !== null,
-      isLink: field.type === "link"
+      isLink: field.type === "link",
+      foreignLinks: field.type === "link" ? countForeignRefs(value, field.linkTableId) : 0
     });
     this.showMenu(entries, { row, col }, pos);
   }
@@ -13911,6 +13942,13 @@ var TableView = class extends import_obsidian8.TextFileView {
         case "cell.links":
           this.openLinkPicker(row.id, field2);
           return;
+        case "cell.removeForeign": {
+          const current = s.store.getRow(row.id)?.values[field2.id];
+          if (Array.isArray(current)) {
+            s.setValue(row.id, field2.id, removeForeignRefs(current, field2.linkTableId));
+          }
+          return;
+        }
         case "cell.clear":
           s.setValue(row.id, field2.id, null);
           break;
@@ -16394,6 +16432,7 @@ var TablifyPlugin = class extends import_obsidian15.Plugin {
     registerImportCommand(this);
     registerExportCommand(this);
     linkIndexFor(this.app).start(this);
+    installLinkLabelResolver(this.app);
     registerLinkIntegrityCommand(this);
     this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf));
     this.registerExtensions(["tablify"], TABLIFY_VIEW_TYPE);

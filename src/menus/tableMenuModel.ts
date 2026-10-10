@@ -67,12 +67,17 @@ export interface CellContext {
   hasClipboard: boolean;
   /** P8-04: a link cell is changed through the row picker, and paste is refused. */
   isLink?: boolean;
+  /** P8-04 follow-up (R-5): links in this cell that point at a table other than the field's target. */
+  foreignLinks?: number;
 }
 
 export function cellEntries(ctx: CellContext): MenuEntry[] {
   const entries: MenuEntry[] = [{ id: 'cell.copy', label: 'Copy', enabled: true }];
   if (ctx.isLink) {
     entries.push({ id: 'cell.links', label: 'Choose linked rows…', enabled: !ctx.readOnly });
+    if ((ctx.foreignLinks ?? 0) > 0) {
+      entries.push({ id: 'cell.removeForeign', label: 'Remove links to other tables', enabled: !ctx.readOnly });
+    }
   }
   return [
     ...entries,

@@ -269,6 +269,21 @@ export function buildSelection(
   return kept.length > 0 ? kept : null;
 }
 
+/** How many links in a cell point at a table other than the field's target (R-5). */
+export function countForeignRefs(value: CellValue | undefined, targetTableId: string | undefined): number {
+  if (!isNonEmptyLinkArray(value)) return 0;
+  return value.filter((ref) => ref.tableId !== targetTableId).length;
+}
+
+/**
+ * The cell value after removing every link that points at another table (R-5). Links to the
+ * field's target stay in their order. Returns null when nothing is left.
+ */
+export function removeForeignRefs(current: readonly LinkRef[], targetTableId: string | undefined): LinkRef[] | null {
+  const kept = current.filter((ref) => ref.tableId === targetTableId);
+  return kept.length > 0 ? kept : null;
+}
+
 /** Case-insensitive substring filter for the picker. An empty query keeps every row. */
 export function filterRows(rows: readonly LinkableRow[], query: string): LinkableRow[] {
   const q = query.trim().toLowerCase();

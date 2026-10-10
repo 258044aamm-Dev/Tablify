@@ -9,6 +9,18 @@ export function isLinkRef(v: unknown): v is LinkRef {
 }
 
 /**
+ * Resolves one link to the linked row's label, or null when the link is broken. Set once by the
+ * plugin from the vault index (P8-04 follow-up, R-2). Null means "not set": format() then counts.
+ */
+export type LinkLabelResolver = (ref: LinkRef) => string | null;
+
+let labelResolver: LinkLabelResolver | null = null;
+
+export function setLinkLabelResolver(resolver: LinkLabelResolver | null): void {
+  labelResolver = resolver;
+}
+
+/**
  * link: links to rows in another table (v2, P8). Values are set through the row picker
  * (P8-04), never from typed or pasted text. Resolution, broken-link markers, and the integrity
  * check live in src/links/ (they need the vault, so the field type stays pure).
@@ -26,9 +38,16 @@ export const linkType: FieldType = {
     return null;
   },
 
-  /** Count only. Grid labels come from the link index (summarizeLinks). Sort and filter use this. */
+  /**
+   * Text for sort, filter and export. With a resolver: the linked row names, joined with ", ", and
+   * "Missing row" for a broken link. Without one: the count (the fallback used before the index exists).
+   */
   format(value: CellValue): string {
     if (!Array.isArray(value) || value.length === 0) return '';
+    const resolve = labelResolver;
+    if (resolve) {
+      return (value as LinkRef[]).map((ref) => resolve(ref) ?? 'Missing row').join(', ');
+    }
     return `${value.length} linked`;
   },
 

@@ -5,6 +5,7 @@
 import { Notice, TextFileView, WorkspaceLeaf } from 'obsidian';
 import { parse } from '../format/parse.js';
 import { serialize } from '../format/serialize.js';
+import { countForeignRefs, removeForeignRefs } from '../model/link.js';
 import { createSession, type TableSession } from '../model/tableSession.js';
 import { planTypeChange } from '../model/fieldChange.js';
 import { getFieldType } from '../model/fieldTypes/registry.js';
@@ -481,6 +482,7 @@ export class TableView extends TextFileView {
       cellEmpty: isEmptyValue(value),
       hasClipboard: this.clipboardText !== null,
       isLink: field.type === 'link',
+      foreignLinks: field.type === 'link' ? countForeignRefs(value, field.linkTableId) : 0,
     });
     this.showMenu(entries, { row, col }, pos);
   }
@@ -528,6 +530,14 @@ export class TableView extends TextFileView {
         case 'cell.links':
           this.openLinkPicker(row.id, field);
           return;
+        case 'cell.removeForeign': {
+          // P8-04 follow-up (R-5): drop links to other tables. Goes through setValue, so it can be undone.
+          const current = s.store.getRow(row.id)?.values[field.id];
+          if (Array.isArray(current)) {
+            s.setValue(row.id, field.id, removeForeignRefs(current as LinkRef[], field.linkTableId));
+          }
+          return;
+        }
         case 'cell.clear':
           s.setValue(row.id, field.id, null);
           break;

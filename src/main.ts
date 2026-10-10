@@ -2,7 +2,7 @@ import { Notice, Plugin } from 'obsidian';
 import { registerImportCommand } from './commands/import.js';
 import { registerExportCommand } from './commands/export.js';
 import { registerLinkIntegrityCommand } from './commands/linkIntegrity.js';
-import { linkIndexFor } from './links/vaultLinkIndex.js';
+import { installLinkLabelResolver, linkIndexFor } from './links/vaultLinkIndex.js';
 import { TableView, TABLIFY_VIEW_TYPE } from './views/tableView.js';
 import { registerFileMenu } from './menus/fileMenu.js';
 import { DEFAULT_SETTINGS, TablifySettingTab, loadSettings, type TablifySettings } from './settings.js';
@@ -20,6 +20,7 @@ export default class TablifyPlugin extends Plugin {
 		registerExportCommand(this);
 		// P8-04: vault-wide link index (renames keep links; broken links are reported).
 		linkIndexFor(this.app).start(this);
+		installLinkLabelResolver(this.app); // P8-04 follow-up (R-2): sort, filter, export read row names
 		registerLinkIntegrityCommand(this);
 		// P5-00: open .tablify files in the table view (undoable grid, save through TextFileView).
 		this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf));

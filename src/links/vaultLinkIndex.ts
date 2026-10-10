@@ -10,6 +10,7 @@
 
 import type { App, Plugin } from 'obsidian';
 import { parse } from '../format/parse.js';
+import { setLinkLabelResolver } from '../model/fieldTypes/link.js';
 import { createLinkIndex, snapshotTable, type LinkIndex, type TableSnapshot } from '../model/link.js';
 
 const DEBOUNCE_MS = 250;
@@ -120,4 +121,16 @@ export function linkIndexFor(app: App): VaultLinkIndex {
     indexes.set(app, idx);
   }
   return idx;
+}
+
+/**
+ * P8-04 follow-up (R-2): lets sort, filter and export read linked row names. Called once from
+ * onload, after `start()`. A broken link gives null, shown as "Missing row".
+ */
+export function installLinkLabelResolver(app: App): void {
+  const idx = linkIndexFor(app);
+  setLinkLabelResolver((ref) => {
+    const res = idx.index.resolve(ref);
+    return res.ok ? res.rowLabel : null;
+  });
 }

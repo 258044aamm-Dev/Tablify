@@ -71,10 +71,10 @@
 | ID | Item | Impact | Next step |
 |---|---|---|---|
 | R-1 | **Field rename rule (spec §12 item 1) is accepted but not built. Deferred by owner decision, 2026-10-10.** The app has no field-rename feature, so there is nothing to hook the `{reference}` rewrite into | A field renamed by editing the file leaves its formulas showing `#NAME?`. Listed as a known limit in the user guide §18 | Revisit when field rename is planned. Build it as one undoable command that rewrites references |
-| R-2 | Sort, filter, copy and export of a link column use the count ("2 linked"), not the names | A sort on a link column orders by count, which may surprise users | Owner decision. A name-based sort needs the index in the query layer |
+| R-2 | Sort, filter and export of a link column used the count ("2 linked"). **Built (owner choice: names).** Sort is A to Z by the linked names, search matches the names, export writes the names | Sort and search follow the names. Export is text only and cannot restore links | Not run in Obsidian yet |
 | R-3 | Obsidian's own file Duplicate copies the table ID. The integrity check reports the duplicate, and links resolve to the first file by path | Links resolve to the first file by path, never to the copy | Follow-up done: file menu item "Give this copy a new table ID" (explicit, closed-tab only). Integrity check points to it. Not run in Obsidian yet |
 | R-4 | Link editing in embedded tables is not supported; the embed shows a notice to open the full table | Some users may expect to link from a note | Owner decision |
-| R-5 | The picker edits links into one default target table per field. Links into other tables are kept but cannot be edited yet | Mixed-target link fields cannot be fixed in the UI | Build a second picker, or keep one target per field |
+| R-5 | Links into a table other than the field's target were kept but could not be removed in the UI | Mixed-target cells could not be cleaned up | **Built, one target per field (Airtable model).** Cell menu item "Remove links to other tables", shown only when such links exist. To link into a second table, add a second Link field. Not run in Obsidian yet |
 | R-6 | Performance targets are still proposed (G-P1) | Gates are not binding until confirmed | Owner to confirm or change |
 | R-7 | Cycle detection runs when a formula is set or a dependency changes, rather than only at a save event | Same user result: the cell shows `#CYCLE!` at once | Note only |
 | R-8 | No browser or visual check was done. Mobile was not tested on a device | Layout of the picker, chips and error styles is unverified | Owner check before release (Obsidian checklist below) |
@@ -89,6 +89,14 @@
 3. R-1 (field rename) is deferred; confirm or reopen it. Decide R-2 (sort by link), R-3 (duplicate IDs) and R-5 (second picker).
 4. Confirm or change the performance targets (R-6).
 5. Then change this verdict to PASS and move SAD-13 to Done.
+
+## Follow-up: names in sort, search and export; links to other tables (2026-10-10)
+
+Owner choices: R-2 by names (A to Z sort, search by name, export by name). R-5 by the best practice: one target table per link field, as in Airtable, so no file-format change. The gap R-5 names is cleaned up with a cell-menu item that removes links to other tables. Linking into a second table is done with a second Link field.
+
+- Code: `src/model/fieldTypes/link.ts` (name resolver, count fallback), `src/links/vaultLinkIndex.ts` (`installLinkLabelResolver`), `src/main.ts`, `src/model/link.ts` (`countForeignRefs`, `removeForeignRefs`), `src/menus/tableMenuModel.ts`, `src/views/tableView.ts`.
+- Tests: `tests/model/linkNamesAndForeign.test.ts` (11 tests). Full check: exit 0, 81 files, 1,245 tests, 119 warnings (baseline).
+- NOT RUN in Obsidian: the sort order on a real vault, the export file, and the menu item.
 
 ## Follow-up: duplicate table IDs (2026-10-10)
 
