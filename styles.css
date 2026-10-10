@@ -287,3 +287,19 @@
   opacity: 0.8;
   text-align: right;
 }
+
+/* Frozen columns (SAD-69 C). The position and offset are set inline, because they depend on
+   the resolved column geometry; only the opaque background belongs here. A frozen cell has
+   to hide the columns that scroll underneath it, and it has to do that with the right
+   colour, or a pinned cell sits on a striped row looking like a different row. */
+.tablify__cell--frozen {
+  background: var(--tablify-bg);
+}
+
+.tablify__row--stripe .tablify__cell--frozen {
+  background: var(--tablify-bg-stripe);
+}
+
+.tablify__header .tablify__cell--frozen {
+  background: var(--tablify-bg-subtle);
+}

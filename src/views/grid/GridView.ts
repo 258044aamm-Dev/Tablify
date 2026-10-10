@@ -2,7 +2,8 @@
  * Grid view with virtual rows.
  * Renders only visible rows + overscan, recycles row elements, supports touch scrolling.
  * Column virtualization is NOT implemented; all visible columns are rendered per row (horizontal scroll via overflow-x).
- * Row height comes from ViewDefinition.rowHeight via src/model/view.ts (compact/medium/tall).
+ * Row height comes from ViewDefinition.rowHeight via src/model/view.ts (small/medium/large).
+ * Column widths and frozen columns come from the view too (SAD-69 C).
  * Theme is applied via src/ui/theme/tokens.ts applyTheme on the root.
  *
  * P5-00: adds a sticky header, a single selected cell, click-to-select, and setModel() so the
@@ -32,6 +33,32 @@ export interface GridSelection {
   col: number;
 }
 
+/**
+ * Column width used when the view records no width for a field.
+ *
+ * SAD-69 C: `view.columnWidths` was written by setColumnWidth() and carried through
+ * serialize/normalizeView, but nothing ever read it — cells were `flex: 1` with a
+ * `min-width`. Columns now have a real width, which frozen columns need anyway:
+ * `position: sticky; left` is meaningless without a known geometry.
+ */
+export const DEFAULT_COLUMN_WIDTH = 160;
+
+/**
+ * Resolved width in px for each visible field, in view order.
+ *
+ * Header and body both read this, and both must: the only thing keeping a column's header
+ * cell over its body cells is the two agreeing on the same number.
+ */
+export function columnWidths(fields: FieldDefinition[], view: ViewDefinition): number[] {
+  const widths = view.columnWidths ?? {};
+  return fields.map((f) => {
+    const w = widths[f.id];
+    return typeof w === 'number' && Number.isFinite(w) && w > 0
+      ? Math.round(w)
+      : DEFAULT_COLUMN_WIDTH;
+  });
+}
+
 export class GridView {
   root: HTMLElement;
   header: HTMLElement;
@@ -45,6 +72,11 @@ export class GridView {
   private rows: Row[];
   private selected: GridSelection | null = null;
   private sortState: { fieldId: string; direction: string }[] = [];
+  /** Column geometry, recomputed by measure(). Header and body share it. */
+  private widths: number[] = [];
+  private offsets: number[] = [];
+  private frozenColumns = 0;
+  private totalWidth = 0;
 
   constructor(private opts: GridOptions) {
     this.fields = opts.fields;
@@ -61,6 +93,7 @@ export class GridView {
     this.sortState = Array.isArray(opts.view.sort)
       ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction }))
       : [];
+    this.measure(opts.view);
     // touch scrolling without blocking page
     this.root.style.overflow = 'auto';
     this.root.style.webkitOverflowScrolling = 'touch' as unknown as string;
@@ -74,8 +107,14 @@ export class GridView {
     this.header.setAttribute('role', 'row');
     this.header.style.position = 'sticky';
     this.header.style.top = '0';
-    this.header.style.zIndex = '1';
+    // Above frozen body cells (z-index 1). The header is a positioned element with a
+    // z-index, so it is its own stacking context and its frozen cells rank inside it.
+    this.header.style.zIndex = '3';
     this.header.style.display = 'flex';
+    // SAD-69 C: the header has to be its own scroll container, or the horizontal scroll
+    // below has nothing to set scrollLeft on and the columns drift out of alignment.
+    // `hidden` rather than `auto` so no second scrollbar appears.
+    this.header.style.overflow = 'hidden';
     // SAD-69 D: no inline background here. An inline value used to be
     // `var(--background-primary)`, an Obsidian variable, which overrode the plugin token
     // in styles.css (.tablify__header { background: var(--tablify-bg-subtle) }) and made the
@@ -116,6 +155,13 @@ export class GridView {
       this.render();
     });
 
+    // SAD-69 C: horizontal scroll lives on the viewport, but the header is its sibling, so
+    // the two scroll independently and the header separates from its columns. Mirror the
+    // offset onto the header. Frozen cells are sticky, so they stay put inside both.
+    this.viewport.addEventListener('scroll', () => {
+      this.header.scrollLeft = this.viewport.scrollLeft;
+    });
+
     // click-to-select (delegated)
     this.root.addEventListener('click', (e) => {
       const target = e.target as HTMLElement | null;
@@ -142,6 +188,7 @@ export class GridView {
     this.sortState = Array.isArray(view.sort)
       ? view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction }))
       : [];
+    this.measure(view);
     this.root.setAttribute('aria-rowcount', String(this.totalRows + 1)); // keep counts in sync (P6-03)
     this.root.setAttribute('aria-colcount', String(this.fields.length));
     this.viewport.style.height = `${totalHeight(this.totalRows, this.rowHeight)}px`;
@@ -207,23 +254,63 @@ export class GridView {
     return Array.from(this.header.children).map((c) => c.textContent ?? '');
   }
 
-  private styleCell(cell: HTMLElement): void {
+  /**
+   * Recompute column geometry from the view. Called from the constructor and setModel(),
+   * so a frozen-columns or column-width change takes effect on the next render.
+   */
+  private measure(view: ViewDefinition): void {
+    this.widths = columnWidths(this.fields, view);
+    this.frozenColumns = Math.max(
+      0,
+      Math.min(this.fields.length, Math.round(view.frozenColumns ?? 0)),
+    );
+    this.offsets = [];
+    let x = 0;
+    for (const w of this.widths) {
+      this.offsets.push(x);
+      x += w;
+    }
+    this.totalWidth = x;
+  }
+
+  /**
+   * @param frozenZIndex stacking order for a frozen cell. Body cells pass '1', header cells
+   *   '2' — the header is its own stacking context, so this only has to outrank the other
+   *   header cells, while the header element itself outranks the whole body.
+   */
+  private styleCell(cell: HTMLElement, colIndex: number, frozenZIndex: string): void {
     cell.className = 'tablify__cell';
-    cell.style.flex = '1';
-    cell.style.minWidth = '120px';
+    // Fixed width rather than `flex: 1`: sticky frozen columns need a stable geometry, and
+    // header and body have to agree on it. min-width is dropped for the same reason.
+    cell.style.flex = '0 0 auto';
+    cell.style.boxSizing = 'border-box';
+    cell.style.width = `${this.widths[colIndex] ?? DEFAULT_COLUMN_WIDTH}px`;
     cell.style.padding = '4px 8px';
     cell.style.overflow = 'hidden';
     cell.style.textOverflow = 'ellipsis';
     cell.style.whiteSpace = 'nowrap';
     cell.style.borderRight = '1px solid var(--tablify-border)';
+    if (colIndex < this.frozenColumns) {
+      // Pinned to a fixed offset, so it holds position while the rest scrolls under it.
+      // The opaque background comes from .tablify__cell--frozen in styles.css, which
+      // accounts for row striping and the header's own background.
+      cell.classList.add('tablify__cell--frozen');
+      cell.style.position = 'sticky';
+      cell.style.left = `${this.offsets[colIndex]}px`;
+      cell.style.zIndex = frozenZIndex;
+    }
   }
 
   private renderHeader(): void {
     this.header.innerHTML = '';
+    // Span the columns; min-width keeps the header filling the grid when they are narrower
+    // than the viewport, so its background never stops short of the body.
+    this.header.style.minWidth = '100%';
+    this.header.style.width = `${this.totalWidth}px`;
     const primarySort = this.sortState[0];
     this.fields.forEach((field, colIndex) => {
       const cell = document.createElement('div');
-      this.styleCell(cell);
+      this.styleCell(cell, colIndex, '2');
       cell.classList.add('tablify__header-cell');
       cell.style.fontWeight = '600';
       cell.setAttribute('role', 'columnheader');
@@ -258,6 +345,10 @@ export class GridView {
       // Setting it only at creation meant the Options menu's row-height control did nothing
       // to rows that were already on screen (SAD-69).
       rowEl.style.height = `${this.rowHeight}px`;
+      // Span the columns, so striping covers the full scrollable width and not just the
+      // visible part. min-width keeps short tables filling the viewport.
+      rowEl.style.minWidth = '100%';
+      rowEl.style.width = `${this.totalWidth}px`;
       // P6-03 (a11y): 1-based row index; the header is row 1 (attribute-only).
       rowEl.setAttribute('aria-rowindex', String(rowIdx + 2));
       // Render cells for all fields (no column virtualization)
@@ -270,7 +361,7 @@ export class GridView {
         else rowEl.classList.remove('tablify__row--stripe');
         this.fields.forEach((field, colIndex) => {
           const cell = document.createElement('div');
-          this.styleCell(cell);
+          this.styleCell(cell, colIndex, '1');
           const val = row.values[field.id];
           cell.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
           cell.setAttribute('data-field-id', field.id);
