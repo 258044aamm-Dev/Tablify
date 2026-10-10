@@ -69,3 +69,221 @@
 .tablify--dark {
   /* theme class is set by src/ui/theme/tokens.ts applyTheme(); variables are set inline */
 }
+
+/* ---- Toolbar (SAD-69) -------------------------------------------------- */
+/* applyTheme() puts the .tablify class on the toolbar so it picks up the theme variables
+   and follows the plugin theme rather than the host Obsidian theme. The rules below come
+   after .tablify on purpose: they override the box styling that class brings, because the
+   toolbar is chrome, not a panel. Colours are tokens only — tests reject hex literals here. */
+
+.tablify__toolbar {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--tablify-border);
+  font-family: 'Lora', Georgia, serif;
+  font-size: 13px;
+  color: var(--tablify-text);
+  padding: 0 0 6px;
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tablify__toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Search capsule — matches the prototype's rounded input with an inset icon. */
+.tablify__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+.tablify__search-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 12px;
+  color: var(--tablify-text);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.tablify__search-input,
+.tablify__query-input {
+  background: var(--tablify-bg);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tablify__search-input {
+  padding-left: 30px;
+}
+
+.tablify__query-input {
+  border-radius: 999px;
+  flex: 1 1 200px;
+}
+
+.tablify__search-input::placeholder,
+.tablify__query-input::placeholder {
+  color: var(--tablify-text);
+  opacity: 0.55;
+}
+
+.tablify__search-input:focus,
+.tablify__query-input:focus {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* Invalid query. The message uses the normal text colour: the accent orange is a
+   non-text token (it measures 2.96:1 on the light background), so using it here would
+   fail WCAG AA. The accent marks the field; the words stay readable. */
+.tablify__query-input--invalid {
+  border-color: var(--tablify-accent-primary);
+  border-style: solid;
+  border-width: 2px;
+}
+
+.tablify__query-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tablify__query-error {
+  flex: 1 1 100%;
+  font-size: 11px;
+  color: var(--tablify-text);
+  border-left: 3px solid var(--tablify-accent-primary);
+  padding-left: 8px;
+}
+
+.tablify__toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tablify__toolbar-button {
+  background: var(--tablify-bg);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tablify__toolbar-button:hover {
+  border-color: var(--tablify-accent-primary);
+}
+
+.tablify__toolbar-button:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* View settings popover. */
+.tablify__options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--tablify-bg-subtle);
+  border: 1px solid var(--tablify-border);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.tablify__option-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tablify__option-label {
+  font-size: 11px;
+  color: var(--tablify-text);
+  min-width: 96px;
+}
+
+.tablify__option-empty {
+  font-size: 11px;
+  color: var(--tablify-text);
+  opacity: 0.7;
+}
+
+.tablify__option-button {
+  background: var(--tablify-bg);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tablify__option-button.is-active {
+  border-color: var(--tablify-accent-primary);
+  border-width: 2px;
+}
+
+.tablify__option-button:focus-visible,
+.tablify__option-select:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+.tablify__option-button--wide {
+  align-self: flex-start;
+}
+
+.tablify__option-select {
+  background: var(--tablify-bg);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border);
+  border-radius: 8px;
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.tablify__hidden-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.tablify__hidden-field-name {
+  font-size: 11px;
+  color: var(--tablify-text);
+}
+
+.tablify__rowcount {
+  font-size: 11px;
+  color: var(--tablify-text);
+  opacity: 0.8;
+  text-align: right;
+}

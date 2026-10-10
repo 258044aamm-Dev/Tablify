@@ -1,0 +1,298 @@
+/**
+ * @vitest-environment jsdom
+ *
+ * TableView + toolbar integration (SAD-69 plan items A and B).
+ *
+ * These are the tests that prove the reported bug is actually fixed: TableView.onOpen()
+ * mounts a real toolbar with search, Add Row, Add Field, Options and Undo/Redo, and the
+ * controls are wired to the session. Before the fix, onOpen() built three bare buttons and
+ * nothing else, and no test could reach this class at all (no obsidian mock existed).
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { TableView } from '../../src/views/tableView.js';
+import { AddFieldModal } from '../../src/views/grid/AddFieldModal.js';
+import { WorkspaceLeaf, Modal } from 'obsidian';
+import { DEBOUNCE_MS } from '../../src/views/grid/toolbar.js';
+
+function sampleFile(): string {
+  return JSON.stringify({
+    formatVersion: 1,
+    tableId: 'tbl_test',
+    name: 'Test',
+    fields: [
+      { id: 'fld_name', name: 'Name', type: 'text', primary: true },
+      { id: 'fld_status', name: 'Status', type: 'text' },
+    ],
+    rows: [
+      mkRow('row_1', { fld_name: 'Alpha', fld_status: 'done' }),
+      mkRow('row_2', { fld_name: 'Beta', fld_status: 'todo' }),
+      mkRow('row_3', { fld_name: 'Gamma', fld_status: 'done' }),
+    ],
+    views: [
+      {
+        id: 'view_1',
+        name: 'Default',
+        sort: [],
+        groupBy: null,
+        hidden: [],
+        frozenColumns: 1,
+        rowHeight: 'medium',
+        columnWidths: {},
+        columnOrder: ['fld_name', 'fld_status'],
+        warnings: [],
+      },
+    ],
+    syncLink: null,
+  });
+}
+
+function mkRow(id: string, values: Record<string, unknown>) {
+  return {
+    id,
+    rev: 1,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    values,
+    sync: null,
+  };
+}
+
+async function openView(data?: string): Promise<TableView> {
+  const view = new TableView(new WorkspaceLeaf() as never);
+  await view.onOpen();
+  document.body.appendChild(view.contentEl);
+  if (data !== undefined) view.setViewData(data, false);
+  return view;
+}
+
+const el = (view: TableView, sel: string) => view.contentEl.querySelector<HTMLElement>(sel);
+
+/** Assert a node exists and return it, so tests avoid non-null assertions (lint warns on them). */
+function need<T>(value: T | null | undefined, label: string): T {
+  expect(value, label).not.toBeNull();
+  if (value === null || value === undefined) throw new Error(`missing element: ${label}`);
+  return value;
+}
+
+const action = (view: TableView, name: string) =>
+  view.contentEl.querySelector<HTMLElement>(`[data-action="${name}"]`);
+const gridRows = (view: TableView) =>
+  Array.from(view.contentEl.querySelectorAll('.tablify__row'));
+const savedView = (view: TableView) => JSON.parse(view.getViewData()).views[0];
+
+function typeInto(input: HTMLInputElement, value: string): void {
+  input.value = value;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+describe('TableView — toolbar is mounted (the SAD-69 bug)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    Modal.reset();
+  });
+
+  it('onOpen mounts a toolbar with every control the prototype calls for', async () => {
+    const view = await openView();
+    expect(el(view, '[data-testid="tablify-search"]'), 'search box').not.toBeNull();
+    expect(el(view, '[data-testid="tablify-query"]'), 'query input').not.toBeNull();
+    expect(action(view, 'add-row'), 'Add Row').not.toBeNull();
+    expect(action(view, 'add-field'), 'Add Field').not.toBeNull();
+    expect(action(view, 'options'), 'Options / view settings').not.toBeNull();
+    expect(action(view, 'undo')).not.toBeNull();
+    expect(action(view, 'redo')).not.toBeNull();
+  });
+
+  it('mounts the toolbar above the grid, and both are present', async () => {
+    const view = await openView(sampleFile());
+    const toolbar = el(view, '.tablify__toolbar');
+    const grid = el(view, '.tablify__body .tablify--grid');
+    expect(toolbar).not.toBeNull();
+    expect(grid).not.toBeNull();
+    expect(
+      need(toolbar, 'toolbar').compareDocumentPosition(need(grid, 'grid')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('keeps the toolbar mounted after the file loads', async () => {
+    const view = await openView(sampleFile());
+    expect(el(view, '[data-testid="tablify-search"]')).not.toBeNull();
+    expect(gridRows(view)).toHaveLength(3);
+  });
+});
+
+describe('TableView — search and query are wired to the session', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '';
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('typing in the search box filters the grid', async () => {
+    const view = await openView(sampleFile());
+    expect(gridRows(view)).toHaveLength(3);
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(gridRows(view)).toHaveLength(1);
+    expect(view.contentEl.textContent).toContain('Alpha');
+    expect(view.contentEl.textContent).not.toContain('Beta');
+  });
+
+  it('the search term is persisted into the view', async () => {
+    const view = await openView(sampleFile());
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(savedView(view).search).toBe('Alpha');
+  });
+
+  it('searching requests a save, so the filter survives a reload', async () => {
+    const view = await openView(sampleFile());
+    const before = (view as unknown as { saveRequests: number }).saveRequests;
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect((view as unknown as { saveRequests: number }).saveRequests).toBeGreaterThan(before);
+  });
+
+  it('searching does not create an undo entry', async () => {
+    // Ctrl+Z must not step back through the user's typing.
+    const view = await openView(sampleFile());
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(gridRows(view)).toHaveLength(1);
+    need(action(view, 'undo'), 'undo button').click();
+    // Undo was a no-op: the stack was empty, so the filter still applies.
+    expect(gridRows(view)).toHaveLength(1);
+  });
+
+  it('the query input filters the grid and is persisted', async () => {
+    const view = await openView(sampleFile());
+    typeInto(el(view, '[data-testid="tablify-query"]') as HTMLInputElement, 'Status:done');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(gridRows(view)).toHaveLength(2);
+    expect(savedView(view).query).toBe('Status:done');
+  });
+
+  it('the row-count badge reports the filtered and total counts', async () => {
+    const view = await openView(sampleFile());
+    expect(need(el(view, '[data-testid="tablify-rowcount"]'), 'row count').textContent).toBe('3 rows');
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(need(el(view, '[data-testid="tablify-rowcount"]'), 'row count').textContent).toBe('1 of 3 rows');
+  });
+
+  it('Clear filters empties both search and query', async () => {
+    const view = await openView(sampleFile());
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
+    typeInto(el(view, '[data-testid="tablify-query"]') as HTMLInputElement, 'Status:done');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(gridRows(view)).toHaveLength(1);
+
+    need(action(view, 'options'), 'options button').click();
+    need(action(view, 'clear-filters'), 'clear filters button').click();
+    expect(gridRows(view)).toHaveLength(3);
+    expect(savedView(view).search).toBe('');
+    expect(savedView(view).query).toBe('');
+  });
+});
+
+describe('TableView — toolbar actions', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    Modal.reset();
+  });
+
+  it('Add Row appends a row', async () => {
+    const view = await openView(sampleFile());
+    expect(gridRows(view)).toHaveLength(3);
+    need(action(view, 'add-row'), 'add row button').click();
+    expect(gridRows(view)).toHaveLength(4);
+  });
+
+  it('Add Row is undoable via the toolbar', async () => {
+    const view = await openView(sampleFile());
+    need(action(view, 'add-row'), 'add row button').click();
+    expect(gridRows(view)).toHaveLength(4);
+    need(action(view, 'undo'), 'undo button').click();
+    expect(gridRows(view)).toHaveLength(3);
+    need(action(view, 'redo'), 'redo button').click();
+    expect(gridRows(view)).toHaveLength(4);
+  });
+
+  it('Add Field opens the modal and adds the field on confirm', async () => {
+    const view = await openView(sampleFile());
+    need(action(view, 'add-field'), 'add field button').click();
+
+    const modal = Modal.opened[0] as AddFieldModal;
+    expect(modal, 'an AddFieldModal should have opened').toBeInstanceOf(AddFieldModal);
+
+    const input = modal.contentEl.querySelector('input[type="text"]') as HTMLInputElement;
+    input.value = 'Score';
+    input.dispatchEvent(new Event('input'));
+    const select = modal.contentEl.querySelector('select') as HTMLSelectElement;
+    select.value = 'number';
+    select.dispatchEvent(new Event('change'));
+    (modal.contentEl.querySelector('button') as HTMLButtonElement).click();
+
+    const headers = Array.from(view.contentEl.querySelectorAll('.tablify__header-cell')).map(
+      (h) => h.textContent,
+    );
+    expect(headers).toContain('Score');
+    expect(savedView(view).columnOrder).toContain(savedView(view).columnOrder.slice(-1)[0]);
+  });
+});
+
+describe('TableView — view settings (Options)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('shows a hidden field again (plan item B)', async () => {
+    const file = JSON.parse(sampleFile());
+    file.views[0].hidden = ['fld_status'];
+    const view = await openView(JSON.stringify(file));
+
+    let headers = Array.from(view.contentEl.querySelectorAll('.tablify__header-cell')).map(
+      (h) => h.textContent,
+    );
+    expect(headers).toEqual(['Name']);
+
+    need(action(view, 'options'), 'options button').click();
+    const showBtn = view.contentEl.querySelector<HTMLElement>('[data-show-field="fld_status"]');
+    expect(showBtn, 'a way to show the hidden field must exist').not.toBeNull();
+    need(showBtn, 'show field button').click();
+
+    headers = Array.from(view.contentEl.querySelectorAll('.tablify__header-cell')).map(
+      (h) => h.textContent,
+    );
+    expect(headers).toEqual(['Name', 'Status']);
+    expect(savedView(view).hidden).toEqual([]);
+  });
+
+  it('changing row height re-renders and persists', async () => {
+    const view = await openView(sampleFile());
+    expect(gridRows(view)[0].style.height).toBe('36px'); // medium
+
+    need(action(view, 'options'), 'options button').click();
+    need(
+      view.contentEl.querySelector<HTMLElement>('[data-row-height="large"]'),
+      'large row height',
+    ).click();
+
+    expect(gridRows(view)[0].style.height).toBe('48px');
+    expect(savedView(view).rowHeight).toBe('large');
+  });
+
+  it('changing frozen columns persists', async () => {
+    const view = await openView(sampleFile());
+    need(action(view, 'options'), 'options button').click();
+    const select = need(
+      view.contentEl.querySelector<HTMLSelectElement>('.tablify__option-select'),
+      'freeze select',
+    );
+    select.value = '2';
+    select.dispatchEvent(new Event('change'));
+    expect(savedView(view).frozenColumns).toBe(2);
+  });
+});

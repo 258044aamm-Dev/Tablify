@@ -49,7 +49,15 @@ export function setFrozenColumns(view: ViewDefinition, n: number, fields: FieldD
   return res.ok ? res.view : view;
 }
 
-export function setRowHeight(view: ViewDefinition, h: 'compact' | 'medium' | 'tall', fields: FieldDefinition[]): ViewDefinition {
+/**
+ * Set the row height.
+ *
+ * SAD-69: narrowed to the three values tablify.schema.json allows (small/medium/large).
+ * The model's RowHeight type also permits 'compact' and 'tall', and rowHeightPx() renders
+ * them, but writing either produces a file the schema rejects. The Options menu therefore
+ * offers only these three.
+ */
+export function setRowHeight(view: ViewDefinition, h: 'small' | 'medium' | 'large', fields: FieldDefinition[]): ViewDefinition {
   const next: ViewDefinition = { ...view, rowHeight: h };
   const res = validateView(next, fields);
   return res.ok ? res.view : view;

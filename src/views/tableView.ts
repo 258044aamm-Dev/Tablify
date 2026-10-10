@@ -16,6 +16,10 @@ import { isMoveAction, moveSelection } from './tableController.js';
 import { LongPressDetector } from './longPress.js';
 import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
 import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
+import { createDefaultView } from '../model/view.js';
+import { setFrozenColumns, setRowHeight } from './grid/columns.js';
+import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
+import { AddFieldModal } from './grid/AddFieldModal.js';
 
 export const TABLIFY_VIEW_TYPE = 'tablify';
 
@@ -63,10 +67,10 @@ export class TableView extends TextFileView {
   async onOpen(): Promise<void> {
     this.contentEl.empty();
     this.contentEl.addClass('tablify-view');
-    this.toolbar = this.contentEl.createDiv({ cls: 'tablify__toolbar' });
-    this.addToolbarButton('Add row', () => this.mutate((s) => s.addRow()));
-    this.addToolbarButton('Undo', () => this.mutate((s) => s.undo()));
-    this.addToolbarButton('Redo', () => this.mutate((s) => s.redo()));
+    // SAD-69: the toolbar P3-08 specified and that never existed. Built once here and
+    // refreshed through update() on every render — rebuilding would drop focus and caret.
+    this.toolbarView = new Toolbar({ ...this.toolbarState(), callbacks: this.toolbarCallbacks() });
+    this.contentEl.appendChild(this.toolbarView.root);
     this.body = this.contentEl.createDiv({ cls: 'tablify__body' });
   }
 
@@ -96,17 +100,108 @@ export class TableView extends TextFileView {
     this.editing = null;
     this.menuTarget = null;
     if (this.body) this.body.empty();
+    this.syncToolbar();
   }
 
   async onClose(): Promise<void> {
     this.clear();
+    this.toolbarView?.destroy();
+    this.toolbarView = null;
   }
 
   // ---- internals ----
 
-  private addToolbarButton(label: string, onClick: () => void): void {
-    const btn = this.toolbar!.createEl('button', { text: label, cls: 'tablify__toolbar-button' });
-    btn.addEventListener('click', onClick);
+  private currentTheme(): 'light' | 'dark' {
+    return document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+  }
+
+  /** Snapshot of everything the toolbar renders from. */
+  private toolbarState(): ToolbarState {
+    const theme = this.currentTheme();
+    const s = this.session;
+    if (!s) {
+      return {
+        fields: [],
+        view: createDefaultView([]),
+        visibleRowCount: 0,
+        totalRowCount: 0,
+        search: '',
+        query: '',
+        queryError: null,
+        theme,
+      };
+    }
+    const view = s.getView();
+    return {
+      fields: s.getFields(),
+      view,
+      visibleRowCount: s.getDisplayRows().length,
+      totalRowCount: s.store.getAllRows().length,
+      search: view.search ?? '',
+      query: view.query ?? '',
+      queryError: s.getFilterError(),
+      theme,
+    };
+  }
+
+  /** Push the current model state into the toolbar without rebuilding it. */
+  private syncToolbar(): void {
+    this.toolbarView?.update(this.toolbarState());
+  }
+
+  private toolbarCallbacks(): ToolbarCallbacks {
+    return {
+      // Search and query are persisted but not undoable — see patchView().
+      onSearch: (term) => this.applyFilter({ search: term }),
+      onQuery: (query) => this.applyFilter({ query }),
+      onAddRow: () => this.mutate((s) => s.addRow()),
+      onAddField: () => this.promptAddField(),
+      onRowHeight: (height) =>
+        this.applyViewChange((view, fields) => setRowHeight(view, height, fields)),
+      onFreezeColumns: (count) =>
+        this.applyViewChange((view, fields) => setFrozenColumns(view, count, fields)),
+      // SAD-69 plan item B: the only way to bring a hidden field back.
+      onShowField: (fieldId) =>
+        this.mutate((s) => {
+          const view = s.getView();
+          s.setView({ ...view, hidden: view.hidden.filter((id) => id !== fieldId) });
+        }),
+      onClearFilters: () => this.applyFilter({ search: '', query: '' }),
+      onUndo: () => this.mutate((s) => s.undo()),
+      onRedo: () => this.mutate((s) => s.redo()),
+    };
+  }
+
+  /**
+   * Persist search/query. Goes through patchView(), not setView(), so typing does not push
+   * an undo entry per debounce tick — see the note on TableSession.patchView.
+   */
+  private applyFilter(patch: { search?: string; query?: string }): void {
+    if (!this.session) return;
+    this.session.patchView(patch);
+    this.afterChange();
+  }
+
+  /** Apply an undoable view change through setView(). */
+  private applyViewChange(
+    change: (view: ViewDefinition, fields: FieldDefinition[]) => ViewDefinition,
+  ): void {
+    if (!this.session) return;
+    const s = this.session;
+    const before = s.getView();
+    const next = change(before, s.getFields());
+    if (next === before) return;
+    s.setView(next);
+    this.afterChange();
+  }
+
+  private promptAddField(): void {
+    if (!this.session) return;
+    new AddFieldModal(this.app, (name, type) => {
+      if (!this.session) return;
+      this.session.addField(name, type);
+      this.afterChange();
+    }).open();
   }
 
   private showError(message: string): void {
@@ -127,6 +222,10 @@ export class TableView extends TextFileView {
   }
 
   private renderGrid(): void {
+    // Refresh the toolbar on every render: row counts, hidden fields, row height, theme and
+    // the persisted search/query all feed it. Runs before the guard so it also resets when
+    // the session goes away.
+    this.syncToolbar();
     if (!this.session || !this.body) return;
     const s = this.session;
     const rows = s.getDisplayRows();

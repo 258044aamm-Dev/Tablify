@@ -45,10 +45,10 @@ describe('P3-07 — Column and row layout', () => {
   it('row height setting applies to all rows', () => {
     const f = fields(2);
     let view = createDefaultView(f);
-    view = setRowHeight(view, 'compact', f);
-    expect(view.rowHeight).toBe('compact');
-    view = setRowHeight(view, 'tall', f);
-    expect(view.rowHeight).toBe('tall');
+    view = setRowHeight(view, 'small', f);
+    expect(view.rowHeight).toBe('small');
+    view = setRowHeight(view, 'large', f);
+    expect(view.rowHeight).toBe('large');
   });
 
   it('drag updates at p95 ≤33ms per frame (proposed) — measure reorder', () => {
@@ -71,9 +71,9 @@ describe('P3-07 — Column and row layout', () => {
     let view = createDefaultView(f);
     view = resizeColumn(view, 'fld_0', 120, f);
     view = setFrozenColumns(view, 1, f);
-    view = setRowHeight(view, 'compact', f);
+    view = setRowHeight(view, 'small', f);
     expect(view.columnWidths['fld_0']).toBe(120);
     expect(view.frozenColumns).toBe(1);
-    expect(view.rowHeight).toBe('compact');
+    expect(view.rowHeight).toBe('small');
   });
 });

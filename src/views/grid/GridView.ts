@@ -254,6 +254,10 @@ export class GridView {
       const rowIdx = start + i;
       rowEl.dataset.rowIndex = String(rowIdx);
       rowEl.setAttribute('role', 'row');
+      // The pool reuses row elements, so the height has to be reapplied on every render.
+      // Setting it only at creation meant the Options menu's row-height control did nothing
+      // to rows that were already on screen (SAD-69).
+      rowEl.style.height = `${this.rowHeight}px`;
       // P6-03 (a11y): 1-based row index; the header is row 1 (attribute-only).
       rowEl.setAttribute('aria-rowindex', String(rowIdx + 2));
       // Render cells for all fields (no column virtualization)
