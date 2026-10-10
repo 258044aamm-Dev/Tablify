@@ -76,6 +76,7 @@ Each step ends with a commit to `main` (repo rule). Acceptance = the listed chec
 | **PR-08 Import + export** (F14, F15) | CSV import (paste/file) with inference preview → new table; export dialog with scope chooser; CSV/MD real, XLSX mocked | Imported table opens in tabs; "current view" export respects filter + hidden fields |
 | **PR-09 Context menus** (F16, F17) | Mock vault sidebar + file/folder menus; full cell/row/header context menus | Every §2.16/§2.17 item present; functional ones act, mocked ones toast "simulated" |
 | **PR-10 Embed view** (F18) | Note tab with fenced block rendering the live grid; edits sync both ways in-memory | Embed and main grid show identical data after edits |
+| **PR-10b Formulas + linked records** (F11, F12) *(amended — omitted from the original step table, though always in scope per the gap register above)* | Formula field type with D-O1 operator/function set, {Field} refs, #ERR + circular guard, live preview; link field type on stable row IDs with picker + read-only peek | Seeded demo formulas evaluate correctly; links survive renames; dangling ids render "missing row" |
 | **PR-11 Airtable sync suite** (F19–F21) | Settings (masked fake token + scopes), link dialog, Pull/Push with staged mock scenarios: clean push, conflict set (keep local/remote/both), auto-create-fields confirm | All three flows walkable end-to-end; no real network calls; conflict never auto-resolves |
 | **PR-12 Traceability + close-out** | Feature checklist 1–21 rendered inside the prototype (hidden dev panel) + this doc updated with evidence; contrast spot-check; CHANGELOG entry | Every feature row links to its UI location; all marked ✅ or "UI-only ✅" |
 
@@ -96,3 +97,27 @@ Suggested batching: PR-01 → PR-02/PR-03 → PR-04/PR-05 (parallel) → PR-06/P
 - Kanban/Calendar/Gallery views (Feature 13, excluded by spec).
 - Real Airtable/network traffic, real vault/filesystem access.
 - `.tabula` anything (scope rule §0).
+
+---
+
+## 8. Execution evidence (close-out, PR-12)
+
+Executed 2026-10-10 in 7 batches, each committed and pushed to `main`:
+
+| Batch | Commit | Steps |
+|---|---|---|
+| 1 | `bac6e85` | PR-00 rename/foundation |
+| 2 | `490771d` | PR-01…03 document model, field registry, selects/attachments/system fields |
+| 3 | `968fe05` | PR-04…05 grid view + full §2.6 query grammar |
+| 4 | `16a3669` | PR-06…07 undo/redo, keyboard + range clipboard, validation |
+| 5 | `0608d13` | PR-08…09 import/export, context menus, vault sidebar |
+| 6 | `d0f6166` | PR-10…11 + PR-10b (F11 formulas, F12 linked records), note embed, simulated Airtable sync/conflicts/auto-create |
+| 7 | *(close-out commit)* | PR-12 in-app traceability checklist F01–F21, CHANGELOG, this section |
+
+Acceptance spot-checks: every feature 1–21 is reachable from the in-app
+**Checklist** panel with its UI location; §2.6 grammar fully demonstrable;
+all §2.16/§2.17 menu items present; fonts Poppins/Lora/JetBrains Mono;
+palette ladder unchanged; no real tokens in the file; no `.tabula`
+references; Feature 13 absent. Per-batch headless smoke suites (Node +
+DOM stubs against the extracted script) — 41 assertions green on the
+final file. All pre-existing prototype behaviors verified preserved.

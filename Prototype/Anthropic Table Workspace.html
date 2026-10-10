@@ -107,6 +107,10 @@
     </div>
 
     <div class="flex items-center gap-2">
+      <button onclick="openChecklist()" class="pill-btn px-3 py-2 text-xs font-medium rounded-xl flex items-center gap-1.5 active:scale-95" title="Feature traceability — spec §1 features 1–21 mapped to UI locations">
+        <i class="fa-solid fa-list-check text-[11px] text-tablify-terracotta"></i>
+        <span class="hidden md:inline">Checklist</span>
+      </button>
       <!-- @@HEADERBTNS -->
       <button id="shortcutsBtn" onclick="openShortcuts()" class="pill-btn p-2 rounded-full text-xs w-8 h-8 flex items-center justify-center" title="Keyboard shortcuts (Feature 9)">
         <i class="fa-solid fa-keyboard"></i>
@@ -485,6 +489,18 @@
         <button onclick="closePeek()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div id="peekBody"></div>
+    </div>
+  </div>
+
+  <!-- Feature Traceability Checklist (PR-12) -->
+  <div id="checklistModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-list-check text-tablify-terracotta"></i> Feature traceability — spec §1</h3>
+        <button onclick="closeChecklist()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] text-tablify-clay dark:text-gray-400 mb-4">Every included feature of <span class="font-mono">spec/features.md</span> mapped to where you can try it in this prototype. <span class="font-medium">Live</span> = fully functional in-memory; <span class="font-medium">Simulated</span> = UI walkthrough per plan decision (no real network / filesystem).</p>
+      <div id="checklistBody" class="text-xs"></div>
     </div>
   </div>
 
@@ -3136,6 +3152,46 @@
         showToast('Pushed to Airtable (simulated)');
       });
     }
+
+
+    // ===== PR-12: feature traceability checklist =====
+    const CHECKLIST = [
+      [1,  '.tablify file format (§2.1)', 'live', 'Title row → “Source” shows the serialized document: formatVersion 1, tbl_/fld_/row_/opt_ ids, views, syncLink.'],
+      [2,  'Typed fields (§2.2)', 'live', '“+ Field” modal — 21-type registry grouped Basic / Numbers / Dates / People & links / System / Computed.'],
+      [3,  'Selects & attachments (§2.3)', 'live', 'Status/Tags chips with colored options + “Manage options…”; Attachments cell opens the fake-upload panel.'],
+      [4,  'System fields (§2.4)', 'live', 'Auto number, Created time, Modified time — read-only, auto-maintained on every edit.'],
+      [5,  'Grid view (§2.5)', 'live', 'Sticky header, frozen primary column, column resize & drag-reorder, row-height switcher, group-by with collapse.'],
+      [6,  'Search & filtering (§2.6)', 'live', 'Search box speaks the full grammar: field:value, ~ contains, ! not, &gt; &lt;, comma-OR, quoted phrases, empty keyword.'],
+      [7,  'View settings (§2.7)', 'live', 'Hidden fields, sorts, group-by and widths persist in the view object (see Source modal → views[0]).'],
+      [8,  'Undo / redo (§2.8)', 'live', 'Ctrl/Cmd+Z, Shift+Z or Y — every named mutation (edits, imports, sync, deletes) is history-tracked.'],
+      [9,  'Keyboard navigation (§2.9)', 'live', 'Arrows / Tab / Enter / Escape, Shift-select ranges, Ctrl+C/V copies & pastes TSV ranges. “?” panel lists all.'],
+      [10, 'Validation rules (§2.10)', 'live', 'Required / unique / min / max / regex per field; failing cells get the rose outline (see duplicate email demo).'],
+      [11, 'Formula fields (§2.11)', 'live', 'Projects → “Days Left” &amp; “Summary”. Engine: + − × ÷ % &amp;, comparisons, {Field} refs, SUM IF CONCAT DATEDIFF ROUND MIN MAX ABS, #ERR + circular guard, live preview in the field modal.'],
+      [12, 'Linked records (§2.12)', 'live', 'Tasks → “Project” chips; stored by stable row ID, picker with search, chip click opens read-only peek.'],
+      [13, 'Kanban / Calendar / Gallery (§2.13)', 'excluded', 'Excluded by spec — intentionally absent everywhere in this prototype.'],
+      [14, 'Import CSV / Excel (§2.14)', 'live', '“Import…” — real CSV parser (quotes, embedded commas/newlines) + per-column type inference &amp; override. XLSX path is simulated (D-O3).'],
+      [15, 'Export (§2.15)', 'live', '“Export…” — CSV and Markdown download for current view or all fields; XLSX shows a simulated progress run (D-O2).'],
+      [16, 'File explorer right-click (§2.16)', 'live', 'Right-click files/folders in the vault sidebar: New table here, Open, Rename, Duplicate, Delete, Copy path, Export CSV.'],
+      [17, 'Table right-click (§2.17)', 'live', 'Right-click a cell, row handle, or column header — every §2.17 item present; mocked ones toast “simulated”.'],
+      [18, 'Embedded table in a note (§2.18)', 'live', '“Note embed” tab — the live grid rendered inside a simulated Obsidian note; edits persist across both views.'],
+      [19, 'Optional Airtable sync (§2.19)', 'sim', 'Toolbar “Sync” — masked token (settings-only, never in the file), scopes note, link/unlink, pull &amp; push with progress + log. Fully offline.'],
+      [20, 'Sync conflict detection (§2.20)', 'sim', 'Pull, edit a pulled row, push → per-row conflict dialog (keep local / remote / both). Nothing is overwritten silently.'],
+      [21, 'Auto-create Airtable fields (§2.21)', 'sim', 'During push: missing remote fields listed with mapped Airtable types; created only after explicit confirm.']
+    ];
+    function openChecklist() {
+      const badge = st =>
+        st === 'live' ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300">LIVE</span>' :
+        st === 'sim'  ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">SIMULATED</span>' :
+                        '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-gray-500/10 border border-gray-500/30 text-gray-500 dark:text-gray-400">EXCLUDED</span>';
+      document.getElementById('checklistBody').innerHTML = CHECKLIST.map(c =>
+        '<div class="flex items-start gap-3 px-2.5 py-2 rounded-xl ' + (c[0] % 2 ? '' : 'bg-tablify-paper-inner/60 dark:bg-tablify-dark-inner/60') + '">' +
+        '<span class="font-mono text-[10px] text-tablify-clay dark:text-gray-400 mt-0.5 w-7 shrink-0">F' + String(c[0]).padStart(2, '0') + '</span>' +
+        '<div class="flex-1 min-w-0"><div class="flex items-center gap-2 flex-wrap mb-0.5"><span class="font-semibold font-serif">' + c[1] + '</span>' + badge(c[2]) + '</div>' +
+        '<div class="text-[11px] text-tablify-clay dark:text-gray-400 leading-relaxed">' + c[3] + '</div></div></div>'
+      ).join('');
+      document.getElementById('checklistModal').classList.remove('hidden');
+    }
+    function closeChecklist() { document.getElementById('checklistModal').classList.add('hidden'); }
 
     /* @@EXT */
 
