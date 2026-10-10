@@ -10,6 +10,7 @@
  */
 
 import { App, Modal, Notice, Setting } from 'obsidian';
+import { applyTheme } from '../../ui/theme/tokens.js';
 import { CHANGE_TARGET_TYPES, TYPE_LABELS } from '../../menus/tableMenuModel.js';
 import type { FieldTypeName } from '../../model/types.js';
 
@@ -29,6 +30,11 @@ export class AddFieldModal extends Modal {
 
   onOpen(): void {
     this.setTitle('Add field');
+
+    // SAD-71 Step 3: the dialog wears the plugin ladder (card surface, subtle border,
+    // rounded corners) instead of the host Obsidian modal chrome — branding.md §3.
+    this.modalEl.addClass('tablify__modal');
+    applyTheme(this.modalEl, document.body.classList.contains('theme-dark') ? 'dark' : 'light');
 
     new Setting(this.contentEl)
       .setName('Field name')

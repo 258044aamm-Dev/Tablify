@@ -75,6 +75,35 @@ export interface ToolbarOptions extends ToolbarState {
   callbacks: ToolbarCallbacks;
 }
 
+/**
+ * Inline SVG glyphs (SAD-71 Step 3). The prototype uses Font Awesome from a CDN; the
+ * plugin ships offline, so the same shapes are hand-inlined here. `currentColor` only —
+ * styles.css colours them through tokens, and the no-hex-literals rule stays intact.
+ */
+const ICONS = {
+  search:
+    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 L14 14"></path></svg>',
+  plus:
+    '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg>',
+  columns:
+    '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M8 3v10"></path></svg>',
+  sliders:
+    '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 5h10M3 11h10"></path><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"></circle></svg>',
+  undo:
+    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 4 L3 7 L6 10"></path><path d="M3 7 h7 a3 3 0 0 1 0 6 H7"></path></svg>',
+  redo:
+    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 4 L13 7 L10 10"></path><path d="M13 7 H6 a3 3 0 0 0 0 6 h3"></path></svg>',
+} as const;
+
+/** Wrap a glyph in the icon span the styles colour with the accent token. */
+function iconSpan(glyph: keyof typeof ICONS): HTMLElement {
+  const span = document.createElement('span');
+  span.className = 'tablify__btn-icon';
+  span.setAttribute('aria-hidden', 'true');
+  span.innerHTML = ICONS[glyph];
+  return span;
+}
+
 /** Stable data-action values, so tests and the DOM agree. */
 const ACTIONS = {
   addRow: 'add-row',
@@ -117,7 +146,7 @@ export class Toolbar {
     const searchIcon = document.createElement('span');
     searchIcon.className = 'tablify__search-icon';
     searchIcon.setAttribute('aria-hidden', 'true');
-    searchIcon.textContent = '\u2315'; // ⌕ — inline glyph, no external asset
+    searchIcon.innerHTML = ICONS.search; // inline svg glyph, no external asset
     this.searchInput = document.createElement('input');
     this.searchInput.type = 'search';
     this.searchInput.className = 'tablify__search-input';
@@ -129,14 +158,14 @@ export class Toolbar {
 
     const actions = document.createElement('div');
     actions.className = 'tablify__toolbar-actions';
-    actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add row', 'Add row'));
-    actions.appendChild(this.makeButton(ACTIONS.addField, 'Add Field', 'Add field'));
-    this.optionsButton = this.makeButton(ACTIONS.options, 'Options', 'View settings');
+    actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add row', 'Add row', 'plus'));
+    actions.appendChild(this.makeButton(ACTIONS.addField, 'Add Field', 'Add field', 'columns'));
+    this.optionsButton = this.makeButton(ACTIONS.options, 'Options', 'View settings', 'sliders');
     this.optionsButton.setAttribute('aria-haspopup', 'true');
     this.optionsButton.setAttribute('aria-expanded', 'false');
     actions.appendChild(this.optionsButton);
-    actions.appendChild(this.makeButton(ACTIONS.undo, '\u21B6', 'Undo'));
-    actions.appendChild(this.makeButton(ACTIONS.redo, '\u21B7', 'Redo'));
+    actions.appendChild(this.makeButton(ACTIONS.undo, '', 'Undo', 'undo'));
+    actions.appendChild(this.makeButton(ACTIONS.redo, '', 'Redo', 'redo'));
 
     topRow.appendChild(searchWrap);
     topRow.appendChild(actions);
@@ -183,16 +212,28 @@ export class Toolbar {
 
   // ---- construction helpers ----
 
-  private makeButton(action: string, label: string, title: string): HTMLElement {
+  private makeButton(action: string, label: string, title: string, glyph: keyof typeof ICONS): HTMLElement {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tablify__toolbar-button';
-    btn.textContent = label;
+    btn.appendChild(iconSpan(glyph));
+    if (label) {
+      const text = document.createElement('span');
+      text.className = 'tablify__btn-label';
+      text.textContent = label;
+      btn.appendChild(text);
+    }
     btn.title = title;
     btn.setAttribute('aria-label', title);
     btn.dataset.action = action;
     return btn;
   }
+
+  /** Outside press closes the view-settings popover (SAD-71 Step 3). */
+  private readonly outsideClose = (event: Event): void => {
+    const target = event.target as Node | null;
+    if (target && !this.root.contains(target)) this.setOptionsOpen(false);
+  };
 
   private wireEvents(): void {
     this.searchInput.addEventListener('input', () => {
@@ -309,6 +350,7 @@ export class Toolbar {
     if (this.queryTimer !== null) clearTimeout(this.queryTimer);
     this.searchTimer = null;
     this.queryTimer = null;
+    document.removeEventListener('pointerdown', this.outsideClose);
     this.root.remove();
   }
 
@@ -353,6 +395,10 @@ export class Toolbar {
   private setOptionsOpen(open: boolean): void {
     this.optionsPanel.hidden = !open;
     this.optionsButton.setAttribute('aria-expanded', String(open));
+    // The popover floats over the grid, so a press anywhere else dismisses it; Escape
+    // already does (wireEvents). Listening only while open keeps the cost at zero.
+    if (open) document.addEventListener('pointerdown', this.outsideClose);
+    else document.removeEventListener('pointerdown', this.outsideClose);
     if (open) this.renderOptions();
   }
 

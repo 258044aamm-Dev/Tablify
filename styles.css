@@ -79,15 +79,17 @@
 .tablify__toolbar {
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--tablify-border);
+  border-bottom: 1px solid var(--tablify-border-subtle);
   font-family: 'Lora', Georgia, serif;
   font-size: 13px;
   color: var(--tablify-text);
-  padding: 0 0 6px;
-  margin-bottom: 6px;
+  padding: 0 0 8px;
+  margin-bottom: 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  /* anchor for the view-settings popover (SAD-71 Step 3) */
+  position: relative;
 }
 
 .tablify__toolbar-row {
@@ -109,10 +111,9 @@
 
 .tablify__search-icon {
   position: absolute;
-  left: 10px;
-  font-size: 12px;
-  color: var(--tablify-text);
-  opacity: 0.75;
+  left: 16px;
+  display: inline-flex;
+  color: var(--tablify-text-muted);
   pointer-events: none;
 }
 
@@ -121,19 +122,20 @@
    theme — spec/branding.md §3 requires the plugin theme to win regardless of host theme. */
 .tablify__toolbar input.tablify__search-input,
 .tablify__toolbar input.tablify__query-input {
-  background: var(--tablify-bg);
+  background: var(--tablify-bg-card);
   color: var(--tablify-text);
-  border: 1px solid var(--tablify-border);
+  border: 1px solid var(--tablify-border-subtle);
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 9px 16px;
   font-family: inherit;
   font-size: 12px;
   width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .tablify__search-input {
-  padding-left: 30px;
+  padding-left: 40px;
 }
 
 .tablify__query-input {
@@ -147,8 +149,12 @@
   opacity: 0.55;
 }
 
+/* Prototype focus language: accent border plus a soft ring; the 2px accent outline keeps
+   the WCAG 1.4.11 floor (3.07:1 light / 5.74:1 dark) while the ring is decorative. */
 .tablify__toolbar input.tablify__search-input:focus,
 .tablify__toolbar input.tablify__query-input:focus {
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 22%, transparent);
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
 }
@@ -184,20 +190,42 @@
   gap: 6px;
 }
 
+/* Prototype pill buttons: card surface, subtle border, soft shadow, leading glyph. */
 .tablify__toolbar-button {
-  background: var(--tablify-bg);
+  background: var(--tablify-bg-card);
   color: var(--tablify-text);
-  border: 1px solid var(--tablify-border);
-  border-radius: 999px;
-  padding: 6px 14px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 14px;
+  padding: 7px 14px;
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .tablify__toolbar-button:hover {
   border-color: var(--tablify-accent-primary);
+}
+
+.tablify__btn-icon {
+  display: inline-flex;
+  color: var(--tablify-accent-primary);
+}
+
+/* Undo/redo are icon-only circular pills; their glyphs read as chrome, not accent. */
+.tablify__toolbar-button[data-action='undo'],
+.tablify__toolbar-button[data-action='redo'] {
+  padding: 7px 9px;
+  border-radius: 999px;
+}
+
+.tablify__toolbar-button[data-action='undo'] .tablify__btn-icon,
+.tablify__toolbar-button[data-action='redo'] .tablify__btn-icon {
+  color: var(--tablify-text-muted);
 }
 
 .tablify__toolbar-button:focus-visible {
@@ -205,15 +233,23 @@
   outline-offset: 1px;
 }
 
-/* View settings popover. */
+/* View settings popover (SAD-71 Step 3, owner D-3): a floating card in the prototype's
+   surface language, anchored under the toolbar instead of an inline full-width block
+   that pushed the grid down (owner screenshot). */
 .tablify__options {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: var(--tablify-bg-subtle);
-  border: 1px solid var(--tablify-border);
-  border-radius: 12px;
-  padding: 10px;
+  gap: 10px;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(320px, 100%);
+  background: var(--tablify-bg-card);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  z-index: 40;
 }
 
 .tablify__option-group {
@@ -225,7 +261,7 @@
 
 .tablify__option-label {
   font-size: 11px;
-  color: var(--tablify-text);
+  color: var(--tablify-text-muted);
   min-width: 96px;
 }
 
@@ -236,19 +272,22 @@
 }
 
 .tablify__option-button {
-  background: var(--tablify-bg);
+  background: var(--tablify-bg-capsule);
   color: var(--tablify-text);
-  border: 1px solid var(--tablify-border);
-  border-radius: 8px;
-  padding: 3px 10px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 999px;
+  padding: 4px 12px;
   font-family: inherit;
   font-size: 11px;
   cursor: pointer;
 }
 
+/* Prototype active language: solid accent pill with AA-checked ink (on-accent token),
+   not an outlined pill. */
 .tablify__option-button.is-active {
+  background: var(--tablify-accent-primary);
+  color: var(--tablify-on-accent);
   border-color: var(--tablify-accent-primary);
-  border-width: 2px;
 }
 
 .tablify__option-button:focus-visible,
@@ -262,11 +301,11 @@
 }
 
 .tablify__option-select {
-  background: var(--tablify-bg);
+  background: var(--tablify-bg-capsule);
   color: var(--tablify-text);
-  border: 1px solid var(--tablify-border);
-  border-radius: 8px;
-  padding: 3px 6px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 10px;
+  padding: 4px 8px;
   font-family: inherit;
   font-size: 11px;
 }
@@ -284,10 +323,12 @@
   color: var(--tablify-text);
 }
 
+/* Prototype row-count badge: mono, muted, letter-spaced. */
 .tablify__rowcount {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
-  color: var(--tablify-text);
-  opacity: 0.8;
+  color: var(--tablify-text-muted);
+  letter-spacing: 0.08em;
   text-align: right;
 }
 
@@ -344,6 +385,13 @@
 .tablify__insert-row:focus-visible {
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
+}
+
+/* Add-field dialog wears the plugin ladder (SAD-71 Step 3). */
+.tablify__modal {
+  background: var(--tablify-bg-card);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 16px;
 }
 
 /* Frozen columns (SAD-69 C). The position and offset are set inline, because they depend on
