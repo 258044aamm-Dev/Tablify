@@ -20,6 +20,7 @@ import { createDefaultView } from '../model/view.js';
 import { setFrozenColumns, setRowHeight } from './grid/columns.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
+import { applyTheme } from '../ui/theme/tokens.js';
 
 export const TABLIFY_VIEW_TYPE = 'tablify';
 
@@ -42,6 +43,8 @@ export class TableView extends TextFileView {
   private insertBtn: HTMLButtonElement | null = null;
   /** Empty-table hint shown above the Insert Row pill (SAD-71 Step 1). */
   private emptyHint: HTMLElement | null = null;
+  /** Workspace card wrapping toolbar + grid (SAD-71 Step 6). */
+  private card: HTMLElement | null = null;
   /** Text copied from a cell or row (system clipboard is also written when available). */
   private clipboardText: string | null = null;
   /** Long-press state for touch (P5-03). */
@@ -71,11 +74,21 @@ export class TableView extends TextFileView {
   async onOpen(): Promise<void> {
     this.contentEl.empty();
     this.contentEl.addClass('tablify-view');
+    // SAD-71 Step 6: the view surface carries the tokens, so the workspace card resolves
+    // them even before a file loads. Plugin-scoped like every other applyTheme call —
+    // document.body and the host Obsidian theme are never touched (branding §3).
+    applyTheme(this.contentEl, this.currentTheme());
+    // One rounded card around toolbar + grid, per the prototype's outer container.
+    this.card = document.createElement('div');
+    this.card.className = 'tablify__card';
+    this.contentEl.appendChild(this.card);
     // SAD-69: the toolbar P3-08 specified and that never existed. Built once here and
     // refreshed through update() on every render — rebuilding would drop focus and caret.
     this.toolbarView = new Toolbar({ ...this.toolbarState(), callbacks: this.toolbarCallbacks() });
-    this.contentEl.appendChild(this.toolbarView.root);
-    this.body = this.contentEl.createDiv({ cls: 'tablify__body' });
+    this.card.appendChild(this.toolbarView.root);
+    this.body = document.createElement('div');
+    this.body.className = 'tablify__body';
+    this.card.appendChild(this.body);
   }
 
   setViewData(data: string, clear: boolean): void {
@@ -245,6 +258,9 @@ export class TableView extends TextFileView {
     const rows = s.getDisplayRows();
     const fields = s.getVisibleFields();
     const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+    // SAD-71 Step 6: keep the view surface (card tokens) and the grid on the active theme
+    // even when the host flips mode without a model change.
+    applyTheme(this.contentEl, theme);
     if (!this.grid) {
       this.body.empty();
       this.grid = new GridView({
@@ -276,6 +292,7 @@ export class TableView extends TextFileView {
       this.insertBtn.addEventListener('click', () => this.mutate((st) => st.addRow()));
       this.body.appendChild(this.insertBtn);
     } else {
+      this.grid.setTheme(theme);
       this.grid.setModel(rows, fields, s.getView());
     }
     if (this.emptyHint) this.emptyHint.hidden = rows.length !== 0;

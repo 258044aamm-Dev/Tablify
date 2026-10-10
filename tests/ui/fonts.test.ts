@@ -97,7 +97,11 @@ describe('P3-10 — Bundle and load fonts', () => {
     // empty-state/Insert-Row affordances and the scoped form-control selectors add source
     // that the inline sourcemap embeds (dev total about 1.75 MB; production build is far
     // smaller and unchanged in shape). Recorded per the P4-05/P5-01 precedent.
-    expect(total).toBeLessThan(1_800_000);
+    // Raised again in SAD-71 Step 6 from 1,800,000 to 1,850,000: Step 5 bundled the
+    // JetBrains Mono woff2 (21 KB of fonts) and Steps 4-6 grew the inline sourcemap to
+    // about 1.80 MB total. Production assets stay far smaller; release builds are
+    // minified without the sourcemap (docs/evidence/P4-05.md).
+    expect(total).toBeLessThan(1_850_000);
   });
 
   it('build output lists fonts and license (manifest check)', () => {

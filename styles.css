@@ -352,6 +352,28 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* SAD-71 Step 6: the view is the app background the card sits on. applyTheme() puts
+     the .tablify class on contentEl for the tokens; the base .tablify box styling
+     (surface + border) must not double-frame the view, so it is overridden here. */
+  padding: 16px;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+}
+
+/* The prototype's outer container: one rounded card around toolbar + grid. */
+.tablify__card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--tablify-bg-card);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 24px;
+  padding: 20px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
 }
 
 .tablify__body {
@@ -403,6 +425,25 @@
 .tablify__insert-row:focus-visible {
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
+}
+
+/* Prototype scrollbars: thin, themed, scoped to the plugin surface. */
+.tablify ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.tablify ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tablify ::-webkit-scrollbar-thumb {
+  background: var(--tablify-border-subtle);
+  border-radius: 999px;
+}
+
+.tablify ::-webkit-scrollbar-thumb:hover {
+  background: var(--tablify-text-muted);
 }
 
 /* Add-field dialog wears the plugin ladder (SAD-71 Step 3). */
