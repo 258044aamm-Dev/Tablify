@@ -151,7 +151,7 @@ const FT_GROUPS = [
 // ===== document model (tablify.schema.json, formatVersion 1) =====
 function makeView() {
   return { id: uid('viw'), name: 'Grid', type: 'grid', query: '', sorts: [], groupBy: null,
-           hidden: [], order: [], widths: {}, freezePrimary: true, rowHeight: 'm', collapsed: [] };
+           hidden: [], order: [], widths: {}, freezePrimary: 'auto', rowHeight: 'm', collapsed: [] };
 }
 function makeField(name, type, extra) {
   return Object.assign({ id: uid('fld'), name: name, type: type, primary: false,
@@ -168,6 +168,18 @@ function makeDoc(name) {
   return doc;
 }
 function docView(doc) { return doc.views[0]; }
+// Feature 7: 'auto' freeze = disabled on mobile (<768px), enabled on desktop.
+// An explicit user toggle stores true/false and always wins over the viewport default.
+const FREEZE_BREAKPOINT = 768;
+function freezeEnabled(view) {
+  if (view.freezePrimary === 'auto' || view.freezePrimary == null) return window.innerWidth >= FREEZE_BREAKPOINT;
+  return !!view.freezePrimary;
+}
+let _freezeRsT = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_freezeRsT);
+  _freezeRsT = setTimeout(() => { if (state.docs.length) renderGrid(); }, 150);
+});
 function getField(doc, fid) { return doc.fields.find(f => f.id === fid); }
 function primaryField(doc) { return doc.fields.find(f => f.primary) || doc.fields[0]; }
 function getCell(doc, row, field) {
@@ -416,7 +428,7 @@ function headCellHtml(doc, field) {
   const sortIdx = view.sorts.findIndex(st => st.fieldId === field.id);
   const sort = sortIdx >= 0 ? view.sorts[sortIdx] : null;
   const w = view.widths[field.id];
-  const frozen = view.freezePrimary && field.primary;
+  const frozen = freezeEnabled(view) && field.primary;
   return '<th class="pb-1 min-w-[160px]' + (frozen ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '') + '" data-fld="' + field.id + '"' +
     ' style="' + (w ? 'width:' + w + 'px;min-width:' + w + 'px;' : '') + (frozen ? 'left:76px;z-index:7;' : '') + '"' +
     ' ondragover="colDragOver(event)" ondrop="colDrop(event,\'' + field.id + '\')">' +
@@ -509,9 +521,10 @@ function renderGrid() {
 
   // header
   let headerHtml = '<tr class="text-tablify-clay dark:text-gray-400 text-[11px] font-semibold uppercase tracking-wider select-none">';
-  const hdrFrozen = view.freezePrimary ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '';
-  headerHtml += '<th class="w-8 text-center pb-1' + hdrFrozen + '"' + (view.freezePrimary ? ' style="left:0;z-index:7"' : '') + '><input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></th>';
-  headerHtml += '<th class="w-8 text-center pb-1 font-mono' + hdrFrozen + '"' + (view.freezePrimary ? ' style="left:38px;z-index:7"' : '') + '>#</th>';
+  const frzOn = freezeEnabled(view);
+  const hdrFrozen = frzOn ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '';
+  headerHtml += '<th class="w-8 text-center pb-1' + hdrFrozen + '"' + (frzOn ? ' style="left:0;z-index:7"' : '') + '><input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></th>';
+  headerHtml += '<th class="w-8 text-center pb-1 font-mono' + hdrFrozen + '"' + (frzOn ? ' style="left:38px;z-index:7"' : '') + '>#</th>';
   fields.forEach(f => { headerHtml += headCellHtml(doc, f); });
   headerHtml += '</tr>';
   document.getElementById('tableHeaderHead').innerHTML = headerHtml;
@@ -520,7 +533,7 @@ function renderGrid() {
   // @@GRIDBODY-START
   _invalid = computeInvalid(doc);
   _rangeSet = computeRangeSet(doc);
-  const frozenOn = view.freezePrimary;
+  const frozenOn = frzOn;
   const stickyTd = ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner';
   const renderRowTr = (row, index) => {
     let h = '<tr data-row="' + row.id + '">';
@@ -1161,6 +1174,8 @@ function deleteFieldFromMenu(fieldId) {
 // ===== file source (Feature 1) =====
 function serializeDoc(doc) {
   const clean = deepCopy(doc);
+  // schema: views[].freezePrimary is boolean — resolve the 'auto' viewport default
+  (clean.views || []).forEach(v => { v.freezePrimary = freezeEnabled(v); });
   return JSON.stringify(clean, null, 2) + '\n';
 }
 function openSourceModal() {
@@ -1471,7 +1486,7 @@ function renderOptionsPanel() {
   html += '</div></div>';
   // freeze
   html += '<div class="mb-3 flex items-center justify-between"><span class="font-medium">Freeze primary column</span>' +
-    '<button onclick="optFreeze()" class="w-9 h-5 rounded-full relative transition ' + (view.freezePrimary ? 'bg-tablify-terracotta' : 'bg-gray-300 dark:bg-gray-600') + '"><span class="absolute top-0.5 ' + (view.freezePrimary ? 'right-0.5' : 'left-0.5') + ' w-4 h-4 bg-white rounded-full shadow"></span></button></div>';
+    '<button onclick="optFreeze()" class="w-9 h-5 rounded-full relative transition ' + (freezeEnabled(view) ? 'bg-tablify-terracotta' : 'bg-gray-300 dark:bg-gray-600') + '"><span class="absolute top-0.5 ' + (freezeEnabled(view) ? 'right-0.5' : 'left-0.5') + ' w-4 h-4 bg-white rounded-full shadow"></span></button></div>';
   // group by
   html += '<div class="mb-3"><div class="mb-1 font-medium">Group by</div><select onchange="optGroupBy(this.value)" class="pill-input w-full rounded-lg px-2.5 py-1.5 focus:outline-none"><option value="">None</option>';
   groupable.forEach(f => { html += '<option value="' + f.id + '"' + (view.groupBy === f.id ? ' selected' : '') + '>' + esc(f.name) + '</option>'; });
@@ -1506,7 +1521,7 @@ function renderOptionsPanel() {
   openPanel(document.getElementById('optionsBtn'), html, { kind: 'options' });
 }
 function optRowHeight(h) { docView(activeDoc()).rowHeight = h; save(); renderGrid(); renderOptionsPanel(); }
-function optFreeze() { const v = docView(activeDoc()); v.freezePrimary = !v.freezePrimary; save(); renderGrid(); renderOptionsPanel(); }
+function optFreeze() { const v = docView(activeDoc()); v.freezePrimary = !freezeEnabled(v); save(); renderGrid(); renderOptionsPanel(); }
 function optGroupBy(fid) { const v = docView(activeDoc()); v.groupBy = fid || null; v.collapsed = []; save(); renderGrid(); renderOptionsPanel(); }
 function optSortAdd(fid) { if (!fid) return; docView(activeDoc()).sorts.push({ fieldId: fid, dir: 1 }); save(); renderGrid(); renderOptionsPanel(); }
 function optSortDir(i) { const s = docView(activeDoc()).sorts[i]; s.dir = -s.dir; save(); renderGrid(); renderOptionsPanel(); }
@@ -1934,7 +1949,7 @@ function headerCtxMenu(ev, fieldId) {
     { icon: 'fa-eye-slash', label: 'Hide field', fn: () => { if (!view.hidden.includes(fieldId)) view.hidden.push(fieldId); save(); renderGrid(); } },
     { icon: 'fa-arrow-down-a-z', label: 'Sort ascending', fn: () => { view.sorts = [{ fieldId: fieldId, dir: 1 }]; save(); renderGrid(); } },
     { icon: 'fa-arrow-up-z-a', label: 'Sort descending', fn: () => { view.sorts = [{ fieldId: fieldId, dir: -1 }]; save(); renderGrid(); } },
-    { icon: 'fa-snowflake', label: view.freezePrimary ? 'Unfreeze primary column' : 'Freeze primary column', fn: () => { view.freezePrimary = !view.freezePrimary; save(); renderGrid(); } });
+    { icon: 'fa-snowflake', label: freezeEnabled(view) ? 'Unfreeze primary column' : 'Freeze primary column', fn: () => { view.freezePrimary = !freezeEnabled(view); save(); renderGrid(); } });
   if (!field.primary) {
     items.push('-', { icon: 'fa-trash-can', label: 'Delete field', danger: true, fn: () => deleteFieldFromMenu(fieldId) });
   }
