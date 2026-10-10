@@ -2817,7 +2817,7 @@ __export(main_exports, {
   default: () => TablifyPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 
 // src/commands/import.ts
 var import_obsidian = require("obsidian");
@@ -3044,10 +3044,10 @@ var wk = function(c, id, msg, transfer, cb) {
   w.onmessage = function(e) {
     var d = e.data, ed = d.$e$;
     if (ed) {
-      var err2 = new Error(ed[0]);
-      err2["code"] = ed[1];
-      err2.stack = ed[2];
-      cb(err2, null);
+      var err3 = new Error(ed[0]);
+      err3["code"] = ed[1];
+      err3.stack = ed[2];
+      cb(err3, null);
     } else
       cb(null, d);
   };
@@ -3474,9 +3474,9 @@ var gopt = function(o) {
   };
 };
 var cbify = function(dat, opts, fns, init, id, cb) {
-  var w = wrkr(fns, init, id, function(err2, dat2) {
+  var w = wrkr(fns, init, id, function(err3, dat2) {
     w.terminate();
-    cb(err2, dat2);
+    cb(err3, dat2);
   });
   w.postMessage([dat, opts], opts.consume ? [dat.buffer] : []);
   return function() {
@@ -3807,8 +3807,8 @@ function getCellElements(document2) {
   var sheetData = findChild(worksheet, "sheetData");
   var cells = [];
   forEach(sheetData, "row", function(row) {
-    forEach(row, "c", function(cell) {
-      cells.push(cell);
+    forEach(row, "c", function(cell2) {
+      cells.push(cell2);
     });
   });
   return cells;
@@ -4675,11 +4675,11 @@ function reconstructSheetDimensionsFromSheetCells(cells) {
   var comparator = function comparator2(a, b) {
     return a - b;
   };
-  var allRows = cells.map(function(cell) {
-    return cell.row;
+  var allRows = cells.map(function(cell2) {
+    return cell2.row;
   }).sort(comparator);
-  var allCols = cells.map(function(cell) {
-    return cell.column;
+  var allCols = cells.map(function(cell2) {
+    return cell2.column;
   }).sort(comparator);
   var minRow = allRows[0];
   var maxRow = allRows[allRows.length - 1];
@@ -4739,8 +4739,8 @@ function dropEmptyRows(data) {
   while (i >= 0) {
     var empty = true;
     for (var _iterator = _createForOfIteratorHelperLoose3(data[i]), _step; !(_step = _iterator()).done; ) {
-      var cell = _step.value;
-      if (accessor(cell) !== null) {
+      var cell2 = _step.value;
+      if (accessor(cell2) !== null) {
         empty = false;
         break;
       }
@@ -4915,11 +4915,11 @@ function convertCellsToData2dArray(cells, dimensions) {
     i++;
   }
   for (var _iterator = _createForOfIteratorHelperLoose5(cells), _step; !(_step = _iterator()).done; ) {
-    var cell = _step.value;
-    var rowIndex = cell.row - 1;
-    var columnIndex = cell.column - 1;
+    var cell2 = _step.value;
+    var rowIndex = cell2.row - 1;
+    var columnIndex = cell2.column - 1;
     if (columnIndex < colsCount && rowIndex < rowsCount) {
-      data[rowIndex][columnIndex] = cell.value;
+      data[rowIndex][columnIndex] = cell2.value;
     }
   }
   data = dropEmptyRows(
@@ -5048,7 +5048,7 @@ async function readXlsxSheets(data) {
   const all = await readXlsxFile(new Blob([data]), { trim: false });
   return all.map((s) => ({
     name: s.sheet,
-    rows: s.data.map((row) => row.map((cell) => cell === void 0 ? null : cell))
+    rows: s.data.map((row) => row.map((cell2) => cell2 === void 0 ? null : cell2))
   }));
 }
 
@@ -5585,10 +5585,10 @@ function parse(input) {
   if (!("formatVersion" in obj)) {
     return { ok: false, error: "Missing required key: formatVersion" };
   }
-  if (obj.formatVersion !== 1) {
+  if (obj.formatVersion !== 1 && obj.formatVersion !== 2) {
     return {
       ok: false,
-      error: `Unsupported formatVersion: ${JSON.stringify(obj.formatVersion)}. Expected 1.`
+      error: `Unsupported formatVersion: ${JSON.stringify(obj.formatVersion)}. Expected 1 or 2.`
     };
   }
   const requiredKeys = ["tableId", "name", "fields", "rows", "views", "syncLink"];
@@ -5631,6 +5631,15 @@ function parse(input) {
     }
     if (typeof field.type !== "string") {
       return { ok: false, error: `fields[${i}].type must be a string` };
+    }
+    if ((field.type === "formula" || field.type === "link") && obj.formatVersion !== 2) {
+      return { ok: false, error: `fields[${i}].type "${field.type}" requires formatVersion 2` };
+    }
+    if (field.formula !== void 0 && typeof field.formula !== "string") {
+      return { ok: false, error: `fields[${i}].formula must be a string` };
+    }
+    if (field.linkTableId !== void 0 && typeof field.linkTableId !== "string") {
+      return { ok: false, error: `fields[${i}].linkTableId must be a string` };
     }
     const airtableErr = validateFieldAirtableMeta(field.airtable);
     if (airtableErr) {
@@ -5741,7 +5750,13 @@ function serialize(file) {
   return JSON.stringify(ordered, null, 2) + "\n";
 }
 var TOP_LEVEL_KEYS = ["formatVersion", "tableId", "name", "fields", "rows", "views", "syncLink"];
-var FIELD_KEYS = ["id", "name", "type", "primary", "options", "required", "unique", "min", "max", "regex", "airtable"];
+function formatVersionFor(file) {
+  const needsV2 = file.fields.some((f) => f.type === "formula" || f.type === "link");
+  if (needsV2)
+    return 2;
+  return file.formatVersion === 2 ? 2 : 1;
+}
+var FIELD_KEYS = ["id", "name", "type", "primary", "options", "required", "unique", "min", "max", "regex", "formula", "linkTableId", "airtable"];
 var ROW_KEYS = ["id", "rev", "createdAt", "updatedAt", "values", "sync"];
 var VIEW_KEYS = ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths", "columnOrder", "warnings", "search", "query"];
 var ROW_SYNC_KEYS = ["airtableId", "syncedRev", "syncedAt", "remoteHash", "remoteDeleted", "conflict"];
@@ -5752,7 +5767,9 @@ function orderTopLevel(file) {
   const sanitizedViews = file.views ? sanitizeViewsForSave(file.views, file.fields) : file.views;
   for (const key of TOP_LEVEL_KEYS) {
     if (key in file) {
-      if (key === "fields") {
+      if (key === "formatVersion") {
+        result[key] = formatVersionFor(file);
+      } else if (key === "fields") {
         result[key] = file.fields.map(orderField);
       } else if (key === "rows") {
         result[key] = file.rows.map(orderRow);
@@ -6521,6 +6538,52 @@ var modifiedTimeType = {
   }
 };
 
+// src/model/fieldTypes/formula.ts
+var formulaType = {
+  readOnly: true,
+  validate(value) {
+    return value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+  },
+  parse(_input) {
+    return null;
+  },
+  format(value) {
+    if (value === null)
+      return "";
+    return Array.isArray(value) ? value.join(", ") : String(value);
+  },
+  defaultValue() {
+    return null;
+  }
+};
+
+// src/model/fieldTypes/link.ts
+function isLinkRef(v) {
+  if (typeof v !== "object" || v === null)
+    return false;
+  const r = v;
+  return typeof r.tableId === "string" && typeof r.rowId === "string";
+}
+var linkType = {
+  readOnly: true,
+  validate(value) {
+    if (value === null)
+      return true;
+    return Array.isArray(value) && value.every(isLinkRef);
+  },
+  parse(_input) {
+    return null;
+  },
+  format(value) {
+    if (!Array.isArray(value) || value.length === 0)
+      return "";
+    return `${value.length} linked`;
+  },
+  defaultValue() {
+    return null;
+  }
+};
+
 // src/model/fieldTypes/registry.ts
 var registry = /* @__PURE__ */ new Map([
   ["text", textType],
@@ -6541,7 +6604,9 @@ var registry = /* @__PURE__ */ new Map([
   ["attachment", attachmentType],
   ["auto_number", autoNumberType],
   ["created_time", createdTimeType],
-  ["modified_time", modifiedTimeType]
+  ["modified_time", modifiedTimeType],
+  ["formula", formulaType],
+  ["link", linkType]
 ]);
 function getFieldType(name) {
   const ft = registry.get(name);
@@ -6572,7 +6637,9 @@ var ALL_TYPE_NAMES = [
   "attachment",
   "auto_number",
   "created_time",
-  "modified_time"
+  "modified_time",
+  "formula",
+  "link"
 ];
 var TYPE_COUNT = registry.size;
 
@@ -6929,13 +6996,13 @@ function makeQueryError(message, position, rawInput) {
   const { line, column } = offsetToLineCol2(rawInput, position);
   return { message, position, line, column };
 }
-function isEmptyCell2(cell) {
-  if (cell === void 0 || cell === null)
+function isEmptyCell2(cell2) {
+  if (cell2 === void 0 || cell2 === null)
     return true;
-  if (typeof cell === "string")
-    return cell === "";
-  if (Array.isArray(cell))
-    return cell.length === 0;
+  if (typeof cell2 === "string")
+    return cell2 === "";
+  if (Array.isArray(cell2))
+    return cell2.length === 0;
   return false;
 }
 function getFieldMap(fields) {
@@ -7052,10 +7119,10 @@ function compileTerm(term, field, rawInput) {
       const want = values[0] ?? "";
       const lowerWant = want.toLowerCase();
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (isEmptyCell2(cell))
+        const cell2 = row.values[field.id];
+        if (isEmptyCell2(cell2))
           return false;
-        const cellStr = String(cell).toLowerCase();
+        const cellStr = String(cell2).toLowerCase();
         return cellStr.includes(lowerWant);
       };
       return { ok: true, predicate: pred };
@@ -7064,19 +7131,19 @@ function compileTerm(term, field, rawInput) {
       const want = values[0] ?? "";
       const lowerWant = want.toLowerCase();
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (isEmptyCell2(cell))
+        const cell2 = row.values[field.id];
+        if (isEmptyCell2(cell2))
           return false;
-        return String(cell).toLowerCase() === lowerWant;
+        return String(cell2).toLowerCase() === lowerWant;
       };
       return { ok: true, predicate: pred };
     } else {
       const lowerVals = values.map((v) => v.toLowerCase()).filter((v) => v !== "");
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (isEmptyCell2(cell))
+        const cell2 = row.values[field.id];
+        if (isEmptyCell2(cell2))
           return false;
-        const cellStr = String(cell).toLowerCase();
+        const cellStr = String(cell2).toLowerCase();
         return lowerVals.some((v) => cellStr.includes(v));
       };
       return { ok: true, predicate: pred };
@@ -7097,10 +7164,10 @@ function compileTerm(term, field, rawInput) {
         return { ok: true, predicate: pred2 };
       }
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (isEmptyCell2(cell))
+        const cell2 = row.values[field.id];
+        if (isEmptyCell2(cell2))
           return true;
-        return String(cell) !== resolved;
+        return String(cell2) !== resolved;
       };
       return { ok: true, predicate: pred };
     }
@@ -7119,10 +7186,10 @@ function compileTerm(term, field, rawInput) {
         return { ok: true, predicate: pred2 };
       }
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (isEmptyCell2(cell))
+        const cell2 = row.values[field.id];
+        if (isEmptyCell2(cell2))
           return false;
-        return resolvedIds.includes(String(cell));
+        return resolvedIds.includes(String(cell2));
       };
       return { ok: true, predicate: pred };
     }
@@ -7141,10 +7208,10 @@ function compileTerm(term, field, rawInput) {
         return { ok: true, predicate: pred2 };
       }
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (!Array.isArray(cell))
+        const cell2 = row.values[field.id];
+        if (!Array.isArray(cell2))
           return false;
-        return cell.includes(resolved);
+        return cell2.includes(resolved);
       };
       return { ok: true, predicate: pred };
     } else {
@@ -7154,10 +7221,10 @@ function compileTerm(term, field, rawInput) {
         return { ok: true, predicate: pred2 };
       }
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (!Array.isArray(cell))
+        const cell2 = row.values[field.id];
+        if (!Array.isArray(cell2))
           return false;
-        return cell.some((id) => resolvedIds.includes(id));
+        return cell2.some((id) => resolvedIds.includes(id));
       };
       return { ok: true, predicate: pred };
     }
@@ -7183,18 +7250,18 @@ function compileTerm(term, field, rawInput) {
     if (bools.length === 1) {
       const want = bools[0];
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (cell === null || cell === void 0)
+        const cell2 = row.values[field.id];
+        if (cell2 === null || cell2 === void 0)
           return false;
-        return cell === want;
+        return cell2 === want;
       };
       return { ok: true, predicate: pred };
     } else {
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (cell === null || cell === void 0)
+        const cell2 = row.values[field.id];
+        if (cell2 === null || cell2 === void 0)
           return false;
-        return bools.includes(cell);
+        return bools.includes(cell2);
       };
       return { ok: true, predicate: pred };
     }
@@ -7216,10 +7283,10 @@ function compileTerm(term, field, rawInput) {
         };
       }
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (typeof cell !== "number" || !Number.isFinite(cell))
+        const cell2 = row.values[field.id];
+        if (typeof cell2 !== "number" || !Number.isFinite(cell2))
           return false;
-        return op === "gt" ? cell > parsed : cell < parsed;
+        return op === "gt" ? cell2 > parsed : cell2 < parsed;
       };
       return { ok: true, predicate: pred };
     }
@@ -7244,18 +7311,18 @@ function compileTerm(term, field, rawInput) {
     if (parsedVals.length === 1) {
       const want = parsedVals[0];
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (typeof cell !== "number")
+        const cell2 = row.values[field.id];
+        if (typeof cell2 !== "number")
           return false;
-        return cell === want;
+        return cell2 === want;
       };
       return { ok: true, predicate: pred };
     } else {
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (typeof cell !== "number")
+        const cell2 = row.values[field.id];
+        if (typeof cell2 !== "number")
           return false;
-        return parsedVals.includes(cell);
+        return parsedVals.includes(cell2);
       };
       return { ok: true, predicate: pred };
     }
@@ -7279,10 +7346,10 @@ function compileTerm(term, field, rawInput) {
       }
       const parsedTime = new Date(parsed).getTime();
       const pred = (row) => {
-        const cell = row.values[field.id];
-        if (typeof cell !== "string")
+        const cell2 = row.values[field.id];
+        if (typeof cell2 !== "string")
           return false;
-        const cellTime = new Date(cell).getTime();
+        const cellTime = new Date(cell2).getTime();
         if (isNaN(cellTime) || isNaN(parsedTime))
           return false;
         return op === "gt" ? cellTime > parsedTime : cellTime < parsedTime;
@@ -7311,18 +7378,18 @@ function compileTerm(term, field, rawInput) {
       const wantTime = new Date(want).getTime();
       if (isDateOnly) {
         const pred = (row) => {
-          const cell = row.values[field.id];
-          if (typeof cell !== "string")
+          const cell2 = row.values[field.id];
+          if (typeof cell2 !== "string")
             return false;
-          return cell === want;
+          return cell2 === want;
         };
         return { ok: true, predicate: pred };
       } else {
         const pred = (row) => {
-          const cell = row.values[field.id];
-          if (typeof cell !== "string")
+          const cell2 = row.values[field.id];
+          if (typeof cell2 !== "string")
             return false;
-          const cellTime = new Date(cell).getTime();
+          const cellTime = new Date(cell2).getTime();
           return cellTime === wantTime;
         };
         return { ok: true, predicate: pred };
@@ -7331,19 +7398,19 @@ function compileTerm(term, field, rawInput) {
       if (isDateOnly) {
         const set = new Set(parsedVals);
         const pred = (row) => {
-          const cell = row.values[field.id];
-          if (typeof cell !== "string")
+          const cell2 = row.values[field.id];
+          if (typeof cell2 !== "string")
             return false;
-          return set.has(cell);
+          return set.has(cell2);
         };
         return { ok: true, predicate: pred };
       } else {
         const wantTimes = new Set(parsedVals.map((s) => new Date(s).getTime()));
         const pred = (row) => {
-          const cell = row.values[field.id];
-          if (typeof cell !== "string")
+          const cell2 = row.values[field.id];
+          if (typeof cell2 !== "string")
             return false;
-          const ct = new Date(cell).getTime();
+          const ct = new Date(cell2).getTime();
           return wantTimes.has(ct);
         };
         return { ok: true, predicate: pred };
@@ -7993,9 +8060,9 @@ function _iterableToArrayLimit4(arr, i) {
       if (i && _arr.length === i)
         break;
     }
-  } catch (err2) {
+  } catch (err3) {
     _d = true;
-    _e = err2;
+    _e = err3;
   } finally {
     try {
       if (!_n && _i["return"] != null)
@@ -8100,8 +8167,8 @@ function getOpeningTags(xlsxType) {
 }
 
 // node_modules/write-excel-file/modules/write/getCellStyleProperties.js
-function getCellStyleProperties(cell) {
-  var align = cell.align, alignVertical = cell.alignVertical, textRotation = cell.textRotation, wrap = cell.wrap, fontFamily = cell.fontFamily, fontSize = cell.fontSize, fontWeight = cell.fontWeight, fontStyle = cell.fontStyle, color = cell.color, backgroundColor = cell.backgroundColor, borderColor = cell.borderColor, borderStyle = cell.borderStyle, leftBorderColor = cell.leftBorderColor, leftBorderStyle = cell.leftBorderStyle, rightBorderColor = cell.rightBorderColor, rightBorderStyle = cell.rightBorderStyle, topBorderColor = cell.topBorderColor, topBorderStyle = cell.topBorderStyle, bottomBorderColor = cell.bottomBorderColor, bottomBorderStyle = cell.bottomBorderStyle;
+function getCellStyleProperties(cell2) {
+  var align = cell2.align, alignVertical = cell2.alignVertical, textRotation = cell2.textRotation, wrap = cell2.wrap, fontFamily = cell2.fontFamily, fontSize = cell2.fontSize, fontWeight = cell2.fontWeight, fontStyle = cell2.fontStyle, color = cell2.color, backgroundColor = cell2.backgroundColor, borderColor = cell2.borderColor, borderStyle = cell2.borderStyle, leftBorderColor = cell2.leftBorderColor, leftBorderStyle = cell2.leftBorderStyle, rightBorderColor = cell2.rightBorderColor, rightBorderStyle = cell2.rightBorderStyle, topBorderColor = cell2.topBorderColor, topBorderStyle = cell2.topBorderStyle, bottomBorderColor = cell2.bottomBorderColor, bottomBorderStyle = cell2.bottomBorderStyle;
   if (align || alignVertical || textRotation || wrap || fontFamily || fontSize || fontWeight || fontStyle || color || backgroundColor || borderColor || borderStyle || leftBorderColor || leftBorderStyle || rightBorderColor || rightBorderStyle || topBorderColor || topBorderStyle || bottomBorderColor || bottomBorderStyle) {
     return omitUndefinedProperties({
       align,
@@ -8150,13 +8217,13 @@ function generateRow(row, rowIndex, _ref) {
   var getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat, usesSchema = _ref.usesSchema;
   var rowNumber = rowIndex + 1;
   var rowHeight;
-  var rowCells = row.map(function(cell, columnIndex) {
-    if (cell === void 0 || cell === null) {
+  var rowCells = row.map(function(cell2, columnIndex) {
+    if (cell2 === void 0 || cell2 === null) {
       return "";
     }
-    var height = cell.height;
-    var cellStyleProperties = getCellStyleProperties(cell);
-    var type = cell.type, value = cell.value, format = cell.format;
+    var height = cell2.height;
+    var cellStyleProperties = getCellStyleProperties(cell2);
+    var type = cell2.type, value = cell2.value, format = cell2.format;
     if (isEmpty(value)) {
       value = null;
     } else {
@@ -8373,9 +8440,9 @@ function processMergedCells(data, _ref) {
     var row = data[rowIndex];
     var columnIndex = 0;
     while (columnIndex < row.length) {
-      var cell = row[columnIndex];
-      if (cell) {
-        var _cell$span = cell.span, span = _cell$span === void 0 ? 1 : _cell$span, _cell$rowSpan = cell.rowSpan, rowSpan = _cell$rowSpan === void 0 ? 1 : _cell$rowSpan;
+      var cell2 = row[columnIndex];
+      if (cell2) {
+        var _cell$span = cell2.span, span = _cell$span === void 0 ? 1 : _cell$span, _cell$rowSpan = cell2.rowSpan, rowSpan = _cell$rowSpan === void 0 ? 1 : _cell$rowSpan;
         if (span > 1 || rowSpan > 1) {
           processSpanningCells({
             data,
@@ -8407,10 +8474,10 @@ function processSpanningCells(_ref2) {
   while (i <= rowIndex + (rowSpan - 1)) {
     var j = columnIndex;
     while (j <= columnIndex + (span - 1)) {
-      var cell = data[i][j];
+      var cell2 = data[i][j];
       if (i > rowIndex || j > columnIndex) {
-        if (cell !== null && cell !== void 0) {
-          throw new Error("[write-excel-file] When using `span` or `rowSpan` parameters, all hidden overlapped cells should be represented by `null`s or `undefined`s. Cell at row ".concat(rowIndex + 1, " and column ").concat(columnIndex + 1, " is configured with `span` ").concat(span, " and `rowSpan` ").concat(rowSpan, ". Cell at row ").concat(i + 1, " and column ").concat(j + 1, " is neither `null` nor `undefined`: ").concat(JSON.stringify(cell)));
+        if (cell2 !== null && cell2 !== void 0) {
+          throw new Error("[write-excel-file] When using `span` or `rowSpan` parameters, all hidden overlapped cells should be represented by `null`s or `undefined`s. Cell at row ".concat(rowIndex + 1, " and column ").concat(columnIndex + 1, " is configured with `span` ").concat(span, " and `rowSpan` ").concat(rowSpan, ". Cell at row ").concat(i + 1, " and column ").concat(j + 1, " is neither `null` nor `undefined`: ").concat(JSON.stringify(cell2)));
         }
         if (cellStyleProperties) {
           data[i][j] = cellStyleProperties;
@@ -8464,9 +8531,9 @@ function _iterableToArrayLimit5(arr, i) {
       if (i && _arr.length === i)
         break;
     }
-  } catch (err2) {
+  } catch (err3) {
     _d = true;
-    _e = err2;
+    _e = err3;
   } finally {
     try {
       if (!_n && _i["return"] != null)
@@ -9220,14 +9287,14 @@ async function exportTable(input) {
   const table = resolved.table;
   const ext = EXTENSION[input.format];
   let text = null;
-  let binary = null;
+  let binary2 = null;
   try {
     if (input.format === "csv")
       text = toCsv(table);
     else if (input.format === "md")
       text = toMarkdown(table);
     else
-      binary = await toXlsx(table);
+      binary2 = await toXlsx(table);
   } catch (e) {
     return { ok: false, error: `Export failed, no file was written: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -9237,8 +9304,8 @@ async function exportTable(input) {
   try {
     if (text !== null)
       await input.adapter.create(path, text);
-    else if (binary !== null)
-      await input.adapter.createBinary(path, binary);
+    else if (binary2 !== null)
+      await input.adapter.createBinary(path, binary2);
   } catch (e) {
     return { ok: false, error: `Could not write the file: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -9323,7 +9390,7 @@ var ExportModal = class extends import_obsidian2.Modal {
 };
 
 // src/views/tableView.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/model/tableStore.ts
 function createTableStore(options) {
@@ -9688,6 +9755,1532 @@ function createChangeFieldTypeCommand(data) {
     }
   };
 }
+function createSetFormulaCommand(data) {
+  const { fieldId, oldFormula, newFormula } = data;
+  const apply = (store, formula) => {
+    const field = store.getFields().find((f) => f.id === fieldId);
+    if (!field)
+      return;
+    const next = { ...field };
+    if (formula === void 0)
+      delete next.formula;
+    else
+      next.formula = formula;
+    store.replaceField(next, {});
+  };
+  return {
+    type: "setFormula",
+    targetKey: `setFormula:${fieldId}`,
+    do(store) {
+      apply(store, newFormula);
+    },
+    undo(store) {
+      apply(store, oldFormula);
+    }
+  };
+}
+
+// src/formula/value.ts
+var BLANK = { t: "blank" };
+var MAX_TEXT = 1e5;
+var FormulaFault = class extends Error {
+  code;
+  constructor(code) {
+    super(code);
+    this.name = "FormulaFault";
+    this.code = code;
+  }
+};
+function fault(code) {
+  throw new FormulaFault(code);
+}
+function err2(code) {
+  return { t: "err", code };
+}
+function faultValue(e) {
+  if (e instanceof FormulaFault)
+    return err2(e.code);
+  throw e;
+}
+function numValue(v) {
+  if (!Number.isFinite(v))
+    return err2("#OVERFLOW!");
+  return { t: "num", v: v === 0 ? 0 : v };
+}
+function textValue(v) {
+  if (v.length > MAX_TEXT)
+    return err2("#OVERFLOW!");
+  return { t: "text", v };
+}
+function isTemporal(v) {
+  return v.t === "date" || v.t === "dt";
+}
+function formatNumber(n) {
+  if (n === 0)
+    return "0";
+  const s = Number(n.toPrecision(15)).toString();
+  if (!/e/i.test(s))
+    return s;
+  return expandExponent(s);
+}
+function expandExponent(s) {
+  const neg = s.startsWith("-");
+  const body = neg ? s.slice(1) : s;
+  const [mant, expPart] = body.toLowerCase().split("e");
+  const exp = Number(expPart);
+  const [ip, fp = ""] = (mant ?? "").split(".");
+  const digits = (ip ?? "") + fp;
+  const point = (ip ?? "").length + exp;
+  let out;
+  if (point <= 0)
+    out = "0." + "0".repeat(-point) + digits;
+  else if (point >= digits.length)
+    out = digits + "0".repeat(point - digits.length);
+  else
+    out = digits.slice(0, point) + "." + digits.slice(point);
+  return (neg ? "-" : "") + out;
+}
+function msToParts(ms) {
+  const t = new Date(ms);
+  return {
+    y: t.getFullYear(),
+    m: t.getMonth() + 1,
+    d: t.getDate(),
+    hh: t.getHours(),
+    mm: t.getMinutes(),
+    ss: t.getSeconds()
+  };
+}
+function partsToMs(p) {
+  const t = /* @__PURE__ */ new Date(0);
+  t.setFullYear(p.y, p.m - 1, p.d);
+  t.setHours(p.hh, p.mm, p.ss, 0);
+  return t.getTime();
+}
+function daysInMonth2(y, m) {
+  const t = /* @__PURE__ */ new Date(0);
+  t.setUTCFullYear(y, m, 0);
+  return t.getUTCDate();
+}
+function dayNumber(y, m, d) {
+  const t = /* @__PURE__ */ new Date(0);
+  t.setUTCFullYear(y, m - 1, d);
+  return Math.round(t.getTime() / 864e5);
+}
+function dateFromDayNumber(n) {
+  const t = new Date(n * 864e5);
+  return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
+}
+function partsOf(v) {
+  if (v.t === "date")
+    return { y: v.y, m: v.m, d: v.d, hh: 0, mm: 0, ss: 0 };
+  if (v.t === "dt")
+    return msToParts(v.ms);
+  return fault("#VALUE!");
+}
+function temporalMs(v) {
+  if (v.t === "dt")
+    return v.ms;
+  if (v.t === "date")
+    return partsToMs({ y: v.y, m: v.m, d: v.d, hh: 0, mm: 0, ss: 0 });
+  return fault("#VALUE!");
+}
+function addMonthsParts(p, months) {
+  const total = p.y * 12 + (p.m - 1) + months;
+  const y = Math.floor(total / 12);
+  const m = total - y * 12 + 1;
+  const d = Math.min(p.d, daysInMonth2(y, m));
+  return { ...p, y, m, d };
+}
+var pad = (n, w) => String(n).padStart(w, "0");
+function formatDate(y, m, d) {
+  return `${pad(y, 4)}-${pad(m, 2)}-${pad(d, 2)}`;
+}
+function formatMinute(ms) {
+  const p = msToParts(ms);
+  return `${formatDate(p.y, p.m, p.d)} ${pad(p.hh, 2)}:${pad(p.mm, 2)}`;
+}
+function parseDateText2(s) {
+  const mt2 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!mt2)
+    return null;
+  const y = Number(mt2[1]);
+  const m = Number(mt2[2]);
+  const d = Number(mt2[3]);
+  if (m < 1 || m > 12 || d < 1 || d > daysInMonth2(y, m))
+    return null;
+  return { y, m, d };
+}
+function zeroLike(v) {
+  switch (v.t) {
+    case "num":
+      return { t: "num", v: 0 };
+    case "text":
+      return { t: "text", v: "" };
+    case "bool":
+      return { t: "bool", v: false };
+    case "blank":
+      return BLANK;
+    default:
+      return fault("#VALUE!");
+  }
+}
+function compareCodePoints(a, b) {
+  const A = Array.from(a);
+  const B = Array.from(b);
+  const n = Math.min(A.length, B.length);
+  for (let i = 0; i < n; i++) {
+    const x = A[i].codePointAt(0);
+    const y = B[i].codePointAt(0);
+    if (x !== y)
+      return x < y ? -1 : 1;
+  }
+  if (A.length === B.length)
+    return 0;
+  return A.length < B.length ? -1 : 1;
+}
+function equalValues(l, r) {
+  if (l.t === "err")
+    fault(l.code);
+  if (r.t === "err")
+    fault(r.code);
+  if (l.t === "blank" && r.t === "blank")
+    return true;
+  if (l.t === "blank")
+    return equalValues(zeroLike(r), r);
+  if (r.t === "blank")
+    return equalValues(l, zeroLike(l));
+  if (isTemporal(l) && isTemporal(r))
+    return temporalMs(l) === temporalMs(r);
+  if (isTemporal(l) || isTemporal(r))
+    return false;
+  if (l.t !== r.t)
+    return false;
+  switch (l.t) {
+    case "num":
+      return l.v === r.v;
+    case "text":
+      return l.v === r.v;
+    case "bool":
+      return l.v === r.v;
+    default:
+      return false;
+  }
+}
+function orderValues(l, r) {
+  if (l.t === "err")
+    fault(l.code);
+  if (r.t === "err")
+    fault(r.code);
+  if (l.t === "blank" && r.t === "blank")
+    return 0;
+  if (l.t === "blank")
+    return orderValues(zeroLike(r), r);
+  if (r.t === "blank")
+    return orderValues(l, zeroLike(l));
+  if (isTemporal(l) && isTemporal(r)) {
+    const a = temporalMs(l);
+    const b = temporalMs(r);
+    return a === b ? 0 : a < b ? -1 : 1;
+  }
+  if (l.t !== r.t)
+    return fault("#VALUE!");
+  switch (l.t) {
+    case "num": {
+      const b = r.v;
+      return l.v === b ? 0 : l.v < b ? -1 : 1;
+    }
+    case "text":
+      return compareCodePoints(l.v, r.v);
+    case "bool": {
+      const b = r.v;
+      return l.v === b ? 0 : l.v ? 1 : -1;
+    }
+    default:
+      return fault("#VALUE!");
+  }
+}
+
+// src/formula/lexer.ts
+var NUM_RE = /\d+(\.\d+)?/y;
+var IDENT_RE = /[A-Za-z_][A-Za-z0-9_]*/y;
+function tokenize(src) {
+  const out = [];
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src.charAt(i);
+    if (c === " " || c === "	" || c === "\n" || c === "\r") {
+      i++;
+      continue;
+    }
+    if (c >= "0" && c <= "9") {
+      NUM_RE.lastIndex = i;
+      const m = NUM_RE.exec(src);
+      if (!m)
+        fault("#PARSE!");
+      out.push({ k: "num", v: Number(m[0]) });
+      i += m[0].length;
+      continue;
+    }
+    if (c === '"') {
+      let j = i + 1;
+      let text = "";
+      let closed = false;
+      while (j < n) {
+        const ch3 = src.charAt(j);
+        if (ch3 === "\n" || ch3 === "\r")
+          fault("#PARSE!");
+        if (ch3 === "\\") {
+          const nx = src.charAt(j + 1);
+          if (nx !== '"' && nx !== "\\")
+            fault("#PARSE!");
+          text += nx;
+          j += 2;
+          continue;
+        }
+        if (ch3 === '"') {
+          closed = true;
+          j++;
+          break;
+        }
+        text += ch3;
+        j++;
+      }
+      if (!closed)
+        fault("#PARSE!");
+      out.push({ k: "str", v: text });
+      i = j;
+      continue;
+    }
+    if (c === "{") {
+      let j = i + 1;
+      let name = "";
+      let closed = false;
+      while (j < n) {
+        const ch3 = src.charAt(j);
+        if (ch3 === "\n" || ch3 === "\r")
+          fault("#PARSE!");
+        if (ch3 === "\\") {
+          const nx = src.charAt(j + 1);
+          if (nx !== "}" && nx !== "\\")
+            fault("#PARSE!");
+          name += nx;
+          j += 2;
+          continue;
+        }
+        if (ch3 === "}") {
+          closed = true;
+          j++;
+          break;
+        }
+        name += ch3;
+        j++;
+      }
+      if (!closed || name.length === 0)
+        fault("#PARSE!");
+      out.push({ k: "ref", v: name });
+      i = j;
+      continue;
+    }
+    if (/[A-Za-z_]/.test(c)) {
+      IDENT_RE.lastIndex = i;
+      const m = IDENT_RE.exec(src);
+      if (!m)
+        fault("#PARSE!");
+      out.push({ k: "ident", v: m[0] });
+      i += m[0].length;
+      continue;
+    }
+    const two = src.slice(i, i + 2);
+    if (two === "!=" || two === "<=" || two === ">=") {
+      out.push({ k: "op", v: two });
+      i += 2;
+      continue;
+    }
+    if ("+-*/^&=<>".includes(c)) {
+      out.push({ k: "op", v: c });
+      i++;
+      continue;
+    }
+    if (c === "(") {
+      out.push({ k: "(" });
+      i++;
+      continue;
+    }
+    if (c === ")") {
+      out.push({ k: ")" });
+      i++;
+      continue;
+    }
+    if (c === ",") {
+      out.push({ k: "," });
+      i++;
+      continue;
+    }
+    fault("#PARSE!");
+  }
+  out.push({ k: "eof" });
+  return out;
+}
+
+// src/formula/parser.ts
+var MAX_FORMULA_LENGTH = 2e3;
+var MAX_NESTING = 50;
+var MAX_ARGS = 30;
+var CMP_OPS = /* @__PURE__ */ new Set(["=", "!=", "<", "<=", ">", ">="]);
+var Parser = class {
+  constructor(toks) {
+    this.toks = toks;
+  }
+  pos = 0;
+  depth = 0;
+  peek() {
+    return this.toks[this.pos];
+  }
+  next() {
+    return this.toks[this.pos++];
+  }
+  isOp(v) {
+    const t = this.peek();
+    return t.k === "op" && t.v === v;
+  }
+  enter() {
+    this.depth++;
+    if (this.depth > MAX_NESTING)
+      fault("#PARSE!");
+  }
+  leave() {
+    this.depth--;
+  }
+  parseAll() {
+    const e = this.parseComparison();
+    if (this.peek().k !== "eof")
+      fault("#PARSE!");
+    return e;
+  }
+  parseComparison() {
+    const l = this.parseConcat();
+    const t = this.peek();
+    if (t.k === "op" && CMP_OPS.has(t.v)) {
+      this.next();
+      const r = this.parseConcat();
+      const after = this.peek();
+      if (after.k === "op" && CMP_OPS.has(after.v))
+        fault("#PARSE!");
+      return { k: "bin", op: t.v, l, r };
+    }
+    return l;
+  }
+  parseConcat() {
+    let l = this.parseAdditive();
+    while (this.isOp("&")) {
+      this.next();
+      l = { k: "bin", op: "&", l, r: this.parseAdditive() };
+    }
+    return l;
+  }
+  parseAdditive() {
+    let l = this.parseMultiplicative();
+    while (this.isOp("+") || this.isOp("-")) {
+      const op = this.next().v;
+      l = { k: "bin", op, l, r: this.parseMultiplicative() };
+    }
+    return l;
+  }
+  parseMultiplicative() {
+    let l = this.parseUnary();
+    while (this.isOp("*") || this.isOp("/")) {
+      const op = this.next().v;
+      l = { k: "bin", op, l, r: this.parseUnary() };
+    }
+    return l;
+  }
+  parseUnary() {
+    if (this.isOp("-")) {
+      this.next();
+      this.enter();
+      const e = this.parseUnary();
+      this.leave();
+      return { k: "neg", e };
+    }
+    return this.parsePower();
+  }
+  parsePower() {
+    let l = this.parsePrimary();
+    while (this.isOp("^")) {
+      this.next();
+      l = { k: "bin", op: "^", l, r: this.parsePowerOperand() };
+    }
+    return l;
+  }
+  parsePowerOperand() {
+    if (this.isOp("-")) {
+      this.next();
+      this.enter();
+      const e = this.parsePowerOperand();
+      this.leave();
+      return { k: "neg", e };
+    }
+    return this.parsePrimary();
+  }
+  parsePrimary() {
+    const t = this.next();
+    switch (t.k) {
+      case "num":
+        return Number.isFinite(t.v) ? { k: "lit", v: { t: "num", v: t.v } } : { k: "lit", v: err2("#OVERFLOW!") };
+      case "str":
+        return { k: "lit", v: { t: "text", v: t.v } };
+      case "ref":
+        return { k: "ref", name: t.v };
+      case "ident": {
+        if (this.peek().k === "(")
+          return this.parseCall(t.v);
+        const up = t.v.toUpperCase();
+        if (up === "TRUE")
+          return { k: "lit", v: { t: "bool", v: true } };
+        if (up === "FALSE")
+          return { k: "lit", v: { t: "bool", v: false } };
+        return { k: "name", name: t.v };
+      }
+      case "(": {
+        this.enter();
+        const e = this.parseComparison();
+        if (this.next().k !== ")")
+          fault("#PARSE!");
+        this.leave();
+        return e;
+      }
+      default:
+        fault("#PARSE!");
+    }
+  }
+  parseCall(rawName) {
+    this.next();
+    this.enter();
+    const args = [];
+    if (this.peek().k === ")") {
+      this.next();
+    } else {
+      for (; ; ) {
+        args.push(this.parseComparison());
+        if (args.length > MAX_ARGS)
+          fault("#PARSE!");
+        const t = this.next();
+        if (t.k === ")")
+          break;
+        if (t.k !== ",")
+          fault("#PARSE!");
+      }
+    }
+    this.leave();
+    return { k: "call", name: rawName.toUpperCase(), args };
+  }
+};
+function collectRefs(node, out = []) {
+  switch (node.k) {
+    case "ref":
+      out.push(node.name);
+      break;
+    case "neg":
+      collectRefs(node.e, out);
+      break;
+    case "bin":
+      collectRefs(node.l, out);
+      collectRefs(node.r, out);
+      break;
+    case "call":
+      for (const a of node.args)
+        collectRefs(a, out);
+      break;
+    default:
+      break;
+  }
+  return out;
+}
+function compileFormula(src) {
+  if (src.length > MAX_FORMULA_LENGTH)
+    return { ok: false, code: "#PARSE!" };
+  try {
+    const root = new Parser(tokenize(src)).parseAll();
+    return { ok: true, root, refs: Array.from(new Set(collectRefs(root))) };
+  } catch (e) {
+    if (e instanceof FormulaFault)
+      return { ok: false, code: "#PARSE!" };
+    throw e;
+  }
+}
+
+// src/formula/functions.ts
+var VARIADIC = 30;
+var DAY_MS = 864e5;
+function asNumber(v) {
+  switch (v.t) {
+    case "num":
+      return v.v;
+    case "blank":
+      return 0;
+    case "err":
+      return fault(v.code);
+    default:
+      return fault("#VALUE!");
+  }
+}
+function asInt(v) {
+  return Math.trunc(asNumber(v));
+}
+function asText(v) {
+  switch (v.t) {
+    case "blank":
+      return "";
+    case "text":
+      return v.v;
+    case "num":
+      return formatNumber(v.v);
+    case "bool":
+      return v.v ? "TRUE" : "FALSE";
+    case "date":
+      return formatDate(v.y, v.m, v.d);
+    case "dt":
+      return formatMinute(v.ms);
+    case "err":
+      return fault(v.code);
+  }
+}
+function asBool(v) {
+  switch (v.t) {
+    case "bool":
+      return v.v;
+    case "num":
+      return v.v !== 0;
+    case "blank":
+      return false;
+    case "err":
+      return fault(v.code);
+    default:
+      return fault("#VALUE!");
+  }
+}
+function asTemporal(v) {
+  if (isTemporal(v))
+    return v;
+  if (v.t === "err")
+    return fault(v.code);
+  return fault("#VALUE!");
+}
+function cps(s) {
+  return Array.from(s);
+}
+function lowerCp(c) {
+  const l = c.toLowerCase();
+  return Array.from(l).length === 1 ? l : c;
+}
+function roundTo(n, digits, mode) {
+  const sign = n < 0 ? -1 : 1;
+  const a = Math.abs(n);
+  const scaled = Number((digits >= 0 ? a * 10 ** digits : a / 10 ** -digits).toPrecision(15));
+  let r;
+  if (mode === "nearest")
+    r = Math.round(scaled);
+  else if (mode === "up")
+    r = Math.ceil(scaled);
+  else
+    r = Math.floor(scaled);
+  const out = digits >= 0 ? r / 10 ** digits : r * 10 ** -digits;
+  return sign * out;
+}
+function roundArgs(args, mode) {
+  const n = asNumber(args[0]);
+  const digits = args.length > 1 ? asInt(args[1]) : 0;
+  if (digits < -15 || digits > 15)
+    return err2("#NUM!");
+  return numValue(roundTo(n, digits, mode));
+}
+function numericArgs(args) {
+  const out = [];
+  for (const a of args) {
+    if (a.t === "num")
+      out.push(a.v);
+    else if (a.t === "blank")
+      continue;
+    else if (a.t === "err")
+      fault(a.code);
+    else
+      fault("#VALUE!");
+  }
+  return out;
+}
+function monthsBetween(a, b, perMonth) {
+  const ta = temporalMs(a);
+  const tb = temporalMs(b);
+  const sign = ta >= tb ? 1 : -1;
+  const bp = partsOf(b);
+  let k = 0;
+  for (; ; ) {
+    const next = partsToMs(addMonthsParts(bp, sign * perMonth * (k + 1)));
+    if (sign > 0 ? next <= ta : next >= ta)
+      k++;
+    else
+      break;
+  }
+  return sign * k;
+}
+var UNITS = /* @__PURE__ */ new Set(["days", "weeks", "months", "years", "hours", "minutes", "seconds"]);
+var TIME_UNIT_MS = { hours: 36e5, minutes: 6e4, seconds: 1e3 };
+function dateAdd(v, n, unit) {
+  const isDate = v.t === "date";
+  const p = partsOf(v);
+  switch (unit) {
+    case "days":
+    case "weeks": {
+      const k = unit === "weeks" ? n * 7 : n;
+      if (isDate) {
+        const dn = dayNumber(p.y, p.m, p.d) + k;
+        const r = dateFromDayNumber(dn);
+        return { t: "date", y: r.y, m: r.m, d: r.d };
+      }
+      const t = /* @__PURE__ */ new Date(0);
+      t.setFullYear(p.y, p.m - 1, p.d + k);
+      t.setHours(p.hh, p.mm, p.ss, 0);
+      return { t: "dt", ms: t.getTime() };
+    }
+    case "months":
+    case "years": {
+      const months = unit === "years" ? n * 12 : n;
+      const r = addMonthsParts(p, months);
+      if (isDate)
+        return { t: "date", y: r.y, m: r.m, d: r.d };
+      return { t: "dt", ms: partsToMs(r) };
+    }
+    default: {
+      const ms = temporalMs(v) + n * TIME_UNIT_MS[unit];
+      return { t: "dt", ms };
+    }
+  }
+}
+function dateDiff(a, b, unit) {
+  if (unit === "months" || unit === "years")
+    return monthsBetween(a, b, unit === "years" ? 12 : 1);
+  if (a.t === "date" && b.t === "date" && (unit === "days" || unit === "weeks")) {
+    const days = dayNumber(a.y, a.m, a.d) - dayNumber(b.y, b.m, b.d);
+    return Math.trunc(unit === "weeks" ? days / 7 : days);
+  }
+  const dms = temporalMs(a) - temporalMs(b);
+  if (unit === "days")
+    return Math.trunc(dms / DAY_MS);
+  if (unit === "weeks")
+    return Math.trunc(dms / (7 * DAY_MS));
+  return Math.trunc(dms / TIME_UNIT_MS[unit]);
+}
+function weekdayIso(p) {
+  const n = dayNumber(p.y, p.m, p.d);
+  return ((n + 3) % 7 + 7) % 7 + 1;
+}
+function formatPattern(v, pattern) {
+  const p = partsOf(v);
+  const tokens = [
+    ["YYYY", () => String(p.y).padStart(4, "0")],
+    ["MM", () => String(p.m).padStart(2, "0")],
+    ["DD", () => String(p.d).padStart(2, "0")],
+    ["HH", () => String(p.hh).padStart(2, "0")],
+    ["mm", () => String(p.mm).padStart(2, "0")],
+    ["ss", () => String(p.ss).padStart(2, "0")]
+  ];
+  let out = "";
+  let i = 0;
+  outer:
+    while (i < pattern.length) {
+      for (const [tok, render] of tokens) {
+        if (pattern.startsWith(tok, i)) {
+          out += render();
+          i += tok.length;
+          continue outer;
+        }
+      }
+      out += pattern.charAt(i);
+      i++;
+    }
+  return out;
+}
+var cell = (fn, min, max2) => ({
+  min,
+  max: max2,
+  lazy: false,
+  run: fn
+});
+var FUNCTIONS = {
+  // ----- numeric (15) -----
+  ABS: cell((a) => numValue(Math.abs(asNumber(a[0]))), 1, 1),
+  ROUND: cell((a) => roundArgs(a, "nearest"), 1, 2),
+  ROUNDUP: cell((a) => roundArgs(a, "up"), 1, 2),
+  ROUNDDOWN: cell((a) => roundArgs(a, "down"), 1, 2),
+  CEILING: cell((a) => numValue(Math.ceil(asNumber(a[0]))), 1, 1),
+  FLOOR: cell((a) => numValue(Math.floor(asNumber(a[0]))), 1, 1),
+  INT: cell((a) => numValue(Math.floor(asNumber(a[0]))), 1, 1),
+  MOD: cell((a) => {
+    const n = asNumber(a[0]);
+    const m = asNumber(a[1]);
+    if (m === 0)
+      return err2("#DIV/0!");
+    return numValue(n - m * Math.floor(n / m));
+  }, 2, 2),
+  POWER: cell((a) => {
+    const x = asNumber(a[0]);
+    const y = asNumber(a[1]);
+    if (x === 0 && y < 0)
+      return err2("#DIV/0!");
+    const r = x ** y;
+    if (Number.isNaN(r))
+      return err2("#NUM!");
+    return numValue(r);
+  }, 2, 2),
+  SQRT: cell((a) => {
+    const n = asNumber(a[0]);
+    if (n < 0)
+      return err2("#NUM!");
+    return numValue(Math.sqrt(n));
+  }, 1, 1),
+  MIN: cell((a) => {
+    const xs = numericArgs(a);
+    return xs.length === 0 ? BLANK : numValue(Math.min(...xs));
+  }, 1, VARIADIC),
+  MAX: cell((a) => {
+    const xs = numericArgs(a);
+    return xs.length === 0 ? BLANK : numValue(Math.max(...xs));
+  }, 1, VARIADIC),
+  SUM: cell((a) => {
+    let s = 0;
+    for (const x of numericArgs(a))
+      s += x;
+    return numValue(s);
+  }, 0, VARIADIC),
+  AVERAGE: cell((a) => {
+    const xs = numericArgs(a);
+    if (xs.length === 0)
+      return err2("#DIV/0!");
+    let s = 0;
+    for (const x of xs)
+      s += x;
+    return numValue(s / xs.length);
+  }, 1, VARIADIC),
+  COUNT: cell((a) => numValue(a.filter((x) => x.t === "num").length), 1, VARIADIC),
+  // ----- text (14) -----
+  CONCATENATE: cell((a) => textValue(a.map(asText).join("")), 1, VARIADIC),
+  LEN: cell((a) => numValue(cps(asText(a[0])).length), 1, 1),
+  LOWER: cell((a) => textValue(asText(a[0]).toLowerCase()), 1, 1),
+  UPPER: cell((a) => textValue(asText(a[0]).toUpperCase()), 1, 1),
+  TRIM: cell((a) => textValue(asText(a[0]).replace(/ +/g, " ").replace(/^ | $/g, "")), 1, 1),
+  LEFT: cell((a) => {
+    const s = cps(asText(a[0]));
+    const n = a.length > 1 ? asInt(a[1]) : 1;
+    if (n < 0)
+      return err2("#NUM!");
+    return textValue(s.slice(0, n).join(""));
+  }, 1, 2),
+  RIGHT: cell((a) => {
+    const s = cps(asText(a[0]));
+    const n = a.length > 1 ? asInt(a[1]) : 1;
+    if (n < 0)
+      return err2("#NUM!");
+    return textValue(s.slice(Math.max(0, s.length - n)).join(""));
+  }, 1, 2),
+  MID: cell((a) => {
+    const s = cps(asText(a[0]));
+    const start = asInt(a[1]);
+    const n = asInt(a[2]);
+    if (start < 1 || n < 0)
+      return err2("#NUM!");
+    return textValue(s.slice(start - 1, start - 1 + n).join(""));
+  }, 3, 3),
+  FIND: cell((a) => findText(a, false), 2, 3),
+  SEARCH: cell((a) => findText(a, true), 2, 3),
+  SUBSTITUTE: cell((a) => {
+    const s = asText(a[0]);
+    const oldText = asText(a[1]);
+    const newText = asText(a[2]);
+    if (oldText === "")
+      return textValue(s);
+    return textValue(s.split(oldText).join(newText));
+  }, 3, 3),
+  REPLACE: cell((a) => {
+    const s = cps(asText(a[0]));
+    const start = asInt(a[1]);
+    const count = asInt(a[2]);
+    const repl = asText(a[3]);
+    if (start < 1 || count < 0)
+      return err2("#NUM!");
+    if (start > s.length)
+      return textValue(s.join("") + repl);
+    return textValue(s.slice(0, start - 1).join("") + repl + s.slice(start - 1 + count).join(""));
+  }, 4, 4),
+  REPT: cell((a) => {
+    const s = asText(a[0]);
+    const n = asInt(a[1]);
+    if (n < 0)
+      return err2("#NUM!");
+    if (s.length * n > MAX_TEXT)
+      return err2("#OVERFLOW!");
+    return textValue(s.repeat(n));
+  }, 2, 2),
+  VALUE: cell((a) => {
+    const v = a[0];
+    if (v.t === "num")
+      return v;
+    if (v.t !== "text")
+      return err2("#VALUE!");
+    const t = v.v.replace(/^ +| +$/g, "");
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(t))
+      return err2("#VALUE!");
+    return numValue(Number(t));
+  }, 1, 1),
+  // ----- logic (7) — IF, AND, OR, SWITCH are lazy -----
+  IF: { min: 2, max: 3, lazy: true },
+  AND: { min: 1, max: VARIADIC, lazy: true },
+  OR: { min: 1, max: VARIADIC, lazy: true },
+  NOT: cell((a) => ({ t: "bool", v: !asBool(a[0]) }), 1, 1),
+  XOR: cell((a) => ({ t: "bool", v: asBool(a[0]) !== asBool(a[1]) }), 2, 2),
+  SWITCH: { min: 3, max: VARIADIC, lazy: true },
+  BLANK: cell(() => BLANK, 0, 0),
+  // ----- date and time (15) -----
+  DATE: cell((a) => {
+    const p = parseDateText2(asText(a[0]));
+    if (!p)
+      return err2("#VALUE!");
+    return { t: "date", y: p.y, m: p.m, d: p.d };
+  }, 1, 1),
+  TODAY: cell((_a2, ctx) => {
+    const p = msToParts(ctx.now);
+    return { t: "date", y: p.y, m: p.m, d: p.d };
+  }, 0, 0),
+  NOW: cell((_a2, ctx) => ({ t: "dt", ms: ctx.now }), 0, 0),
+  DATEADD: cell((a) => {
+    const v = asTemporal(a[0]);
+    const n = Math.trunc(asNumber(a[1]));
+    const unit = asText(a[2]).toLowerCase();
+    if (!UNITS.has(unit))
+      return err2("#VALUE!");
+    return dateAdd(v, n, unit);
+  }, 3, 3),
+  DATETIME_DIFF: cell((a) => {
+    const x = asTemporal(a[0]);
+    const y = asTemporal(a[1]);
+    const unit = asText(a[2]).toLowerCase();
+    if (!UNITS.has(unit))
+      return err2("#VALUE!");
+    return numValue(dateDiff(x, y, unit));
+  }, 3, 3),
+  IS_BEFORE: cell((a) => {
+    const x = asTemporal(a[0]);
+    const y = asTemporal(a[1]);
+    return { t: "bool", v: temporalMs(x) < temporalMs(y) };
+  }, 2, 2),
+  IS_AFTER: cell((a) => {
+    const x = asTemporal(a[0]);
+    const y = asTemporal(a[1]);
+    return { t: "bool", v: temporalMs(x) > temporalMs(y) };
+  }, 2, 2),
+  YEAR: cell((a) => numValue(partsOf(asTemporal(a[0])).y), 1, 1),
+  MONTH: cell((a) => numValue(partsOf(asTemporal(a[0])).m), 1, 1),
+  DAY: cell((a) => numValue(partsOf(asTemporal(a[0])).d), 1, 1),
+  WEEKDAY: cell((a) => numValue(weekdayIso(partsOf(asTemporal(a[0])))), 1, 1),
+  HOUR: cell((a) => numValue(partsOf(asTemporal(a[0])).hh), 1, 1),
+  MINUTE: cell((a) => numValue(partsOf(asTemporal(a[0])).mm), 1, 1),
+  SECOND: cell((a) => numValue(partsOf(asTemporal(a[0])).ss), 1, 1),
+  DATETIME_FORMAT: cell((a) => {
+    const v = asTemporal(a[0]);
+    return textValue(formatPattern(v, asText(a[1])));
+  }, 2, 2),
+  // ----- record (3) -----
+  RECORD_ID: cell((_a2, ctx) => textValue(ctx.rowId), 0, 0),
+  CREATED_TIME: cell((_a2, ctx) => ({ t: "dt", ms: ctx.createdMs }), 0, 0),
+  LAST_MODIFIED_TIME: cell((_a2, ctx) => ({ t: "dt", ms: ctx.modifiedMs }), 0, 0)
+};
+function findText(a, ci) {
+  const hay = cps(asText(a[1]));
+  const needle = cps(asText(a[0]));
+  const start = a.length > 2 ? asInt(a[2]) : 1;
+  if (start < 1 || start > hay.length + 1)
+    return err2("#NUM!");
+  if (needle.length === 0)
+    return numValue(start);
+  const norm = (c) => ci ? lowerCp(c) : c;
+  const h = hay.map(norm);
+  const nd = needle.map(norm);
+  for (let i = start - 1; i + nd.length <= h.length; i++) {
+    let ok = true;
+    for (let j = 0; j < nd.length; j++) {
+      if (h[i + j] !== nd[j]) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok)
+      return numValue(i + 1);
+  }
+  return numValue(0);
+}
+
+// src/formula/evaluate.ts
+var TRUE = { t: "bool", v: true };
+var FALSE = { t: "bool", v: false };
+function evaluate(node, ctx) {
+  switch (node.k) {
+    case "lit":
+      return node.v;
+    case "ref":
+      return ctx.field(node.name) ?? err2("#NAME?");
+    case "name":
+      return err2("#NAME?");
+    case "neg": {
+      const v = evaluate(node.e, ctx);
+      if (v.t === "err")
+        return v;
+      try {
+        return numValue(-asNumber(v));
+      } catch (e) {
+        return faultValue(e);
+      }
+    }
+    case "bin": {
+      const l = evaluate(node.l, ctx);
+      const r = evaluate(node.r, ctx);
+      if (l.t === "err")
+        return l;
+      if (r.t === "err")
+        return r;
+      try {
+        return binary(node.op, l, r);
+      } catch (e) {
+        return faultValue(e);
+      }
+    }
+    case "call":
+      return call(node.name, node.args, ctx);
+  }
+}
+function binary(op, l, r) {
+  switch (op) {
+    case "&":
+      return textValue(asText(l) + asText(r));
+    case "+":
+      return numValue(asNumber(l) + asNumber(r));
+    case "-":
+      return numValue(asNumber(l) - asNumber(r));
+    case "*":
+      return numValue(asNumber(l) * asNumber(r));
+    case "/": {
+      const x = asNumber(l);
+      const y = asNumber(r);
+      if (y === 0)
+        return err2("#DIV/0!");
+      return numValue(x / y);
+    }
+    case "^": {
+      const x = asNumber(l);
+      const y = asNumber(r);
+      if (x === 0 && y < 0)
+        return err2("#DIV/0!");
+      const p = x ** y;
+      if (Number.isNaN(p))
+        return err2("#NUM!");
+      return numValue(p);
+    }
+    case "=":
+      return equalValues(l, r) ? TRUE : FALSE;
+    case "!=":
+      return equalValues(l, r) ? FALSE : TRUE;
+    case "<":
+      return orderValues(l, r) < 0 ? TRUE : FALSE;
+    case "<=":
+      return orderValues(l, r) <= 0 ? TRUE : FALSE;
+    case ">":
+      return orderValues(l, r) > 0 ? TRUE : FALSE;
+    case ">=":
+      return orderValues(l, r) >= 0 ? TRUE : FALSE;
+    default:
+      return fault("#PARSE!");
+  }
+}
+function call(name, args, ctx) {
+  const def = Object.prototype.hasOwnProperty.call(FUNCTIONS, name) ? FUNCTIONS[name] : void 0;
+  if (!def)
+    return err2("#NAME?");
+  if (args.length < def.min || args.length > def.max)
+    return err2("#ARGS!");
+  if (def.lazy)
+    return lazyCall(name, args, ctx);
+  const vals = [];
+  for (const a of args) {
+    const v = evaluate(a, ctx);
+    if (v.t === "err")
+      return v;
+    vals.push(v);
+  }
+  try {
+    return def.run(vals, ctx);
+  } catch (e) {
+    return faultValue(e);
+  }
+}
+function lazyCall(name, args, ctx) {
+  switch (name) {
+    case "IF": {
+      const c = evaluate(args[0], ctx);
+      if (c.t === "err")
+        return c;
+      let b;
+      try {
+        b = asBool(c);
+      } catch (e) {
+        return faultValue(e);
+      }
+      if (b)
+        return evaluate(args[1], ctx);
+      return args[2] ? evaluate(args[2], ctx) : BLANK;
+    }
+    case "AND":
+    case "OR": {
+      const isAnd = name === "AND";
+      for (const a of args) {
+        const v = evaluate(a, ctx);
+        if (v.t === "err")
+          return v;
+        let b;
+        try {
+          b = asBool(v);
+        } catch (e) {
+          return faultValue(e);
+        }
+        if (isAnd && !b)
+          return FALSE;
+        if (!isAnd && b)
+          return TRUE;
+      }
+      return isAnd ? TRUE : FALSE;
+    }
+    case "SWITCH": {
+      const x = evaluate(args[0], ctx);
+      if (x.t === "err")
+        return x;
+      const pairs = Math.floor((args.length - 1) / 2);
+      for (let i = 0; i < pairs; i++) {
+        const v = evaluate(args[1 + 2 * i], ctx);
+        if (v.t === "err")
+          return v;
+        let eq;
+        try {
+          eq = equalValues(x, v);
+        } catch (e) {
+          return faultValue(e);
+        }
+        if (eq)
+          return evaluate(args[2 + 2 * i], ctx);
+      }
+      if ((args.length - 1) % 2 === 1)
+        return evaluate(args[args.length - 1], ctx);
+      return BLANK;
+    }
+    default:
+      return err2("#NAME?");
+  }
+}
+
+// src/formula/engine.ts
+var FormulaEngine = class {
+  stats = { evaluations: 0, internalErrors: 0 };
+  fields = /* @__PURE__ */ new Map();
+  nameToIds = /* @__PURE__ */ new Map();
+  compiled = /* @__PURE__ */ new Map();
+  /** formula id -> resolved field ids it references directly */
+  deps = /* @__PURE__ */ new Map();
+  /** field id -> formula ids that reference it directly */
+  dependents = /* @__PURE__ */ new Map();
+  cyclic = /* @__PURE__ */ new Set();
+  /** acyclic formula id -> position in dependency order */
+  rank = /* @__PURE__ */ new Map();
+  evalOrder = [];
+  rows = /* @__PURE__ */ new Map();
+  nowFn;
+  nowMs = 0;
+  constructor(opts) {
+    this.nowFn = opts.now ?? (() => Date.now());
+    for (const f of opts.fields) {
+      if (this.fields.has(f.id))
+        throw new Error(`duplicate field id ${f.id}`);
+      this.fields.set(f.id, f);
+      const list = this.nameToIds.get(f.name) ?? [];
+      list.push(f.id);
+      this.nameToIds.set(f.name, list);
+    }
+    for (const f of opts.fields) {
+      if (f.formula === void 0)
+        continue;
+      const c = compileFormula(f.formula);
+      this.compiled.set(f.id, c);
+      const ds = /* @__PURE__ */ new Set();
+      if (c.ok) {
+        for (const ref of c.refs) {
+          const ids = this.nameToIds.get(ref);
+          if (ids && ids.length === 1)
+            ds.add(ids[0]);
+        }
+      }
+      this.deps.set(f.id, ds);
+    }
+    for (const [f, ds] of this.deps) {
+      for (const d of ds) {
+        const set = this.dependents.get(d) ?? /* @__PURE__ */ new Set();
+        set.add(f);
+        this.dependents.set(d, set);
+      }
+    }
+    this.findCycles();
+    this.orderAcyclic();
+    for (const r of opts.rows) {
+      if (this.rows.has(r.id))
+        throw new Error(`duplicate row id ${r.id}`);
+      this.rows.set(r.id, {
+        id: r.id,
+        createdMs: r.createdMs,
+        modifiedMs: r.modifiedMs,
+        inputs: new Map(Object.entries(r.inputs)),
+        computed: /* @__PURE__ */ new Map()
+      });
+    }
+    this.recalculateAll();
+  }
+  /** Formula ids that sit on a reference cycle (value is #CYCLE!). */
+  cycleFieldIds() {
+    return [...this.cyclic];
+  }
+  /** Current value of a cell. Unknown row or field gives blank. */
+  value(rowId, fieldId) {
+    const row = this.rows.get(rowId);
+    if (!row || !this.fields.has(fieldId))
+      return BLANK;
+    return this.valueOf(row, fieldId);
+  }
+  /**
+   * Set an input cell and recalculate its dependents within that row.
+   * Returns false (and changes nothing) for an unknown row, an unknown field,
+   * or a formula field.
+   */
+  setInput(rowId, fieldId, v) {
+    const row = this.rows.get(rowId);
+    const f = this.fields.get(fieldId);
+    if (!row || !f || f.formula !== void 0)
+      return false;
+    row.inputs.set(fieldId, v);
+    const dirty = this.dirtyFrom(fieldId);
+    for (const id of dirty)
+      row.computed.delete(id);
+    for (const id of dirty)
+      this.valueOf(row, id);
+    return true;
+  }
+  /** Full recalculation of every row. Captures the current time for TODAY and NOW. */
+  recalculateAll() {
+    this.nowMs = this.nowFn();
+    for (const row of this.rows.values()) {
+      row.computed.clear();
+      for (const id of this.evalOrder)
+        this.valueOf(row, id);
+    }
+  }
+  valueOf(row, id) {
+    const f = this.fields.get(id);
+    if (!f)
+      return BLANK;
+    if (f.formula === void 0)
+      return row.inputs.get(id) ?? BLANK;
+    if (this.cyclic.has(id))
+      return err2("#CYCLE!");
+    const hit = row.computed.get(id);
+    if (hit !== void 0)
+      return hit;
+    const v = this.compute(row, id);
+    row.computed.set(id, v);
+    return v;
+  }
+  compute(row, id) {
+    const c = this.compiled.get(id);
+    this.stats.evaluations++;
+    if (!c)
+      return err2("#PARSE!");
+    if (!c.ok)
+      return err2(c.code);
+    const ctx = {
+      rowId: row.id,
+      createdMs: row.createdMs,
+      modifiedMs: row.modifiedMs,
+      now: this.nowMs,
+      field: (name) => {
+        const ids = this.nameToIds.get(name);
+        if (!ids || ids.length !== 1)
+          return void 0;
+        return this.valueOf(row, ids[0]);
+      }
+    };
+    try {
+      return evaluate(c.root, ctx);
+    } catch {
+      this.stats.internalErrors++;
+      return err2("#VALUE!");
+    }
+  }
+  dirtyFrom(fieldId) {
+    const seen = /* @__PURE__ */ new Set();
+    const stack = [fieldId];
+    while (stack.length > 0) {
+      const x = stack.pop();
+      for (const f of this.dependents.get(x) ?? []) {
+        if (!seen.has(f)) {
+          seen.add(f);
+          stack.push(f);
+        }
+      }
+    }
+    return [...seen].filter((f) => this.rank.has(f)).sort((a, b) => this.rank.get(a) - this.rank.get(b));
+  }
+  formulaDeps(id) {
+    const out = [];
+    for (const d of this.deps.get(id) ?? [])
+      if (this.compiled.has(d))
+        out.push(d);
+    return out;
+  }
+  /** Tarjan's strongly connected components over formula fields. */
+  findCycles() {
+    const index = /* @__PURE__ */ new Map();
+    const low = /* @__PURE__ */ new Map();
+    const onStack = /* @__PURE__ */ new Set();
+    const stack = [];
+    let counter = 0;
+    const strong = (v) => {
+      index.set(v, counter);
+      low.set(v, counter);
+      counter++;
+      stack.push(v);
+      onStack.add(v);
+      for (const w of this.formulaDeps(v)) {
+        if (!index.has(w)) {
+          strong(w);
+          low.set(v, Math.min(low.get(v), low.get(w)));
+        } else if (onStack.has(w)) {
+          low.set(v, Math.min(low.get(v), index.get(w)));
+        }
+      }
+      if (low.get(v) === index.get(v)) {
+        const comp = [];
+        let w;
+        do {
+          w = stack.pop();
+          onStack.delete(w);
+          comp.push(w);
+        } while (w !== v);
+        const selfLoop = this.deps.get(v)?.has(v) ?? false;
+        if (comp.length > 1 || selfLoop)
+          for (const c of comp)
+            this.cyclic.add(c);
+      }
+    };
+    for (const id of this.compiled.keys())
+      if (!index.has(id))
+        strong(id);
+  }
+  /** Dependency order (post-order DFS) of acyclic formula fields. */
+  orderAcyclic() {
+    const visited = /* @__PURE__ */ new Set();
+    const visit = (v) => {
+      if (visited.has(v))
+        return;
+      visited.add(v);
+      for (const w of this.formulaDeps(v))
+        if (!this.cyclic.has(w))
+          visit(w);
+      this.rank.set(v, this.evalOrder.length);
+      this.evalOrder.push(v);
+    };
+    for (const id of this.compiled.keys())
+      if (!this.cyclic.has(id))
+        visit(id);
+  }
+};
+
+// src/model/formulaRuntime.ts
+var ERROR_MESSAGES = {
+  "#PARSE!": "The formula has a syntax error.",
+  "#NAME?": "The formula uses an unknown field or function.",
+  "#ARGS!": "A function got the wrong number of arguments.",
+  "#TYPE!": "A value has the wrong type.",
+  "#VALUE!": "A value cannot be used here.",
+  "#DIV/0!": "Division by zero.",
+  "#NUM!": "A number is out of range.",
+  "#OVERFLOW!": "The result is too large.",
+  "#CYCLE!": "This formula depends on itself."
+};
+function cellToValue(field, cell2) {
+  const v = cell2 ?? null;
+  if (v === null)
+    return BLANK;
+  switch (field.type) {
+    case "number":
+    case "currency":
+    case "percent":
+    case "duration":
+    case "rating":
+    case "auto_number":
+      return typeof v === "number" ? { t: "num", v } : BLANK;
+    case "checkbox":
+      return typeof v === "boolean" ? { t: "bool", v } : BLANK;
+    case "date": {
+      if (typeof v !== "string")
+        return BLANK;
+      const p = parseDateText2(v);
+      return p ? { t: "date", y: p.y, m: p.m, d: p.d } : BLANK;
+    }
+    case "date_time":
+    case "created_time":
+    case "modified_time": {
+      if (typeof v !== "string")
+        return BLANK;
+      const ms = Date.parse(v);
+      return Number.isNaN(ms) ? BLANK : { t: "dt", ms };
+    }
+    case "single_select": {
+      if (typeof v !== "string")
+        return BLANK;
+      const opt = field.options?.find((o) => o.id === v);
+      return opt ? { t: "text", v: opt.name } : BLANK;
+    }
+    case "multi_select": {
+      if (!Array.isArray(v))
+        return BLANK;
+      const names = v.map((id) => field.options?.find((o) => o.id === id)?.name ?? "");
+      return { t: "text", v: names.filter((n) => n !== "").join(", ") };
+    }
+    case "link":
+      return { t: "err", code: "#VALUE!" };
+    case "attachment":
+      return Array.isArray(v) ? { t: "text", v: v.join(", ") } : BLANK;
+    default:
+      return typeof v === "string" ? { t: "text", v } : BLANK;
+  }
+}
+function valueToCell(v) {
+  switch (v.t) {
+    case "blank":
+      return null;
+    case "num":
+      return v.v;
+    case "text":
+      return v.v;
+    case "bool":
+      return v.v;
+    case "date":
+      return formatDate(v.y, v.m, v.d);
+    case "dt":
+      return formatMinute(v.ms);
+    case "err":
+      return v.code;
+  }
+}
+function createFormulaRuntime(store) {
+  let engine = null;
+  let signature = "";
+  let shadow = /* @__PURE__ */ new Map();
+  const formulaFieldsOf = () => store.getFields().filter((f) => f.type === "formula");
+  function computeSignature() {
+    const fields = store.getFields().map((f) => [f.id, f.name, f.type, f.formula ?? null]);
+    const rowIds = store.getAllRows().map((r) => r.id);
+    return JSON.stringify([fields, rowIds]);
+  }
+  function build() {
+    const fields = store.getFields();
+    const specs = fields.map(
+      (f) => f.type === "formula" ? { id: f.id, name: f.name, formula: f.formula ?? "" } : { id: f.id, name: f.name }
+    );
+    const inputs = fields.filter((f) => f.type !== "formula");
+    const nextShadow = /* @__PURE__ */ new Map();
+    const rows = store.getAllRows().map((r) => {
+      const values = {};
+      const seen = /* @__PURE__ */ new Map();
+      for (const f of inputs) {
+        const cell2 = r.values[f.id] ?? null;
+        values[f.id] = cellToValue(f, cell2);
+        seen.set(f.id, JSON.stringify(cell2));
+      }
+      nextShadow.set(r.id, seen);
+      const modifiedMs = Date.parse(r.updatedAt);
+      const createdMs = Date.parse(r.createdAt ?? r.updatedAt);
+      return {
+        id: r.id,
+        createdMs: Number.isNaN(createdMs) ? 0 : createdMs,
+        modifiedMs: Number.isNaN(modifiedMs) ? 0 : modifiedMs,
+        inputs: values
+      };
+    });
+    shadow = nextShadow;
+    engine = new FormulaEngine({ fields: specs, rows, now: () => Date.now() });
+    signature = computeSignature();
+  }
+  return {
+    sync() {
+      if (formulaFieldsOf().length === 0) {
+        engine = null;
+        shadow = /* @__PURE__ */ new Map();
+        signature = "";
+        return;
+      }
+      if (!engine || computeSignature() !== signature) {
+        build();
+        return;
+      }
+      const fields = store.getFields();
+      const inputs = fields.filter((f) => f.type !== "formula");
+      for (const r of store.getAllRows()) {
+        let seen = shadow.get(r.id);
+        if (!seen) {
+          seen = /* @__PURE__ */ new Map();
+          shadow.set(r.id, seen);
+        }
+        for (const f of inputs) {
+          const cell2 = r.values[f.id] ?? null;
+          const key = JSON.stringify(cell2);
+          if (seen.get(f.id) === key)
+            continue;
+          seen.set(f.id, key);
+          engine.setInput(r.id, f.id, cellToValue(f, cell2));
+        }
+      }
+    },
+    hasFormulaFields() {
+      return engine !== null;
+    },
+    displayValue(rowId, fieldId) {
+      if (!engine)
+        return null;
+      const field = store.getFields().find((f) => f.id === fieldId);
+      if (!field || field.type !== "formula")
+        return null;
+      return valueToCell(engine.value(rowId, fieldId));
+    },
+    error(rowId, fieldId) {
+      if (!engine)
+        return null;
+      const field = store.getFields().find((f) => f.id === fieldId);
+      if (!field || field.type !== "formula")
+        return null;
+      const v = engine.value(rowId, fieldId);
+      if (v.t !== "err")
+        return null;
+      return { code: v.code, message: ERROR_MESSAGES[v.code] };
+    },
+    cycleFieldIds() {
+      return engine ? engine.cycleFieldIds() : [];
+    }
+  };
+}
 
 // src/model/rowFilter.ts
 function searchableText(value, field) {
@@ -9732,7 +11325,9 @@ function filterRows(rows, fields, search, query) {
 var NOT_A_TARGET = {
   single_select: "Choose options in field settings (not in this version)",
   multi_select: "Choose options in field settings (not in this version)",
-  attachment: "Attachments keep their own path"
+  attachment: "Attachments keep their own path",
+  formula: "Formula fields are created with Add field",
+  link: "Link fields are created with Add field"
 };
 function isEmpty2(v) {
   return v === null || v === void 0 || v === "" || Array.isArray(v) && v.length === 0;
@@ -9742,6 +11337,8 @@ function planTypeChange(rows, field, target) {
     return { ok: false, reason: `Unknown type ${target}`, blockedRows: 0 };
   if (target === field.type)
     return { ok: false, reason: `Already ${field.type}`, blockedRows: 0 };
+  if (field.type === "link")
+    return { ok: false, reason: "Link fields keep their type", blockedRows: 0 };
   const note = NOT_A_TARGET[target];
   if (note)
     return { ok: false, reason: note, blockedRows: 0 };
@@ -9751,6 +11348,10 @@ function planTypeChange(rows, field, target) {
   const next = { ...field, type: target };
   if (target !== "single_select" && target !== "multi_select")
     delete next.options;
+  if (target !== "formula")
+    delete next.formula;
+  if (target !== "link")
+    delete next.linkTableId;
   const oldType = getFieldType(field.type);
   const valuesByRow = {};
   let blocked = 0;
@@ -9781,6 +11382,8 @@ function createSession(file) {
     initialRows: file.rows
   });
   const stack = createCommandStack({ store });
+  const formulas = createFormulaRuntime(store);
+  const afterMutation = () => formulas.sync();
   let view = file.views[0];
   let syncLink = file.syncLink ?? null;
   const setViewState = (next) => {
@@ -9802,15 +11405,43 @@ function createSession(file) {
       return view;
     },
     getDisplayRows() {
+      formulas.sync();
       const fields = store.getFields();
       const sorted = sortRows(store.getAllRows(), view.sort, fields);
-      return filterRows(sorted, fields, view.search, view.query).rows;
+      const rows = filterRows(sorted, fields, view.search, view.query).rows;
+      const formulaIds = fields.filter((f) => f.type === "formula").map((f) => f.id);
+      if (formulaIds.length === 0)
+        return rows;
+      return rows.map((r) => {
+        const values = { ...r.values };
+        for (const id of formulaIds)
+          values[id] = formulas.displayValue(r.id, id);
+        return { ...r, values };
+      });
+    },
+    getFormulaError(rowId, fieldId) {
+      return formulas.error(rowId, fieldId);
+    },
+    setFormula(fieldId, formula) {
+      const field = store.getFields().find((f) => f.id === fieldId);
+      if (!field || field.type !== "formula")
+        return { ok: false, reason: "Not a formula field" };
+      const compiled = compileFormula(formula);
+      if (!compiled.ok)
+        return { ok: false, reason: ERROR_MESSAGES["#PARSE!"] };
+      if (field.formula === formula)
+        return { ok: true };
+      stack.execute(createSetFormulaCommand({ fieldId, oldFormula: field.formula, newFormula: formula }));
+      afterMutation();
+      return { ok: true };
     },
     getFilterError() {
       const compiled = compileQuery(view.query, store.getFields());
       return compiled.ok ? null : compiled.error;
     },
     setValue(rowId, fieldId, value) {
+      if (store.getFields().some((f) => f.id === fieldId && f.type === "formula"))
+        return;
       const row = store.getRow(rowId);
       if (!row)
         return;
@@ -9818,9 +11449,11 @@ function createSession(file) {
       if (JSON.stringify(oldValue) === JSON.stringify(value))
         return;
       stack.execute(createEditCellCommand({ rowId, fieldId, oldValue, newValue: value }));
+      afterMutation();
     },
     addRow() {
       stack.execute(createAddRowCommand({ values: {} }));
+      afterMutation();
     },
     insertRowNear(rowId, where) {
       const order = store.getAllRows().map((r) => r.id);
@@ -9828,6 +11461,7 @@ function createSession(file) {
       if (idx === -1)
         return;
       stack.execute(createInsertRowCommand({ index: where === "above" ? idx : idx + 1, values: {} }));
+      afterMutation();
     },
     duplicateRow(rowId) {
       const source = store.getRow(rowId);
@@ -9835,11 +11469,13 @@ function createSession(file) {
         return;
       const idx = store.getAllRows().findIndex((r) => r.id === rowId);
       stack.execute(createInsertRowCommand({ index: idx + 1, values: { ...source.values } }));
+      afterMutation();
     },
     deleteRow(rowId) {
       if (!store.getRow(rowId))
         return;
       stack.execute(createDeleteRowCommand({ rowId }));
+      afterMutation();
     },
     setView(next) {
       const before = view;
@@ -9853,8 +11489,13 @@ function createSession(file) {
         return;
       setViewState(next);
     },
-    addField(name, type) {
-      const field = { id: generateFieldId(), name, type };
+    addField(name, type, formula) {
+      const field = {
+        id: generateFieldId(),
+        name,
+        type,
+        ...type === "formula" ? { formula: formula ?? "" } : {}
+      };
       const viewBefore = view;
       const viewAfter = {
         ...view,
@@ -9863,6 +11504,7 @@ function createSession(file) {
       stack.execute(
         createAddFieldCommand({ field, applyView: setViewState, viewBefore, viewAfter })
       );
+      afterMutation();
       return field;
     },
     changeFieldType(fieldId, target) {
@@ -9883,13 +11525,18 @@ function createSession(file) {
           after: { field: plan.field, valuesByRow: plan.valuesByRow }
         })
       );
+      afterMutation();
       return plan;
     },
     undo() {
-      return stack.undo();
+      const changed = stack.undo();
+      afterMutation();
+      return changed;
     },
     redo() {
-      return stack.redo();
+      const changed = stack.redo();
+      afterMutation();
+      return changed;
     },
     getSyncLink() {
       return syncLink;
@@ -9900,13 +11547,20 @@ function createSession(file) {
     toFile() {
       const views = file.views.slice();
       views[0] = view;
-      return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows: store.getAllRows(), views, syncLink };
+      const formulaIds = store.getFields().filter((f) => f.type === "formula").map((f) => f.id);
+      const rows = formulaIds.length === 0 ? store.getAllRows() : store.getAllRows().map((r) => {
+        const values = { ...r.values };
+        for (const id of formulaIds)
+          delete values[id];
+        return { ...r, values };
+      });
+      return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows, views, syncLink };
     }
   };
 }
 
 // src/views/grid/editors/index.ts
-var READONLY_TYPES = /* @__PURE__ */ new Set(["auto_number", "created_time", "modified_time"]);
+var READONLY_TYPES = /* @__PURE__ */ new Set(["auto_number", "created_time", "modified_time", "formula", "link"]);
 function isReadOnly(field) {
   if (field.airtable?.readOnly)
     return true;
@@ -10277,12 +11931,12 @@ var GridView = class {
     });
     this.root.addEventListener("click", (e) => {
       const target = e.target;
-      const cell = target?.closest?.(".tablify__cell");
-      if (!cell)
+      const cell2 = target?.closest?.(".tablify__cell");
+      if (!cell2)
         return;
-      const rowEl = cell.parentElement;
+      const rowEl = cell2.parentElement;
       const row = Number(rowEl?.dataset.rowIndex);
-      const col = Number(cell.dataset.colIndex);
+      const col = Number(cell2.dataset.colIndex);
       if (Number.isNaN(row) || Number.isNaN(col))
         return;
       this.setSelection({ row, col });
@@ -10403,16 +12057,16 @@ var GridView = class {
    *   '2' — the header is its own stacking context, so this only has to outrank the other
    *   header cells, while the header element itself outranks the whole body.
    */
-  styleCell(cell, colIndex, frozenZIndex) {
-    cell.className = "tablify__cell";
-    cell.style.flex = "0 0 auto";
-    cell.style.boxSizing = "border-box";
-    cell.style.width = `${this.widths[colIndex] ?? DEFAULT_COLUMN_WIDTH}px`;
+  styleCell(cell2, colIndex, frozenZIndex) {
+    cell2.className = "tablify__cell";
+    cell2.style.flex = "0 0 auto";
+    cell2.style.boxSizing = "border-box";
+    cell2.style.width = `${this.widths[colIndex] ?? DEFAULT_COLUMN_WIDTH}px`;
     if (colIndex < this.frozenColumns) {
-      cell.classList.add("tablify__cell--frozen");
-      cell.style.position = "sticky";
-      cell.style.left = `${this.offsets[colIndex]}px`;
-      cell.style.zIndex = frozenZIndex;
+      cell2.classList.add("tablify__cell--frozen");
+      cell2.style.position = "sticky";
+      cell2.style.left = `${this.offsets[colIndex]}px`;
+      cell2.style.zIndex = frozenZIndex;
     }
   }
   renderHeader() {
@@ -10421,22 +12075,22 @@ var GridView = class {
     this.header.style.width = `${this.totalWidth}px`;
     const primarySort = this.sortState[0];
     this.fields.forEach((field, colIndex) => {
-      const cell = document.createElement("div");
-      this.styleCell(cell, colIndex, "2");
-      cell.classList.add("tablify__header-cell");
-      cell.style.fontWeight = "600";
-      cell.setAttribute("role", "columnheader");
-      cell.setAttribute("aria-colindex", String(colIndex + 1));
-      cell.setAttribute("data-field-type", field.type);
+      const cell2 = document.createElement("div");
+      this.styleCell(cell2, colIndex, "2");
+      cell2.classList.add("tablify__header-cell");
+      cell2.style.fontWeight = "600";
+      cell2.setAttribute("role", "columnheader");
+      cell2.setAttribute("aria-colindex", String(colIndex + 1));
+      cell2.setAttribute("data-field-type", field.type);
       if (primarySort && primarySort.fieldId === field.id) {
-        cell.setAttribute("aria-sort", primarySort.direction === "desc" ? "descending" : "ascending");
+        cell2.setAttribute("aria-sort", primarySort.direction === "desc" ? "descending" : "ascending");
       } else {
-        cell.removeAttribute("aria-sort");
+        cell2.removeAttribute("aria-sort");
       }
-      cell.dataset.colIndex = String(colIndex);
-      cell.setAttribute("data-field-id", field.id);
-      cell.textContent = field.name;
-      this.header.appendChild(cell);
+      cell2.dataset.colIndex = String(colIndex);
+      cell2.setAttribute("data-field-id", field.id);
+      cell2.textContent = field.name;
+      this.header.appendChild(cell2);
     });
   }
   render() {
@@ -10462,25 +12116,35 @@ var GridView = class {
         else
           rowEl.classList.remove("tablify__row--stripe");
         this.fields.forEach((field, colIndex) => {
-          const cell = document.createElement("div");
-          this.styleCell(cell, colIndex, "1");
+          const cell2 = document.createElement("div");
+          this.styleCell(cell2, colIndex, "1");
           const val = row.values[field.id];
+          const formulaErr = field.type === "formula" && this.opts.formulaError ? this.opts.formulaError(row.id, field.id) : null;
           const text = document.createElement("span");
           text.className = "tablify__cell-text";
-          text.textContent = val === void 0 || val === null ? "" : String(Array.isArray(val) ? val.join(", ") : val);
-          cell.appendChild(text);
-          cell.setAttribute("data-field-id", field.id);
-          cell.dataset.colIndex = String(colIndex);
-          cell.setAttribute("role", "gridcell");
-          cell.setAttribute("aria-colindex", String(colIndex + 1));
-          cell.setAttribute("aria-description", `Row ${rowIdx + 1}, column ${field.name}`);
-          if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
-            cell.classList.add("tablify__cell--selected");
-            cell.setAttribute("aria-selected", "true");
-            cell.style.outline = "2px solid var(--tablify-selection)";
-            cell.style.outlineOffset = "-2px";
+          if (formulaErr) {
+            text.textContent = formulaErr.code;
+            cell2.classList.add("tablify__cell--error");
+            cell2.title = formulaErr.message;
+            cell2.setAttribute("data-formula-error", formulaErr.code);
+          } else if (field.type === "link") {
+            text.textContent = getFieldType("link").format(val ?? null, field);
+          } else {
+            text.textContent = val === void 0 || val === null ? "" : String(Array.isArray(val) ? val.join(", ") : val);
           }
-          rowEl.appendChild(cell);
+          cell2.appendChild(text);
+          cell2.setAttribute("data-field-id", field.id);
+          cell2.dataset.colIndex = String(colIndex);
+          cell2.setAttribute("role", "gridcell");
+          cell2.setAttribute("aria-colindex", String(colIndex + 1));
+          cell2.setAttribute("aria-description", `Row ${rowIdx + 1}, column ${field.name}`);
+          if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
+            cell2.classList.add("tablify__cell--selected");
+            cell2.setAttribute("aria-selected", "true");
+            cell2.style.outline = "2px solid var(--tablify-selection)";
+            cell2.style.outlineOffset = "-2px";
+          }
+          rowEl.appendChild(cell2);
         });
       }
       this.content.appendChild(rowEl);
@@ -10672,7 +12336,8 @@ var TYPE_LABELS = {
   phone: "Phone",
   single_select: "Single select",
   multi_select: "Multi select",
-  attachment: "Attachment"
+  attachment: "Attachment",
+  formula: "Formula"
 };
 var CHANGE_TARGET_TYPES = [
   "text",
@@ -10690,7 +12355,8 @@ var CHANGE_TARGET_TYPES = [
   "phone",
   "single_select",
   "multi_select",
-  "attachment"
+  "attachment",
+  "formula"
 ];
 function cellEntries(ctx) {
   return [
@@ -10725,6 +12391,8 @@ function headerEntries(ctx) {
   return [
     // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
     { id: "header.type", label: "Change field type\u2026", enabled: true },
+    // P8-03: only formula fields have an expression to edit.
+    ...ctx.fieldType === "formula" ? [{ id: "header.formula", label: "Edit formula\u2026", enabled: true }] : [],
     {
       id: "header.hide",
       label: "Hide field",
@@ -10751,8 +12419,8 @@ function headerEntries(ctx) {
     }
   ];
 }
-function cellMenu(cell) {
-  return [...cellEntries(cell), SEPARATOR, ...rowEntries()];
+function cellMenu(cell2) {
+  return [...cellEntries(cell2), SEPARATOR, ...rowEntries()];
 }
 function displayTitle(entry) {
   return entry.enabled || !entry.reason ? entry.label : `${entry.label} (${entry.reason})`;
@@ -11193,6 +12861,7 @@ var AddFieldModal = class extends import_obsidian4.Modal {
   }
   name = "";
   type = DEFAULT_NEW_FIELD_TYPE;
+  expression = "";
   onOpen() {
     this.setTitle("Add field");
     this.modalEl.addClass("tablify__modal");
@@ -11208,8 +12877,16 @@ var AddFieldModal = class extends import_obsidian4.Modal {
       }
       dropdown.setValue(this.type).onChange((value) => {
         this.type = value;
+        formulaRow.style.display = this.type === "formula" ? "" : "none";
       });
     });
+    const formulaRow = this.contentEl.createDiv();
+    formulaRow.style.display = this.type === "formula" ? "" : "none";
+    new import_obsidian4.Setting(formulaRow).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
+      (text) => text.setValue(this.expression).setPlaceholder("{Price} * 2").onChange((value) => {
+        this.expression = value;
+      })
+    );
     new import_obsidian4.Setting(this.contentEl).addButton(
       (button) => button.setButtonText("Add field").setCta().onClick(() => this.submit())
     );
@@ -11227,14 +12904,64 @@ var AddFieldModal = class extends import_obsidian4.Modal {
       new import_obsidian4.Notice("Field name cannot be empty.");
       return;
     }
+    if (this.type === "formula") {
+      const compiled = compileFormula(this.expression);
+      if (!compiled.ok) {
+        new import_obsidian4.Notice("The formula has a syntax error.");
+        return;
+      }
+      this.close();
+      this.onConfirm(name, this.type, this.expression);
+      return;
+    }
     this.close();
     this.onConfirm(name, this.type);
   }
 };
 
+// src/views/grid/FormulaEditModal.ts
+var import_obsidian5 = require("obsidian");
+var FormulaEditModal = class extends import_obsidian5.Modal {
+  constructor(app, initial, onSave) {
+    super(app);
+    this.onSave = onSave;
+    this.expression = initial;
+  }
+  expression;
+  onOpen() {
+    this.setTitle("Edit formula");
+    this.modalEl.addClass("tablify__modal");
+    applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
+    new import_obsidian5.Setting(this.contentEl).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
+      (text) => text.setValue(this.expression).setPlaceholder("{Price} * 2").onChange((value) => {
+        this.expression = value;
+      })
+    );
+    new import_obsidian5.Setting(this.contentEl).addButton(
+      (button) => button.setButtonText("Save formula").setCta().onClick(() => this.submit())
+    );
+    this.contentEl.addEventListener("keydown", (event) => {
+      const evt = event;
+      if (evt.key === "Enter" && evt.target?.tagName === "INPUT") {
+        evt.preventDefault();
+        this.submit();
+      }
+    });
+  }
+  submit() {
+    const compiled = compileFormula(this.expression);
+    if (!compiled.ok) {
+      new import_obsidian5.Notice("The formula has a syntax error.");
+      return;
+    }
+    this.close();
+    this.onSave(this.expression);
+  }
+};
+
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
-var TableView = class extends import_obsidian5.TextFileView {
+var TableView = class extends import_obsidian6.TextFileView {
   session = null;
   grid = null;
   rawData = "";
@@ -11404,10 +13131,10 @@ var TableView = class extends import_obsidian5.TextFileView {
   promptAddField() {
     if (!this.session)
       return;
-    new AddFieldModal(this.app, (name, type) => {
+    new AddFieldModal(this.app, (name, type, formula) => {
       if (!this.session)
         return;
-      this.session.addField(name, type);
+      this.session.addField(name, type, formula);
       this.afterChange();
     }).open();
   }
@@ -11450,7 +13177,9 @@ var TableView = class extends import_obsidian5.TextFileView {
         view: s.getView(),
         theme,
         viewportWidth: this.contentEl.clientWidth || 800,
-        onCellClick: () => this.grid?.root.focus()
+        onCellClick: () => this.grid?.root.focus(),
+        // P8-03: formula cells show their error code, with the reason in the tooltip.
+        formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null
       });
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
@@ -11539,11 +13268,11 @@ var TableView = class extends import_obsidian5.TextFileView {
       this.openHeaderMenu(Number(headerCell.dataset.colIndex), pos);
       return true;
     }
-    const cell = target?.closest?.(".tablify__cell");
-    if (!cell)
+    const cell2 = target?.closest?.(".tablify__cell");
+    if (!cell2)
       return false;
-    const row = Number(cell.parentElement.dataset.rowIndex);
-    const col = Number(cell.dataset.colIndex);
+    const row = Number(cell2.parentElement.dataset.rowIndex);
+    const col = Number(cell2.dataset.colIndex);
     this.grid.setSelection({ row, col });
     this.openCellMenu(row, col, pos);
     return true;
@@ -11618,7 +13347,8 @@ var TableView = class extends import_obsidian5.TextFileView {
       fieldId: field.id,
       isPrimary: field.primary === true,
       colIndex: col,
-      view: this.session.getView()
+      view: this.session.getView(),
+      fieldType: field.type
     });
     this.showMenu(entries, { row: -1, col }, pos);
   }
@@ -11687,7 +13417,17 @@ var TableView = class extends import_obsidian5.TextFileView {
         new TypePickerModal(this.app, targets, (target) => {
           const result = s.changeFieldType(field.id, target.type);
           if (!result.ok)
-            new import_obsidian5.Notice(result.reason);
+            new import_obsidian6.Notice(result.reason);
+          this.afterChange();
+        }).open();
+        return;
+      }
+      case "header.formula": {
+        const current = field.formula ?? "";
+        new FormulaEditModal(this.app, current, (expression) => {
+          const result = s.setFormula(field.id, expression);
+          if (!result.ok)
+            new import_obsidian6.Notice(result.reason);
           this.afterChange();
         }).open();
         return;
@@ -11711,12 +13451,12 @@ var TableView = class extends import_obsidian5.TextFileView {
   }
   pasteInto(row, field) {
     if (this.clipboardText === null) {
-      new import_obsidian5.Notice("Nothing copied yet.");
+      new import_obsidian6.Notice("Nothing copied yet.");
       return;
     }
     const res = parseInput(field, this.clipboardText);
     if (!res.ok) {
-      new import_obsidian5.Notice(`Cannot paste here: ${res.error}`);
+      new import_obsidian6.Notice(`Cannot paste here: ${res.error}`);
       return;
     }
     this.session?.setValue(row.id, field.id, res.value);
@@ -11743,7 +13483,7 @@ var TableView = class extends import_obsidian5.TextFileView {
     if (!storeRow)
       return;
     grid.scrollToRow(sel.row);
-    const cell = this.cellElement(sel);
+    const cell2 = this.cellElement(sel);
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
       this.editing = null;
       editor?.remove();
@@ -11752,12 +13492,12 @@ var TableView = class extends import_obsidian5.TextFileView {
       if (committed)
         this.requestSave();
     });
-    if (!editor || !cell)
+    if (!editor || !cell2)
       return;
     this.editing = editor;
     editor.style.position = "absolute";
     const rootRect = grid.root.getBoundingClientRect();
-    const cellRect = cell.getBoundingClientRect();
+    const cellRect = cell2.getBoundingClientRect();
     editor.style.left = `${cellRect.left - rootRect.left + grid.root.scrollLeft}px`;
     editor.style.top = `${cellRect.top - rootRect.top + grid.root.scrollTop}px`;
     editor.style.width = `${cellRect.width}px`;
@@ -11773,7 +13513,7 @@ function isEmptyValue(v) {
 }
 
 // src/menus/fileMenu.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/menus/fileMenuModel.ts
 var COPY_SUFFIX = " copy";
@@ -11837,32 +13577,32 @@ function registerFileMenu(plugin) {
   );
 }
 function targetOf(file) {
-  if (file instanceof import_obsidian6.TFile)
+  if (file instanceof import_obsidian7.TFile)
     return { kind: "file", extension: file.extension };
-  if (file instanceof import_obsidian6.TFolder)
+  if (file instanceof import_obsidian7.TFolder)
     return { kind: "folder", path: file.isRoot() ? "" : file.path };
   return { kind: "other" };
 }
 async function run(app, file, action) {
   switch (action) {
     case "open":
-      if (file instanceof import_obsidian6.TFile)
+      if (file instanceof import_obsidian7.TFile)
         await app.workspace.getLeaf(false).openFile(file);
       return;
     case "export":
-      if (file instanceof import_obsidian6.TFile)
+      if (file instanceof import_obsidian7.TFile)
         openExportModal(app, file);
       return;
     case "duplicate":
-      if (file instanceof import_obsidian6.TFile)
+      if (file instanceof import_obsidian7.TFile)
         await duplicateFile(app, file);
       return;
     case "newTable":
-      if (file instanceof import_obsidian6.TFolder)
+      if (file instanceof import_obsidian7.TFolder)
         await createNewTable(app, file.path);
       return;
     case "importTable":
-      if (file instanceof import_obsidian6.TFolder)
+      if (file instanceof import_obsidian7.TFolder)
         startImport(app, file.path);
       return;
   }
@@ -11874,12 +13614,12 @@ async function duplicateFile(app, source) {
   const text = await app.vault.read(source);
   const result = duplicateTableText(text, name);
   if (!result.ok) {
-    new import_obsidian6.Notice(`Duplicate failed. The table file could not be read: ${result.error}`);
+    new import_obsidian7.Notice(`Duplicate failed. The table file could not be read: ${result.error}`);
     return;
   }
   const path = joinPath(folder, `${name}.tablify`);
   await app.vault.create(path, result.text);
-  new import_obsidian6.Notice(`Created ${path}.`);
+  new import_obsidian7.Notice(`Created ${path}.`);
 }
 async function createNewTable(app, folder) {
   const exists = (name2) => app.vault.getAbstractFileByPath(joinPath(folder, `${name2}.tablify`)) !== null;
@@ -11890,7 +13630,7 @@ async function createNewTable(app, folder) {
 }
 
 // src/settings.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 var DEFAULT_SETTINGS = Object.freeze({ airtableToken: "" });
 var MAX_TOKEN_LENGTH = 512;
 function normalizeSettings(raw) {
@@ -11916,7 +13656,7 @@ async function saveSettings(store, settings) {
   const clean = normalizeSettings(settings);
   await store.saveData({ airtableToken: clean.airtableToken });
 }
-var TablifySettingTab = class extends import_obsidian7.PluginSettingTab {
+var TablifySettingTab = class extends import_obsidian8.PluginSettingTab {
   host;
   constructor(app, host) {
     super(app, host);
@@ -11925,8 +13665,8 @@ var TablifySettingTab = class extends import_obsidian7.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian7.Setting(containerEl).setName("Airtable").setHeading();
-    new import_obsidian7.Setting(containerEl).setName("Personal access token").setDesc(
+    new import_obsidian8.Setting(containerEl).setName("Airtable").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("Personal access token").setDesc(
       "Used only for Airtable sync. Stored in this plugin\u2019s settings. It is never written to .tablify files or exports."
     ).addText((text) => {
       text.inputEl.type = "password";
@@ -11944,7 +13684,7 @@ var TablifySettingTab = class extends import_obsidian7.PluginSettingTab {
 };
 
 // src/embed/register.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/embed/embedDocument.ts
 var EmbedDocument = class {
@@ -12189,10 +13929,10 @@ var EmbedView = class {
       return false;
     this.editing = editor;
     editor.style.position = "absolute";
-    const cell = this.cellElement();
-    if (cell) {
+    const cell2 = this.cellElement();
+    if (cell2) {
       const rootRect = grid.root.getBoundingClientRect();
-      const cellRect = cell.getBoundingClientRect();
+      const cellRect = cell2.getBoundingClientRect();
       editor.style.left = `${cellRect.left - rootRect.left + grid.root.scrollLeft}px`;
       editor.style.top = `${cellRect.top - rootRect.top + grid.root.scrollTop}px`;
       editor.style.width = `${cellRect.width}px`;
@@ -12299,15 +14039,15 @@ var EmbedView = class {
     this.grid?.destroy();
     this.grid = null;
     this.body.replaceChildren();
-    const err2 = document.createElement("div");
-    err2.className = "tablify__error tablify-embed__error";
-    err2.dataset.testid = "tablify-embed-error";
-    err2.textContent = message;
-    this.body.appendChild(err2);
+    const err3 = document.createElement("div");
+    err3.className = "tablify__error tablify-embed__error";
+    err3.dataset.testid = "tablify-embed-error";
+    err3.textContent = message;
+    this.body.appendChild(err3);
   }
   clearError() {
-    const err2 = this.body.querySelector(".tablify-embed__error");
-    if (err2)
+    const err3 = this.body.querySelector(".tablify-embed__error");
+    if (err3)
       this.body.replaceChildren();
   }
 };
@@ -12372,7 +14112,7 @@ var EMBED_FENCE_LANGUAGE = "tablify";
 function vaultEmbedIO(app) {
   const fileAt = (path) => {
     const f = app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof import_obsidian8.TFile))
+    if (!(f instanceof import_obsidian9.TFile))
       throw new Error("file not found");
     return f;
   };
@@ -12383,7 +14123,7 @@ function vaultEmbedIO(app) {
     }
   };
 }
-var EmbedRenderChild = class extends import_obsidian8.MarkdownRenderChild {
+var EmbedRenderChild = class extends import_obsidian9.MarkdownRenderChild {
   onDone;
   constructor(containerEl, onDone) {
     super(containerEl);
@@ -12401,11 +14141,11 @@ function registerEmbedProcessor(plugin) {
     async (source, el2, ctx) => {
       const parsed = parseEmbedSource(source);
       if (!parsed.ok) {
-        const err2 = document.createElement("div");
-        err2.className = "tablify__error";
-        err2.dataset.testid = "tablify-embed-error";
-        err2.textContent = parsed.error;
-        el2.appendChild(err2);
+        const err3 = document.createElement("div");
+        err3.className = "tablify__error";
+        err3.dataset.testid = "tablify-embed-error";
+        err3.textContent = parsed.error;
+        el2.appendChild(err3);
         return;
       }
       const path = parsed.path;
@@ -12428,7 +14168,7 @@ function registerEmbedProcessor(plugin) {
   );
   plugin.registerEvent(
     app.vault.on("modify", (file) => {
-      if (file instanceof import_obsidian8.TFile)
+      if (file instanceof import_obsidian9.TFile)
         void registry2.fileChanged(file.path);
     })
   );
@@ -12436,10 +14176,10 @@ function registerEmbedProcessor(plugin) {
 }
 
 // src/views/sync/SyncModal.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // src/sync/airtableClient.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // src/sync/rateLimiter.ts
 var defaultClock = () => Date.now();
@@ -12511,7 +14251,7 @@ var BASE_ID = /^app[A-Za-z0-9]+$/;
 var TABLE_ID = /^tbl[A-Za-z0-9]+$/;
 var RECORD_ID = /^rec[A-Za-z0-9]+$/;
 function transportDefault(param) {
-  return (0, import_obsidian9.requestUrl)(param);
+  return (0, import_obsidian10.requestUrl)(param);
 }
 function headerValue(headers, name) {
   if (!headers)
@@ -12961,6 +14701,9 @@ function remoteToLocal(field, raw) {
       return airtableType === "multipleAttachments" ? attachmentNames(raw) : stringify(raw);
     case "attachment":
       return attachmentNames(raw);
+    case "formula":
+    case "link":
+      return null;
   }
 }
 function localToRemote(field, value) {
@@ -13117,9 +14860,9 @@ function finishRun(ctx, report, direction) {
     lastSync: { at: ctx.now(), direction, ok: report.ok, summary: report.summary }
   });
 }
-function safeReason(err2) {
-  if (err2 instanceof AirtableError)
-    return err2.message;
+function safeReason(err3) {
+  if (err3 instanceof AirtableError)
+    return err3.message;
   return "Airtable did not accept this change.";
 }
 
@@ -13434,7 +15177,9 @@ var NOT_CREATED = {
   attachment: "attachments are not created from Tablify",
   auto_number: "system field",
   created_time: "system field",
-  modified_time: "system field"
+  modified_time: "system field",
+  formula: "computed in Tablify; never sent to Airtable",
+  link: "links are not created in Airtable from Tablify"
 };
 function planAutoCreate(fields, remoteFields) {
   const items = [];
@@ -13487,8 +15232,8 @@ async function createMissingFields(ctx, plan, confirmed) {
       });
       ctx.session.store.setFieldAirtable(item.fieldId, { id: created.id, type: created.type, readOnly: false });
       result.created.push({ fieldId: item.fieldId, airtableId: created.id, name: item.name, airtableType: created.type });
-    } catch (err2) {
-      result.failed = { name: item.name, reason: safeReason(err2) };
+    } catch (err3) {
+      result.failed = { name: item.name, reason: safeReason(err3) };
       break;
     }
   }
@@ -13726,7 +15471,7 @@ function el(parent, tag, opts = {}) {
 }
 var SCOPES_TEXT = "data.records:read \xB7 data.records:write \xB7 schema.bases:read";
 var CREATE_SCOPE_TEXT = "schema.bases:write is needed only to create fields.";
-var SyncModal = class extends import_obsidian10.Modal {
+var SyncModal = class extends import_obsidian11.Modal {
   constructor(app, deps) {
     super(app);
     this.deps = deps;
@@ -13764,10 +15509,10 @@ var SyncModal = class extends import_obsidian10.Modal {
   ctx() {
     return { client: this.client(), session: this.deps.session, now: this.deps.now ?? (() => (/* @__PURE__ */ new Date()).toISOString()) };
   }
-  fail(err2, prefix) {
-    const raw = err2 instanceof Error ? err2.message : "Unknown error.";
+  fail(err3, prefix) {
+    const raw = err3 instanceof Error ? err3.message : "Unknown error.";
     const safe = redactSecrets(raw, this.deps.token ?? void 0);
-    const hint = err2 instanceof AirtableError && (err2.kind === "network" || err2.kind === "server" || err2.kind === "rate_limited") ? " Nothing in the table changed." : "";
+    const hint = err3 instanceof AirtableError && (err3.kind === "network" || err3.kind === "server" || err3.kind === "rate_limited") ? " Nothing in the table changed." : "";
     this.state.status = { text: `${prefix}: ${safe}${hint}`, error: true };
   }
   /** Runs one action: sets busy, catches errors, and re-renders. */
@@ -13777,8 +15522,8 @@ var SyncModal = class extends import_obsidian10.Modal {
     this.render();
     try {
       await work();
-    } catch (err2) {
-      this.fail(err2, `${label} failed`);
+    } catch (err3) {
+      this.fail(err3, `${label} failed`);
     } finally {
       this.state.busy = null;
       this.render();
@@ -14013,7 +15758,7 @@ var SyncModal = class extends import_obsidian10.Modal {
 };
 
 // src/main.ts
-var TablifyPlugin = class extends import_obsidian11.Plugin {
+var TablifyPlugin = class extends import_obsidian12.Plugin {
   // P7-03: plugin settings. The Airtable token lives only here (plugin data).
   settings = { ...DEFAULT_SETTINGS };
   async onload() {
@@ -14035,7 +15780,7 @@ var TablifyPlugin = class extends import_obsidian11.Plugin {
     const view = this.app.workspace.getActiveViewOfType(TableView);
     const session = view?.syncSession();
     if (!view || !session) {
-      new import_obsidian11.Notice("Open a .tablify table first.");
+      new import_obsidian12.Notice("Open a .tablify table first.");
       return;
     }
     const token = this.settings.airtableToken.trim() || null;
