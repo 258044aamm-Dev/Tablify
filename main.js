@@ -2817,7 +2817,7 @@ __export(main_exports, {
   default: () => TablifyPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian12 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // src/commands/import.ts
 var import_obsidian = require("obsidian");
@@ -6565,7 +6565,7 @@ function isLinkRef(v) {
   return typeof r.tableId === "string" && typeof r.rowId === "string";
 }
 var linkType = {
-  readOnly: true,
+  readOnly: false,
   validate(value) {
     if (value === null)
       return true;
@@ -6574,6 +6574,7 @@ var linkType = {
   parse(_input) {
     return null;
   },
+  /** Count only. Grid labels come from the link index (summarizeLinks). Sort and filter use this. */
   format(value) {
     if (!Array.isArray(value) || value.length === 0)
       return "";
@@ -9389,8 +9390,340 @@ var ExportModal = class extends import_obsidian2.Modal {
   }
 };
 
+// src/commands/linkIntegrity.ts
+var import_obsidian3 = require("obsidian");
+
+// src/links/linkModel.ts
+var UNTITLED_ROW = "Untitled row";
+var BROKEN_MESSAGES = {
+  "missing-table": "The linked table is not in this vault.",
+  "missing-row": "The linked row was deleted."
+};
+function baseName(path) {
+  const last = path.split("/").pop() ?? path;
+  return last.replace(/\.tablify$/i, "");
+}
+function primaryFieldOf(fields) {
+  return fields.find((f) => f.primary) ?? fields[0];
+}
+function isNonEmptyLinkArray(v) {
+  return Array.isArray(v) && v.length > 0;
+}
+function snapshotTable(file, path) {
+  const primary = primaryFieldOf(file.fields);
+  const linkFields = file.fields.filter((f) => f.type === "link");
+  const rows = [];
+  const linkCells = [];
+  for (const row of file.rows) {
+    const label = primary ? getFieldType(primary.type).format(row.values[primary.id] ?? null, primary) : "";
+    rows.push({ id: row.id, label });
+    for (const field of linkFields) {
+      const v = row.values[field.id];
+      if (isNonEmptyLinkArray(v)) {
+        linkCells.push({ rowId: row.id, rowLabel: label, fieldId: field.id, fieldName: field.name, refs: v });
+      }
+    }
+  }
+  return { tableId: file.tableId, name: baseName(path), path, rows, linkCells };
+}
+var LinkIndex = class {
+  byPath = /* @__PURE__ */ new Map();
+  derived = null;
+  rowMaps = /* @__PURE__ */ new WeakMap();
+  /** Add or replace the snapshot for a path. */
+  put(snapshot) {
+    this.byPath.set(snapshot.path, snapshot);
+    this.derived = null;
+  }
+  remove(path) {
+    if (this.byPath.delete(path))
+      this.derived = null;
+  }
+  has(path) {
+    return this.byPath.has(path);
+  }
+  paths() {
+    return [...this.byPath.keys()];
+  }
+  /** The snapshot for a path, or undefined. Used to compare before a write. */
+  get(path) {
+    return this.byPath.get(path);
+  }
+  /** One snapshot per table ID, sorted by path. A duplicate ID keeps the first path only. */
+  tables() {
+    return [...this.derive().byId.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  }
+  byTableId(tableId) {
+    return this.derive().byId.get(tableId);
+  }
+  duplicates() {
+    return this.derive().duplicates.map((d) => ({ tableId: d.tableId, paths: [...d.paths] }));
+  }
+  resolve(ref) {
+    const table = this.byTableId(ref.tableId);
+    if (!table)
+      return { ok: false, reason: "missing-table" };
+    const row = this.rowMap(table).get(ref.rowId);
+    if (!row)
+      return { ok: false, reason: "missing-row", tableName: table.name };
+    return { ok: true, tableName: table.name, rowLabel: row.label.trim() || UNTITLED_ROW };
+  }
+  rowMap(table) {
+    let map2 = this.rowMaps.get(table);
+    if (!map2) {
+      map2 = new Map(table.rows.map((r) => [r.id, r]));
+      this.rowMaps.set(table, map2);
+    }
+    return map2;
+  }
+  derive() {
+    if (this.derived)
+      return this.derived;
+    const sorted = [...this.byPath.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+    const byId = /* @__PURE__ */ new Map();
+    const dupPaths = /* @__PURE__ */ new Map();
+    for (const snap of sorted) {
+      const first = byId.get(snap.tableId);
+      if (!first) {
+        byId.set(snap.tableId, snap);
+      } else {
+        const list = dupPaths.get(snap.tableId) ?? [first.path];
+        list.push(snap.path);
+        dupPaths.set(snap.tableId, list);
+      }
+    }
+    const duplicates = [...dupPaths.entries()].map(([tableId, paths]) => ({ tableId, paths }));
+    this.derived = { byId, duplicates };
+    return this.derived;
+  }
+};
+function createLinkIndex() {
+  return new LinkIndex();
+}
+function summarizeLinks(value, index) {
+  if (!isNonEmptyLinkArray(value))
+    return { text: "", broken: 0 };
+  const parts = [];
+  let broken = 0;
+  for (const ref of value) {
+    const res = index.resolve(ref);
+    if (res.ok) {
+      parts.push(res.rowLabel);
+    } else {
+      broken++;
+      parts.push(res.reason === "missing-table" ? "Missing table" : "Missing row");
+    }
+  }
+  return { text: parts.join(", "), broken };
+}
+function checkIntegrity(index) {
+  const broken = [];
+  let checked = 0;
+  for (const table of index.tables()) {
+    for (const cell2 of table.linkCells) {
+      for (const ref of cell2.refs) {
+        checked++;
+        const res = index.resolve(ref);
+        if (res.ok)
+          continue;
+        broken.push({
+          sourcePath: table.path,
+          sourceTable: table.name,
+          rowId: cell2.rowId,
+          rowLabel: cell2.rowLabel.trim() || UNTITLED_ROW,
+          fieldName: cell2.fieldName,
+          targetTableId: ref.tableId,
+          targetRowId: ref.rowId,
+          reason: res.reason,
+          message: BROKEN_MESSAGES[res.reason]
+        });
+      }
+    }
+  }
+  return { checked, broken, duplicates: index.duplicates() };
+}
+function buildSelection(current, targetTableId, selectedRowIds) {
+  const selected = new Set(selectedRowIds);
+  const kept = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const ref of current) {
+    if (ref.tableId !== targetTableId) {
+      kept.push(ref);
+    } else if (selected.has(ref.rowId) && !seen.has(ref.rowId)) {
+      kept.push(ref);
+      seen.add(ref.rowId);
+    }
+  }
+  for (const rowId of selectedRowIds) {
+    if (!seen.has(rowId)) {
+      kept.push({ tableId: targetTableId, rowId });
+      seen.add(rowId);
+    }
+  }
+  return kept.length > 0 ? kept : null;
+}
+function filterRows(rows, query) {
+  const q = query.trim().toLowerCase();
+  if (q === "")
+    return rows.slice();
+  return rows.filter((r) => r.label.toLowerCase().includes(q));
+}
+
+// src/links/vaultLinkIndex.ts
+var DEBOUNCE_MS = 250;
+var VaultLinkIndex = class {
+  constructor(app) {
+    this.app = app;
+  }
+  index = createLinkIndex();
+  /** Paths whose file is open in a view, mapped to the live snapshot. */
+  live = /* @__PURE__ */ new Map();
+  /** mtime of the disk version last read, per path. */
+  stamps = /* @__PURE__ */ new Map();
+  listeners = /* @__PURE__ */ new Set();
+  timer = null;
+  running = Promise.resolve();
+  /** Wire the vault events and run the first refresh. Called once from the plugin's onload. */
+  start(plugin) {
+    const schedule = () => this.schedule();
+    plugin.registerEvent(this.app.vault.on("create", schedule));
+    plugin.registerEvent(this.app.vault.on("modify", schedule));
+    plugin.registerEvent(this.app.vault.on("delete", schedule));
+    plugin.registerEvent(this.app.vault.on("rename", schedule));
+    this.app.workspace.onLayoutReady(() => void this.refresh());
+  }
+  onChange(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  /** Refresh now. Refreshes run one after another, so two never overlap. */
+  refresh() {
+    this.running = this.running.then(() => this.doRefresh(), () => this.doRefresh());
+    return this.running;
+  }
+  /** An open view publishes its state. Listeners are told only when the snapshot changed. */
+  noteLive(path, snapshot) {
+    this.live.set(path, snapshot);
+    const prev = this.index.get(path);
+    if (prev && JSON.stringify(prev) === JSON.stringify(snapshot))
+      return;
+    this.index.put(snapshot);
+    this.notify();
+  }
+  /** The view closed. The next refresh reads the file from disk again. */
+  dropLive(path) {
+    this.live.delete(path);
+    this.stamps.delete(path);
+    this.schedule();
+  }
+  schedule() {
+    if (this.timer !== null)
+      clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.refresh();
+    }, DEBOUNCE_MS);
+  }
+  async doRefresh() {
+    const files = this.app.vault.getFiles().filter((f) => f.extension === "tablify");
+    const present = /* @__PURE__ */ new Set();
+    let changed = false;
+    for (const file of files) {
+      present.add(file.path);
+      if (this.live.has(file.path))
+        continue;
+      if (this.stamps.get(file.path) === file.stat.mtime)
+        continue;
+      const text = await this.app.vault.cachedRead(file);
+      this.stamps.set(file.path, file.stat.mtime);
+      const parsed = parse(text);
+      if (parsed.ok) {
+        this.index.put(snapshotTable(parsed.data, file.path));
+      } else {
+        this.index.remove(file.path);
+      }
+      changed = true;
+    }
+    for (const path of this.index.paths()) {
+      if (!present.has(path)) {
+        this.index.remove(path);
+        this.stamps.delete(path);
+        this.live.delete(path);
+        changed = true;
+      }
+    }
+    for (const path of [...this.live.keys()]) {
+      if (!present.has(path))
+        this.live.delete(path);
+    }
+    if (changed)
+      this.notify();
+  }
+  notify() {
+    for (const listener of [...this.listeners])
+      listener();
+  }
+};
+var indexes = /* @__PURE__ */ new WeakMap();
+function linkIndexFor(app) {
+  let idx = indexes.get(app);
+  if (!idx) {
+    idx = new VaultLinkIndex(app);
+    indexes.set(app, idx);
+  }
+  return idx;
+}
+
+// src/commands/linkIntegrity.ts
+var LINK_INTEGRITY_COMMAND_ID = "tablify-link-integrity";
+var LINK_INTEGRITY_COMMAND_NAME = "Check link integrity (all tables)";
+function registerLinkIntegrityCommand(plugin) {
+  plugin.addCommand({
+    id: LINK_INTEGRITY_COMMAND_ID,
+    name: LINK_INTEGRITY_COMMAND_NAME,
+    callback: () => void runLinkIntegrityCheck(plugin.app)
+  });
+}
+async function runLinkIntegrityCheck(app) {
+  const idx = linkIndexFor(app);
+  await idx.refresh();
+  new LinkIntegrityModal(app, checkIntegrity(idx.index)).open();
+}
+var LinkIntegrityModal = class extends import_obsidian3.Modal {
+  constructor(app, report) {
+    super(app);
+    this.report = report;
+  }
+  onOpen() {
+    const r = this.report;
+    this.setTitle("Link integrity");
+    this.modalEl.addClass("tablify__modal");
+    const summary = r.broken.length === 0 ? `No broken links. ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.` : `${r.broken.length} broken of ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.`;
+    this.contentEl.createEl("p", { text: summary, cls: "tablify-link-integrity__summary" });
+    if (r.broken.length > 0) {
+      const list = this.contentEl.createEl("ul", { cls: "tablify-link-integrity__list" });
+      for (const b of r.broken) {
+        const item = list.createEl("li");
+        item.createSpan({ text: `${b.sourceTable} (${b.sourcePath})`, cls: "tablify-link-integrity__where" });
+        item.createSpan({ text: ` \xB7 ${b.fieldName} \xB7 ${b.rowLabel}: ${b.message}` });
+        item.createDiv({ text: `Target: table ${b.targetTableId}, row ${b.targetRowId}`, cls: "tablify-link-integrity__target" });
+      }
+    }
+    if (r.duplicates.length > 0) {
+      this.contentEl.createEl("p", {
+        text: "Some files share a table ID. Only the first file is used for links (copy a table to get a new ID).",
+        cls: "tablify-link-integrity__summary"
+      });
+      const list = this.contentEl.createEl("ul", { cls: "tablify-link-integrity__list" });
+      for (const d of r.duplicates) {
+        list.createEl("li", { text: `${d.tableId}: ${d.paths.join(", ")}` });
+      }
+    }
+  }
+};
+
 // src/views/tableView.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/model/tableStore.ts
 function createTableStore(options) {
@@ -11311,7 +11644,7 @@ function compileQuery(query, fields) {
     return { ok: false, error: compiled.error };
   return { ok: true, predicate: compiled.predicate };
 }
-function filterRows(rows, fields, search, query) {
+function filterRows2(rows, fields, search, query) {
   const searched = searchRows(rows, fields, search);
   const compiled = compileQuery(query, fields);
   if (!compiled.ok)
@@ -11408,7 +11741,7 @@ function createSession(file) {
       formulas.sync();
       const fields = store.getFields();
       const sorted = sortRows(store.getAllRows(), view.sort, fields);
-      const rows = filterRows(sorted, fields, view.search, view.query).rows;
+      const rows = filterRows2(sorted, fields, view.search, view.query).rows;
       const formulaIds = fields.filter((f) => f.type === "formula").map((f) => f.id);
       if (formulaIds.length === 0)
         return rows;
@@ -11489,12 +11822,14 @@ function createSession(file) {
         return;
       setViewState(next);
     },
-    addField(name, type, formula) {
+    addField(name, type, formula, linkTableId) {
       const field = {
         id: generateFieldId(),
         name,
         type,
-        ...type === "formula" ? { formula: formula ?? "" } : {}
+        ...type === "formula" ? { formula: formula ?? "" } : {},
+        // P8-04: a link field's default target table (FORMAT_SPEC §8).
+        ...type === "link" ? { linkTableId: linkTableId ?? file.tableId } : {}
       };
       const viewBefore = view;
       const viewAfter = {
@@ -11560,7 +11895,7 @@ function createSession(file) {
 }
 
 // src/views/grid/editors/index.ts
-var READONLY_TYPES = /* @__PURE__ */ new Set(["auto_number", "created_time", "modified_time", "formula", "link"]);
+var READONLY_TYPES = /* @__PURE__ */ new Set(["auto_number", "created_time", "modified_time", "formula"]);
 function isReadOnly(field) {
   if (field.airtable?.readOnly)
     return true;
@@ -12128,7 +12463,13 @@ var GridView = class {
             cell2.title = formulaErr.message;
             cell2.setAttribute("data-formula-error", formulaErr.code);
           } else if (field.type === "link") {
-            text.textContent = getFieldType("link").format(val ?? null, field);
+            const summary = this.opts.linkSummary ? this.opts.linkSummary(val) : { text: getFieldType("link").format(val ?? null, field), broken: 0 };
+            text.textContent = summary.text;
+            if (summary.broken > 0) {
+              cell2.classList.add("tablify__cell--broken-link");
+              cell2.title = `${summary.broken} broken ${summary.broken === 1 ? "link" : "links"}: the linked row or table was not found.`;
+              cell2.setAttribute("data-broken-links", String(summary.broken));
+            }
           } else {
             text.textContent = val === void 0 || val === null ? "" : String(Array.isArray(val) ? val.join(", ") : val);
           }
@@ -12316,7 +12657,7 @@ var LongPressDetector = class {
 };
 
 // src/menus/tableMenu.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/menus/tableMenuModel.ts
 var SEPARATOR = { id: "sep", label: "", enabled: false, separator: true };
@@ -12337,7 +12678,8 @@ var TYPE_LABELS = {
   single_select: "Single select",
   multi_select: "Multi select",
   attachment: "Attachment",
-  formula: "Formula"
+  formula: "Formula",
+  link: "Link"
 };
 var CHANGE_TARGET_TYPES = [
   "text",
@@ -12356,16 +12698,21 @@ var CHANGE_TARGET_TYPES = [
   "single_select",
   "multi_select",
   "attachment",
-  "formula"
+  "formula",
+  "link"
 ];
 function cellEntries(ctx) {
+  const entries = [{ id: "cell.copy", label: "Copy", enabled: true }];
+  if (ctx.isLink) {
+    entries.push({ id: "cell.links", label: "Choose linked rows\u2026", enabled: !ctx.readOnly });
+  }
   return [
-    { id: "cell.copy", label: "Copy", enabled: true },
+    ...entries,
     {
       id: "cell.paste",
       label: "Paste",
-      enabled: !ctx.readOnly && ctx.hasClipboard,
-      reason: ctx.readOnly ? "Read-only field" : "Nothing copied yet"
+      enabled: !ctx.readOnly && ctx.hasClipboard && !ctx.isLink,
+      reason: ctx.readOnly ? "Read-only field" : ctx.isLink ? "Use Choose linked rows instead" : "Nothing copied yet"
     },
     {
       id: "cell.clear",
@@ -12428,7 +12775,7 @@ function displayTitle(entry) {
 
 // src/menus/tableMenu.ts
 function buildTableMenu(entries, run2) {
-  const menu = new import_obsidian3.Menu();
+  const menu = new import_obsidian4.Menu();
   for (const entry of entries) {
     if (entry.separator) {
       menu.addSeparator();
@@ -12446,7 +12793,7 @@ function buildTableMenu(entries, run2) {
   }
   return menu;
 }
-var TypePickerModal = class extends import_obsidian3.FuzzySuggestModal {
+var TypePickerModal = class extends import_obsidian4.FuzzySuggestModal {
   constructor(app, targets, onPick) {
     super(app);
     this.targets = targets;
@@ -12465,7 +12812,7 @@ var TypePickerModal = class extends import_obsidian3.FuzzySuggestModal {
       this.onPick(t);
       return;
     }
-    new import_obsidian3.Notice(`Cannot change to ${TYPE_LABELS[t.type] ?? t.type}: ${t.reason ?? "not available"}`);
+    new import_obsidian4.Notice(`Cannot change to ${TYPE_LABELS[t.type] ?? t.type}: ${t.reason ?? "not available"}`);
   }
 };
 
@@ -12489,7 +12836,7 @@ var ROW_HEIGHT_LABELS = {
   medium: "Medium",
   large: "Large"
 };
-var DEBOUNCE_MS = 200;
+var DEBOUNCE_MS2 = 200;
 var ICONS = {
   search: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 L14 14"></path></svg>',
   plus: '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg>',
@@ -12622,7 +12969,7 @@ var Toolbar = class {
       this.searchTimer = setTimeout(() => {
         this.searchTimer = null;
         this.opts.callbacks.onSearch(value);
-      }, DEBOUNCE_MS);
+      }, DEBOUNCE_MS2);
     });
     this.queryInput.addEventListener("input", () => {
       this.showQueryError(this.queryInput.value);
@@ -12632,7 +12979,7 @@ var Toolbar = class {
       this.queryTimer = setTimeout(() => {
         this.queryTimer = null;
         this.opts.callbacks.onQuery(value);
-      }, DEBOUNCE_MS);
+      }, DEBOUNCE_MS2);
     });
     this.root.addEventListener("click", (event) => {
       const target = event.target;
@@ -12852,42 +13199,60 @@ var Toolbar = class {
 };
 
 // src/views/grid/AddFieldModal.ts
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 var DEFAULT_NEW_FIELD_TYPE = "text";
-var AddFieldModal = class extends import_obsidian4.Modal {
-  constructor(app, onConfirm) {
+var AddFieldModal = class extends import_obsidian5.Modal {
+  constructor(app, onConfirm, options = {}) {
     super(app);
     this.onConfirm = onConfirm;
+    this.options = options;
+    this.linkTableId = options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? "";
   }
   name = "";
   type = DEFAULT_NEW_FIELD_TYPE;
   expression = "";
+  linkTableId;
   onOpen() {
     this.setTitle("Add field");
     this.modalEl.addClass("tablify__modal");
     applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
-    new import_obsidian4.Setting(this.contentEl).setName("Field name").setDesc("Shown as the column heading.").addText(
+    new import_obsidian5.Setting(this.contentEl).setName("Field name").setDesc("Shown as the column heading.").addText(
       (text) => text.setValue(this.name).onChange((value) => {
         this.name = value;
       })
     );
-    new import_obsidian4.Setting(this.contentEl).setName("Field type").addDropdown((dropdown) => {
+    new import_obsidian5.Setting(this.contentEl).setName("Field type").addDropdown((dropdown) => {
       for (const type of CHANGE_TARGET_TYPES) {
         dropdown.addOption(type, TYPE_LABELS[type] ?? type);
       }
       dropdown.setValue(this.type).onChange((value) => {
         this.type = value;
-        formulaRow.style.display = this.type === "formula" ? "" : "none";
+        showTypeRows();
       });
     });
     const formulaRow = this.contentEl.createDiv();
-    formulaRow.style.display = this.type === "formula" ? "" : "none";
-    new import_obsidian4.Setting(formulaRow).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
+    new import_obsidian5.Setting(formulaRow).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
       (text) => text.setValue(this.expression).setPlaceholder("{Price} * 2").onChange((value) => {
         this.expression = value;
       })
     );
-    new import_obsidian4.Setting(this.contentEl).addButton(
+    const linkRow = this.contentEl.createDiv();
+    const targets = this.options.linkTargets ?? [];
+    new import_obsidian5.Setting(linkRow).setName("Link to table").setDesc(targets.length === 0 ? "No tables are available to link to." : "Rows are picked from this table.").addDropdown((dropdown) => {
+      for (const t of targets)
+        dropdown.addOption(t.tableId, t.name);
+      if (this.linkTableId)
+        dropdown.setValue(this.linkTableId);
+      dropdown.onChange((value) => {
+        this.linkTableId = value;
+      });
+    });
+    const showTypeRows = () => {
+      formulaRow.style.display = this.type === "formula" ? "" : "none";
+      linkRow.style.display = this.type === "link" ? "" : "none";
+    };
+    showTypeRows();
+    new import_obsidian5.Setting(this.contentEl).addButton(
       (button) => button.setButtonText("Add field").setCta().onClick(() => this.submit())
     );
     this.contentEl.addEventListener("keydown", (event) => {
@@ -12901,13 +13266,22 @@ var AddFieldModal = class extends import_obsidian4.Modal {
   submit() {
     const name = this.name.trim();
     if (!name) {
-      new import_obsidian4.Notice("Field name cannot be empty.");
+      new import_obsidian5.Notice("Field name cannot be empty.");
+      return;
+    }
+    if (this.type === "link") {
+      if (!this.linkTableId) {
+        new import_obsidian5.Notice("Choose a table to link to.");
+        return;
+      }
+      this.close();
+      this.onConfirm(name, this.type, void 0, this.linkTableId);
       return;
     }
     if (this.type === "formula") {
       const compiled = compileFormula(this.expression);
       if (!compiled.ok) {
-        new import_obsidian4.Notice("The formula has a syntax error.");
+        new import_obsidian5.Notice("The formula has a syntax error.");
         return;
       }
       this.close();
@@ -12919,9 +13293,107 @@ var AddFieldModal = class extends import_obsidian4.Modal {
   }
 };
 
+// src/views/grid/LinkPickerModal.ts
+var import_obsidian6 = require("obsidian");
+var LinkPickerModal = class extends import_obsidian6.Modal {
+  constructor(opts) {
+    super(opts.app);
+    this.opts = opts;
+    this.targetId = opts.field.linkTableId ?? "";
+    for (const ref of opts.current) {
+      if (ref.tableId === this.targetId) {
+        this.selected.add(ref.rowId);
+        this.order.push(ref.rowId);
+      }
+    }
+  }
+  targetId;
+  selected = /* @__PURE__ */ new Set();
+  order = [];
+  query = "";
+  onOpen() {
+    this.setTitle(`Link: ${this.opts.field.name}`);
+    this.modalEl.addClass("tablify__modal");
+    applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
+    this.render();
+  }
+  render() {
+    const root = this.contentEl;
+    root.empty();
+    const table = this.opts.index.byTableId(this.targetId);
+    if (!table) {
+      root.createEl("p", {
+        text: "The table this field links to is not in this vault. Existing links are kept until you clear them.",
+        cls: "tablify-link-picker__note"
+      });
+      new import_obsidian6.Setting(root).addButton((b) => b.setButtonText("Clear links").setWarning().onClick(() => this.save(null))).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()));
+      return;
+    }
+    root.createEl("p", { text: `Rows in ${table.name}`, cls: "tablify-link-picker__note" });
+    const list = root.createDiv({ cls: "tablify-link-picker__list" });
+    const search = root.createEl("input", { type: "text", cls: "tablify-link-picker__search" });
+    search.placeholder = "Search rows";
+    search.value = this.query;
+    search.addEventListener("input", () => {
+      this.query = search.value;
+      this.renderList(list, table.rows);
+    });
+    this.renderList(list, table.rows);
+    new import_obsidian6.Setting(root).addButton((b) => b.setButtonText("Clear").onClick(() => this.save(null))).addButton((b) => b.setButtonText("Cancel").onClick(() => this.close())).addButton((b) => b.setButtonText("Save").setCta().onClick(() => this.save(this.result(table.rows))));
+  }
+  renderList(list, rows) {
+    list.empty();
+    const known = new Set(rows.map((r) => r.id));
+    const missing = this.order.filter((id) => !known.has(id));
+    if (missing.length > 0) {
+      list.createDiv({ text: "Missing (the row was deleted)", cls: "tablify-link-picker__heading" });
+      for (const id of missing)
+        this.itemRow(list, id, "Missing row", true);
+    }
+    const visible = filterRows(rows, this.query);
+    if (visible.length === 0) {
+      list.createDiv({ text: rows.length === 0 ? "This table has no rows yet." : "No rows match.", cls: "tablify-link-picker__note" });
+    }
+    for (const row of visible)
+      this.itemRow(list, row.id, row.label.trim() || "Untitled row", false);
+    const others = this.opts.current.filter((r) => r.tableId !== this.targetId).length;
+    if (others > 0) {
+      list.createDiv({
+        text: others === 1 ? "1 link to another table is kept." : `${others} links to other tables are kept.`,
+        cls: "tablify-link-picker__note"
+      });
+    }
+  }
+  itemRow(list, rowId, label, missing) {
+    const row = list.createEl("label", { cls: "tablify-link-picker__row" });
+    const box = row.createEl("input", { type: "checkbox" });
+    box.checked = this.selected.has(rowId);
+    box.addEventListener("change", () => {
+      if (box.checked) {
+        this.selected.add(rowId);
+        if (!this.order.includes(rowId))
+          this.order.push(rowId);
+      } else {
+        this.selected.delete(rowId);
+      }
+    });
+    row.createSpan({ text: label, cls: missing ? "tablify-link-picker__missing" : "" });
+  }
+  /** Selected rows in display order, then combined with the kept links to other tables. */
+  result(rows) {
+    const displayed = rows.map((r) => r.id).filter((id) => this.selected.has(id));
+    const missing = this.order.filter((id) => this.selected.has(id) && !rows.some((r) => r.id === id));
+    return buildSelection(this.opts.current, this.targetId, [...missing, ...displayed]);
+  }
+  save(refs) {
+    this.close();
+    this.opts.onSave(refs);
+  }
+};
+
 // src/views/grid/FormulaEditModal.ts
-var import_obsidian5 = require("obsidian");
-var FormulaEditModal = class extends import_obsidian5.Modal {
+var import_obsidian7 = require("obsidian");
+var FormulaEditModal = class extends import_obsidian7.Modal {
   constructor(app, initial, onSave) {
     super(app);
     this.onSave = onSave;
@@ -12932,12 +13404,12 @@ var FormulaEditModal = class extends import_obsidian5.Modal {
     this.setTitle("Edit formula");
     this.modalEl.addClass("tablify__modal");
     applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
-    new import_obsidian5.Setting(this.contentEl).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
+    new import_obsidian7.Setting(this.contentEl).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
       (text) => text.setValue(this.expression).setPlaceholder("{Price} * 2").onChange((value) => {
         this.expression = value;
       })
     );
-    new import_obsidian5.Setting(this.contentEl).addButton(
+    new import_obsidian7.Setting(this.contentEl).addButton(
       (button) => button.setButtonText("Save formula").setCta().onClick(() => this.submit())
     );
     this.contentEl.addEventListener("keydown", (event) => {
@@ -12951,7 +13423,7 @@ var FormulaEditModal = class extends import_obsidian5.Modal {
   submit() {
     const compiled = compileFormula(this.expression);
     if (!compiled.ok) {
-      new import_obsidian5.Notice("The formula has a syntax error.");
+      new import_obsidian7.Notice("The formula has a syntax error.");
       return;
     }
     this.close();
@@ -12961,7 +13433,7 @@ var FormulaEditModal = class extends import_obsidian5.Modal {
 
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
-var TableView = class extends import_obsidian6.TextFileView {
+var TableView = class extends import_obsidian8.TextFileView {
   session = null;
   grid = null;
   rawData = "";
@@ -12984,6 +13456,8 @@ var TableView = class extends import_obsidian6.TextFileView {
   suppressClick = false;
   /** Time of the last touch, used to ignore the native touch context menu (P5-03). */
   lastTouchAt = 0;
+  /** P8-04: unsubscribe from the vault link index on close. */
+  linkUnsub = null;
   constructor(leaf) {
     super(leaf);
   }
@@ -13008,6 +13482,10 @@ var TableView = class extends import_obsidian6.TextFileView {
     this.body = document.createElement("div");
     this.body.className = "tablify__body";
     this.card.appendChild(this.body);
+    this.linkUnsub = linkIndexFor(this.app).onChange(() => {
+      if (this.session)
+        this.renderGrid();
+    });
   }
   setViewData(data, clear) {
     if (clear)
@@ -13020,6 +13498,7 @@ var TableView = class extends import_obsidian6.TextFileView {
       return;
     }
     this.session = createSession(parsed.data);
+    this.publishLive();
     this.renderGrid();
   }
   getViewData() {
@@ -13040,7 +13519,12 @@ var TableView = class extends import_obsidian6.TextFileView {
     this.syncToolbar();
   }
   async onClose() {
+    const path = this.file?.path;
     this.clear();
+    this.linkUnsub?.();
+    this.linkUnsub = null;
+    if (path)
+      linkIndexFor(this.app).dropLive(path);
     this.toolbarView?.destroy();
     this.toolbarView = null;
   }
@@ -13131,12 +13615,20 @@ var TableView = class extends import_obsidian6.TextFileView {
   promptAddField() {
     if (!this.session)
       return;
-    new AddFieldModal(this.app, (name, type, formula) => {
-      if (!this.session)
-        return;
-      this.session.addField(name, type, formula);
-      this.afterChange();
-    }).open();
+    const s = this.session;
+    const selfId = s.toFile().tableId;
+    const others = linkIndexFor(this.app).index.tables().filter((t) => t.tableId !== selfId).map((t) => ({ tableId: t.tableId, name: t.name }));
+    const selfName = this.file?.basename ?? "This table";
+    new AddFieldModal(
+      this.app,
+      (name, type, formula, linkTableId) => {
+        if (!this.session)
+          return;
+        this.session.addField(name, type, formula, linkTableId);
+        this.afterChange();
+      },
+      { linkTargets: [{ tableId: selfId, name: selfName }, ...others], defaultLinkTableId: selfId }
+    ).open();
   }
   showError(message) {
     this.clear();
@@ -13150,8 +13642,17 @@ var TableView = class extends import_obsidian6.TextFileView {
     this.afterChange();
   }
   afterChange() {
+    this.publishLive();
     this.renderGrid();
     this.requestSave();
+  }
+  /** P8-04: publish this table's live state to the vault link index (unsaved edits included). */
+  publishLive() {
+    const s = this.session;
+    const path = this.file?.path;
+    if (!s || !path)
+      return;
+    linkIndexFor(this.app).noteLive(path, snapshotTable(s.toFile(), path));
   }
   /** Sync hooks (P7-10). The sync modal works on this view's session and saves through the view. */
   syncSession() {
@@ -13179,7 +13680,9 @@ var TableView = class extends import_obsidian6.TextFileView {
         viewportWidth: this.contentEl.clientWidth || 800,
         onCellClick: () => this.grid?.root.focus(),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
-        formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null
+        formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
+        // P8-04: resolved row names for link cells; broken links are counted for the marker.
+        linkSummary: (value) => summarizeLinks(value, linkIndexFor(this.app).index)
       });
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
@@ -13333,7 +13836,8 @@ var TableView = class extends import_obsidian6.TextFileView {
     const entries = cellMenu({
       readOnly: isReadOnly(field),
       cellEmpty: isEmptyValue(value),
-      hasClipboard: this.clipboardText !== null
+      hasClipboard: this.clipboardText !== null,
+      isLink: field.type === "link"
     });
     this.showMenu(entries, { row, col }, pos);
   }
@@ -13380,6 +13884,9 @@ var TableView = class extends import_obsidian6.TextFileView {
         case "cell.paste":
           this.pasteInto(row, field2);
           return;
+        case "cell.links":
+          this.openLinkPicker(row.id, field2);
+          return;
         case "cell.clear":
           s.setValue(row.id, field2.id, null);
           break;
@@ -13417,7 +13924,7 @@ var TableView = class extends import_obsidian6.TextFileView {
         new TypePickerModal(this.app, targets, (target) => {
           const result = s.changeFieldType(field.id, target.type);
           if (!result.ok)
-            new import_obsidian6.Notice(result.reason);
+            new import_obsidian8.Notice(result.reason);
           this.afterChange();
         }).open();
         return;
@@ -13427,7 +13934,7 @@ var TableView = class extends import_obsidian6.TextFileView {
         new FormulaEditModal(this.app, current, (expression) => {
           const result = s.setFormula(field.id, expression);
           if (!result.ok)
-            new import_obsidian6.Notice(result.reason);
+            new import_obsidian8.Notice(result.reason);
           this.afterChange();
         }).open();
         return;
@@ -13450,13 +13957,17 @@ var TableView = class extends import_obsidian6.TextFileView {
     this.afterChange();
   }
   pasteInto(row, field) {
+    if (field.type === "link") {
+      new import_obsidian8.Notice("Use Choose linked rows to change links.");
+      return;
+    }
     if (this.clipboardText === null) {
-      new import_obsidian6.Notice("Nothing copied yet.");
+      new import_obsidian8.Notice("Nothing copied yet.");
       return;
     }
     const res = parseInput(field, this.clipboardText);
     if (!res.ok) {
-      new import_obsidian6.Notice(`Cannot paste here: ${res.error}`);
+      new import_obsidian8.Notice(`Cannot paste here: ${res.error}`);
       return;
     }
     this.session?.setValue(row.id, field.id, res.value);
@@ -13465,6 +13976,28 @@ var TableView = class extends import_obsidian6.TextFileView {
   copyText(text) {
     this.clipboardText = text;
     void navigator.clipboard?.writeText(text).catch(() => void 0);
+  }
+  // ---- link picker (P8-04) ----
+  /** Row picker for a link cell. Save goes through setValue, so it is undoable and saved with the file. */
+  openLinkPicker(rowId, field) {
+    const s = this.session;
+    if (!s)
+      return;
+    const stored = s.store.getRow(rowId);
+    if (!stored)
+      return;
+    const value = stored.values[field.id];
+    const current = Array.isArray(value) ? value : [];
+    new LinkPickerModal({
+      app: this.app,
+      field,
+      current,
+      index: linkIndexFor(this.app).index,
+      onSave: (refs) => {
+        s.setValue(rowId, field.id, refs);
+        this.afterChange();
+      }
+    }).open();
   }
   // ---- inline editing ----
   /** Open the inline editor over the selected cell. Commit goes through the command stack. */
@@ -13482,11 +14015,17 @@ var TableView = class extends import_obsidian6.TextFileView {
     const storeRow = s.store.getRow(row.id);
     if (!storeRow)
       return;
+    if (field.type === "link") {
+      this.openLinkPicker(row.id, field);
+      return;
+    }
     grid.scrollToRow(sel.row);
     const cell2 = this.cellElement(sel);
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
       this.editing = null;
       editor?.remove();
+      if (committed)
+        this.publishLive();
       this.renderGrid();
       grid.root.focus();
       if (committed)
@@ -13513,7 +14052,7 @@ function isEmptyValue(v) {
 }
 
 // src/menus/fileMenu.ts
-var import_obsidian7 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/menus/fileMenuModel.ts
 var COPY_SUFFIX = " copy";
@@ -13577,32 +14116,32 @@ function registerFileMenu(plugin) {
   );
 }
 function targetOf(file) {
-  if (file instanceof import_obsidian7.TFile)
+  if (file instanceof import_obsidian9.TFile)
     return { kind: "file", extension: file.extension };
-  if (file instanceof import_obsidian7.TFolder)
+  if (file instanceof import_obsidian9.TFolder)
     return { kind: "folder", path: file.isRoot() ? "" : file.path };
   return { kind: "other" };
 }
 async function run(app, file, action) {
   switch (action) {
     case "open":
-      if (file instanceof import_obsidian7.TFile)
+      if (file instanceof import_obsidian9.TFile)
         await app.workspace.getLeaf(false).openFile(file);
       return;
     case "export":
-      if (file instanceof import_obsidian7.TFile)
+      if (file instanceof import_obsidian9.TFile)
         openExportModal(app, file);
       return;
     case "duplicate":
-      if (file instanceof import_obsidian7.TFile)
+      if (file instanceof import_obsidian9.TFile)
         await duplicateFile(app, file);
       return;
     case "newTable":
-      if (file instanceof import_obsidian7.TFolder)
+      if (file instanceof import_obsidian9.TFolder)
         await createNewTable(app, file.path);
       return;
     case "importTable":
-      if (file instanceof import_obsidian7.TFolder)
+      if (file instanceof import_obsidian9.TFolder)
         startImport(app, file.path);
       return;
   }
@@ -13614,12 +14153,12 @@ async function duplicateFile(app, source) {
   const text = await app.vault.read(source);
   const result = duplicateTableText(text, name);
   if (!result.ok) {
-    new import_obsidian7.Notice(`Duplicate failed. The table file could not be read: ${result.error}`);
+    new import_obsidian9.Notice(`Duplicate failed. The table file could not be read: ${result.error}`);
     return;
   }
   const path = joinPath(folder, `${name}.tablify`);
   await app.vault.create(path, result.text);
-  new import_obsidian7.Notice(`Created ${path}.`);
+  new import_obsidian9.Notice(`Created ${path}.`);
 }
 async function createNewTable(app, folder) {
   const exists = (name2) => app.vault.getAbstractFileByPath(joinPath(folder, `${name2}.tablify`)) !== null;
@@ -13630,7 +14169,7 @@ async function createNewTable(app, folder) {
 }
 
 // src/settings.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var DEFAULT_SETTINGS = Object.freeze({ airtableToken: "" });
 var MAX_TOKEN_LENGTH = 512;
 function normalizeSettings(raw) {
@@ -13656,7 +14195,7 @@ async function saveSettings(store, settings) {
   const clean = normalizeSettings(settings);
   await store.saveData({ airtableToken: clean.airtableToken });
 }
-var TablifySettingTab = class extends import_obsidian8.PluginSettingTab {
+var TablifySettingTab = class extends import_obsidian10.PluginSettingTab {
   host;
   constructor(app, host) {
     super(app, host);
@@ -13665,8 +14204,8 @@ var TablifySettingTab = class extends import_obsidian8.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian8.Setting(containerEl).setName("Airtable").setHeading();
-    new import_obsidian8.Setting(containerEl).setName("Personal access token").setDesc(
+    new import_obsidian10.Setting(containerEl).setName("Airtable").setHeading();
+    new import_obsidian10.Setting(containerEl).setName("Personal access token").setDesc(
       "Used only for Airtable sync. Stored in this plugin\u2019s settings. It is never written to .tablify files or exports."
     ).addText((text) => {
       text.inputEl.type = "password";
@@ -13684,7 +14223,7 @@ var TablifySettingTab = class extends import_obsidian8.PluginSettingTab {
 };
 
 // src/embed/register.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 
 // src/embed/embedDocument.ts
 var EmbedDocument = class {
@@ -13832,6 +14371,7 @@ var EmbedRegistry = class {
 };
 
 // src/embed/embedView.ts
+var import_obsidian11 = require("obsidian");
 var EMBED_VIEWPORT_HEIGHT = 320;
 var EmbedView = class {
   root;
@@ -13843,6 +14383,7 @@ var EmbedView = class {
   sel = { row: 0, col: 0 };
   editing = null;
   unsubscribe;
+  unlinks = null;
   destroyed = false;
   constructor(opts) {
     this.opts = opts;
@@ -13867,6 +14408,7 @@ var EmbedView = class {
     this.body.className = "tablify-embed__body";
     this.root.appendChild(this.body);
     this.unsubscribe = this.doc.subscribe(() => this.render());
+    this.unlinks = this.opts.links?.onChange(() => this.render()) ?? null;
     this.render();
   }
   /** Re-renders from the document. Safe to call at any time. */
@@ -13916,6 +14458,10 @@ var EmbedView = class {
     const storeRow = s.store.getRow(row.id);
     if (!storeRow)
       return false;
+    if (field.type === "link") {
+      new import_obsidian11.Notice("Open the full table to change links.");
+      return false;
+    }
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
       this.editing = null;
       editor?.remove();
@@ -13961,6 +14507,7 @@ var EmbedView = class {
       return;
     this.destroyed = true;
     this.unsubscribe();
+    this.unlinks?.();
     this.editing?.remove();
     this.editing = null;
     this.grid?.destroy();
@@ -13977,6 +14524,7 @@ var EmbedView = class {
     if (this.grid)
       return;
     const s = this.doc.getSession();
+    const links = this.opts.links;
     this.grid = new GridView({
       rows: s.getDisplayRows(),
       fields: s.getVisibleFields(),
@@ -13986,7 +14534,8 @@ var EmbedView = class {
       viewportWidth: this.opts.viewportWidth ?? 800,
       onCellClick: (row, col) => {
         this.sel = { row, col };
-      }
+      },
+      linkSummary: links ? (value) => summarizeLinks(value, links.index) : void 0
     });
     this.grid.root.tabIndex = 0;
     this.grid.root.addEventListener("keydown", (e) => this.onKeyDown(e));
@@ -14112,7 +14661,7 @@ var EMBED_FENCE_LANGUAGE = "tablify";
 function vaultEmbedIO(app) {
   const fileAt = (path) => {
     const f = app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof import_obsidian9.TFile))
+    if (!(f instanceof import_obsidian12.TFile))
       throw new Error("file not found");
     return f;
   };
@@ -14123,7 +14672,7 @@ function vaultEmbedIO(app) {
     }
   };
 }
-var EmbedRenderChild = class extends import_obsidian9.MarkdownRenderChild {
+var EmbedRenderChild = class extends import_obsidian12.MarkdownRenderChild {
   onDone;
   constructor(containerEl, onDone) {
     super(containerEl);
@@ -14155,7 +14704,8 @@ function registerEmbedProcessor(plugin) {
         doc,
         onOpenFull: (p) => {
           void app.workspace.openLinkText(p, "", false);
-        }
+        },
+        links: linkIndexFor(app)
       });
       el2.appendChild(view.root);
       ctx.addChild(
@@ -14168,7 +14718,7 @@ function registerEmbedProcessor(plugin) {
   );
   plugin.registerEvent(
     app.vault.on("modify", (file) => {
-      if (file instanceof import_obsidian9.TFile)
+      if (file instanceof import_obsidian12.TFile)
         void registry2.fileChanged(file.path);
     })
   );
@@ -14176,10 +14726,10 @@ function registerEmbedProcessor(plugin) {
 }
 
 // src/views/sync/SyncModal.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // src/sync/airtableClient.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // src/sync/rateLimiter.ts
 var defaultClock = () => Date.now();
@@ -14251,7 +14801,7 @@ var BASE_ID = /^app[A-Za-z0-9]+$/;
 var TABLE_ID = /^tbl[A-Za-z0-9]+$/;
 var RECORD_ID = /^rec[A-Za-z0-9]+$/;
 function transportDefault(param) {
-  return (0, import_obsidian10.requestUrl)(param);
+  return (0, import_obsidian13.requestUrl)(param);
 }
 function headerValue(headers, name) {
   if (!headers)
@@ -15471,7 +16021,7 @@ function el(parent, tag, opts = {}) {
 }
 var SCOPES_TEXT = "data.records:read \xB7 data.records:write \xB7 schema.bases:read";
 var CREATE_SCOPE_TEXT = "schema.bases:write is needed only to create fields.";
-var SyncModal = class extends import_obsidian11.Modal {
+var SyncModal = class extends import_obsidian14.Modal {
   constructor(app, deps) {
     super(app);
     this.deps = deps;
@@ -15758,7 +16308,7 @@ var SyncModal = class extends import_obsidian11.Modal {
 };
 
 // src/main.ts
-var TablifyPlugin = class extends import_obsidian12.Plugin {
+var TablifyPlugin = class extends import_obsidian15.Plugin {
   // P7-03: plugin settings. The Airtable token lives only here (plugin data).
   settings = { ...DEFAULT_SETTINGS };
   async onload() {
@@ -15766,6 +16316,8 @@ var TablifyPlugin = class extends import_obsidian12.Plugin {
     this.addSettingTab(new TablifySettingTab(this.app, this));
     registerImportCommand(this);
     registerExportCommand(this);
+    linkIndexFor(this.app).start(this);
+    registerLinkIntegrityCommand(this);
     this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf));
     this.registerExtensions(["tablify"], TABLIFY_VIEW_TYPE);
     registerFileMenu(this);
@@ -15780,7 +16332,7 @@ var TablifyPlugin = class extends import_obsidian12.Plugin {
     const view = this.app.workspace.getActiveViewOfType(TableView);
     const session = view?.syncSession();
     if (!view || !session) {
-      new import_obsidian12.Notice("Open a .tablify table first.");
+      new import_obsidian15.Notice("Open a .tablify table first.");
       return;
     }
     const token = this.settings.airtableToken.trim() || null;
