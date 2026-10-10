@@ -745,15 +745,24 @@ document.addEventListener('keydown', ev => {
 // which would make closest() checks unreliable).
 function outsideTapClear(ev) {
   if (!state.focus && !state.anchor && !state.editing) return;
-  if (anyModalOpen()) return;
   const t = ev.target;
   if (t && t.closest && (t.closest('#mainTable') || t.closest('#floatPanel'))) return;
+  // NOTE: deliberately NOT anyModalOpen() here — that helper also reports
+  // "open" while a cell editor is active or any input has focus, which is
+  // exactly the state this handler must clear. Only true modal overlays
+  // (full-screen backdrops) keep the selection.
+  const modalIds = ['addFieldModal', 'optMgrModal', 'sourceModal', 'filterModal', 'importModal', 'exportModal', 'syncModal', 'conflictModal', 'peekModal', 'checklistModal'];
+  for (const id of modalIds) {
+    const el = document.getElementById(id);
+    if (el && !el.classList.contains('hidden')) return;
+  }
   if (state.editing) commitEditor(false); // commit the pending edit before re-rendering, never lose input
   state.focus = null;
   state.anchor = null;
   renderGrid();
 }
 document.addEventListener('mousedown', outsideTapClear);
+document.addEventListener('touchstart', outsideTapClear, { passive: true }); // taps on touch devices, even where mouse events aren't synthesized
 
 // ===== select dropdown (Feature 3: searchable, create-on-type, colored) =====
 function openSelectPanel(anchorEl, rowId, fieldId) {
