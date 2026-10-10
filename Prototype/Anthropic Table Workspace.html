@@ -153,7 +153,7 @@
         </div>
       </div>
 
-      <div class="mb-5 flex items-baseline justify-between flex-wrap gap-2">
+      <div id="titleRow" class="mb-5 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-center gap-2">
           <h2 id="editableTableTitle" contenteditable="true" spellcheck="false"
               onblur="commitTitle(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
@@ -179,7 +179,7 @@
       </div>
 
       <!-- Toolbar Search & Actions Row -->
-      <div class="flex flex-wrap items-center justify-between gap-2.5 mb-4">
+      <div id="toolbarRow" class="flex flex-wrap items-center justify-between gap-2.5 mb-4">
         <div class="relative flex-1 min-w-[200px]">
           <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-tablify-clay dark:text-gray-400 text-xs"></i>
           <input type="text" id="searchInput" placeholder="Search or query — e.g. Status:Done  Task:~grid  &quot;Estimate (h)&quot;:>5  Tags:UI,Perf  Due:empty" oninput="filterRows()"
@@ -187,6 +187,10 @@
         </div>
         <div class="flex items-center space-x-2">
           <!-- @@TOOLBARBTNS -->
+          <button onclick="openSyncModal()" class="pill-btn px-3 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95" title="Optional Airtable sync — pull, push, conflicts, auto-create fields (Features 19–21, simulated)">
+            <i class="fa-solid fa-cloud-arrow-up text-[11px] text-tablify-terracotta"></i>
+            <span class="hidden xl:inline">Sync</span>
+          </button>
           <button onclick="undo()" title="Undo (Ctrl/Cmd+Z)" class="pill-btn px-3 py-2.5 text-xs rounded-2xl active:scale-95"><i class="fa-solid fa-rotate-left text-[11px]"></i></button>
           <button onclick="redo()" title="Redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)" class="pill-btn px-3 py-2.5 text-xs rounded-2xl active:scale-95"><i class="fa-solid fa-rotate-right text-[11px]"></i></button>
           <button onclick="openFilterBuilder()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95" title="Filter builder — produces the same result as the query string (spec §2.6)">
@@ -208,7 +212,7 @@
         </div>
       </div>
 
-      <div class="flex items-center justify-between mb-2 px-1">
+      <div id="metaRow" class="flex items-center justify-between mb-2 px-1">
         <div id="selectionSummary" class="text-[11px] text-tablify-terracotta font-medium hidden items-center gap-2">
           <span id="selectedCount">0 selected</span>
           <button onclick="deleteSelectedRows()" class="text-red-500 hover:underline"><i class="fa-solid fa-trash-can mr-1"></i>Delete</button>
@@ -220,6 +224,28 @@
         </div>
       </div>
 
+      <!-- Note view (Feature 18: embedded live table) -->
+      <div id="noteView" class="hidden mb-4">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-tablify-clay dark:text-gray-400 font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner px-2 py-0.5 rounded border border-tablify-paper-border dark:border-tablify-dark-border"><i class="fa-regular fa-file-lines mr-1 text-tablify-terracotta"></i>Project Notes.md</span>
+            <span class="text-[10px] text-tablify-clay dark:text-gray-400">reading view (simulated Obsidian note)</span>
+          </div>
+          <button onclick="exitNote()" class="pill-btn px-3.5 py-1.5 text-xs font-medium rounded-xl"><i class="fa-solid fa-arrow-left mr-1.5 text-[10px] text-tablify-terracotta"></i>Back to grid</button>
+        </div>
+        <h3 class="text-xl font-serif font-semibold mb-2">Sprint review — week 41</h3>
+        <p class="text-sm text-tablify-charcoal/80 dark:text-gray-300 mb-4 leading-relaxed">Status of the current sprint. The table below is <b>live</b>: it renders from the <span class="font-mono text-xs">.tablify</span> source file and every edit saves straight back to it (Feature 18).</p>
+        <div class="rounded-t-2xl bg-tablify-paper-inner dark:bg-tablify-dark-inner border border-b-0 border-tablify-paper-border dark:border-tablify-dark-border px-4 py-2 font-mono text-[10px] text-tablify-clay dark:text-gray-400">
+          <div>```tablify</div>
+          <div id="embedFile"></div>
+          <div>view: Grid</div>
+          <div>```</div>
+        </div>
+        <div id="embedHost" class="[&>div]:rounded-t-none"></div>
+        <p class="text-sm text-tablify-charcoal/80 dark:text-gray-300 mt-4 leading-relaxed">Edit a cell above, then switch back to the grid tab — the change is already there, because both views share the same document.</p>
+      </div>
+
+      <div id="gridAnchor"></div>
       <!-- Inner Table Container -->
       <div id="tableInnerContainer" class="bg-tablify-paper-inner dark:bg-tablify-dark-inner w-full overflow-x-auto rounded-2xl border border-tablify-paper-border dark:border-tablify-dark-border p-2 sm:p-3 shadow-inner">
         <table class="w-full border-separate border-spacing-y-2 border-spacing-x-1.5 text-left text-xs" id="mainTable">
@@ -276,6 +302,15 @@
           <div id="vRegexWrap" class="hidden mb-1">
             <input type="text" id="vRegex" placeholder="Regex, e.g. ^[A-Z].*" class="pill-input w-full rounded-xl px-3 py-2 font-mono focus:outline-none">
           </div>
+        </div>
+        <div id="fieldFormulaWrap" class="hidden">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Formula <span class="font-mono text-[10px]">(D-O1: + − × ÷, SUM, IF, CONCAT, DATEDIFF, ROUND, MIN, MAX, ABS; {Field} refs)</span></label>
+          <textarea id="newFieldFormula" rows="2" oninput="formulaPreview()" placeholder='IF({Budget} > 10000, "big", "small")' class="pill-input w-full rounded-xl px-3.5 py-2.5 font-mono text-[11px] focus:outline-none"></textarea>
+          <div class="mt-1 text-[10px] text-tablify-clay dark:text-gray-400">Preview (row 1): <span id="formulaPreviewOut" class="font-mono">—</span></div>
+        </div>
+        <div id="fieldLinkWrap" class="hidden">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Linked table <span class="font-mono text-[10px]">(rows stored by stable row ID)</span></label>
+          <select id="newFieldLinkTable" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none"></select>
         </div>
         <!-- @@FIELDMODAL -->
       </div>
@@ -404,6 +439,52 @@
           <div class="h-1.5 rounded-full bg-tablify-paper-inner dark:bg-tablify-dark-inner overflow-hidden"><div id="xlsxProgressBar" class="h-full bg-tablify-terracotta transition-all" style="width:0%"></div></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Airtable Sync Modal (Features 19-21, UI-only simulation) -->
+  <div id="syncModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-tablify-terracotta"></i> Airtable sync <span class="text-[9px] font-mono font-normal px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">SIMULATED</span></h3>
+        <button onclick="closeSyncModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="text-xs space-y-3">
+        <div>
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Personal access token <span class="font-mono text-[10px]">(settings only — never written to .tablify files)</span></label>
+          <input type="password" value="pat_demo_000000000000" readonly class="pill-input w-full rounded-xl px-3.5 py-2 font-mono focus:outline-none opacity-70 cursor-not-allowed">
+          <div class="text-[10px] text-tablify-clay dark:text-gray-400 mt-1">Scopes: <span class="font-mono">data.records:read · data.records:write · schema.bases:read</span>. The plugin works fully offline when sync is not configured (spec §2.19).</div>
+        </div>
+        <div id="syncLinkState"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="syncPullBtn" onclick="syncPull()" class="pill-btn rounded-xl py-2.5 text-xs font-medium"><i class="fa-solid fa-cloud-arrow-down mr-1.5 text-tablify-terracotta"></i>Pull from Airtable</button>
+          <button id="syncPushBtn" onclick="syncPush()" class="pill-btn rounded-xl py-2.5 text-xs font-medium"><i class="fa-solid fa-cloud-arrow-up mr-1.5 text-tablify-terracotta"></i>Push to Airtable</button>
+        </div>
+        <div id="syncProgressWrap" class="hidden">
+          <div class="h-1.5 rounded-full bg-tablify-paper-inner dark:bg-tablify-dark-inner overflow-hidden"><div id="syncProgressBar" class="h-full bg-tablify-terracotta transition-all" style="width:0%"></div></div>
+        </div>
+        <div id="syncLog" class="hidden max-h-36 overflow-y-auto text-[10px] font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner rounded-xl p-2.5 border border-tablify-paper-border dark:border-tablify-dark-border space-y-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conflict / Auto-create Modal (Features 20-21) -->
+  <div id="conflictModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <h3 id="conflictTitle" class="text-sm font-semibold font-serif flex items-center gap-2 mb-3"></h3>
+      <div id="conflictBody" class="text-xs"></div>
+      <div id="conflictFoot" class="mt-4 flex justify-between gap-2"></div>
+    </div>
+  </div>
+
+  <!-- Linked Record Peek Modal (Feature 12) -->
+  <div id="peekModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 id="peekTitle" class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-diagram-project text-tablify-terracotta"></i></h3>
+        <button onclick="closePeek()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="peekBody"></div>
     </div>
   </div>
 
@@ -537,6 +618,22 @@
                        fmt: v => (Array.isArray(v) ? v : []).map(p => '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono border border-tablify-paper-border dark:border-tablify-dark-border bg-tablify-paper-inner dark:bg-tablify-dark-inner mr-1 mb-0.5"><i class="fa-solid fa-paperclip mr-1 text-[8px] text-tablify-terracotta"></i>' + esc(p) + '</span>').join(''),
                        toText: v => (Array.isArray(v) ? v : []).join(', '),
                        parse: s => String(s).split(',').map(x => x.trim()).filter(Boolean) },
+      formula:       { label: 'Formula', icon: 'fa-square-root-variable', editor: 'none', readOnly: true,
+                       fmt: v => { if (v == null || v === '') return ''; const sv = String(v); if (sv.indexOf('#ERR') === 0) return '<span class="text-rose-500 font-mono text-[10px]" title="' + escAttr(sv) + '">' + esc(sv.length > 24 ? sv.slice(0, 24) + '…' : sv) + '</span>'; return typeof v === 'number' ? '<span class="font-mono">' + esc(v.toLocaleString()) + '</span>' : esc(sv); },
+                       toText: v => v == null ? '' : String(v), parse: () => null },
+      link:          { label: 'Linked records', icon: 'fa-diagram-project', editor: 'link',
+                       fmt: (v, f) => (Array.isArray(v) ? v : []).map(rid => {
+                         const t = state.docs.find(d => d.tableId === f.linkTableId);
+                         const row = t && t.rows.find(r => r.id === rid);
+                         const label = row ? (cellText(t, row, primaryField(t)) || '(untitled)') : 'missing row';
+                         return '<button onclick="event.stopPropagation();openPeek(\'' + f.linkTableId + '\',\'' + rid + '\')" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border mr-1 mb-0.5 ' + (row ? 'bg-tablify-terracotta/10 text-tablify-terracotta border-tablify-terracotta/30 hover:bg-tablify-terracotta/20' : 'bg-gray-500/10 text-gray-400 border-gray-500/30') + '"><i class="fa-solid fa-diagram-project mr-1 text-[8px]"></i>' + esc(label) + '</button>';
+                       }).join(''),
+                       toText: (v, f) => (Array.isArray(v) ? v : []).map(rid => {
+                         const t = state.docs.find(d => d.tableId === f.linkTableId);
+                         const row = t && t.rows.find(r => r.id === rid);
+                         return row ? cellText(t, row, primaryField(t)) : '';
+                       }).filter(Boolean).join(', '),
+                       parse: () => null },
       auto_number:   { label: 'Auto number', icon: 'fa-arrow-down-1-9', editor: 'none', readOnly: true, system: true, numeric: true, align: 'right',
                        fmt: (v) => '<span class="font-mono text-tablify-clay dark:text-gray-400">' + esc(v) + '</span>', toText: v => v == null ? '' : String(v), parse: () => null },
       created_time:  { label: 'Created time', icon: 'fa-calendar-plus', editor: 'none', readOnly: true, system: true,
@@ -549,7 +646,8 @@
       ['Date', ['date', 'date_time']],
       ['Links & contact', ['url', 'email', 'phone']],
       ['Select & attachment', ['single_select', 'multi_select', 'attachment']],
-      ['System (read-only)', ['auto_number', 'created_time', 'modified_time']]
+      ['System (read-only)', ['auto_number', 'created_time', 'modified_time']],
+      ['Computed (v2)', ['formula', 'link']]
     ];
 
     // ===== document model (tablify.schema.json, formatVersion 1) =====
@@ -579,6 +677,7 @@
         case 'auto_number': return row.autoNumber;
         case 'created_time': return row.createdTime;
         case 'modified_time': return row.modifiedTime;
+        case 'formula': return evalFormulaSafe(doc, row, field);
         default: return row.cells[field.id];
       }
     }
@@ -661,6 +760,17 @@
         [PF.name, PF.phase, PF.budget, PF.due, PF.notes].forEach((fid, i) => { if (d[i] != null) r.cells[fid] = d[i]; });
         p.rows.push(r);
       });
+      // v2 demo: linked records (Feature 12) + formula fields (Feature 11)
+      const linkF = makeField('Project', 'link', { linkTableId: 'tbl_projects' });
+      t.fields.push(linkF);
+      docView(t).order.push(linkF.id);
+      t.rows.forEach((r, i) => { r.cells[linkF.id] = [p.rows[i < 2 ? 0 : (i < 4 ? 1 : 2)].id]; });
+      const daysF = makeField('Days Left', 'formula', { formula: 'DATEDIFF({Target}, "2026-10-10")' });
+      p.fields.push(daysF);
+      docView(p).order.push(daysF.id);
+      const sumF = makeField('Summary', 'formula', { formula: 'CONCAT({Project}, " — $", {Budget})' });
+      p.fields.push(sumF);
+      docView(p).order.push(sumF.id);
       return [t, p];
     }
 
@@ -774,6 +884,7 @@
       renderTitle();
       renderGrid();
       renderSidebar();
+      applyUiView();
       /* @@RENDERHOOKS */
     }
 
@@ -786,6 +897,10 @@
           (on ? 'bg-tablify-terracotta text-white shadow-sm' : 'text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner') + '">' +
           esc(d.name) + '</button>';
       });
+      const noteOn = state.uiView === 'note';
+      html += '<button onclick="noteClick()" class="px-3 py-1.5 text-xs font-medium rounded-full transition whitespace-nowrap ' +
+        (noteOn ? 'bg-tablify-terracotta text-white shadow-sm' : 'text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner') + '" title="Live embedded table in a note (Feature 18)">' +
+        '<i class="fa-regular fa-file-lines mr-1"></i>Note embed</button>';
       host.innerHTML = html;
     }
 
@@ -987,6 +1102,7 @@
       if (ft.readOnly) { renderGrid(); showToast(ft.label + ' is read-only (system field)'); return; }
       if (ft.editor === 'select') { openSelectPanel(ev.currentTarget, rowId, fieldId); return; }
       if (ft.editor === 'attachment') { openAttachmentPanel(ev.currentTarget, rowId, fieldId); return; }
+      if (ft.editor === 'link') { openLinkPanel(ev.currentTarget, rowId, fieldId); return; }
       if (ft.editor === 'checkbox' || ft.editor === 'rating' || ft.editor === 'none') { renderGrid(); return; }
       startEdit(rowId, fieldId);
     }
@@ -1389,6 +1505,10 @@
       document.getElementById('vMin').value = f && f.min != null ? f.min : '';
       document.getElementById('vMax').value = f && f.max != null ? f.max : '';
       document.getElementById('vRegex').value = f && f.regex ? f.regex : '';
+      document.getElementById('newFieldFormula').value = f && f.formula ? f.formula : '';
+      const linkSel = document.getElementById('newFieldLinkTable');
+      linkSel.innerHTML = state.docs.map(d => '<option value="' + d.tableId + '"' + (f && f.linkTableId === d.tableId ? ' selected' : '') + '>' + esc(d.name) + '</option>').join('');
+      formulaPreview();
       onFieldTypeChange();
       if (f && (f.type === 'single_select' || f.type === 'multi_select')) document.getElementById('fieldOptionsWrap').classList.add('hidden');
       document.getElementById('addFieldModal').classList.remove('hidden');
@@ -1409,6 +1529,8 @@
       const rx = ['text', 'long_text', 'url', 'email', 'phone'].includes(t);
       document.getElementById('vMinMaxWrap').classList.toggle('hidden', !minmax);
       document.getElementById('vRegexWrap').classList.toggle('hidden', !rx);
+      document.getElementById('fieldFormulaWrap').classList.toggle('hidden', t !== 'formula');
+      document.getElementById('fieldLinkWrap').classList.toggle('hidden', t !== 'link');
       /* @@FIELDTYPECHANGE */
     }
     function readValidationInputs(field, type) {
@@ -1422,6 +1544,8 @@
       if (field.min !== null && numish && isNaN(field.min)) field.min = null;
       if (field.max !== null && numish && isNaN(field.max)) field.max = null;
       field.regex = document.getElementById('vRegex').value.trim() || null;
+      if (type === 'formula') field.formula = document.getElementById('newFieldFormula').value.trim();
+      if (type === 'link') field.linkTableId = document.getElementById('newFieldLinkTable').value;
     }
     function confirmAddField() {
       const name = document.getElementById('newFieldName').value.trim();
@@ -2139,6 +2263,7 @@
         if (ft.readOnly) { showToast(ft.label + ' is read-only'); return; }
         if (ft.editor === 'select') { if (td) openSelectPanel(td, state.focus.rowId, state.focus.fieldId); return; }
         if (ft.editor === 'attachment') { if (td) openAttachmentPanel(td, state.focus.rowId, state.focus.fieldId); return; }
+        if (ft.editor === 'link') { if (td) openLinkPanel(td, state.focus.rowId, state.focus.fieldId); return; }
         if (ft.editor === 'checkbox') { const row = doc.rows.find(r => r.id === state.focus.rowId); mutate('Toggle checkbox', () => setCell(doc, row, field, !getCell(doc, row, field))); return; }
         if (ft.editor === 'rating') { showToast('Click a star to rate'); return; }
         startEdit(state.focus.rowId, state.focus.fieldId);
@@ -2376,7 +2501,6 @@
       mutate('Duplicate table', () => { state.docs.push(copy); state.active = copy.tableId; });
       showToast('Duplicated table');
     }
-    function noteClick() { showToast('Embedded-table note view arrives with PR-10'); }
 
     // ===== Feature 14: CSV / Excel import with type inference =====
     function parseCSV(text) {
@@ -2540,6 +2664,477 @@
           }
         }, 120);
       }
+    }
+
+
+    // ===== Feature 18: embedded table in a note (live, two-way) =====
+    function applyUiView() {
+      const noteOn = state.uiView === 'note';
+      ['titleRow', 'toolbarRow', 'metaRow'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', noteOn);
+      });
+      const nv = document.getElementById('noteView');
+      if (nv) nv.classList.toggle('hidden', !noteOn);
+      const cont = document.getElementById('tableInnerContainer');
+      const host = document.getElementById('embedHost');
+      const anchor = document.getElementById('gridAnchor');
+      if (noteOn && host && cont.parentElement !== host) host.appendChild(cont);
+      if (!noteOn && anchor && cont.previousElementSibling !== anchor) anchor.after(cont);
+      const ef = document.getElementById('embedFile');
+      if (ef) ef.textContent = 'file: Tables/' + activeDoc().name.replace(/[\\/:*?"<>|]/g, '_') + '.tablify';
+    }
+    function noteClick() {
+      state.uiView = 'note';
+      state.editing = null;
+      renderAll();
+      showToast('Live embedded table — edits save to the source .tablify file (Feature 18)');
+    }
+    function exitNote() {
+      state.uiView = 'grid';
+      renderAll();
+    }
+
+    // ===== Feature 11 (v2): formula fields =====
+    let _fdepth = 0;
+    function round10(x) { return Math.round(x * 1e6) / 1e6; }
+    function evalFormulaSafe(doc, row, field) {
+      try {
+        _fdepth++;
+        if (_fdepth > 6) throw new Error('circular reference');
+        return evalFormula(doc, row, String(field.formula || ''));
+      } catch (e) {
+        return '#ERR: ' + e.message;
+      } finally {
+        _fdepth--;
+      }
+    }
+    function ftok(src) {
+      const toks = [];
+      let i = 0;
+      const n = src.length;
+      while (i < n) {
+        const ch = src[i];
+        if (/\s/.test(ch)) { i++; continue; }
+        if (/[0-9]/.test(ch) || (ch === '.' && /[0-9]/.test(src[i + 1]))) {
+          let num = '';
+          while (i < n && /[0-9.]/.test(src[i])) num += src[i++];
+          toks.push({ t: 'num', v: Number(num) });
+          continue;
+        }
+        if (ch === '"' || ch === "'") {
+          const q = ch; i++;
+          let out = '';
+          while (i < n && src[i] !== q) out += src[i++];
+          if (i >= n) throw new Error('unclosed string');
+          i++;
+          toks.push({ t: 'str', v: out });
+          continue;
+        }
+        if (ch === '{') {
+          i++;
+          let out = '';
+          while (i < n && src[i] !== '}') out += src[i++];
+          if (i >= n) throw new Error('unclosed field reference');
+          i++;
+          toks.push({ t: 'ref', v: out.trim() });
+          continue;
+        }
+        if (/[A-Za-z_]/.test(ch)) {
+          let id = '';
+          while (i < n && /[A-Za-z_0-9]/.test(src[i])) id += src[i++];
+          toks.push({ t: 'id', v: id });
+          continue;
+        }
+        const two = src.substr(i, 2);
+        if (two === '>=' || two === '<=' || two === '!=') { toks.push({ t: two }); i += 2; continue; }
+        if ('+-*/%(),&><='.indexOf(ch) >= 0) { toks.push({ t: ch }); i++; continue; }
+        throw new Error('unexpected "' + ch + '"');
+      }
+      return toks;
+    }
+    function evalFormula(doc, row, src) {
+      if (!src.trim()) return '';
+      const toks = ftok(src);
+      let pos = 0;
+      const peek = () => toks[pos];
+      const next = () => toks[pos++];
+      function expect(t) { const k = next(); if (!k || k.t !== t) throw new Error('expected ' + t); return k; }
+      function num(v) {
+        if (typeof v === 'boolean') return v ? 1 : 0;
+        if (v === '' || v == null) return 0;
+        const n = Number(v);
+        if (isNaN(n)) throw new Error('"' + v + '" is not a number');
+        return n;
+      }
+      function cmpVals(l, op, r) {
+        const bothNum = !isNaN(Number(l)) && !isNaN(Number(r)) && l !== '' && r !== '';
+        const a = bothNum ? Number(l) : String(l).toLowerCase();
+        const b = bothNum ? Number(r) : String(r).toLowerCase();
+        switch (op) {
+          case '>': return a > b; case '<': return a < b;
+          case '>=': return a >= b; case '<=': return a <= b;
+          case '=': return a === b; case '!=': return a !== b;
+        }
+      }
+      function refVal(name) {
+        const f = findFieldByName(doc, name);
+        if (!f) throw new Error('unknown field {' + name + '}');
+        if (f.type === 'formula') {
+          const fv = evalFormulaSafe(doc, row, f);
+          if (typeof fv === 'string' && fv.indexOf('#ERR') === 0) throw new Error('{' + name + '} has an error');
+          return fv;
+        }
+        const v = getCell(doc, row, f);
+        if (['number', 'currency', 'percent', 'duration', 'rating', 'auto_number'].includes(f.type)) return v == null || v === '' ? 0 : Number(v);
+        if (f.type === 'checkbox') return !!v;
+        return cellText(doc, row, f);
+      }
+      function callFn(name, args) {
+        switch (name) {
+          case 'SUM': return args.reduce((a, v) => a + num(v), 0);
+          case 'IF': {
+            if (args.length < 2) throw new Error('IF needs 2-3 arguments');
+            let c = args[0];
+            if (typeof c === 'string') c = c !== '' && c.toLowerCase() !== 'false';
+            return c ? args[1] : (args.length > 2 ? args[2] : '');
+          }
+          case 'CONCAT': return args.map(v => v == null ? '' : String(v)).join('');
+          case 'DATEDIFF': {
+            if (args.length !== 2) throw new Error('DATEDIFF needs 2 dates');
+            const a = new Date(String(args[0]).length === 10 ? args[0] + 'T00:00:00' : args[0]);
+            const b = new Date(String(args[1]).length === 10 ? args[1] + 'T00:00:00' : args[1]);
+            if (isNaN(a) || isNaN(b)) throw new Error('invalid date in DATEDIFF');
+            return Math.round((a - b) / 86400000);
+          }
+          case 'ROUND': return args.length > 1 ? Math.round(num(args[0]) * Math.pow(10, num(args[1]))) / Math.pow(10, num(args[1])) : Math.round(num(args[0]));
+          case 'MIN': return Math.min.apply(null, args.map(num));
+          case 'MAX': return Math.max.apply(null, args.map(num));
+          case 'ABS': return Math.abs(num(args[0]));
+          default: throw new Error('unknown function ' + name);
+        }
+      }
+      function parsePrim() {
+        const k = next();
+        if (!k) throw new Error('unexpected end');
+        if (k.t === 'num') return k.v;
+        if (k.t === 'str') return k.v;
+        if (k.t === 'ref') return refVal(k.v);
+        if (k.t === '(') { const v = parseExpr(); expect(')'); return v; }
+        if (k.t === 'id') {
+          expect('(');
+          const args = [];
+          if (peek() && peek().t !== ')') {
+            args.push(parseExpr());
+            while (peek() && peek().t === ',') { next(); args.push(parseExpr()); }
+          }
+          expect(')');
+          return callFn(k.v.toUpperCase(), args);
+        }
+        throw new Error('unexpected ' + k.t);
+      }
+      function parseUn() { if (peek() && peek().t === '-') { next(); return -num(parseUn()); } return parsePrim(); }
+      function parseMul() {
+        let l = parseUn();
+        while (peek() && ['*', '/', '%'].includes(peek().t)) {
+          const op = next().t;
+          const r = parseUn();
+          l = op === '*' ? num(l) * num(r) : op === '/' ? num(l) / num(r) : num(l) % num(r);
+        }
+        return l;
+      }
+      function parseAdd() {
+        let l = parseMul();
+        while (peek() && ['+', '-', '&'].includes(peek().t)) {
+          const op = next().t;
+          const r = parseMul();
+          l = op === '&' ? String(l) + String(r) : op === '+' ? num(l) + num(r) : num(l) - num(r);
+        }
+        return l;
+      }
+      function parseExpr() {
+        let l = parseAdd();
+        while (peek() && ['>', '<', '>=', '<=', '=', '!='].includes(peek().t)) {
+          const op = next().t;
+          l = cmpVals(l, op, parseAdd());
+        }
+        return l;
+      }
+      const out = parseExpr();
+      if (pos < toks.length) throw new Error('trailing input');
+      return typeof out === 'number' ? round10(out) : out;
+    }
+    function formulaPreview() {
+      const out = document.getElementById('formulaPreviewOut');
+      if (!out) return;
+      const doc = activeDoc();
+      const src = document.getElementById('newFieldFormula').value;
+      if (!src.trim()) { out.textContent = '—'; return; }
+      const tmp = { id: 'fld_preview', name: '(preview)', type: 'formula', formula: src };
+      const row = doc.rows[0];
+      out.textContent = row ? String(evalFormulaSafe(doc, row, tmp)) : '(no rows)';
+    }
+
+    // ===== Feature 12 (v2): linked records =====
+    function openLinkPanel(anchorEl, rowId, fieldId) {
+      panelCtx = { kind: 'link', rowId: rowId, fieldId: fieldId, search: '' };
+      renderLinkPanel(anchorEl);
+    }
+    function renderLinkPanel(anchorEl) {
+      const { rowId, fieldId, search } = panelCtx;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const target = state.docs.find(d => d.tableId === field.linkTableId);
+      const row = doc.rows.find(r => r.id === rowId);
+      const cur = Array.isArray(getCell(doc, row, field)) ? getCell(doc, row, field) : [];
+      let html = '<div class="p-2">' +
+        '<div class="text-[10px] text-tablify-clay dark:text-gray-400 mb-1.5 px-1">Link rows from <b>' + (target ? esc(target.name) : '?') + '</b> (stable row IDs — renames never break links)</div>' +
+        '<input type="text" value="' + escAttr(search) + '" placeholder="Search rows…" oninput="linkPanelSearch(this)" class="pill-input w-full rounded-lg px-3 py-1.5 text-xs focus:outline-none mb-1.5">' +
+        '<div class="max-h-52 overflow-y-auto space-y-0.5">';
+      if (target) {
+        const pf = primaryField(target);
+        target.rows.forEach(r => {
+          const label = cellText(target, r, pf) || '(untitled)';
+          if (search && !label.toLowerCase().includes(search.toLowerCase())) return;
+          const on = cur.includes(r.id);
+          html += '<button onclick="linkPanelPick(\'' + r.id + '\')" class="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner text-left text-xs">' +
+            '<span class="truncate"><i class="fa-solid fa-diagram-project text-[9px] text-tablify-terracotta mr-1.5"></i>' + esc(label) + '</span>' +
+            (on ? '<i class="fa-solid fa-check text-tablify-terracotta text-xs"></i>' : '') + '</button>';
+        });
+      } else {
+        html += '<div class="px-2 py-1.5 text-[11px] text-rose-500">Linked table not found.</div>';
+      }
+      html += '</div><div class="border-t border-tablify-paper-border dark:border-tablify-dark-border mt-1.5 pt-1.5 flex justify-between">' +
+        '<button onclick="panelClear()" class="text-[11px] text-tablify-clay dark:text-gray-400 hover:text-rose-500 px-2 py-1">Clear</button>' +
+        '<span class="text-[10px] text-tablify-clay dark:text-gray-400 px-2 py-1">' + cur.length + ' linked</span></div></div>';
+      openPanel(anchorEl, html, panelCtx);
+      const inp = document.querySelector('#floatPanel input');
+      if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+    }
+    function linkPanelSearch(inp) {
+      panelCtx.search = inp.value;
+      const anchor = document.querySelector('td[data-row="' + panelCtx.rowId + '"][data-fld="' + panelCtx.fieldId + '"] > div') || document.body;
+      renderLinkPanel(anchor);
+    }
+    function linkPanelPick(targetRowId) {
+      const { rowId, fieldId } = panelCtx;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const row = doc.rows.find(r => r.id === rowId);
+      mutate('Edit linked records', () => {
+        const cur = Array.isArray(getCell(doc, row, field)) ? getCell(doc, row, field).slice() : [];
+        const i = cur.indexOf(targetRowId);
+        if (i >= 0) cur.splice(i, 1); else cur.push(targetRowId);
+        setCell(doc, row, field, cur);
+      });
+      const anchor = document.querySelector('td[data-row="' + rowId + '"][data-fld="' + fieldId + '"] > div') || document.body;
+      renderLinkPanel(anchor);
+    }
+    function openPeek(tableId, rowId) {
+      const t = state.docs.find(d => d.tableId === tableId);
+      const row = t && t.rows.find(r => r.id === rowId);
+      const body = document.getElementById('peekBody');
+      if (!t || !row) {
+        body.innerHTML = '<div class="text-rose-500 text-xs">Row not found (dangling link — the target row was deleted).</div>';
+      } else {
+        document.getElementById('peekTitle').textContent = t.name + ' — ' + (cellText(t, row, primaryField(t)) || '(untitled)');
+        let html = '<table class="w-full text-xs">';
+        t.fields.forEach(f => {
+          html += '<tr><td class="py-1.5 pr-3 text-tablify-clay dark:text-gray-400 align-top whitespace-nowrap">' + esc(f.name) + '</td><td class="py-1.5">' + (cellInnerHtml(t, row, f) || '—') + '</td></tr>';
+        });
+        html += '</table>';
+        body.innerHTML = html;
+      }
+      document.getElementById('peekModal').classList.remove('hidden');
+    }
+    function closePeek() { document.getElementById('peekModal').classList.add('hidden'); }
+
+    // ===== Features 19-21: optional Airtable sync (UI-only simulation) =====
+    const AIR_TYPE_MAP = {
+      text: 'singleLineText', long_text: 'multilineText', number: 'number', currency: 'currency',
+      percent: 'percent', duration: 'duration', rating: 'rating', checkbox: 'checkbox',
+      date: 'date', date_time: 'dateTime', url: 'url', email: 'email', phone: 'phoneNumber',
+      single_select: 'singleSelect', multi_select: 'multipleSelects', attachment: 'multipleAttachments',
+      link: 'multipleRecordLinks'
+    };
+    const AIR_REMOTE_FIELDS = ['Task', 'Notes', 'Status', 'Tags', 'Due', 'Budget', 'Project', 'Phase', 'Target', 'Name'];
+    let CONFLICTS = [];
+    function openSyncModal() {
+      renderSyncModal();
+      document.getElementById('syncModal').classList.remove('hidden');
+    }
+    function closeSyncModal() { document.getElementById('syncModal').classList.add('hidden'); }
+    function renderSyncModal() {
+      const doc = activeDoc();
+      const linked = !!doc.syncLink;
+      const host = document.getElementById('syncLinkState');
+      if (linked) {
+        host.innerHTML = '<div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">' +
+          '<span class="text-[11px] text-emerald-700 dark:text-emerald-300"><i class="fa-solid fa-link mr-1.5"></i>Linked to <b>' + esc(doc.syncLink.baseName) + '</b> / <b>' + esc(doc.syncLink.tableName) + '</b></span>' +
+          '<button onclick="syncUnlink()" class="text-[10px] text-tablify-clay dark:text-gray-400 hover:text-rose-500 underline">Unlink</button></div>';
+      } else {
+        host.innerHTML = '<div class="grid grid-cols-2 gap-2">' +
+          '<select id="syncBase" class="pill-input rounded-xl px-3 py-2 text-xs focus:outline-none"><option>Product Hub</option><option>Marketing CRM</option></select>' +
+          '<select id="syncTable" class="pill-input rounded-xl px-3 py-2 text-xs focus:outline-none"><option>Tasks</option><option>Roadmap</option></select></div>' +
+          '<button onclick="syncLinkNow()" class="mt-2 w-full px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow"><i class="fa-solid fa-link mr-1"></i>Link table to Airtable</button>';
+      }
+      document.getElementById('syncPullBtn').disabled = !linked;
+      document.getElementById('syncPushBtn').disabled = !linked;
+      document.getElementById('syncPullBtn').classList.toggle('opacity-40', !linked);
+      document.getElementById('syncPushBtn').classList.toggle('opacity-40', !linked);
+    }
+    function syncLog(msg) {
+      const log = document.getElementById('syncLog');
+      const d = new Date();
+      log.innerHTML += '<div><span class="text-tablify-clay dark:text-gray-500">' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + '</span> ' + msg + '</div>';
+      log.scrollTop = log.scrollHeight;
+      log.classList.remove('hidden');
+    }
+    function syncProgress(ms, cb) {
+      const wrap = document.getElementById('syncProgressWrap');
+      const bar = document.getElementById('syncProgressBar');
+      wrap.classList.remove('hidden');
+      bar.style.width = '0%';
+      const steps = 8;
+      let i = 0;
+      const t = setInterval(() => {
+        i++;
+        bar.style.width = Math.min(100, Math.round(i * 100 / steps)) + '%';
+        if (i >= steps) {
+          clearInterval(t);
+          setTimeout(() => { wrap.classList.add('hidden'); cb(); }, 150);
+        }
+      }, ms / steps);
+    }
+    function syncLinkNow() {
+      const doc = activeDoc();
+      const base = document.getElementById('syncBase').value;
+      const table = document.getElementById('syncTable').value;
+      mutate('Link to Airtable', () => {
+        doc.syncLink = { provider: 'airtable', baseName: base, tableName: table, linkedAt: nowIso(), lastPullAt: null, lastPushAt: null };
+      });
+      syncLog('Linked to ' + esc(base) + ' / ' + esc(table) + ' <span class="text-tablify-clay dark:text-gray-500">(simulated — v1.1 syncLink metadata)</span>');
+      renderSyncModal();
+    }
+    function syncUnlink() {
+      const doc = activeDoc();
+      mutate('Unlink Airtable', () => { doc.syncLink = null; });
+      syncLog('Unlinked. The plugin keeps working fully offline.');
+      renderSyncModal();
+    }
+    function syncPull() {
+      const doc = activeDoc();
+      if (!doc.syncLink) return;
+      syncLog('Pulling from Airtable… <span class="text-tablify-clay dark:text-gray-500">(simulated request)</span>');
+      syncProgress(900, () => {
+        mutate('Pull from Airtable', () => {
+          const pf = primaryField(doc);
+          const row = makeRow(doc, {});
+          row.cells[pf.id] = 'Pulled from Airtable — docs sweep';
+          const statusF = doc.fields.find(f => f.type === 'single_select');
+          if (statusF && statusF.options && statusF.options.length) row.cells[statusF.id] = statusF.options[0].id;
+          doc.rows.push(row);
+          doc.rows.forEach(r => { r._syncRev = r.modifiedTime; });
+          doc.syncLink.lastPullAt = nowIso();
+        });
+        syncLog('Pulled <b>1 new record</b>, 0 updates, 0 deletions. Row revisions stored for conflict detection (Feature 20).');
+        showToast('Pulled from Airtable (simulated)');
+      });
+    }
+    function syncPush() {
+      const doc = activeDoc();
+      if (!doc.syncLink) return;
+      syncLog('Comparing local and remote revisions before push… (Feature 20)');
+      syncProgress(700, () => {
+        const changedLocal = doc.rows.filter(r => !r._syncRev || r.modifiedTime > r._syncRev);
+        const remoteDirty = [doc.rows[1], doc.rows[3]].filter(Boolean);
+        const conflicts = remoteDirty.filter(r => changedLocal.includes(r));
+        if (conflicts.length) {
+          syncLog('<span class="text-amber-600 dark:text-amber-400"><b>' + conflicts.length + ' conflict' + (conflicts.length > 1 ? 's' : '') + '</b> — both sides changed. Nothing is overwritten silently.</span>');
+          openConflictDialog(conflicts);
+        } else {
+          autoCreateStep();
+        }
+      });
+    }
+    function openConflictDialog(rows) {
+      const doc = activeDoc();
+      const pf = primaryField(doc);
+      CONFLICTS = rows.map(r => ({ rowId: r.id, choice: 'local' }));
+      document.getElementById('conflictTitle').innerHTML = '<i class="fa-solid fa-code-merge text-amber-500"></i> Sync conflicts (' + rows.length + ')';
+      let html = '<p class="text-[11px] text-tablify-clay dark:text-gray-400 mb-3">Both the local table and Airtable changed these rows since the last sync. Choose per row — nothing is overwritten silently (spec §2.20).</p>';
+      rows.forEach((r, i) => {
+        const name = cellText(doc, r, pf) || '(untitled)';
+        html += '<div class="p-2.5 rounded-xl border border-tablify-paper-border dark:border-tablify-dark-border mb-2">' +
+          '<div class="font-semibold font-serif text-xs mb-0.5">' + esc(name) + '</div>' +
+          '<div class="text-[10px] text-tablify-clay dark:text-gray-400 mb-1.5 font-mono">local: ' + esc(fmtDateTime(r.modifiedTime)) + ' · remote: ' + esc(fmtDateTime(nowIso())) + ' (simulated)</div>' +
+          '<div class="flex gap-3 text-[11px]">' +
+          ['local|Keep local', 'remote|Keep remote', 'both|Keep both'].map(opt => {
+            const [v, label] = opt.split('|');
+            return '<label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="cf' + i + '" value="' + v + '"' + (v === 'local' ? ' checked' : '') + ' onchange="CONFLICTS[' + i + '].choice=this.value" class="accent-tablify-terracotta">' + label + '</label>';
+          }).join('') + '</div></div>';
+      });
+      document.getElementById('conflictBody').innerHTML = html;
+      document.getElementById('conflictFoot').innerHTML =
+        '<button onclick="document.getElementById(\'conflictModal\').classList.add(\'hidden\')" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner rounded-xl">Cancel push</button>' +
+        '<button onclick="conflictResolve()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Resolve &amp; continue</button>';
+      document.getElementById('conflictModal').classList.remove('hidden');
+    }
+    function conflictResolve() {
+      const doc = activeDoc();
+      const pf = primaryField(doc);
+      mutate('Resolve sync conflicts', () => {
+        CONFLICTS.forEach(c => {
+          const row = doc.rows.find(r => r.id === c.rowId);
+          if (!row) return;
+          if (c.choice === 'remote') {
+            setCell(doc, row, pf, (cellText(doc, row, pf) || '') + ' (remote version)');
+          } else if (c.choice === 'both') {
+            const i = doc.rows.indexOf(row);
+            const copy = makeRow(doc, deepCopy(row.cells));
+            copy.cells[pf.id] = (cellText(doc, row, pf) || '') + ' (remote copy)';
+            doc.rows.splice(i + 1, 0, copy);
+          }
+        });
+      });
+      document.getElementById('conflictModal').classList.add('hidden');
+      syncLog('Conflicts resolved (' + CONFLICTS.map(c => c.choice).join(', ') + ').');
+      autoCreateStep();
+    }
+    function autoCreateStep() {
+      const doc = activeDoc();
+      const missing = doc.fields.filter(f => !AIR_REMOTE_FIELDS.includes(f.name) && !FT[f.type].system && f.type !== 'formula');
+      if (!missing.length) { finishPush(0); return; }
+      document.getElementById('conflictTitle').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-tablify-terracotta"></i> Create missing Airtable fields?';
+      let html = '<p class="text-[11px] text-tablify-clay dark:text-gray-400 mb-3">These local fields do not exist in the linked Airtable table. They will be created with the matching Airtable type <b>only after you confirm</b> (spec §2.21).</p>';
+      missing.forEach(f => {
+        html += '<div class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-tablify-paper-inner dark:bg-tablify-dark-inner border border-tablify-paper-border dark:border-tablify-dark-border mb-1 text-[11px]">' +
+          '<span><i class="fa-solid ' + FT[f.type].icon + ' text-[9px] text-tablify-terracotta mr-1.5"></i>' + esc(f.name) + '</span>' +
+          '<span class="font-mono text-[10px] text-tablify-clay dark:text-gray-400">' + (AIR_TYPE_MAP[f.type] || f.type) + '</span></div>';
+      });
+      document.getElementById('conflictBody').innerHTML = html;
+      document.getElementById('conflictFoot').innerHTML =
+        '<button onclick="autoCreateConfirm(false)" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner rounded-xl">Skip these fields</button>' +
+        '<button onclick="autoCreateConfirm(true)" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Create ' + missing.length + ' field' + (missing.length > 1 ? 's' : '') + ' &amp; push</button>';
+      document.getElementById('conflictModal').classList.remove('hidden');
+    }
+    function autoCreateConfirm(ok) {
+      document.getElementById('conflictModal').classList.add('hidden');
+      const doc = activeDoc();
+      const missing = doc.fields.filter(f => !AIR_REMOTE_FIELDS.includes(f.name) && !FT[f.type].system && f.type !== 'formula');
+      if (ok) syncLog('Created <b>' + missing.length + ' Airtable field' + (missing.length > 1 ? 's' : '') + '</b> (simulated): ' + missing.map(f => esc(f.name)).join(', '));
+      else syncLog('Skipped creating ' + missing.length + ' missing fields — their values were not pushed.');
+      finishPush(missing.length);
+    }
+    function finishPush() {
+      const doc = activeDoc();
+      syncProgress(700, () => {
+        doc.rows.forEach(r => { r._syncRev = r.modifiedTime; });
+        if (doc.syncLink) doc.syncLink.lastPushAt = nowIso();
+        save();
+        syncLog('Push complete — <b>' + doc.rows.length + ' records</b> up to date (simulated; scopes: data.records:read/write, schema.bases:read).');
+        showToast('Pushed to Airtable (simulated)');
+      });
     }
 
     /* @@EXT */
