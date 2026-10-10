@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tablify — Table Prototype</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Poppins (headings), Lora (body) & JetBrains Mono (badges) — per spec/branding.md §4 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            tablify: {
+              terracotta: '#CC785C',
+              'terracotta-hover': '#B8654A',
+              'terracotta-dark': '#D97757',
+              paper: '#FAF7F2',
+              'paper-card': '#FFFFFF',
+              'paper-inner': '#F4EFE6',
+              'paper-capsule': '#FDFBF7',
+              'paper-border': '#E6E0D5',
+              dark: '#181715',
+              'dark-card': '#22201D',
+              'dark-inner': '#1B1A17',
+              'dark-capsule': '#2A2723',
+              'dark-border': '#38342E',
+              clay: '#6E655C',
+              charcoal: '#1E1B18',
+              sand: '#E3DCCE',
+            }
+          },
+          fontFamily: {
+            sans: ['Lora', 'serif'],
+            serif: ['Poppins', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="h-full font-sans antialiased bg-tablify-paper text-tablify-charcoal dark:bg-tablify-dark dark:text-gray-100 flex flex-col justify-between p-3 sm:p-6 overflow-x-hidden min-h-screen">
+
+  <!-- Top Brand Navigation Bar -->
+  <header class="w-full max-w-6xl mx-auto flex items-center justify-between mb-4 px-2">
+    <div class="flex items-center gap-3">
+      <!-- Tablify Logo Mark -->
+      <div class="w-8 h-8 rounded-lg bg-tablify-terracotta flex items-center justify-center text-white shadow-md">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 5h16v3H14v11h-4V8H4V5z"/></svg>
+      </div>
+      <div>
+        <h1 class="text-xs font-semibold uppercase tracking-wider text-tablify-clay dark:text-gray-400 font-serif">Tablify</h1>
+        <p class="text-sm font-serif text-tablify-charcoal dark:text-tablify-paper font-semibold leading-none">Table Prototype</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button onclick="openChecklist()" class="pill-btn px-3 py-2 text-xs font-medium rounded-xl flex items-center gap-1.5 active:scale-95" title="Feature traceability — spec §1 features 1–21 mapped to UI locations">
+        <i class="fa-solid fa-list-check text-[11px] text-tablify-terracotta"></i>
+        <span class="hidden md:inline">Checklist</span>
+      </button>
+      <!-- @@HEADERBTNS -->
+      <button id="shortcutsBtn" onclick="openShortcuts()" class="pill-btn p-2 rounded-full text-xs w-8 h-8 flex items-center justify-center" title="Keyboard shortcuts (Feature 9)">
+        <i class="fa-solid fa-keyboard"></i>
+      </button>
+      <button onclick="openSourceModal()" class="pill-btn px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5" title="View the .tablify file source (Feature 1)">
+        <i class="fa-solid fa-file-code text-[11px] text-tablify-terracotta"></i>
+        <span class="hidden sm:inline">File source</span>
+      </button>
+      <!-- Theme Switcher -->
+      <button onclick="toggleTheme()" class="pill-btn p-2 rounded-full text-xs w-8 h-8 flex items-center justify-center" title="Toggle Theme">
+        <i id="themeIcon" class="fa-solid fa-moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="w-full max-w-6xl mx-auto my-auto flex items-stretch gap-4">
+    <!-- @@SIDEBAR -->
+    <aside id="vaultSidebar" class="hidden lg:flex flex-col w-60 shrink-0 bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-[24px] p-4 shadow-xl transition-colors">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[11px] font-semibold font-serif uppercase tracking-wider text-tablify-clay dark:text-gray-400"><i class="fa-solid fa-folder-tree mr-1.5 text-tablify-terracotta"></i>Vault <span class="normal-case">(simulated)</span></span>
+      </div>
+      <div id="vaultTree" class="flex-1 overflow-y-auto text-xs space-y-0.5"></div>
+      <p class="text-[9px] text-tablify-clay dark:text-gray-500 mt-3 leading-relaxed border-t border-tablify-paper-border dark:border-tablify-dark-border pt-2">Feature 16 mock — Obsidian's <span class="font-mono">file-menu</span> right-click on .tablify files and folders. UI-only simulation; right-click the items.</p>
+    </aside>
+
+    <!-- Outer Main Container Card -->
+    <div class="flex-1 min-w-0 bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-[24px] sm:rounded-[32px] p-4 sm:p-7 shadow-xl relative overflow-hidden transition-colors">
+
+      <!-- Top Workspace Controls Row -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b border-tablify-paper-border/60 dark:border-tablify-dark-border/60">
+        <!-- Table Tabs -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0" id="tableTabs">
+          <!-- rendered via JS -->
+        </div>
+        <!-- @@VIEWTABS -->
+        <div class="flex items-center gap-2">
+          <span id="savedIndicator" class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 opacity-100 transition-opacity">
+            <i class="fa-solid fa-circle-check text-[10px]"></i> Saved locally
+          </span>
+          <button onclick="addNewTable()" class="pill-btn px-3.5 py-1.5 text-xs font-medium rounded-xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-plus text-[10px] text-tablify-terracotta"></i>
+            <span>New Table</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="titleRow" class="mb-5 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <h2 id="editableTableTitle" contenteditable="true" spellcheck="false"
+              onblur="commitTitle(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+              class="text-2xl sm:text-3xl font-serif text-tablify-charcoal dark:text-tablify-paper focus:outline-none focus:ring-1 focus:ring-tablify-terracotta/40 rounded px-1 -ml-1 transition inline-block">
+          </h2>
+          <span id="fileChip" class="text-xs text-tablify-clay dark:text-gray-400 font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner px-2 py-0.5 rounded border border-tablify-paper-border dark:border-tablify-dark-border"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- @@TITLEBTNS -->
+          <button onclick="openImportModal()" class="text-xs text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner transition" title="Import CSV / Excel as table (Feature 14)">
+            <i class="fa-solid fa-file-import mr-1"></i> Import…
+          </button>
+          <button onclick="openExportModal()" class="text-xs text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner transition" title="Export CSV / XLSX / Markdown with scope chooser (Feature 15)">
+            <i class="fa-solid fa-file-export mr-1"></i> Export…
+          </button>
+          <button onclick="exportData('csv')" class="text-xs text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner transition">
+            <i class="fa-solid fa-file-csv mr-1"></i> Export CSV
+          </button>
+          <button onclick="copyMarkdownTable()" class="text-xs text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner transition">
+            <i class="fa-solid fa-copy mr-1"></i> Copy Markdown
+          </button>
+        </div>
+      </div>
+
+      <!-- Toolbar Search & Actions Row -->
+      <div id="toolbarRow" class="flex flex-wrap items-center justify-between gap-2.5 mb-4">
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-tablify-clay dark:text-gray-400 text-xs"></i>
+          <input type="text" id="searchInput" placeholder="Search or query — e.g. Status:Done  Task:~grid  &quot;Estimate (h)&quot;:>5  Tags:UI,Perf  Due:empty" oninput="filterRows()"
+                 class="pill-input w-full text-xs rounded-full pl-10 pr-4 py-2.5 focus:outline-none shadow-sm transition font-mono">
+        </div>
+        <div class="flex items-center space-x-2">
+          <!-- @@TOOLBARBTNS -->
+          <button onclick="openSyncModal()" class="pill-btn px-3 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95" title="Optional Airtable sync — pull, push, conflicts, auto-create fields (Features 19–21, simulated)">
+            <i class="fa-solid fa-cloud-arrow-up text-[11px] text-tablify-terracotta"></i>
+            <span class="hidden xl:inline">Sync</span>
+          </button>
+          <button onclick="undo()" title="Undo (Ctrl/Cmd+Z)" class="pill-btn px-3 py-2.5 text-xs rounded-2xl active:scale-95"><i class="fa-solid fa-rotate-left text-[11px]"></i></button>
+          <button onclick="redo()" title="Redo (Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y)" class="pill-btn px-3 py-2.5 text-xs rounded-2xl active:scale-95"><i class="fa-solid fa-rotate-right text-[11px]"></i></button>
+          <button onclick="openFilterBuilder()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95" title="Filter builder — produces the same result as the query string (spec §2.6)">
+            <i class="fa-solid fa-filter text-[10px] text-tablify-terracotta"></i>
+            <span>Filter</span>
+          </button>
+          <button onclick="addRow()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-plus text-[10px] text-tablify-terracotta"></i>
+            <span>Add Row</span>
+          </button>
+          <button onclick="showAddFieldModal()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-columns text-[10px] text-tablify-terracotta"></i>
+            <span>Add Field</span>
+          </button>
+          <button id="optionsBtn" onclick="toggleMoreMenu()" class="pill-btn px-3 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-sliders text-[11px] text-tablify-clay dark:text-gray-400"></i>
+            <span>Options</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="metaRow" class="flex items-center justify-between mb-2 px-1">
+        <div id="selectionSummary" class="text-[11px] text-tablify-terracotta font-medium hidden items-center gap-2">
+          <span id="selectedCount">0 selected</span>
+          <button onclick="deleteSelectedRows()" class="text-red-500 hover:underline"><i class="fa-solid fa-trash-can mr-1"></i>Delete</button>
+        </div>
+        <div class="ml-auto flex items-center gap-3">
+          <!-- @@BADGES -->
+          <span id="invalidBadge" class="hidden text-[11px] font-medium text-rose-500 font-mono cursor-help"></span>
+          <span id="rowCountBadge" class="text-[11px] font-medium text-tablify-clay dark:text-gray-400 tracking-wider font-mono">0 rows</span>
+        </div>
+      </div>
+
+      <!-- Note view (Feature 18: embedded live table) -->
+      <div id="noteView" class="hidden mb-4">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-tablify-clay dark:text-gray-400 font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner px-2 py-0.5 rounded border border-tablify-paper-border dark:border-tablify-dark-border"><i class="fa-regular fa-file-lines mr-1 text-tablify-terracotta"></i>Project Notes.md</span>
+            <span class="text-[10px] text-tablify-clay dark:text-gray-400">reading view (simulated Obsidian note)</span>
+          </div>
+          <button onclick="exitNote()" class="pill-btn px-3.5 py-1.5 text-xs font-medium rounded-xl"><i class="fa-solid fa-arrow-left mr-1.5 text-[10px] text-tablify-terracotta"></i>Back to grid</button>
+        </div>
+        <h3 class="text-xl font-serif font-semibold mb-2">Sprint review — week 41</h3>
+        <p class="text-sm text-tablify-charcoal/80 dark:text-gray-300 mb-4 leading-relaxed">Status of the current sprint. The table below is <b>live</b>: it renders from the <span class="font-mono text-xs">.tablify</span> source file and every edit saves straight back to it (Feature 18).</p>
+        <div class="rounded-t-2xl bg-tablify-paper-inner dark:bg-tablify-dark-inner border border-b-0 border-tablify-paper-border dark:border-tablify-dark-border px-4 py-2 font-mono text-[10px] text-tablify-clay dark:text-gray-400">
+          <div>```tablify</div>
+          <div id="embedFile"></div>
+          <div>view: Grid</div>
+          <div>```</div>
+        </div>
+        <div id="embedHost" class="[&>div]:rounded-t-none"></div>
+        <p class="text-sm text-tablify-charcoal/80 dark:text-gray-300 mt-4 leading-relaxed">Edit a cell above, then switch back to the grid tab — the change is already there, because both views share the same document.</p>
+      </div>
+
+      <div id="gridAnchor"></div>
+      <!-- Inner Table Container -->
+      <div id="tableInnerContainer" class="bg-tablify-paper-inner dark:bg-tablify-dark-inner w-full overflow-x-auto rounded-2xl border border-tablify-paper-border dark:border-tablify-dark-border p-2 sm:p-3 shadow-inner">
+        <table class="w-full border-separate border-spacing-y-2 border-spacing-x-1.5 text-left text-xs" id="mainTable">
+          <thead id="tableHeaderHead"></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div class="mt-3">
+          <button onclick="addRow()" class="pill-btn w-full py-2.5 text-xs font-medium rounded-2xl transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus text-[11px] text-tablify-terracotta"></i>
+            <span>Insert Row</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full max-w-6xl mx-auto mt-6 text-center text-[11px] text-tablify-clay dark:text-gray-400">
+    <p>Tablify Prototype &bull; Feature reference for <span class="font-mono">spec/features.md</span> &bull; Single-file HTML &bull; <button onclick="resetDemo()" class="underline hover:text-tablify-terracotta">Reset demo data</button></p>
+  </footer>
+
+  <!-- Add Field Modal -->
+  <div id="addFieldModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-sm shadow-2xl transition-all max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-tablify-charcoal dark:text-tablify-paper flex items-center gap-2 font-serif">
+          <i class="fa-solid fa-columns text-tablify-terracotta"></i> <span id="addFieldTitle">Add New Field</span>
+        </h3>
+        <button onclick="hideAddFieldModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Field name</label>
+          <input type="text" id="newFieldName" placeholder="e.g. Status, Budget, Due date…" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Field type <span class="font-mono text-[10px]">(19 types — spec §2.2–§2.4)</span></label>
+          <select id="newFieldType" onchange="onFieldTypeChange()" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none"></select>
+        </div>
+        <div id="fieldOptionsWrap" class="hidden">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Options (one per line)</label>
+          <textarea id="newFieldOptions" rows="4" placeholder="Backlog&#10;In Progress&#10;Done" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none"></textarea>
+        </div>
+        <div class="pt-1 border-t border-tablify-paper-border dark:border-tablify-dark-border">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1.5 font-medium">Validation rules <span class="font-mono text-[10px]">(Feature 10)</span></label>
+          <div class="grid grid-cols-2 gap-2 mb-2">
+            <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" id="vRequired" class="rounded accent-tablify-terracotta"> Required</label>
+            <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" id="vUnique" class="rounded accent-tablify-terracotta"> Unique</label>
+          </div>
+          <div id="vMinMaxWrap" class="hidden grid grid-cols-2 gap-2 mb-2">
+            <input type="text" id="vMin" placeholder="Min (number / date)" class="pill-input rounded-xl px-3 py-2 focus:outline-none">
+            <input type="text" id="vMax" placeholder="Max" class="pill-input rounded-xl px-3 py-2 focus:outline-none">
+          </div>
+          <div id="vRegexWrap" class="hidden mb-1">
+            <input type="text" id="vRegex" placeholder="Regex, e.g. ^[A-Z].*" class="pill-input w-full rounded-xl px-3 py-2 font-mono focus:outline-none">
+          </div>
+        </div>
+        <div id="fieldFormulaWrap" class="hidden">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Formula <span class="font-mono text-[10px]">(D-O1: + − × ÷, SUM, IF, CONCAT, DATEDIFF, ROUND, MIN, MAX, ABS; {Field} refs)</span></label>
+          <textarea id="newFieldFormula" rows="2" oninput="formulaPreview()" placeholder='IF({Budget} > 10000, "big", "small")' class="pill-input w-full rounded-xl px-3.5 py-2.5 font-mono text-[11px] focus:outline-none"></textarea>
+          <div class="mt-1 text-[10px] text-tablify-clay dark:text-gray-400">Preview (row 1): <span id="formulaPreviewOut" class="font-mono">—</span></div>
+        </div>
+        <div id="fieldLinkWrap" class="hidden">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Linked table <span class="font-mono text-[10px]">(rows stored by stable row ID)</span></label>
+          <select id="newFieldLinkTable" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none"></select>
+        </div>
+        <!-- @@FIELDMODAL -->
+      </div>
+      <div class="mt-5 flex justify-end space-x-2">
+        <button onclick="hideAddFieldModal()" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner rounded-xl">Cancel</button>
+        <button onclick="confirmAddField()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Save Field</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option Manager Modal (Feature 3) -->
+  <div id="optMgrModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-palette text-tablify-terracotta"></i> <span id="optMgrTitle">Options</span></h3>
+        <button onclick="closeOptMgr()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="optMgrBody" class="space-y-2 text-xs"></div>
+      <div class="mt-4 flex gap-2">
+        <input id="optMgrNew" type="text" placeholder="New option…" class="pill-input flex-1 rounded-xl px-3.5 py-2 text-xs focus:outline-none" onkeydown="if(event.key==='Enter')optMgrAdd()">
+        <button onclick="optMgrAdd()" class="px-3.5 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl">Add</button>
+      </div>
+      <p class="mt-3 text-[10px] text-tablify-clay dark:text-gray-400">Rename, recolor (click swatch), reorder (arrows), delete. Changes are undoable.</p>
+    </div>
+  </div>
+
+  <!-- File Source Modal (Feature 1) -->
+  <div id="sourceModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2">
+          <i class="fa-solid fa-file-code text-tablify-terracotta"></i> <span id="sourceFileName" class="font-mono text-xs"></span>
+        </h3>
+        <button onclick="closeSourceModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] text-tablify-clay dark:text-gray-400 mb-2">UTF-8 JSON, <span class="font-mono">formatVersion: 1</span> — schema header + rows with stable IDs (Git-friendly diffs). Matches <span class="font-mono">tablify.schema.json</span>. <b>No legacy format names anywhere.</b></p>
+      <pre id="sourceBody" class="flex-1 overflow-auto text-[10px] font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner rounded-xl p-3 border border-tablify-paper-border dark:border-tablify-dark-border whitespace-pre"></pre>
+      <div class="mt-3 flex justify-end gap-2">
+        <button onclick="copySource()" class="pill-btn px-3.5 py-2 text-xs rounded-xl"><i class="fa-solid fa-copy mr-1"></i>Copy</button>
+        <button onclick="downloadSource()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl"><i class="fa-solid fa-download mr-1"></i>Download .tablify</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Builder Modal (Feature 6) -->
+  <div id="filterModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-xl shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-filter text-tablify-terracotta"></i> Filter builder</h3>
+        <button onclick="closeFilterBuilder()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="filterBody" class="space-y-2 text-xs"></div>
+      <button onclick="fbAdd()" class="mt-3 text-xs text-tablify-terracotta hover:underline"><i class="fa-solid fa-plus mr-1 text-[10px]"></i>Add condition</button>
+      <div class="mt-4 p-2.5 rounded-xl bg-tablify-paper-inner dark:bg-tablify-dark-inner border border-tablify-paper-border dark:border-tablify-dark-border">
+        <div class="text-[10px] text-tablify-clay dark:text-gray-400 mb-1 font-medium uppercase tracking-wider">Equivalent query string (spec §2.6)</div>
+        <div id="filterPreview" class="font-mono text-[11px] break-all"></div>
+      </div>
+      <div class="mt-4 flex justify-between">
+        <button onclick="fbClearAll()" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:text-rose-500">Clear all</button>
+        <div class="flex gap-2">
+          <button onclick="closeFilterBuilder()" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner rounded-xl">Cancel</button>
+          <button onclick="fbApply()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Apply filter</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal (Feature 14) -->
+  <div id="importModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-file-import text-tablify-terracotta"></i> Import CSV / Excel as table</h3>
+        <button onclick="closeImportModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="importStep1" class="space-y-3 text-xs">
+        <div class="flex items-center gap-2 flex-wrap">
+          <label class="pill-btn px-3.5 py-2 rounded-xl cursor-pointer text-xs font-medium"><i class="fa-solid fa-folder-open mr-1.5 text-tablify-terracotta"></i>Choose .csv / .xlsx file<input type="file" accept=".csv,.xlsx,.xls" class="hidden" onchange="importFilePicked(this)"></label>
+          <span class="text-tablify-clay dark:text-gray-400">or paste CSV below</span>
+        </div>
+        <div id="importXlsxNote" class="hidden p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px]">
+          <i class="fa-solid fa-triangle-exclamation mr-1"></i><b>XLSX is simulated (UI-only):</b> real parsing awaits the P4-02 library spike (D-O2). A converted sample was loaded so you can walk the full flow.
+        </div>
+        <textarea id="importText" rows="8" placeholder="Task,Owner,Points,Done&#10;Design tokens,mila,5,yes&#10;Query parser,rahim,8,no" class="pill-input w-full rounded-xl px-3.5 py-2.5 font-mono text-[11px] focus:outline-none"></textarea>
+        <div class="flex items-center gap-2">
+          <label class="text-tablify-clay dark:text-gray-400 font-medium shrink-0">Table name</label>
+          <input type="text" id="importName" placeholder="Imported table" class="pill-input flex-1 rounded-xl px-3.5 py-2 focus:outline-none">
+        </div>
+        <div class="flex justify-end">
+          <button onclick="importLoad()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Next — infer types <i class="fa-solid fa-arrow-right ml-1 text-[10px]"></i></button>
+        </div>
+      </div>
+      <div id="importStep2" class="hidden text-xs">
+        <p class="text-[11px] text-tablify-clay dark:text-gray-400 mb-2">First row became headers. Types were <b>inferred</b> (number / date / checkbox / single-select on few distinct values) — adjust before creating (spec §2.14).</p>
+        <div id="importPreview" class="overflow-x-auto mb-3"></div>
+        <div class="flex justify-between">
+          <button onclick="document.getElementById('importStep2').classList.add('hidden');document.getElementById('importStep1').classList.remove('hidden')" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner rounded-xl"><i class="fa-solid fa-arrow-left mr-1 text-[10px]"></i>Back</button>
+          <button onclick="importCreate()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Create .tablify table</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal (Feature 15) -->
+  <div id="exportModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-file-export text-tablify-terracotta"></i> Export table</h3>
+        <button onclick="closeExportModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="text-xs space-y-3">
+        <div>
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1.5 font-medium">Scope <span class="font-mono text-[10px]">(D-O5 default: current view)</span></label>
+          <label class="flex items-center gap-2 mb-1 cursor-pointer"><input type="radio" name="expScope" value="view" checked class="accent-tablify-terracotta"> Current view — respects filter &amp; hidden fields</label>
+          <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="expScope" value="all" class="accent-tablify-terracotta"> Full table — every field and row</label>
+        </div>
+        <div>
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1.5 font-medium">Format</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="exportRun('csv')" class="pill-btn rounded-xl py-2.5 text-xs font-medium"><i class="fa-solid fa-file-csv mr-1 text-tablify-terracotta"></i>CSV</button>
+            <button onclick="exportRun('xlsx')" class="pill-btn rounded-xl py-2.5 text-xs font-medium" title="Simulated — UI-only"><i class="fa-solid fa-file-excel mr-1 text-tablify-terracotta"></i>XLSX<span class="block text-[8px] text-tablify-clay dark:text-gray-400">simulated</span></button>
+            <button onclick="exportRun('md')" class="pill-btn rounded-xl py-2.5 text-xs font-medium"><i class="fa-brands fa-markdown mr-1 text-tablify-terracotta"></i>MD</button>
+          </div>
+        </div>
+        <div id="xlsxProgress" class="hidden">
+          <div class="text-[10px] text-tablify-clay dark:text-gray-400 mb-1">Simulating XLSX export…</div>
+          <div class="h-1.5 rounded-full bg-tablify-paper-inner dark:bg-tablify-dark-inner overflow-hidden"><div id="xlsxProgressBar" class="h-full bg-tablify-terracotta transition-all" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Airtable Sync Modal (Features 19-21, UI-only simulation) -->
+  <div id="syncModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-tablify-terracotta"></i> Airtable sync <span class="text-[9px] font-mono font-normal px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300">SIMULATED</span></h3>
+        <button onclick="closeSyncModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="text-xs space-y-3">
+        <div>
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Personal access token <span class="font-mono text-[10px]">(settings only — never written to .tablify files)</span></label>
+          <input type="password" value="pat_demo_000000000000" readonly class="pill-input w-full rounded-xl px-3.5 py-2 font-mono focus:outline-none opacity-70 cursor-not-allowed">
+          <div class="text-[10px] text-tablify-clay dark:text-gray-400 mt-1">Scopes: <span class="font-mono">data.records:read · data.records:write · schema.bases:read</span>. The plugin works fully offline when sync is not configured (spec §2.19).</div>
+        </div>
+        <div id="syncLinkState"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="syncPullBtn" onclick="syncPull()" class="pill-btn rounded-xl py-2.5 text-xs font-medium"><i class="fa-solid fa-cloud-arrow-down mr-1.5 text-tablify-terracotta"></i>Pull from Airtable</button>
+          <button id="syncPushBtn" onclick="syncPush()" class="pill-btn rounded-xl py-2.5 text-xs font-medium"><i class="fa-solid fa-cloud-arrow-up mr-1.5 text-tablify-terracotta"></i>Push to Airtable</button>
+        </div>
+        <div id="syncProgressWrap" class="hidden">
+          <div class="h-1.5 rounded-full bg-tablify-paper-inner dark:bg-tablify-dark-inner overflow-hidden"><div id="syncProgressBar" class="h-full bg-tablify-terracotta transition-all" style="width:0%"></div></div>
+        </div>
+        <div id="syncLog" class="hidden max-h-36 overflow-y-auto text-[10px] font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner rounded-xl p-2.5 border border-tablify-paper-border dark:border-tablify-dark-border space-y-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conflict / Auto-create Modal (Features 20-21) -->
+  <div id="conflictModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <h3 id="conflictTitle" class="text-sm font-semibold font-serif flex items-center gap-2 mb-3"></h3>
+      <div id="conflictBody" class="text-xs"></div>
+      <div id="conflictFoot" class="mt-4 flex justify-between gap-2"></div>
+    </div>
+  </div>
+
+  <!-- Linked Record Peek Modal (Feature 12) -->
+  <div id="peekModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-3">
+        <h3 id="peekTitle" class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-diagram-project text-tablify-terracotta"></i></h3>
+        <button onclick="closePeek()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="peekBody"></div>
+    </div>
+  </div>
+
+  <!-- Feature Traceability Checklist (PR-12) -->
+  <div id="checklistModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-2xl shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-1">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-list-check text-tablify-terracotta"></i> Feature traceability — spec §1</h3>
+        <button onclick="closeChecklist()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] text-tablify-clay dark:text-gray-400 mb-4">Every included feature of <span class="font-mono">spec/features.md</span> mapped to where you can try it in this prototype. <span class="font-medium">Live</span> = fully functional in-memory; <span class="font-medium">Simulated</span> = UI walkthrough per plan decision (no real network / filesystem).</p>
+      <div id="checklistBody" class="text-xs"></div>
+    </div>
+  </div>
+
+  <!-- @@MODALS -->
+
+  <!-- Floating panel host (select dropdowns, attachment editor, menus) -->
+  <div id="floatPanel" class="hidden float-panel"></div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-tablify-charcoal text-tablify-paper dark:bg-tablify-paper dark:text-tablify-charcoal px-4 py-2.5 rounded-full text-xs shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2.5 z-[80] border border-tablify-terracotta/30">
+    <i class="fa-solid fa-table-cells text-tablify-terracotta"></i>
+    <span id="toastMsg">Workspace updated</span>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

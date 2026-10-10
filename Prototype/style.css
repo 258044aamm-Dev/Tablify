@@ -1,0 +1,38 @@
+/* Tablify theme scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+.light ::-webkit-scrollbar-track { background: #FAF7F2; }
+.light ::-webkit-scrollbar-thumb { background: #D5CEC2; border-radius: 9999px; }
+.dark ::-webkit-scrollbar-track { background: #181715; }
+.dark ::-webkit-scrollbar-thumb { background: #3A3630; border-radius: 9999px; }
+
+body { transition: background-color 0.25s ease, color 0.25s ease; }
+
+.pill-btn { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+.light .pill-btn { background-color: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+.light .pill-btn:hover { background-color: #F6F2EA; border-color: #D3CAB9; }
+.dark .pill-btn { background-color: #24221E; border: 1px solid #38342E; color: #ECE7E1; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.dark .pill-btn:hover { background-color: #2D2A25; border-color: #4A453E; }
+
+.light .pill-input { background-color: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; }
+.light .pill-input:focus-within { border-color: #CC785C; box-shadow: 0 0 0 2px rgba(204,120,92,0.15); }
+.dark .pill-input { background-color: #24221E; border: 1px solid #38342E; color: #ECE7E1; }
+.dark .pill-input:focus-within { border-color: #D97757; box-shadow: 0 0 0 2px rgba(217,119,87,0.2); }
+
+.light .header-capsule, .light .cell-capsule { background-color: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; }
+.dark .header-capsule, .dark .cell-capsule { background-color: #262420; border: 1px solid #3A3630; color: #ECE7E1; }
+
+/* floating panels (select dropdown, menus) */
+.float-panel { position: fixed; z-index: 70; min-width: 220px; max-width: 320px; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.25); }
+.light .float-panel { background: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; }
+.dark .float-panel { background: #24221E; border: 1px solid #38342E; color: #ECE7E1; }
+
+.cell-editing { outline: 2px solid #CC785C !important; outline-offset: -1px; }
+.dark .cell-editing { outline-color: #D97757 !important; }
+.col-resize-handle { position: absolute; right: -8px; top: 0; height: 100%; width: 12px; cursor: col-resize; z-index: 2; }
+.sticky-col { position: sticky; z-index: 5; }
+th.sticky-col { z-index: 6; }
+.cell-invalid { border-color: #f43f5e !important; box-shadow: 0 0 0 1px rgba(244,63,94,0.35); }
+.cell-focus { outline: 2px solid #CC785C; outline-offset: -1px; }
+.dark .cell-focus { outline-color: #D97757; }
+.cell-range { background-color: rgba(204,120,92,0.14) !important; }
+/* @@CSS */
