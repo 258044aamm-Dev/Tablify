@@ -53,6 +53,8 @@
 
 ## Decisions recorded this phase
 
+- **R-1 (field rename):** deferred, not built. Reason: a rename would add new UI and undo paths that cannot be verified in the sandbox, and the gate is already CONDITIONAL. A missed rewrite fails safely (`#NAME?`). Owner decision, 2026-10-10.
+
 - **D-O1:** Airtable-like function set (54 functions), not the smaller default. Owner, 2026-10-10.
 - **Prerequisite:** 1.1 release and P7 gate waived. Owner chose "start anyway".
 - **Link UI:** row picker, link chips, broken-link marker, integrity command. Owner decision, §0.
@@ -68,7 +70,7 @@
 
 | ID | Item | Impact | Next step |
 |---|---|---|---|
-| R-1 | **Field rename rule (spec §12 item 1) is accepted but not built.** The app has no field-rename feature, so there is nothing to hook the `{reference}` rewrite into | A field renamed by editing the file leaves its formulas showing `#NAME?` | Owner: build field rename with the rewrite (one undoable command), or defer and say so in release notes |
+| R-1 | **Field rename rule (spec §12 item 1) is accepted but not built. Deferred by owner decision, 2026-10-10.** The app has no field-rename feature, so there is nothing to hook the `{reference}` rewrite into | A field renamed by editing the file leaves its formulas showing `#NAME?`. Listed as a known limit in the user guide §18 | Revisit when field rename is planned. Build it as one undoable command that rewrites references |
 | R-2 | Sort, filter, copy and export of a link column use the count ("2 linked"), not the names | A sort on a link column orders by count, which may surprise users | Owner decision. A name-based sort needs the index in the query layer |
 | R-3 | Obsidian's own file Duplicate copies the table ID. The integrity check reports the duplicate, and links resolve to the first file by path | Links can point at either copy | Documented in the README and user guide. Owner decision on whether to re-issue an ID on duplicate |
 | R-4 | Link editing in embedded tables is not supported; the embed shows a notice to open the full table | Some users may expect to link from a note | Owner decision |
@@ -84,9 +86,19 @@
 
 1. In Obsidian, open a table with a formula column and a link column. Check: formula values, error tooltip, the link picker (search, check, uncheck, Clear), chips, the dashed chip for a missing row, and the integrity command. Check the look on desktop and on mobile.
 2. Accept or reject P8-02, P8-03 and P8-04, and record the decision on SAD-61, SAD-62 and SAD-63.
-3. Decide R-1 (field rename), R-2 (sort by link), R-3 (duplicate IDs) and R-5 (second picker).
+3. R-1 (field rename) is deferred; confirm or reopen it. Decide R-2 (sort by link), R-3 (duplicate IDs) and R-5 (second picker).
 4. Confirm or change the performance targets (R-6).
 5. Then change this verdict to PASS and move SAD-13 to Done.
+
+## Spot-check of the evidence (2026-10-10)
+
+Checked `docs/evidence/P8-04.md` against the code:
+
+- Chips: one chip per link, broken ones dashed and muted (`GridView.ts` ~L402–412; `styles.css` `.tablify-link-chip--broken`). ✅
+- Model path: `src/model/link.ts` exists. The evidence path is correct. ✅
+- Broken-link underline and tooltip: dashed underline on the cell and a tooltip with the broken count (`GridView.ts` ~L417–420; `styles.css` `.tablify__cell--broken-link`). ✅
+- 44 px touch target: `.tablify-link-picker__row { min-height: 44px }` in `styles.css`. Measured in jsdom only, not on a device. ✅ for CSS, NOT RUN on device.
+- Start order: `linkIndexFor(app).start(plugin)` (called in `onload`) registers the vault events at once and defers only the first refresh to `onLayoutReady`. ✅
 
 ## Verdict
 

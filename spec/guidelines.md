@@ -93,6 +93,13 @@ A phase gate opens only when all of these are true:
 
 ---
 
+### 0.8 Branching and commits
+
+- Work lands on `main`. Use one commit per step, and keep history linear. No feature branches.
+- A phase gate is a gate note in `docs/gates/phase-N.md`. A tag such as `gate/phase-N` may mark the commit that was reviewed. Tags are created only for a PASS verdict.
+- Spikes (for example, comparing libraries) may use a short-lived branch. Delete it after the decision.
+- Pushing to a shared remote needs the owner's explicit approval for each push.
+
 ## 1. Assumptions and limitations (global)
 
 | ID | Assumption or limitation | Consequence | Check |
