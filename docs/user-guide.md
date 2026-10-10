@@ -47,6 +47,8 @@ Tablify supports **only its own `.tablify` extension** — see the note below.
 
 ## 3. Fields and field types
 
+**Add Field** in the toolbar adds a column: give it a name, pick a type, and it appears at the right of the table. Adding a field is a single undo step.
+
 Use the header menu (**Change field type…**) to change a column's type. A type is offered only when **every** existing value converts cleanly — otherwise nothing changes and the menu shows the reason. This protects you from silent data loss.
 
 | Type | Accepts |
@@ -99,27 +101,35 @@ A field can be marked **required** or **unique**; number fields can have a min/m
 
 ## 9. Undo and redo
 
-**Ctrl/Cmd+Z** / **Ctrl/Cmd+Shift+Z** (or Ctrl/Cmd+Y). Every local edit is undoable: cell edits, row insert/duplicate/delete, clear, paste, sort, hide, freeze, field-type change. Undo restores deleted rows with their **original row IDs and positions**. Undo covers local edits only.
+**Ctrl/Cmd+Z** / **Ctrl/Cmd+Shift+Z** (or Ctrl/Cmd+Y). Every local edit is undoable: cell edits, row insert/duplicate/delete, clear, paste, sort, hide, freeze, add field, field-type change. Undo restores deleted rows with their **original row IDs and positions**.
+
+Search and query are the exception: they are saved, but they are **not** undoable, so Ctrl/Cmd+Z steps through your edits rather than through your typing. Undo covers local edits only.
 
 ## 10. Filtering and search
 
-The filter bar has two paths to the same engine:
+Two filter controls sit in the toolbar above the grid:
 
-- **Query**: type `status:Done amount:>100` or a free-text search (matches visible text).
-- **Builder**: pick field / operator / value; combine multiple terms.
+- **Search** — free text, matched against the visible text of every cell, case-insensitively. For a single-select field this is the option's *label*, not its stored id.
+- **Query** — the query language, e.g. `status:Done amount:>100`. Anything the filter builder can express can also be typed here by hand.
 
-Both always return the same rows. An invalid query shows an explanatory message instead of guessing.
+Both are debounced (200 ms) and both are saved in the file's `views` section, so the filter survives closing and reopening the file. **Options → Clear filters** empties both.
+
+An invalid query shows the parser's message with its line and column under the field, instead of silently returning nothing.
+
+A **row count** next to the query shows what the filter is doing: `40 rows` unfiltered, `12 of 40 rows` when filtering.
 
 ## 11. View settings
 
-From the header menu and the table menu:
+**Options** in the toolbar opens the view-settings panel: row height, frozen columns, hidden fields, and **Clear filters**. Column width and order, hide and sort also live on the header menu and the table menu.
 
-- **Column width** — drag the column edge (stored per field).
+- **Column width** — drag the column edge (stored per field); columns without a stored width are 160 px.
 - **Column order** — drag, or use the menu to move left/right.
-- **Hide field** — from the header menu; the primary field cannot be hidden.
-- **Freeze** — freeze the first N columns; frozen columns stay visible while scrolling.
+- **Hide field** — from the header menu; the primary field cannot be hidden. Hidden fields are listed in **Options** with a **Show** button each, so a hidden column can always be brought back.
+- **Freeze** — freeze the first N columns; they stay pinned on the left while the rest scroll horizontally. A new table starts with its primary column frozen.
 - **Sort** — ascending/descending on any column; the sorted column is announced to screen readers (`aria-sort`).
-- **Row height** — compact / medium / tall.
+- **Row height** — small / medium / large.
+
+Row height, freeze and unhide are undoable; search and query are not (see §9).
 
 All of it is saved in the file's `views` section and restored on reopen (verified by scenario A11 in the test matrix).
 

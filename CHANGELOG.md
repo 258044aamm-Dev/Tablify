@@ -2,6 +2,31 @@
 
 All notable changes to Tablify are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Table toolbar** — a search box, a query field with inline errors, **Add row**, **Add field**, **Options**, **Undo/Redo**, and a live row-count badge, above the grid. The step that specified this UI (P3-08) was recorded as delivered, but the component was never built: the table view showed three bare buttons and nothing else. See `docs/evidence/P3-08.md`.
+- **Options menu** — row height (small / medium / large), freeze columns, a **Show** button for each hidden field, and **Clear filters**. A hidden column can now be brought back from the UI.
+- **Add field** — add a column from the toolbar with a name and type picker; the field and its place in the column order are a single undo step.
+
+### Fixed
+
+- **Dark-theme text contrast** — striped rows and the header used a mid-gray surface that put body text at **2.11:1**, far below the 4.5:1 WCAG AA floor. Two dark surface tokens were added; body text now measures **13.81:1** on striped rows and **12.19:1** on the header. `docs/evidence/P3-11.md` recorded the wrong pair, which is why this was not caught.
+- **Header followed the Obsidian theme** — the grid header background and the selection outline used Obsidian's own CSS variables instead of Tablify tokens, breaking the plugin-scoped theming required by P3-09.
+- **Row height did not apply to rows already on screen** — the grid recycles row elements and only set the height when an element was created.
+- **Header scrolled independently of the body** — scrolling a wide table sideways moved the columns out from under their own headers.
+- **Column widths and frozen columns were saved but never rendered** — both settings round-tripped through the file format and were ignored by the grid.
+
+### Changed
+
+- Row height is limited to **small / medium / large**. `compact` and `tall` were accepted by the model but rejected by the file schema, so choosing one could write a file the schema refuses.
+- Search and query are saved in the file but are **not undoable**, so Ctrl/Cmd+Z steps through your edits rather than through your typing.
+
+### Notes
+
+- Confirmation inside a real Obsidian vault, on desktop and mobile in both themes, is still pending on the owner (device screenshots).
+
 ## [1.0.0] — 2026-10-09
 
 First public release (MVP). Desktop and mobile.

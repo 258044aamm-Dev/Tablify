@@ -10,8 +10,8 @@ Tablify adds typed, structured tables to your vault: text, numbers, dates, check
 
 - **Typed fields** — text, long text, number, date, checkbox, single select (with color), attachment, plus system fields (row ID, revision, updated at).
 - **Grid editing** — spreadsheet-style grid with virtualized rows, so 1,000-row tables stay smooth; click or keyboard navigation; copy/paste ranges as tab-separated text.
-- **Filtering and search** — a query bar (`status:Done amount:>100`) plus a filter builder; both use the same engine.
-- **View settings in the file** — column width, order, hidden fields, frozen columns, row height, and sorting are saved inside the `.tablify` file and travel with it.
+- **Filtering and search** — a search box and a query bar (`status:Done amount:>100`) in the toolbar above the grid, with a live row count and inline errors for invalid queries.
+- **View settings in the file** — column width, order, hidden fields, frozen columns, row height, and sorting are saved inside the `.tablify` file and travel with it. The **Options** menu changes row height and freeze, and brings hidden columns back.
 - **Undo/redo** — every edit is undoable (Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z).
 - **Validation** — required/unique/number-range rules with visible invalid-cell markers.
 - **Import** — CSV (RFC 4180, Excel-compatible) and XLSX files become new `.tablify` tables, with type inference.
@@ -45,7 +45,7 @@ Tablify adds typed, structured tables to your vault: text, numbers, dates, check
 ## Getting started
 
 1. Right-click a folder in the file explorer → **New table**. A `.tablify` file opens in the grid with a primary text field `Name`.
-2. Double-click (or press Enter on) a cell to edit. Use the header menu to change field types, sort, hide, or freeze columns.
+2. Double-click (or press Enter on) a cell to edit. Use the header menu to change field types, sort, hide, or freeze columns; the toolbar's **Options** menu sets row height and freeze, and shows hidden columns again.
 3. See the [user guide](docs/user-guide.md) for every feature, and the [shortcut table](docs/shortcuts.md) for keyboard use.
 
 ## Documentation
