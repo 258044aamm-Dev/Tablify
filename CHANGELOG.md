@@ -89,6 +89,29 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   green on the final file. No real tokens in the prototype (masked `pat_demo…`, settings-only per
   §2.19); no `.tabula` references; all pre-existing prototype behaviors preserved.
 
+## [2.0.0-beta.1] — 2026-10-10
+
+**Pre-release for device testing.** Contains Phase 7 (embeds and Airtable sync) and Phase 8 (formulas and linked records). **Format version 2:** a file that uses a formula or link field is saved as `formatVersion: 2`. Tablify 1.0.2 and earlier refuse to open those files. Files without these fields are still saved as version 1.
+
+### Added
+
+- **Embedded tables (P7-01):** a ```` ```tablify ```` code block in a note shows a table, read from the `.tablify` file it names.
+- **Airtable sync (P7-02 to P7-10):** link a table to an Airtable table. Pull, push, conflict handling and field creation are available from the sync modal. The token is kept in plugin settings and redacted from logs and saved files. Fields that do not map to a supported type are read-only.
+- **Formula fields (P8-01 to P8-03):** 54 functions, read-only cells, error values such as `#DIV/0!` and `#CYCLE!` with a tooltip. Formula results are computed on open and are not saved. Dates use local time.
+- **Linked records (P8-04):** link fields with a row picker, one chip per link, and a dashed chip for a missing row. The picker is the only way to set a link.
+- **Link integrity check:** the command "Check link integrity (all tables)" lists broken links.
+- **Names in sort, search and export:** a link column sorts, searches and exports by the linked row names. A broken link shows as `Missing row`.
+- **Remove links to other tables:** a link cell that points at another table gets a menu item to remove those links.
+- **Give this copy a new table ID:** a copy made with Obsidian's own Duplicate shares the table ID with the original. Its file menu offers this item, which changes only the copy's ID. Close the table tab first.
+
+### Known limits (beta)
+
+- The Airtable sync has been tested against a fake server only. Live Airtable tests and Obsidian checks have not been run.
+- Renaming a field does not update formulas that use it. Those formulas show `#NAME?` until edited. Field rename is not built.
+- Link fields have one target table each. To link into a second table, add a second link field.
+- Export writes link names only; import does not restore links.
+- Lookups and rollups are not included.
+
 ## [1.0.2] — 2026-10-10
 
 ### Added

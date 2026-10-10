@@ -2,6 +2,30 @@
 
 ---
 
+# 2.0.0-beta.1 — 2026-10-10
+
+**Release:** v2.0.0-beta.1 (pre-release) · **Format version 2** · Phase 7 and Phase 8
+
+## Situation
+
+2.0.0-beta.1 saves a file as `formatVersion: 2` when it has a formula or link field. Tablify 1.0.2 and earlier refuse to open a version 2 file, and show an error instead of the table. Files without these fields stay at version 1 and open in any version.
+
+## Rolling back
+
+| Situation | Action |
+|---|---|
+| Testing in a copy of the vault | Delete the copy. The original is untouched. |
+| Reinstalled 1.0.2 and a v2 file will not open | Reinstall 2.0.0-beta.1. Version 1.0.2 cannot open a v2 file, so it cannot remove the fields either. |
+| Downgrade a vault with no v2 files | Reinstall 1.0.2 from its release (see the 1.0.2 entry below). |
+
+Do not edit a v2 file by hand. Test on a copy of your vault first.
+
+## Known issues carried by 2.0.0-beta.1
+
+See the CHANGELOG entry for 2.0.0-beta.1 (known limits). The main ones: live Airtable and Obsidian checks not run; no field rename.
+
+---
+
 # 1.0.1 — 2026-10-10
 
 **Release:** v1.0.1, tagged 2026-10-10 · **Bug-fix release** over v1.0.0

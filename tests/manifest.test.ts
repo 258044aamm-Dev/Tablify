@@ -25,7 +25,8 @@ describe('manifest.json', () => {
 	});
 
 	it('has version in semver format', () => {
-		expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
+		// Plain x.y.z, or x.y.z with a semver pre-release tag (e.g. 2.0.0-beta.1 for a beta release).
+		expect(manifest.version).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
 	});
 
 	it('has description present', () => {
