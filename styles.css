@@ -542,3 +542,44 @@
 .tablify__header .tablify__cell--frozen {
   background: var(--tablify-bg-capsule);
 }
+
+/* P7-01: embedded table in a note (```tablify fence). Height-limited; the full view is unchanged. */
+.tablify-embed {
+  margin: 0.75em 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--background-secondary);
+}
+.tablify-embed__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-family: var(--font-monospace);
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+.tablify-embed__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tablify-embed__open,
+.tablify-embed__insert {
+  cursor: pointer;
+  font-size: 12px;
+}
+.tablify-embed__body {
+  padding: 6px;
+}
+.tablify-embed__insert {
+  display: block;
+  margin: 6px auto 0;
+}
+.tablify-embed .tablify__error {
+  padding: 12px;
+  color: var(--text-error);
+}

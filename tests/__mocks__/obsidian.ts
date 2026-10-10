@@ -603,6 +603,13 @@ export class Plugin {
     /* no-op */
   }
 
+  /** Test-only record of registered code block processors (P7-01). */
+  codeBlockProcessors: Map<string, unknown> = new Map();
+
+  registerMarkdownCodeBlockProcessor(language: string, processor: unknown): void {
+    this.codeBlockProcessors.set(language, processor);
+  }
+
   registerEvent(): void {
     /* no-op */
   }
@@ -697,4 +704,32 @@ export async function requestUrl(
     throw new Error('requestUrl called in a test with no handler installed (network is disabled in tests)');
   }
   return requestUrlHandler(p);
+}
+
+// ---------------------------------------------------------------------------
+// P7-01 test-only additions: Markdown code block rendering
+// ---------------------------------------------------------------------------
+
+/** Obsidian's base for a child that lives as long as a rendered block. */
+export class Component {
+  unloaded = false;
+  load(): void {
+    /* no-op */
+  }
+  unload(): void {
+    if (this.unloaded) return;
+    this.unloaded = true;
+    this.onunload();
+  }
+  onunload(): void {
+    /* overridden */
+  }
+}
+
+export class MarkdownRenderChild extends Component {
+  containerEl: HTMLElement;
+  constructor(containerEl: HTMLElement) {
+    super();
+    this.containerEl = containerEl;
+  }
 }

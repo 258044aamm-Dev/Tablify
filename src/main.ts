@@ -4,6 +4,7 @@ import { registerExportCommand } from './commands/export.js';
 import { TableView, TABLIFY_VIEW_TYPE } from './views/tableView.js';
 import { registerFileMenu } from './menus/fileMenu.js';
 import { DEFAULT_SETTINGS, TablifySettingTab, loadSettings, type TablifySettings } from './settings.js';
+import { registerEmbedProcessor } from './embed/register.js';
 
 export default class TablifyPlugin extends Plugin {
 	// P7-03: plugin settings. The Airtable token lives only here (plugin data).
@@ -19,5 +20,7 @@ export default class TablifyPlugin extends Plugin {
 		this.registerExtensions(['tablify'], TABLIFY_VIEW_TYPE);
 		// P5-01: file explorer right-click items for .tablify files and folders.
 		registerFileMenu(this);
+		// P7-01: ```tablify code blocks in notes render a live, editable table (embed).
+		registerEmbedProcessor(this);
 	}
 }
