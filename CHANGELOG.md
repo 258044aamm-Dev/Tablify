@@ -2,6 +2,44 @@
 
 All notable changes to Tablify are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Prototype-parity visual pass (SAD-71)** — the table view now matches `table-workspace.html`
+  (light and dark) instead of the v1.0.1 flat panels:
+  - **Capsule grid** — every header and body cell is a detached rounded capsule on a tinted
+    inner shell; row separators and striping are retired. Header capsules carry grip dots and
+    a JetBrains Mono type badge rendered from `data-field-type` (cell and header `textContent`
+    contracts unchanged). Column widths, frozen offsets and row pitch are bit-identical, so
+    every geometry guarantee from 1.0.1 holds.
+  - **Workspace card** — toolbar and grid live inside one rounded card (card surface, subtle
+    border, soft shadow) on a transparent app background; host theme flips reach the view
+    surface and the grid without a model change.
+  - **Toolbar restyle** — inline SVG icons, pill buttons with circular undo/redo, the Options
+    menu is an anchored popover card with capsule option pills and solid active state, the
+    row-count badge is mono, and inputs get the prototype's accent focus ring.
+  - **Token ladder** — new `bg-inner` / `bg-capsule` / `bg-subtle` / `bg-stripe` / `on-accent`
+    surfaces; every required text pair re-measured at WCAG AA or better in both themes
+    (see `docs/evidence/P3-11.md` and `docs/evidence/SAD-71.md`).
+  - **JetBrains Mono** bundled offline (latin-400, SIL OFL) for badges and the row count.
+  - **Empty-state affordance** — an Insert Row pill above the grid when a table has no rows.
+- **Resize refit** — the grid re-measures and refits when its pane resizes (ResizeObserver),
+  ending the under/overfill and the black void beside short tables.
+
+### Changed
+
+- Add-field modal wears the plugin ladder (`.tablify__modal`), not host styles.
+- Form-control rules are scoped to plugin surfaces (specificity guard covers the new selectors).
+- `docs/evidence/fonts` bundle guard raised to 1.85 MB with recorded rationale (mono woff2 +
+  dev sourcemap growth; production assets unchanged in shape).
+
+### Notes
+
+- Deferred to v1.1 (owner-accepted): checkbox/select-all column and bulk delete, row-number
+  column, title row and in-pane export. Toasts stay Obsidian `Notice`.
+- Visual sign-off evidence is owner screenshots on a real vault (see `docs/evidence/SAD-71.md`).
+
 ## [1.0.1] — 2026-10-10
 
 ### Added
