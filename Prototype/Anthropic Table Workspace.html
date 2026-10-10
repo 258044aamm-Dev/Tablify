@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tablify — Table Prototype</title>
-  
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome 6 Icons -->
@@ -20,7 +20,7 @@
       theme: {
         extend: {
           colors: {
-            anthropic: {
+            tablify: {
               terracotta: '#CC785C',
               'terracotta-hover': '#B8654A',
               'terracotta-dark': '#D97757',
@@ -34,7 +34,7 @@
               'dark-inner': '#1B1A17',
               'dark-capsule': '#2A2723',
               'dark-border': '#38342E',
-              clay: '#8C827A',
+              clay: '#6E655C',
               charcoal: '#1E1B18',
               sand: '#E3DCCE',
             }
@@ -50,145 +50,87 @@
   </script>
 
   <style>
-    /* Custom Anthropic Theme Scrollbars */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    .light ::-webkit-scrollbar-track {
-      background: #FAF7F2;
-    }
-    .light ::-webkit-scrollbar-thumb {
-      background: #D5CEC2;
-      border-radius: 9999px;
-    }
-    .dark ::-webkit-scrollbar-track {
-      background: #181715;
-    }
-    .dark ::-webkit-scrollbar-thumb {
-      background: #3A3630;
-      border-radius: 9999px;
-    }
+    /* Tablify theme scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    .light ::-webkit-scrollbar-track { background: #FAF7F2; }
+    .light ::-webkit-scrollbar-thumb { background: #D5CEC2; border-radius: 9999px; }
+    .dark ::-webkit-scrollbar-track { background: #181715; }
+    .dark ::-webkit-scrollbar-thumb { background: #3A3630; border-radius: 9999px; }
 
-    body {
-      transition: background-color 0.25s ease, color 0.25s ease;
-    }
+    body { transition: background-color 0.25s ease, color 0.25s ease; }
 
-    /* Anthropic Dynamic Light/Dark Pill Styles */
-    .anthropic-pill-btn {
-      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .light .anthropic-pill-btn {
-      background-color: #FFFFFF;
-      border: 1px solid #E6E0D5;
-      color: #1E1B18;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-    }
-    .light .anthropic-pill-btn:hover {
-      background-color: #F6F2EA;
-      border-color: #D3CAB9;
-    }
+    .pill-btn { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+    .light .pill-btn { background-color: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+    .light .pill-btn:hover { background-color: #F6F2EA; border-color: #D3CAB9; }
+    .dark .pill-btn { background-color: #24221E; border: 1px solid #38342E; color: #ECE7E1; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .dark .pill-btn:hover { background-color: #2D2A25; border-color: #4A453E; }
 
-    .dark .anthropic-pill-btn {
-      background-color: #24221E;
-      border: 1px solid #38342E;
-      color: #ECE7E1;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-    .dark .anthropic-pill-btn:hover {
-      background-color: #2D2A25;
-      border-color: #4A453E;
-    }
+    .light .pill-input { background-color: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; }
+    .light .pill-input:focus-within { border-color: #CC785C; box-shadow: 0 0 0 2px rgba(204,120,92,0.15); }
+    .dark .pill-input { background-color: #24221E; border: 1px solid #38342E; color: #ECE7E1; }
+    .dark .pill-input:focus-within { border-color: #D97757; box-shadow: 0 0 0 2px rgba(217,119,87,0.2); }
 
-    /* Inputs */
-    .light .anthropic-pill-input {
-      background-color: #FFFFFF;
-      border: 1px solid #E6E0D5;
-      color: #1E1B18;
-    }
-    .light .anthropic-pill-input:focus-within {
-      border-color: #CC785C;
-      box-shadow: 0 0 0 2px rgba(204, 120, 92, 0.15);
-    }
+    .light .header-capsule, .light .cell-capsule { background-color: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; }
+    .dark .header-capsule, .dark .cell-capsule { background-color: #262420; border: 1px solid #3A3630; color: #ECE7E1; }
 
-    .dark .anthropic-pill-input {
-      background-color: #24221E;
-      border: 1px solid #38342E;
-      color: #ECE7E1;
-    }
-    .dark .anthropic-pill-input:focus-within {
-      border-color: #D97757;
-      box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.2);
-    }
+    /* floating panels (select dropdown, menus) */
+    .float-panel { position: fixed; z-index: 70; min-width: 220px; max-width: 320px; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.25); }
+    .light .float-panel { background: #FFFFFF; border: 1px solid #E6E0D5; color: #1E1B18; }
+    .dark .float-panel { background: #24221E; border: 1px solid #38342E; color: #ECE7E1; }
 
-    /* Column and Cell Capsules */
-    .light .header-capsule, .light .cell-capsule {
-      background-color: #FFFFFF;
-      border: 1px solid #E6E0D5;
-      color: #1E1B18;
-    }
-    .dark .header-capsule, .dark .cell-capsule {
-      background-color: #262420;
-      border: 1px solid #3A3630;
-      color: #ECE7E1;
-    }
-
+    .cell-editing { outline: 2px solid #CC785C !important; outline-offset: -1px; }
+    .dark .cell-editing { outline-color: #D97757 !important; }
+    /* @@CSS */
   </style>
 </head>
 
-<body class="h-full font-sans antialiased bg-anthropic-paper text-anthropic-charcoal dark:bg-anthropic-dark dark:text-gray-100 flex flex-col justify-between p-3 sm:p-6 overflow-x-hidden min-h-screen">
+<body class="h-full font-sans antialiased bg-tablify-paper text-tablify-charcoal dark:bg-tablify-dark dark:text-gray-100 flex flex-col justify-between p-3 sm:p-6 overflow-x-hidden min-h-screen">
 
   <!-- Top Brand Navigation Bar -->
-  <header class="w-full max-w-5xl mx-auto flex items-center justify-between mb-4 px-2">
+  <header class="w-full max-w-6xl mx-auto flex items-center justify-between mb-4 px-2">
     <div class="flex items-center gap-3">
       <!-- Tablify Logo Mark -->
-      <div class="w-8 h-8 rounded-lg bg-anthropic-terracotta flex items-center justify-center text-white shadow-md">
-        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
-          <path d="M4 5h16v3H14v11h-4V8H4V5z"/>
-        </svg>
+      <div class="w-8 h-8 rounded-lg bg-tablify-terracotta flex items-center justify-center text-white shadow-md">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M4 5h16v3H14v11h-4V8H4V5z"/></svg>
       </div>
       <div>
-        <h1 class="text-xs font-semibold uppercase tracking-wider text-anthropic-clay dark:text-gray-400 font-serif">Tablify</h1>
-        <p class="text-sm font-serif text-anthropic-charcoal dark:text-anthropic-paper font-semibold leading-none">Table Prototype</p>
+        <h1 class="text-xs font-semibold uppercase tracking-wider text-tablify-clay dark:text-gray-400 font-serif">Tablify</h1>
+        <p class="text-sm font-serif text-tablify-charcoal dark:text-tablify-paper font-semibold leading-none">Table Prototype</p>
       </div>
     </div>
 
     <div class="flex items-center gap-2">
+      <!-- @@HEADERBTNS -->
+      <button onclick="openSourceModal()" class="pill-btn px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5" title="View the .tablify file source (Feature 1)">
+        <i class="fa-solid fa-file-code text-[11px] text-tablify-terracotta"></i>
+        <span class="hidden sm:inline">File source</span>
+      </button>
       <!-- Theme Switcher -->
-      <button onclick="toggleTheme()" class="anthropic-pill-btn p-2 rounded-full text-xs w-8 h-8 flex items-center justify-center" title="Toggle Theme">
+      <button onclick="toggleTheme()" class="pill-btn p-2 rounded-full text-xs w-8 h-8 flex items-center justify-center" title="Toggle Theme">
         <i id="themeIcon" class="fa-solid fa-moon"></i>
       </button>
     </div>
   </header>
 
-  <main class="w-full max-w-5xl mx-auto my-auto">
-    
+  <main class="w-full max-w-6xl mx-auto my-auto flex items-stretch gap-4">
+    <!-- @@SIDEBAR -->
+
     <!-- Outer Main Container Card -->
-    <div class="bg-anthropic-paper-card dark:bg-anthropic-dark-card border border-anthropic-paper-border dark:border-anthropic-dark-border rounded-[24px] sm:rounded-[32px] p-4 sm:p-7 shadow-xl relative overflow-hidden transition-colors">
+    <div class="flex-1 min-w-0 bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-[24px] sm:rounded-[32px] p-4 sm:p-7 shadow-xl relative overflow-hidden transition-colors">
 
       <!-- Top Workspace Controls Row -->
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b border-anthropic-paper-border/60 dark:border-anthropic-dark-border/60">
-        
-        <!-- Table Tabs & Indicator -->
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          <span class="text-xs font-medium text-anthropic-clay dark:text-gray-400 whitespace-nowrap mr-1">
-            <i class="fa-solid fa-folder-tree mr-1 text-anthropic-terracotta"></i> Dataset:
-          </span>
-          <button id="tab1Btn" onclick="switchDataset('prompts')" class="px-3 py-1.5 text-xs font-medium rounded-full bg-anthropic-terracotta text-white shadow-sm transition">
-            Prompt Evaluations
-          </button>
-          <button id="tab2Btn" onclick="switchDataset('tasks')" class="px-3 py-1.5 text-xs font-medium rounded-full text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition">
-            Model Benchmarks
-          </button>
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b border-tablify-paper-border/60 dark:border-tablify-dark-border/60">
+        <!-- Table Tabs -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0" id="tableTabs">
+          <!-- rendered via JS -->
         </div>
-        
+        <!-- @@VIEWTABS -->
         <div class="flex items-center gap-2">
           <span id="savedIndicator" class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 opacity-100 transition-opacity">
             <i class="fa-solid fa-circle-check text-[10px]"></i> Saved locally
           </span>
-          <button onclick="addNewTable()" class="anthropic-pill-btn px-3.5 py-1.5 text-xs font-medium rounded-xl flex items-center gap-1.5 active:scale-95">
-            <i class="fa-solid fa-plus text-[10px] text-anthropic-terracotta"></i>
+          <button onclick="addNewTable()" class="pill-btn px-3.5 py-1.5 text-xs font-medium rounded-xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-plus text-[10px] text-tablify-terracotta"></i>
             <span>New Table</span>
           </button>
         </div>
@@ -196,20 +138,18 @@
 
       <div class="mb-5 flex items-baseline justify-between flex-wrap gap-2">
         <div class="flex items-center gap-2">
-          <h2 id="editableTableTitle" contenteditable="true" spellcheck="false" 
-              class="text-2xl sm:text-3xl font-serif text-anthropic-charcoal dark:text-anthropic-paper focus:outline-none focus:ring-1 focus:ring-anthropic-terracotta/40 rounded px-1 -ml-1 transition inline-block">
-            Prompt Engineering Logs
+          <h2 id="editableTableTitle" contenteditable="true" spellcheck="false"
+              onblur="commitTitle(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+              class="text-2xl sm:text-3xl font-serif text-tablify-charcoal dark:text-tablify-paper focus:outline-none focus:ring-1 focus:ring-tablify-terracotta/40 rounded px-1 -ml-1 transition inline-block">
           </h2>
-          <span class="text-xs text-anthropic-clay font-mono bg-anthropic-paper-inner dark:bg-anthropic-dark-inner px-2 py-0.5 rounded border border-anthropic-paper-border dark:border-anthropic-dark-border">
-            v2.4
-          </span>
+          <span id="fileChip" class="text-xs text-tablify-clay dark:text-gray-400 font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner px-2 py-0.5 rounded border border-tablify-paper-border dark:border-tablify-dark-border"></span>
         </div>
-
         <div class="flex items-center gap-2">
-          <button onclick="exportData('csv')" class="text-xs text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition">
+          <!-- @@TITLEBTNS -->
+          <button onclick="exportData('csv')" class="text-xs text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner transition">
             <i class="fa-solid fa-file-csv mr-1"></i> Export CSV
           </button>
-          <button onclick="copyMarkdownTable()" class="text-xs text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition">
+          <button onclick="copyMarkdownTable()" class="text-xs text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner transition">
             <i class="fa-solid fa-copy mr-1"></i> Copy Markdown
           </button>
         </div>
@@ -217,514 +157,1159 @@
 
       <!-- Toolbar Search & Actions Row -->
       <div class="flex flex-wrap items-center justify-between gap-2.5 mb-4">
-        
-        <!-- Search Input Capsule -->
         <div class="relative flex-1 min-w-[200px]">
-          <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-anthropic-clay text-xs"></i>
-          <input type="text" id="searchInput" placeholder="Search rows, categories, prompts..." oninput="filterRows()" 
-                 class="anthropic-pill-input w-full text-xs rounded-full pl-10 pr-4 py-2.5 focus:outline-none shadow-sm transition">
+          <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-tablify-clay dark:text-gray-400 text-xs"></i>
+          <input type="text" id="searchInput" placeholder="Search rows…" oninput="filterRows()"
+                 class="pill-input w-full text-xs rounded-full pl-10 pr-4 py-2.5 focus:outline-none shadow-sm transition font-mono">
         </div>
-
-        <!-- Action Controls -->
         <div class="flex items-center space-x-2">
-          <button onclick="addRow()" class="anthropic-pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
-            <i class="fa-solid fa-plus text-[10px] text-anthropic-terracotta"></i>
+          <!-- @@TOOLBARBTNS -->
+          <button onclick="addRow()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-plus text-[10px] text-tablify-terracotta"></i>
             <span>Add Row</span>
           </button>
-          
-          <button onclick="showAddFieldModal()" class="anthropic-pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
-            <i class="fa-solid fa-columns text-[10px] text-anthropic-terracotta"></i>
+          <button onclick="showAddFieldModal()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-columns text-[10px] text-tablify-terracotta"></i>
             <span>Add Field</span>
           </button>
-
-          <button onclick="toggleMoreMenu()" class="anthropic-pill-btn px-3 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
-            <i class="fa-solid fa-sliders text-[11px] text-anthropic-clay"></i>
+          <button id="optionsBtn" onclick="toggleMoreMenu()" class="pill-btn px-3 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-sliders text-[11px] text-tablify-clay dark:text-gray-400"></i>
             <span>Options</span>
           </button>
         </div>
       </div>
 
       <div class="flex items-center justify-between mb-2 px-1">
-        <div id="selectionSummary" class="text-[11px] text-anthropic-terracotta font-medium hidden flex items-center gap-2">
+        <div id="selectionSummary" class="text-[11px] text-tablify-terracotta font-medium hidden items-center gap-2">
           <span id="selectedCount">0 selected</span>
           <button onclick="deleteSelectedRows()" class="text-red-500 hover:underline"><i class="fa-solid fa-trash-can mr-1"></i>Delete</button>
         </div>
         <div class="ml-auto flex items-center gap-3">
-          <span id="rowCountBadge" class="text-[11px] font-medium text-anthropic-clay dark:text-gray-400 tracking-wider font-mono">
-            0 rows
-          </span>
+          <!-- @@BADGES -->
+          <span id="rowCountBadge" class="text-[11px] font-medium text-tablify-clay dark:text-gray-400 tracking-wider font-mono">0 rows</span>
         </div>
       </div>
 
-      <!-- Inner Table Container (Warm Anthropic Paper Inner Tint) -->
-      <div id="tableInnerContainer" class="bg-anthropic-paper-inner dark:bg-anthropic-dark-inner w-full overflow-x-auto rounded-2xl border border-anthropic-paper-border dark:border-anthropic-dark-border p-2 sm:p-3 shadow-inner">
-        <table class="w-full border-separate border-spacing-y-2 border-spacing-x-1.5 text-left text-xs">
-          
-          <thead id="tableHeaderHead">
-            <!-- Rendered via JS -->
-          </thead>
-
-          <tbody id="tableBody">
-            <!-- Rendered via JS -->
-          </tbody>
+      <!-- Inner Table Container -->
+      <div id="tableInnerContainer" class="bg-tablify-paper-inner dark:bg-tablify-dark-inner w-full overflow-x-auto rounded-2xl border border-tablify-paper-border dark:border-tablify-dark-border p-2 sm:p-3 shadow-inner">
+        <table class="w-full border-separate border-spacing-y-2 border-spacing-x-1.5 text-left text-xs" id="mainTable">
+          <thead id="tableHeaderHead"></thead>
+          <tbody id="tableBody"></tbody>
         </table>
-
-        <!-- Bottom Quick Add Row Capsule -->
         <div class="mt-3">
-          <button onclick="addRow()" class="anthropic-pill-btn w-full py-2.5 text-xs font-medium rounded-2xl transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-plus text-[11px] text-anthropic-terracotta"></i>
+          <button onclick="addRow()" class="pill-btn w-full py-2.5 text-xs font-medium rounded-2xl transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus text-[11px] text-tablify-terracotta"></i>
             <span>Insert Row</span>
           </button>
         </div>
       </div>
-
     </div>
   </main>
 
-  <!-- Footer Copyright & Info -->
-  <footer class="w-full max-w-5xl mx-auto mt-6 text-center text-[11px] text-anthropic-clay">
-    <p>Tablify Prototype &bull; Feature reference for <span class="font-mono">spec/features.md</span> &bull; Single-file HTML</p>
+  <!-- Footer -->
+  <footer class="w-full max-w-6xl mx-auto mt-6 text-center text-[11px] text-tablify-clay dark:text-gray-400">
+    <p>Tablify Prototype &bull; Feature reference for <span class="font-mono">spec/features.md</span> &bull; Single-file HTML &bull; <button onclick="resetDemo()" class="underline hover:text-tablify-terracotta">Reset demo data</button></p>
   </footer>
 
   <!-- Add Field Modal -->
   <div id="addFieldModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-anthropic-paper-card dark:bg-anthropic-dark-card border border-anthropic-paper-border dark:border-anthropic-dark-border rounded-2xl p-6 w-full max-w-sm shadow-2xl transition-all">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-sm shadow-2xl transition-all max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-semibold text-anthropic-charcoal dark:text-anthropic-paper flex items-center gap-2 font-serif">
-          <i class="fa-solid fa-columns text-anthropic-terracotta"></i> Add New Column Field
+        <h3 class="text-sm font-semibold text-tablify-charcoal dark:text-tablify-paper flex items-center gap-2 font-serif">
+          <i class="fa-solid fa-columns text-tablify-terracotta"></i> <span id="addFieldTitle">Add New Field</span>
         </h3>
-        <button onclick="hideAddFieldModal()" class="text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+        <button onclick="hideAddFieldModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-anthropic-clay dark:text-gray-400 mb-1 font-medium">Field Title</label>
-          <input type="text" id="newFieldName" placeholder="e.g. Model, Temperature, Pass Rate..." 
-                 class="anthropic-pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Field name</label>
+          <input type="text" id="newFieldName" placeholder="e.g. Status, Budget, Due date…" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none">
         </div>
         <div>
-          <label class="block text-anthropic-clay dark:text-gray-400 mb-1 font-medium">Field Type</label>
-          <select id="newFieldType" class="anthropic-pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none">
-            <option value="TEXT">Text String</option>
-            <option value="STATUS">Status Tag</option>
-            <option value="SCORE">Score / Rating (1-5)</option>
-            <option value="MODEL">Claude Model Tag</option>
-          </select>
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Field type <span class="font-mono text-[10px]">(19 types — spec §2.2–§2.4)</span></label>
+          <select id="newFieldType" onchange="onFieldTypeChange()" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none"></select>
         </div>
+        <div id="fieldOptionsWrap" class="hidden">
+          <label class="block text-tablify-clay dark:text-gray-400 mb-1 font-medium">Options (one per line)</label>
+          <textarea id="newFieldOptions" rows="4" placeholder="Backlog&#10;In Progress&#10;Done" class="pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none"></textarea>
+        </div>
+        <!-- @@FIELDMODAL -->
       </div>
-
       <div class="mt-5 flex justify-end space-x-2">
-        <button onclick="hideAddFieldModal()" class="px-3.5 py-2 text-xs text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner rounded-xl">Cancel</button>
-        <button onclick="confirmAddField()" class="px-4 py-2 bg-anthropic-terracotta hover:bg-anthropic-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Add Field</button>
+        <button onclick="hideAddFieldModal()" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner rounded-xl">Cancel</button>
+        <button onclick="confirmAddField()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Save Field</button>
       </div>
     </div>
   </div>
 
-  <!-- Anthropic Toast Notification Capsule -->
-  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-anthropic-charcoal text-anthropic-paper dark:bg-anthropic-paper dark:text-anthropic-charcoal px-4 py-2.5 rounded-full text-xs shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2.5 z-50 border border-anthropic-terracotta/30">
-    <i class="fa-solid fa-sparkles text-anthropic-terracotta"></i>
+  <!-- Option Manager Modal (Feature 3) -->
+  <div id="optMgrModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-md shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-palette text-tablify-terracotta"></i> <span id="optMgrTitle">Options</span></h3>
+        <button onclick="closeOptMgr()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="optMgrBody" class="space-y-2 text-xs"></div>
+      <div class="mt-4 flex gap-2">
+        <input id="optMgrNew" type="text" placeholder="New option…" class="pill-input flex-1 rounded-xl px-3.5 py-2 text-xs focus:outline-none" onkeydown="if(event.key==='Enter')optMgrAdd()">
+        <button onclick="optMgrAdd()" class="px-3.5 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl">Add</button>
+      </div>
+      <p class="mt-3 text-[10px] text-tablify-clay dark:text-gray-400">Rename, recolor (click swatch), reorder (arrows), delete. Changes are undoable.</p>
+    </div>
+  </div>
+
+  <!-- File Source Modal (Feature 1) -->
+  <div id="sourceModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2">
+          <i class="fa-solid fa-file-code text-tablify-terracotta"></i> <span id="sourceFileName" class="font-mono text-xs"></span>
+        </h3>
+        <button onclick="closeSourceModal()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-[11px] text-tablify-clay dark:text-gray-400 mb-2">UTF-8 JSON, <span class="font-mono">formatVersion: 1</span> — schema header + rows with stable IDs (Git-friendly diffs). Matches <span class="font-mono">tablify.schema.json</span>. <b>No .tabula anything.</b></p>
+      <pre id="sourceBody" class="flex-1 overflow-auto text-[10px] font-mono bg-tablify-paper-inner dark:bg-tablify-dark-inner rounded-xl p-3 border border-tablify-paper-border dark:border-tablify-dark-border whitespace-pre"></pre>
+      <div class="mt-3 flex justify-end gap-2">
+        <button onclick="copySource()" class="pill-btn px-3.5 py-2 text-xs rounded-xl"><i class="fa-solid fa-copy mr-1"></i>Copy</button>
+        <button onclick="downloadSource()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl"><i class="fa-solid fa-download mr-1"></i>Download .tablify</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- @@MODALS -->
+
+  <!-- Floating panel host (select dropdowns, attachment editor, menus) -->
+  <div id="floatPanel" class="hidden float-panel"></div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-tablify-charcoal text-tablify-paper dark:bg-tablify-paper dark:text-tablify-charcoal px-4 py-2.5 rounded-full text-xs shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2.5 z-[80] border border-tablify-terracotta/30">
+    <i class="fa-solid fa-table-cells text-tablify-terracotta"></i>
     <span id="toastMsg">Workspace updated</span>
   </div>
 
   <script>
-    // Anthropic Datasets Definition
-    let currentDataset = 'prompts';
+    'use strict';
+    /* =====================================================================
+       Tablify Prototype — feature reference for spec/features.md
+       Document model per tablify.schema.json (formatVersion 1).
+       ===================================================================== */
 
-    const datasets = {
-      prompts: {
-        title: "Prompt Engineering Logs",
-        columns: [
-          { key: "name", title: "PROMPT NAME", type: "TEXT" },
-          { key: "model", title: "MODEL", type: "MODEL" },
-          { key: "score", title: "QUALITY SCORE", type: "SCORE" },
-          { key: "status", title: "EVAL STATUS", type: "STATUS" }
-        ],
-        rows: [
-          { id: 1, selected: false, name: "System prompt for code refactoring", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" },
-          { id: 2, selected: false, name: "Short story creative writer v2", model: "Claude 3 Opus", score: 4, status: "In Review" },
-          { id: 3, selected: false, name: "JSON extractor for invoices", model: "Claude 3.5 Haiku", score: 3, status: "Optimizing" },
-          { id: 4, selected: false, name: "Multi-turn math solver test", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" }
-        ]
-      },
-      tasks: {
-        title: "Model Benchmark Suite",
-        columns: [
-          { key: "name", title: "BENCHMARK TASK", type: "TEXT" },
-          { key: "model", title: "TARGET MODEL", type: "MODEL" },
-          { key: "score", title: "ACCURACY RATING", type: "SCORE" },
-          { key: "status", title: "BENCHMARK STATE", type: "STATUS" }
-        ],
-        rows: [
-          { id: 101, selected: false, name: "HumanEval Python Completion", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" },
-          { id: 102, selected: false, name: "GSM8K Math Reasoning", model: "Claude 3 Opus", score: 4, status: "Passed" },
-          { id: 103, selected: false, name: "MMLU High School Physics", model: "Claude 3.5 Haiku", score: 4, status: "In Review" }
-        ]
-      }
+    // ===== utilities =====
+    function uid(p) { return p + '_' + Math.random().toString(36).slice(2, 10); }
+    function nowIso() { return new Date().toISOString(); }
+    function esc(str) { return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function escAttr(str) { return esc(str).replace(/'/g, '&#39;'); }
+    function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
+    function pad2(n) { return String(n).padStart(2, '0'); }
+
+    // ===== select option colors =====
+    const OPT_COLOR_NAMES = ['gray', 'blue', 'green', 'red', 'amber', 'purple', 'teal', 'pink'];
+    const OPT_COLORS = {
+      gray:   { cls: 'bg-gray-500/15 text-gray-600 dark:text-gray-300 border-gray-500/30', dot: 'bg-gray-400', swatch: '#9ca3af' },
+      blue:   { cls: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30', dot: 'bg-sky-500', swatch: '#0ea5e9' },
+      green:  { cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-500', swatch: '#10b981' },
+      red:    { cls: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30', dot: 'bg-rose-500', swatch: '#f43f5e' },
+      amber:  { cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30', dot: 'bg-amber-500', swatch: '#f59e0b' },
+      purple: { cls: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30', dot: 'bg-purple-500', swatch: '#a855f7' },
+      teal:   { cls: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30', dot: 'bg-teal-500', swatch: '#14b8a6' },
+      pink:   { cls: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30', dot: 'bg-pink-500', swatch: '#ec4899' }
     };
+    function optColor(name) { return OPT_COLORS[name] || OPT_COLORS.gray; }
 
-    // Anthropic Color Status Config
-    const statusConfig = {
-      "Passed": { 
-        bg: "bg-[#1E3A2B] text-[#6EE7B7] border-[#27593F]", 
-        lightBg: "bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]",
-        dot: "bg-emerald-500" 
-      },
-      "In Review": { 
-        bg: "bg-[#3D2E14] text-[#FCD34D] border-[#5E4820]", 
-        lightBg: "bg-[#FEF7E0] text-[#B06000] border-[#FCE8B2]",
-        dot: "bg-amber-500" 
-      },
-      "Optimizing": { 
-        bg: "bg-[#3B1D1D] text-[#FCA5A5] border-[#5E2B2B]", 
-        lightBg: "bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]",
-        dot: "bg-rose-500" 
-      }
-    };
-
-    const modelBadgeConfig = {
-      "Claude 3.5 Sonnet": "bg-anthropic-terracotta/15 text-anthropic-terracotta border-anthropic-terracotta/30",
-      "Claude 3 Opus": "bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30",
-      "Claude 3.5 Haiku": "bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-500/30"
-    };
-
-    // Theme Management
-    function initTheme() {
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-        document.getElementById('themeIcon').className = 'fa-solid fa-sun';
-      } else {
-        document.documentElement.classList.add('light');
-        document.documentElement.classList.remove('dark');
-        document.getElementById('themeIcon').className = 'fa-solid fa-moon';
-      }
+    // ===== duration / date helpers =====
+    function fmtDuration(mins) {
+      if (mins == null || mins === '' || isNaN(mins)) return '';
+      mins = Math.round(Number(mins));
+      const h = Math.floor(mins / 60), m = mins % 60;
+      return h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
+    }
+    function parseDuration(s) {
+      s = String(s).trim().toLowerCase();
+      if (!s) return null;
+      let m;
+      if ((m = s.match(/^(\d+):(\d{1,2})$/))) return Number(m[1]) * 60 + Number(m[2]);
+      let total = 0, found = false;
+      if ((m = s.match(/(\d+(?:\.\d+)?)\s*h/))) { total += Number(m[1]) * 60; found = true; }
+      if ((m = s.match(/(\d+(?:\.\d+)?)\s*m(?!o)/))) { total += Number(m[1]); found = true; }
+      if (!found) { const n = Number(s); if (isNaN(n)) return null; total = n; }
+      return Math.round(total);
+    }
+    function fmtDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
+      if (isNaN(d)) return String(iso);
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+    function fmtDateTime(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d)) return String(iso);
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    }
+    function toLocalDTValue(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      if (isNaN(d)) return '';
+      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
     }
 
-    function toggleTheme() {
-      const isDark = document.documentElement.classList.contains('dark');
-      if (isDark) {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-        document.getElementById('themeIcon').className = 'fa-solid fa-moon';
-      } else {
-        document.documentElement.classList.remove('light');
-        document.documentElement.classList.add('dark');
-        document.getElementById('themeIcon').className = 'fa-solid fa-sun';
+    // ===== field type registry (19 types — spec §2.2–§2.4, P1-01) =====
+    const FT = {
+      text:          { label: 'Text', icon: 'fa-font', editor: 'text',
+                       fmt: v => esc(v), toText: v => v == null ? '' : String(v), parse: s => s },
+      long_text:     { label: 'Long text', icon: 'fa-align-left', editor: 'textarea',
+                       fmt: v => '<span class="line-clamp-2 whitespace-pre-wrap">' + esc(v) + '</span>', toText: v => v == null ? '' : String(v), parse: s => s },
+      number:        { label: 'Number', icon: 'fa-hashtag', editor: 'text', numeric: true, align: 'right',
+                       fmt: v => (v == null || v === '') ? '' : '<span class="font-mono">' + esc(Number(v).toLocaleString()) + '</span>',
+                       toText: v => (v == null || v === '') ? '' : String(v),
+                       parse: s => { const n = Number(String(s).replace(/,/g, '')); return isNaN(n) ? null : n; } },
+      currency:      { label: 'Currency', icon: 'fa-dollar-sign', editor: 'text', numeric: true, align: 'right',
+                       fmt: v => (v == null || v === '') ? '' : '<span class="font-mono">$' + esc(Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + '</span>',
+                       toText: v => (v == null || v === '') ? '' : '$' + Number(v).toFixed(2),
+                       parse: s => { const n = Number(String(s).replace(/[$,\s]/g, '')); return isNaN(n) ? null : n; } },
+      percent:       { label: 'Percent', icon: 'fa-percent', editor: 'text', numeric: true, align: 'right',
+                       fmt: v => (v == null || v === '') ? '' : '<span class="font-mono">' + esc(Number(v)) + '%</span>',
+                       toText: v => (v == null || v === '') ? '' : Number(v) + '%',
+                       parse: s => { const n = Number(String(s).replace(/[%\s]/g, '')); return isNaN(n) ? null : n; } },
+      duration:      { label: 'Duration', icon: 'fa-stopwatch', editor: 'text', numeric: true, align: 'right',
+                       fmt: v => '<span class="font-mono">' + esc(fmtDuration(v)) + '</span>', toText: v => fmtDuration(v), parse: parseDuration },
+      rating:        { label: 'Rating', icon: 'fa-star', editor: 'rating', numeric: true,
+                       fmt: () => '', toText: v => (v == null ? '' : v + '/5'),
+                       parse: s => { const n = Math.max(0, Math.min(5, Math.round(Number(s)))); return isNaN(n) ? null : n; } },
+      checkbox:      { label: 'Checkbox', icon: 'fa-square-check', editor: 'checkbox', numeric: true,
+                       fmt: () => '', toText: v => v ? 'true' : 'false',
+                       parse: s => /^(true|yes|1|x|✓)$/i.test(String(s).trim()) },
+      date:          { label: 'Date', icon: 'fa-calendar', editor: 'date',
+                       fmt: v => '<span class="font-mono">' + esc(fmtDate(v)) + '</span>', toText: v => v || '',
+                       parse: s => { s = String(s).trim(); if (!s) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const d = new Date(s); return isNaN(d) ? null : d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); } },
+      date_time:     { label: 'Date & time', icon: 'fa-clock', editor: 'datetime',
+                       fmt: v => '<span class="font-mono">' + esc(fmtDateTime(v)) + '</span>', toText: v => v || '',
+                       parse: s => { s = String(s).trim(); if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d.toISOString(); } },
+      url:           { label: 'URL', icon: 'fa-link', editor: 'text',
+                       fmt: v => v ? '<a href="' + escAttr(v) + '" target="_blank" rel="noopener" class="text-sky-600 dark:text-sky-400 hover:underline truncate inline-block max-w-[180px] align-bottom" onclick="event.stopPropagation()">' + esc(v) + '</a>' : '',
+                       toText: v => v || '', parse: s => s },
+      email:         { label: 'Email', icon: 'fa-envelope', editor: 'text',
+                       fmt: v => v ? '<a href="mailto:' + escAttr(v) + '" class="text-sky-600 dark:text-sky-400 hover:underline" onclick="event.stopPropagation()">' + esc(v) + '</a>' : '',
+                       toText: v => v || '', parse: s => s },
+      phone:         { label: 'Phone', icon: 'fa-phone', editor: 'text',
+                       fmt: v => v ? '<a href="tel:' + escAttr(v) + '" class="font-mono text-sky-600 dark:text-sky-400 hover:underline" onclick="event.stopPropagation()">' + esc(v) + '</a>' : '',
+                       toText: v => v || '', parse: s => s },
+      single_select: { label: 'Single select', icon: 'fa-circle-dot', editor: 'select',
+                       fmt: (v, f) => { const o = (f.options || []).find(o => o.id === v); if (!o) return ''; const c = optColor(o.color); return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ' + c.cls + '"><span class="w-1.5 h-1.5 rounded-full ' + c.dot + ' mr-1.5"></span>' + esc(o.name) + '</span>'; },
+                       toText: (v, f) => { const o = (f.options || []).find(o => o.id === v); return o ? o.name : ''; },
+                       parse: (s, f) => { const o = (f.options || []).find(o => o.name.toLowerCase() === String(s).trim().toLowerCase()); return o ? o.id : null; } },
+      multi_select:  { label: 'Multi select', icon: 'fa-list-check', editor: 'select',
+                       fmt: (v, f) => (Array.isArray(v) ? v : []).map(id => { const o = (f.options || []).find(o => o.id === id); if (!o) return ''; const c = optColor(o.color); return '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border mr-1 mb-0.5 ' + c.cls + '">' + esc(o.name) + '</span>'; }).join(''),
+                       toText: (v, f) => (Array.isArray(v) ? v : []).map(id => { const o = (f.options || []).find(o => o.id === id); return o ? o.name : ''; }).filter(Boolean).join(', '),
+                       parse: (s, f) => String(s).split(',').map(x => x.trim()).filter(Boolean).map(name => { const o = (f.options || []).find(o => o.name.toLowerCase() === name.toLowerCase()); return o ? o.id : null; }).filter(Boolean) },
+      attachment:    { label: 'Attachment', icon: 'fa-paperclip', editor: 'attachment',
+                       fmt: v => (Array.isArray(v) ? v : []).map(p => '<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono border border-tablify-paper-border dark:border-tablify-dark-border bg-tablify-paper-inner dark:bg-tablify-dark-inner mr-1 mb-0.5"><i class="fa-solid fa-paperclip mr-1 text-[8px] text-tablify-terracotta"></i>' + esc(p) + '</span>').join(''),
+                       toText: v => (Array.isArray(v) ? v : []).join(', '),
+                       parse: s => String(s).split(',').map(x => x.trim()).filter(Boolean) },
+      auto_number:   { label: 'Auto number', icon: 'fa-arrow-down-1-9', editor: 'none', readOnly: true, system: true, numeric: true, align: 'right',
+                       fmt: (v) => '<span class="font-mono text-tablify-clay dark:text-gray-400">' + esc(v) + '</span>', toText: v => v == null ? '' : String(v), parse: () => null },
+      created_time:  { label: 'Created time', icon: 'fa-calendar-plus', editor: 'none', readOnly: true, system: true,
+                       fmt: v => '<span class="font-mono text-tablify-clay dark:text-gray-400">' + esc(fmtDateTime(v)) + '</span>', toText: v => v || '', parse: () => null },
+      modified_time: { label: 'Last modified', icon: 'fa-calendar-check', editor: 'none', readOnly: true, system: true,
+                       fmt: v => '<span class="font-mono text-tablify-clay dark:text-gray-400">' + esc(fmtDateTime(v)) + '</span>', toText: v => v || '', parse: () => null }
+    };
+    const FT_GROUPS = [
+      ['Basic', ['text', 'long_text', 'number', 'currency', 'percent', 'duration', 'rating', 'checkbox']],
+      ['Date', ['date', 'date_time']],
+      ['Links & contact', ['url', 'email', 'phone']],
+      ['Select & attachment', ['single_select', 'multi_select', 'attachment']],
+      ['System (read-only)', ['auto_number', 'created_time', 'modified_time']]
+    ];
+
+    // ===== document model (tablify.schema.json, formatVersion 1) =====
+    function makeView() {
+      return { id: uid('viw'), name: 'Grid', type: 'grid', query: '', sorts: [], groupBy: null,
+               hidden: [], order: [], widths: {}, freezePrimary: true, rowHeight: 'm', collapsed: [] };
+    }
+    function makeField(name, type, extra) {
+      return Object.assign({ id: uid('fld'), name: name, type: type, primary: false,
+        required: false, unique: false, min: null, max: null, regex: null }, extra || {});
+    }
+    function makeRow(doc, cells) {
+      return { id: uid('row'), cells: cells || {}, createdTime: nowIso(), modifiedTime: nowIso(), autoNumber: doc.nextAutoNumber++ };
+    }
+    function makeDoc(name) {
+      const f = makeField('Name', 'text', { primary: true });
+      const doc = { formatVersion: 1, tableId: uid('tbl'), name: name, fields: [f], rows: [], views: [makeView()], syncLink: null, nextAutoNumber: 1 };
+      doc.views[0].order = [f.id];
+      doc.rows.push(makeRow(doc, {}));
+      return doc;
+    }
+    function docView(doc) { return doc.views[0]; }
+    function getField(doc, fid) { return doc.fields.find(f => f.id === fid); }
+    function primaryField(doc) { return doc.fields.find(f => f.primary) || doc.fields[0]; }
+    function getCell(doc, row, field) {
+      switch (field.type) {
+        case 'auto_number': return row.autoNumber;
+        case 'created_time': return row.createdTime;
+        case 'modified_time': return row.modifiedTime;
+        default: return row.cells[field.id];
       }
     }
+    function setCell(doc, row, field, val) {
+      if (FT[field.type].readOnly) return;
+      row.cells[field.id] = val;
+      row.modifiedTime = nowIso();
+    }
+    function cellText(doc, row, field) { return FT[field.type].toText(getCell(doc, row, field), field, doc); }
 
-    function renderTable() {
-      const activeData = datasets[currentDataset];
-      document.getElementById('editableTableTitle').textContent = activeData.title;
-
-      const thead = document.getElementById('tableHeaderHead');
-      const tbody = document.getElementById('tableBody');
-      const searchVal = document.getElementById('searchInput').value.toLowerCase();
-
-      // Header Rendering
-      let headerHtml = `<tr class="text-anthropic-clay dark:text-gray-400 text-[11px] font-semibold uppercase tracking-wider select-none">`;
-      headerHtml += `<th class="w-8 text-center pb-1">
-        <input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-anthropic-paper-border accent-anthropic-terracotta cursor-pointer">
-      </th>`;
-      headerHtml += `<th class="w-8 text-center pb-1 font-mono">#</th>`;
-
-      activeData.columns.forEach((col, idx) => {
-        headerHtml += `
-          <th class="pb-1 min-w-[160px]">
-            <div class="header-capsule flex items-center justify-between px-3.5 py-2 rounded-2xl shadow-sm">
-              <div class="flex items-center space-x-2">
-                <i class="fa-solid fa-grip-vertical text-anthropic-clay/50 text-[11px] cursor-grab"></i>
-                <span class="text-xs font-semibold tracking-wide">${escapeHtml(col.title)}</span>
-                <span class="text-[9px] text-anthropic-clay font-mono px-1.5 py-0.5 bg-anthropic-paper-inner dark:bg-anthropic-dark-inner rounded border border-anthropic-paper-border dark:border-anthropic-dark-border">${col.type}</span>
-              </div>
-              <button onclick="openColumnMenu('${col.key}')" class="w-5 h-5 rounded hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner flex items-center justify-center text-anthropic-clay transition">
-                <i class="fa-solid fa-ellipsis-vertical text-[10px]"></i>
-              </button>
-            </div>
-          </th>
-        `;
+    // ===== demo data =====
+    function seedDocs() {
+      // Table 1: Product Tasks — demonstrates all 19 field types
+      const t = { formatVersion: 1, tableId: 'tbl_tasks', name: 'Product Tasks', fields: [], rows: [], views: [makeView()], syncLink: null, nextAutoNumber: 1 };
+      const F = {};
+      [['name', 'Task', 'text', { primary: true, required: true }],
+       ['notes', 'Notes', 'long_text', {}],
+       ['status', 'Status', 'single_select', { options: [
+          { id: 'opt_backlog', name: 'Backlog', color: 'gray' },
+          { id: 'opt_progress', name: 'In Progress', color: 'blue' },
+          { id: 'opt_done', name: 'Done', color: 'green' },
+          { id: 'opt_blocked', name: 'Blocked', color: 'red' }] }],
+       ['tags', 'Tags', 'multi_select', { options: [
+          { id: 'opt_ui', name: 'UI', color: 'purple' },
+          { id: 'opt_data', name: 'Data', color: 'teal' },
+          { id: 'opt_docs', name: 'Docs', color: 'amber' },
+          { id: 'opt_perf', name: 'Perf', color: 'pink' }] }],
+       ['estimate', 'Estimate (h)', 'number', {}],
+       ['budget', 'Budget', 'currency', {}],
+       ['progress', 'Progress', 'percent', { min: 0, max: 100 }],
+       ['spent', 'Time Spent', 'duration', {}],
+       ['priority', 'Priority', 'rating', {}],
+       ['shipped', 'Shipped', 'checkbox', {}],
+       ['due', 'Due', 'date', {}],
+       ['review', 'Review At', 'date_time', {}],
+       ['spec', 'Spec URL', 'url', {}],
+       ['owner', 'Owner Email', 'email', { unique: true }],
+       ['phone', 'Phone', 'phone', {}],
+       ['files', 'Attachments', 'attachment', {}],
+       ['auto', 'ID', 'auto_number', {}],
+       ['created', 'Created', 'created_time', {}],
+       ['modified', 'Modified', 'modified_time', {}]
+      ].forEach(([key, name, type, extra]) => {
+        const f = makeField(name, type, extra); F[key] = f.id; t.fields.push(f);
       });
-      headerHtml += `</tr>`;
-      thead.innerHTML = headerHtml;
-
-      // Filter Rows
-      const filteredRows = activeData.rows.filter(row => {
-        return activeData.columns.some(col => {
-          const val = String(row[col.key] || '').toLowerCase();
-          return val.includes(searchVal);
-        });
-      });
-
-      document.getElementById('rowCountBadge').textContent = `${filteredRows.length} row${filteredRows.length === 1 ? '' : 's'}`;
-
-      // Update Selection state badge
-      const selectedRows = activeData.rows.filter(r => r.selected);
-      const selSummary = document.getElementById('selectionSummary');
-      if (selectedRows.length > 0) {
-        selSummary.classList.remove('hidden');
-        document.getElementById('selectedCount').textContent = `${selectedRows.length} selected`;
-      } else {
-        selSummary.classList.add('hidden');
-      }
-
-      // Body Rendering
-      tbody.innerHTML = '';
-      filteredRows.forEach((row, index) => {
-        const tr = document.createElement('tr');
-
-        // Selection Checkbox
-        let bodyHtml = `
-          <td class="text-center py-1">
-            <input type="checkbox" ${row.selected ? 'checked' : ''} onchange="toggleSelectRow(${row.id})" class="rounded border-anthropic-paper-border accent-anthropic-terracotta cursor-pointer">
-          </td>
-          <td class="text-center py-1 text-anthropic-clay font-mono text-xs select-none">
-            <span>${index + 1}</span>
-          </td>
-        `;
-
-        // Render each dynamic column cell
-        activeData.columns.forEach(col => {
-          const cellVal = row[col.key];
-
-          if (col.type === 'TEXT') {
-            bodyHtml += `
-              <td class="py-1 px-1">
-                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between shadow-sm rounded-2xl">
-                  <input type="text" value="${escapeHtml(cellVal || '')}" 
-                         onchange="updateRowValue(${row.id}, '${col.key}', this.value)"
-                         class="w-full bg-transparent text-xs focus:outline-none font-normal">
-                </div>
-              </td>
-            `;
-          } else if (col.type === 'MODEL') {
-            const badgeStyle = modelBadgeConfig[cellVal] || "bg-gray-500/10 text-gray-500 border-gray-500/20";
-            bodyHtml += `
-              <td class="py-1 px-1">
-                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between shadow-sm rounded-2xl cursor-pointer" onclick="cycleModel(${row.id}, '${col.key}')">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono border ${badgeStyle}">
-                    <i class="fa-solid fa-microchip mr-1.5 text-[9px]"></i>
-                    ${escapeHtml(cellVal || 'Select Model')}
-                  </span>
-                  <i class="fa-solid fa-chevron-down text-[9px] text-anthropic-clay ml-1"></i>
-                </div>
-              </td>
-            `;
-          } else if (col.type === 'SCORE') {
-            let stars = '';
-            const rating = Number(cellVal) || 0;
-            for (let i = 1; i <= 5; i++) {
-              const active = i <= rating ? 'text-anthropic-terracotta' : 'text-gray-300 dark:text-gray-600';
-              stars += `<i class="fa-solid fa-star ${active} cursor-pointer hover:scale-110 transition" onclick="setScore(${row.id}, '${col.key}', ${i})"></i>`;
-            }
-            bodyHtml += `
-              <td class="py-1 px-1">
-                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between shadow-sm rounded-2xl">
-                  <div class="flex items-center space-x-1 text-xs">
-                    ${stars}
-                  </div>
-                  <span class="text-[10px] font-mono text-anthropic-clay ml-2">${rating}/5</span>
-                </div>
-              </td>
-            `;
-          } else if (col.type === 'STATUS') {
-            const isDark = document.documentElement.classList.contains('dark');
-            const st = statusConfig[cellVal] || statusConfig["Passed"];
-            const tagClass = isDark ? st.bg : st.lightBg;
-
-            bodyHtml += `
-              <td class="py-1 px-1">
-                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between cursor-pointer shadow-sm rounded-2xl" onclick="cycleStatus(${row.id}, '${col.key}')">
-                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${tagClass}">
-                    <span class="w-1.5 h-1.5 rounded-full ${st.dot} mr-1.5"></span>
-                    ${escapeHtml(cellVal || 'Status')}
-                  </span>
-                  <i class="fa-solid fa-chevron-down text-[9px] text-anthropic-clay ml-1"></i>
-                </div>
-              </td>
-            `;
-          }
-        });
-
-        tr.innerHTML = bodyHtml;
-        tbody.appendChild(tr);
+      docView(t).order = t.fields.map(f => f.id);
+      docView(t).hidden = [F.review, F.phone, F.created, F.modified];
+      const demo = [
+        ['Design capsule grid shell', 'Match the card + capsule language in light and dark.', 'opt_done', ['opt_ui'], 8, 1200, 100, 540, 5, true, '2026-09-28', '2026-09-28T15:30:00Z', 'https://github.com/258044aamm-Dev/Tablify', 'mila@tablify.dev', '+880 1711-000001', ['Assets/grid-mock.png']],
+        ['Implement query parser', 'field:value grammar per spec §2.6 with quoted names.', 'opt_progress', ['opt_data'], 13, 2400, 60, 310, 4, false, '2026-10-14', '2026-10-15T10:00:00Z', 'https://github.com/258044aamm-Dev/Tablify/blob/main/docs/query-grammar.md', 'rahim@tablify.dev', '+880 1711-000002', []],
+        ['Write user guide', 'Covers import, export, views and shortcuts.', 'opt_backlog', ['opt_docs'], 5, 400, 0, 0, 2, false, '2026-10-30', null, '', 'sara@tablify.dev', '', []],
+        ['Virtual rows benchmark', '10k rows at 60fps on mobile.', 'opt_blocked', ['opt_perf', 'opt_data'], 21, 3600, 35, 720, 4, false, '2026-10-20', '2026-10-21T09:00:00Z', '', 'tom@tablify.dev', '+880 1711-000004', ['Assets/bench.csv', 'Assets/notes.md']],
+        ['CSV import inference', 'Headers from first row; infer number/date/checkbox/select.', 'opt_progress', ['opt_data', 'opt_docs'], 8, 1500, 80, 260, 3, false, '2026-10-12', null, 'https://github.com/258044aamm-Dev/Tablify/blob/main/spec/steps/P4-03.md', 'mila2@tablify.dev', '', []]
+      ];
+      demo.forEach(d => {
+        const r = makeRow(t, {});
+        [F.name, F.notes, F.status, F.tags, F.estimate, F.budget, F.progress, F.spent, F.priority, F.shipped, F.due, F.review, F.spec, F.owner, F.phone, F.files]
+          .forEach((fid, i) => { if (d[i] !== null && d[i] !== '' && !(Array.isArray(d[i]) && !d[i].length)) r.cells[fid] = d[i]; });
+        t.rows.push(r);
       });
 
+      // Table 2: Projects — small sibling table (linked records target in v2 step)
+      const p = { formatVersion: 1, tableId: 'tbl_projects', name: 'Projects', fields: [], rows: [], views: [makeView()], syncLink: null, nextAutoNumber: 1 };
+      const PF = {};
+      [['name', 'Project', 'text', { primary: true, required: true }],
+       ['phase', 'Phase', 'single_select', { options: [
+          { id: 'opt_plan', name: 'Planning', color: 'amber' },
+          { id: 'opt_build', name: 'Building', color: 'blue' },
+          { id: 'opt_ship', name: 'Shipped', color: 'green' }] }],
+       ['budget', 'Budget', 'currency', {}],
+       ['due', 'Target', 'date', {}],
+       ['notes', 'Notes', 'long_text', {}]
+      ].forEach(([key, name, type, extra]) => { const f = makeField(name, type, extra); PF[key] = f.id; p.fields.push(f); });
+      docView(p).order = p.fields.map(f => f.id);
+      [['Tablify 1.0 (MVP)', 'opt_build', 18000, '2026-11-15', 'Phases P0–P6: typed fields, grid, query, views, import/export.'],
+       ['Tablify 1.1 (Sync)', 'opt_plan', 9000, '2026-12-20', 'Embeds + optional Airtable sync with conflict detection.'],
+       ['Tablify 2.0 (Formulas)', 'opt_plan', 12000, '2027-02-01', 'Formula fields and linked records.']
+      ].forEach(d => {
+        const r = makeRow(p, {});
+        [PF.name, PF.phase, PF.budget, PF.due, PF.notes].forEach((fid, i) => { if (d[i] != null) r.cells[fid] = d[i]; });
+        p.rows.push(r);
+      });
+      return [t, p];
+    }
+
+    // ===== state, persistence, undo =====
+    const LS_KEY = 'tablifyPrototypeV1';
+    let state = { docs: [], active: null, editing: null, selected: {}, uiView: 'grid' };
+    const UNDO = [], REDO = [];
+    const UNDO_CAP = 80;
+
+    function activeDoc() { return state.docs.find(d => d.tableId === state.active); }
+
+    function save() {
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ docs: state.docs, active: state.active })); } catch (e) {}
       triggerSavedPulse();
     }
+    function load() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const data = JSON.parse(raw);
+          if (data && Array.isArray(data.docs) && data.docs.length && data.docs[0].formatVersion === 1) {
+            state.docs = data.docs;
+            state.active = data.active && data.docs.some(d => d.tableId === data.active) ? data.active : data.docs[0].tableId;
+            return;
+          }
+        }
+      } catch (e) {}
+      state.docs = seedDocs();
+      state.active = state.docs[0].tableId;
+      save();
+    }
+    function resetDemo() {
+      if (!confirm('Reset all demo data? This clears local changes.')) return;
+      localStorage.removeItem(LS_KEY);
+      UNDO.length = 0; REDO.length = 0;
+      state = { docs: [], active: null, editing: null, selected: {}, uiView: 'grid' };
+      load();
+      renderAll();
+      showToast('Demo data reset');
+    }
 
-    function updateRowValue(id, key, val) {
-      const row = datasets[currentDataset].rows.find(r => r.id === id);
-      if (row) {
-        row[key] = val;
-        triggerSavedPulse();
+    // Undo/redo infrastructure (snapshots; UI lands in PR-06).
+    function pushUndo(label) {
+      UNDO.push({ label: label, snap: JSON.stringify({ docs: state.docs, active: state.active }) });
+      if (UNDO.length > UNDO_CAP) UNDO.shift();
+      REDO.length = 0;
+    }
+    function mutate(label, fn) {
+      pushUndo(label);
+      fn();
+      save();
+      renderAll();
+    }
+
+    // ===== theme =====
+    function initTheme() {
+      const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', dark);
+      document.documentElement.classList.toggle('light', !dark);
+      document.getElementById('themeIcon').className = dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    }
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      document.documentElement.classList.toggle('dark', !isDark);
+      document.documentElement.classList.toggle('light', isDark);
+      document.getElementById('themeIcon').className = isDark ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+    }
+
+    // ===== row pipeline (search filter; query grammar + sort/group land in PR-04/05) =====
+    // @@PIPELINE-START
+    function visibleFields(doc) {
+      const v = docView(doc);
+      const order = v.order.filter(fid => getField(doc, fid));
+      doc.fields.forEach(f => { if (!order.includes(f.id)) order.push(f.id); });
+      return order.filter(fid => !v.hidden.includes(fid)).map(fid => getField(doc, fid));
+    }
+    function pipelineRows(doc) {
+      const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      let rows = doc.rows.slice();
+      if (q) {
+        const fields = visibleFields(doc);
+        rows = rows.filter(r => fields.some(f => cellText(doc, r, f).toLowerCase().includes(q)));
       }
+      return rows;
+    }
+    // @@PIPELINE-END
+
+    // ===== rendering =====
+    const ROWPAD = { s: 'py-1', m: 'py-2', l: 'py-3' };
+
+    function renderAll() {
+      renderTabs();
+      renderTitle();
+      renderGrid();
+      /* @@RENDERHOOKS */
     }
 
-    function setScore(id, key, score) {
-      const row = datasets[currentDataset].rows.find(r => r.id === id);
-      if (row) {
-        row[key] = score;
-        renderTable();
-      }
-    }
-
-    function cycleStatus(id, key) {
-      const row = datasets[currentDataset].rows.find(r => r.id === id);
-      if (!row) return;
-      const keys = Object.keys(statusConfig);
-      const curIndex = keys.indexOf(row[key]);
-      row[key] = keys[(curIndex + 1) % keys.length];
-      renderTable();
-      showToast(`Status set to ${row[key]}`);
-    }
-
-    function cycleModel(id, key) {
-      const row = datasets[currentDataset].rows.find(r => r.id === id);
-      if (!row) return;
-      const models = Object.keys(modelBadgeConfig);
-      const curIndex = models.indexOf(row[key]);
-      row[key] = models[(curIndex + 1) % models.length];
-      renderTable();
-      showToast(`Model updated to ${row[key]}`);
-    }
-
-    function addRow() {
-      const activeData = datasets[currentDataset];
-      const newId = Date.now();
-      const newRow = { id: newId, selected: false };
-
-      activeData.columns.forEach(col => {
-        if (col.type === 'TEXT') newRow[col.key] = "New benchmark query";
-        else if (col.type === 'MODEL') newRow[col.key] = "Claude 3.5 Sonnet";
-        else if (col.type === 'SCORE') newRow[col.key] = 4;
-        else if (col.type === 'STATUS') newRow[col.key] = "Passed";
+    function renderTabs() {
+      const host = document.getElementById('tableTabs');
+      let html = '<span class="text-xs font-medium text-tablify-clay dark:text-gray-400 whitespace-nowrap mr-1"><i class="fa-solid fa-folder-tree mr-1 text-tablify-terracotta"></i> Tables:</span>';
+      state.docs.forEach(d => {
+        const on = d.tableId === state.active && state.uiView === 'grid';
+        html += '<button onclick="switchTable(\'' + d.tableId + '\')" class="px-3 py-1.5 text-xs font-medium rounded-full transition whitespace-nowrap ' +
+          (on ? 'bg-tablify-terracotta text-white shadow-sm' : 'text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner') + '">' +
+          esc(d.name) + '</button>';
       });
-
-      activeData.rows.push(newRow);
-      renderTable();
-      showToast("Inserted row");
+      host.innerHTML = html;
     }
 
-    function toggleSelectRow(id) {
-      const row = datasets[currentDataset].rows.find(r => r.id === id);
-      if (row) row.selected = !row.selected;
-      renderTable();
+    function renderTitle() {
+      const doc = activeDoc();
+      const t = document.getElementById('editableTableTitle');
+      if (document.activeElement !== t) t.textContent = doc.name;
+      document.getElementById('fileChip').textContent = 'Tables/' + doc.name.replace(/[\\/:*?"<>|]/g, '_') + '.tablify';
     }
 
-    function toggleSelectAll(masterCb) {
-      datasets[currentDataset].rows.forEach(r => r.selected = masterCb.checked);
-      renderTable();
+    function headCellHtml(doc, field) {
+      // @@HEADCELL-START
+      const ft = FT[field.type];
+      return '<th class="pb-1 min-w-[160px]" data-fld="' + field.id + '">' +
+        '<div class="header-capsule flex items-center justify-between px-3.5 py-2 rounded-2xl shadow-sm">' +
+          '<div class="flex items-center space-x-2 min-w-0">' +
+            '<i class="fa-solid fa-grip-vertical text-tablify-clay/50 dark:text-gray-500 text-[11px] cursor-grab"></i>' +
+            (field.primary ? '<i class="fa-solid fa-key text-[9px] text-tablify-terracotta" title="Primary field"></i>' : '') +
+            '<span class="text-xs font-semibold tracking-wide font-serif truncate">' + esc(field.name) + '</span>' +
+            '<span class="text-[9px] text-tablify-clay dark:text-gray-400 font-mono px-1.5 py-0.5 bg-tablify-paper-inner dark:bg-tablify-dark-inner rounded border border-tablify-paper-border dark:border-tablify-dark-border whitespace-nowrap" title="' + escAttr(ft.label) + '"><i class="fa-solid ' + ft.icon + ' mr-1"></i>' + field.type + '</span>' +
+          '</div>' +
+          '<button onclick="openColumnMenu(event,\'' + field.id + '\')" class="w-5 h-5 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner flex items-center justify-center text-tablify-clay dark:text-gray-400 transition shrink-0">' +
+            '<i class="fa-solid fa-ellipsis-vertical text-[10px]"></i>' +
+          '</button>' +
+        '</div></th>';
+      // @@HEADCELL-END
     }
 
+    function cellInnerHtml(doc, row, field) {
+      const ft = FT[field.type];
+      const v = getCell(doc, row, field);
+      if (field.type === 'checkbox') {
+        return '<button onclick="toggleCheckbox(event,\'' + row.id + '\',\'' + field.id + '\')" class="text-base ' + (v ? 'text-tablify-terracotta' : 'text-gray-300 dark:text-gray-600') + '"><i class="fa-' + (v ? 'solid fa-square-check' : 'regular fa-square') + '"></i></button>';
+      }
+      if (field.type === 'rating') {
+        let stars = '';
+        const rating = Number(v) || 0;
+        for (let i = 1; i <= 5; i++) {
+          stars += '<i class="fa-solid fa-star ' + (i <= rating ? 'text-tablify-terracotta' : 'text-gray-300 dark:text-gray-600') + ' cursor-pointer hover:scale-110 transition" onclick="setRating(event,\'' + row.id + '\',\'' + field.id + '\',' + i + ')"></i>';
+        }
+        return '<div class="flex items-center space-x-1 text-xs">' + stars + '<span class="text-[10px] font-mono text-tablify-clay dark:text-gray-400 ml-2">' + rating + '/5</span></div>';
+      }
+      const html = ft.fmt(v, field, doc);
+      if (html === '' || html == null) return '<span class="text-tablify-clay/40 dark:text-gray-600 select-none">—</span>';
+      return html;
+    }
+
+    function cellHtml(doc, row, field, pad) {
+      const ft = FT[field.type];
+      const editing = state.editing && state.editing.rowId === row.id && state.editing.fieldId === field.id;
+      let inner;
+      let cls = 'cell-capsule px-3.5 ' + pad + ' shadow-sm rounded-2xl text-xs min-h-[34px] flex items-center';
+      if (ft.align === 'right') cls += ' justify-end';
+      if (editing) {
+        inner = editorHtml(doc, row, field);
+        cls += ' cell-editing';
+      } else {
+        inner = '<div class="w-full min-w-0">' + cellInnerHtml(doc, row, field) + '</div>';
+      }
+      const handlers = editing ? '' : ' onclick="cellClick(event,\'' + row.id + '\',\'' + field.id + '\')"';
+      return '<td class="py-1 px-1 align-top" data-row="' + row.id + '" data-fld="' + field.id + '">' +
+        '<div class="' + cls + (ft.readOnly ? ' opacity-80' : '') + '"' + handlers + '>' + inner + '</div></td>';
+    }
+
+    function editorHtml(doc, row, field) {
+      const v = getCell(doc, row, field);
+      const ft = FT[field.type];
+      const common = ' id="cellEditor" class="w-full bg-transparent text-xs focus:outline-none" onkeydown="editorKey(event)" onblur="editorBlur(event)"';
+      if (ft.editor === 'textarea') {
+        return '<textarea rows="3"' + common + '>' + esc(v) + '</textarea>';
+      }
+      if (ft.editor === 'date') {
+        return '<input type="date" value="' + escAttr(v || '') + '"' + common + '>';
+      }
+      if (ft.editor === 'datetime') {
+        return '<input type="datetime-local" value="' + escAttr(toLocalDTValue(v)) + '"' + common + '>';
+      }
+      let init = '';
+      switch (field.type) {
+        case 'number': init = v == null ? '' : String(v); break;
+        case 'currency': init = v == null ? '' : String(v); break;
+        case 'percent': init = v == null ? '' : String(v); break;
+        case 'duration': init = v == null ? '' : fmtDuration(v); break;
+        default: init = v == null ? '' : String(v);
+      }
+      return '<input type="text" value="' + escAttr(init) + '"' + common + '>';
+    }
+
+    function renderGrid() {
+      const doc = activeDoc();
+      const view = docView(doc);
+      const fields = visibleFields(doc);
+      const rows = pipelineRows(doc);
+      const pad = ROWPAD[view.rowHeight] || ROWPAD.m;
+
+      // header
+      let headerHtml = '<tr class="text-tablify-clay dark:text-gray-400 text-[11px] font-semibold uppercase tracking-wider select-none">';
+      headerHtml += '<th class="w-8 text-center pb-1"><input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></th>';
+      headerHtml += '<th class="w-8 text-center pb-1 font-mono">#</th>';
+      fields.forEach(f => { headerHtml += headCellHtml(doc, f); });
+      headerHtml += '</tr>';
+      document.getElementById('tableHeaderHead').innerHTML = headerHtml;
+
+      // body
+      // @@GRIDBODY-START
+      let bodyHtml = '';
+      rows.forEach((row, index) => {
+        bodyHtml += '<tr data-row="' + row.id + '">';
+        bodyHtml += '<td class="text-center py-1"><input type="checkbox" ' + (state.selected[row.id] ? 'checked' : '') + ' onchange="toggleSelectRow(\'' + row.id + '\')" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></td>';
+        bodyHtml += '<td class="text-center py-1 text-tablify-clay dark:text-gray-400 font-mono text-xs select-none">' + (index + 1) + '</td>';
+        fields.forEach(f => { bodyHtml += cellHtml(doc, row, f, pad); });
+        bodyHtml += '</tr>';
+      });
+      document.getElementById('tableBody').innerHTML = bodyHtml;
+      // @@GRIDBODY-END
+
+      // counts + selection
+      document.getElementById('rowCountBadge').textContent = rows.length + ' row' + (rows.length === 1 ? '' : 's') + (rows.length !== doc.rows.length ? ' (of ' + doc.rows.length + ')' : '');
+      const selCount = Object.keys(state.selected).filter(id => state.selected[id] && doc.rows.some(r => r.id === id)).length;
+      const selSummary = document.getElementById('selectionSummary');
+      if (selCount > 0) {
+        selSummary.classList.remove('hidden'); selSummary.classList.add('flex');
+        document.getElementById('selectedCount').textContent = selCount + ' selected';
+      } else {
+        selSummary.classList.add('hidden'); selSummary.classList.remove('flex');
+      }
+
+      // focus the open editor
+      const ed = document.getElementById('cellEditor');
+      if (ed) { ed.focus(); if (ed.select && ed.type === 'text') ed.select(); }
+    }
+
+    // ===== editing (Feature 5: commit on Enter/blur, cancel on Escape) =====
+    function cellClick(ev, rowId, fieldId) {
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const ft = FT[field.type];
+      if (ft.readOnly) { showToast(ft.label + ' is read-only (system field)'); return; }
+      if (ft.editor === 'select') { openSelectPanel(ev.currentTarget, rowId, fieldId); return; }
+      if (ft.editor === 'attachment') { openAttachmentPanel(ev.currentTarget, rowId, fieldId); return; }
+      if (ft.editor === 'checkbox' || ft.editor === 'rating' || ft.editor === 'none') return;
+      startEdit(rowId, fieldId);
+    }
+    function startEdit(rowId, fieldId) {
+      if (state.editing && (state.editing.rowId !== rowId || state.editing.fieldId !== fieldId)) commitEditor(false);
+      state.editing = { rowId: rowId, fieldId: fieldId, cancelled: false };
+      renderGrid();
+    }
+    function editorKey(ev) {
+      if (ev.key === 'Enter' && !(ev.target.tagName === 'TEXTAREA' && ev.shiftKey)) {
+        ev.preventDefault();
+        commitEditor(true);
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault();
+        state.editing = null;
+        renderGrid();
+        showToast('Edit cancelled');
+      }
+      ev.stopPropagation();
+    }
+    function editorBlur() {
+      // slight delay so Escape / panel clicks can win
+      setTimeout(() => { if (state.editing) commitEditor(false); }, 80);
+    }
+    function commitEditor() {
+      const edEl = document.getElementById('cellEditor');
+      if (!edEl || !state.editing) { state.editing = null; return; }
+      const { rowId, fieldId } = state.editing;
+      const doc = activeDoc();
+      const row = doc.rows.find(r => r.id === rowId);
+      const field = getField(doc, fieldId);
+      state.editing = null;
+      if (!row || !field) { renderGrid(); return; }
+      const raw = edEl.value;
+      const prev = getCell(doc, row, field);
+      let val;
+      if (raw === '' || raw == null) val = undefined;
+      else {
+        val = FT[field.type].parse(raw, field, doc);
+        if (val === null) { renderGrid(); showToast('Could not parse "' + raw + '" as ' + FT[field.type].label); return; }
+      }
+      const prevJson = JSON.stringify(prev === undefined ? null : prev);
+      const valJson = JSON.stringify(val === undefined ? null : val);
+      if (prevJson === valJson) { renderGrid(); return; }
+      mutate('Edit cell', () => {
+        if (val === undefined) { delete row.cells[field.id]; row.modifiedTime = nowIso(); }
+        else setCell(doc, row, field, val);
+      });
+    }
+    function toggleCheckbox(ev, rowId, fieldId) {
+      ev.stopPropagation();
+      const doc = activeDoc();
+      const row = doc.rows.find(r => r.id === rowId);
+      const field = getField(doc, fieldId);
+      mutate('Toggle checkbox', () => setCell(doc, row, field, !getCell(doc, row, field)));
+    }
+    function setRating(ev, rowId, fieldId, n) {
+      ev.stopPropagation();
+      const doc = activeDoc();
+      const row = doc.rows.find(r => r.id === rowId);
+      const field = getField(doc, fieldId);
+      const cur = Number(getCell(doc, row, field)) || 0;
+      mutate('Set rating', () => setCell(doc, row, field, cur === n ? 0 : n));
+    }
+
+    // ===== floating panel host =====
+    let panelCtx = null;
+    function openPanel(anchorEl, html, ctx) {
+      const p = document.getElementById('floatPanel');
+      p.innerHTML = html;
+      p.classList.remove('hidden');
+      panelCtx = ctx || {};
+      const r = anchorEl.getBoundingClientRect();
+      const pw = Math.min(320, window.innerWidth - 24);
+      let x = Math.min(r.left, window.innerWidth - pw - 12);
+      let y = r.bottom + 6;
+      p.style.left = Math.max(8, x) + 'px';
+      p.style.top = y + 'px';
+      const ph = p.getBoundingClientRect().height;
+      if (y + ph > window.innerHeight - 8) p.style.top = Math.max(8, r.top - ph - 6) + 'px';
+      const inp = p.querySelector('input[type=text]');
+      if (inp) inp.focus();
+    }
+    function closePanel() {
+      document.getElementById('floatPanel').classList.add('hidden');
+      document.getElementById('floatPanel').innerHTML = '';
+      panelCtx = null;
+    }
+    document.addEventListener('mousedown', ev => {
+      const p = document.getElementById('floatPanel');
+      if (!p.classList.contains('hidden') && !p.contains(ev.target)) closePanel();
+    });
+    document.addEventListener('keydown', ev => {
+      if (ev.key === 'Escape' && panelCtx) closePanel();
+    });
+
+    // ===== select dropdown (Feature 3: searchable, create-on-type, colored) =====
+    function openSelectPanel(anchorEl, rowId, fieldId) {
+      panelCtx = { kind: 'select', rowId, fieldId, search: '' };
+      renderSelectPanel(anchorEl);
+    }
+    function renderSelectPanel(anchorEl) {
+      const { rowId, fieldId, search } = panelCtx;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const row = doc.rows.find(r => r.id === rowId);
+      const multi = field.type === 'multi_select';
+      const cur = getCell(doc, row, field);
+      const curIds = multi ? (Array.isArray(cur) ? cur : []) : (cur ? [cur] : []);
+      const opts = (field.options || []).filter(o => !search || o.name.toLowerCase().includes(search.toLowerCase()));
+      let html = '<div class="p-2">' +
+        '<input type="text" value="' + escAttr(search) + '" placeholder="Search or create…" oninput="selectPanelSearch(this)" onkeydown="selectPanelKey(event)" class="pill-input w-full rounded-lg px-3 py-1.5 text-xs focus:outline-none mb-1.5">' +
+        '<div class="max-h-52 overflow-y-auto space-y-0.5">';
+      opts.forEach(o => {
+        const c = optColor(o.color);
+        const on = curIds.includes(o.id);
+        html += '<button onclick="selectPanelPick(\'' + o.id + '\')" class="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner text-left">' +
+          '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ' + c.cls + '"><span class="w-1.5 h-1.5 rounded-full ' + c.dot + ' mr-1.5"></span>' + esc(o.name) + '</span>' +
+          (on ? '<i class="fa-solid fa-check text-tablify-terracotta text-xs"></i>' : '') + '</button>';
+      });
+      if (!opts.length && !search) html += '<div class="px-2 py-1.5 text-[11px] text-tablify-clay dark:text-gray-400">No options yet — type to create.</div>';
+      const exact = (field.options || []).some(o => o.name.toLowerCase() === (search || '').toLowerCase());
+      if (search && !exact) {
+        html += '<button onclick="selectPanelCreate()" class="w-full flex items-center px-2 py-1.5 rounded-lg hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner text-left text-xs"><i class="fa-solid fa-plus text-tablify-terracotta mr-2 text-[10px]"></i>Create "<b>' + esc(search) + '</b>"</button>';
+      }
+      html += '</div>' +
+        '<div class="border-t border-tablify-paper-border dark:border-tablify-dark-border mt-1.5 pt-1.5 flex justify-between items-center">' +
+        '<button onclick="panelClear()" class="text-[11px] text-tablify-clay dark:text-gray-400 hover:text-rose-500 px-2 py-1">Clear</button>' +
+        '<button onclick="openOptMgrFromPanel()" class="text-[11px] text-tablify-terracotta hover:underline px-2 py-1"><i class="fa-solid fa-palette mr-1"></i>Manage options</button>' +
+        '</div></div>';
+      openPanel(anchorEl, html, panelCtx);
+      const inp = document.querySelector('#floatPanel input');
+      if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+    }
+    function selectPanelSearch(inp) {
+      panelCtx.search = inp.value;
+      const anchor = document.querySelector('td[data-row="' + panelCtx.rowId + '"][data-fld="' + panelCtx.fieldId + '"] > div') || document.body;
+      renderSelectPanel(anchor);
+    }
+    function selectPanelKey(ev) {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        const { fieldId, search } = panelCtx;
+        const doc = activeDoc();
+        const field = getField(doc, fieldId);
+        const exact = (field.options || []).find(o => o.name.toLowerCase() === (search || '').toLowerCase());
+        if (exact) selectPanelPick(exact.id);
+        else if (search) selectPanelCreate();
+      }
+      ev.stopPropagation();
+    }
+    function selectPanelPick(optId) {
+      const { rowId, fieldId } = panelCtx;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const row = doc.rows.find(r => r.id === rowId);
+      const multi = field.type === 'multi_select';
+      mutate('Set select', () => {
+        if (multi) {
+          const cur = Array.isArray(getCell(doc, row, field)) ? getCell(doc, row, field).slice() : [];
+          const i = cur.indexOf(optId);
+          if (i >= 0) cur.splice(i, 1); else cur.push(optId);
+          setCell(doc, row, field, cur);
+        } else {
+          setCell(doc, row, field, optId);
+        }
+      });
+      if (multi) {
+        const anchor = document.querySelector('td[data-row="' + rowId + '"][data-fld="' + fieldId + '"] > div') || document.body;
+        renderSelectPanel(anchor);
+      } else closePanel();
+    }
+    function selectPanelCreate() {
+      const { fieldId, search } = panelCtx;
+      if (!search) return;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const opt = { id: uid('opt'), name: search, color: OPT_COLOR_NAMES[(field.options || []).length % OPT_COLOR_NAMES.length] };
+      mutate('Create option', () => { field.options = field.options || []; field.options.push(opt); });
+      panelCtx.search = '';
+      selectPanelPick(opt.id);
+      showToast('Created option "' + opt.name + '"');
+    }
+    function panelClear() {
+      const { rowId, fieldId } = panelCtx;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const row = doc.rows.find(r => r.id === rowId);
+      mutate('Clear cell', () => { delete row.cells[field.id]; row.modifiedTime = nowIso(); });
+      closePanel();
+    }
+
+    // ===== attachment panel (Feature 3: vault-relative paths) =====
+    function openAttachmentPanel(anchorEl, rowId, fieldId) {
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const row = doc.rows.find(r => r.id === rowId);
+      const list = Array.isArray(getCell(doc, row, field)) ? getCell(doc, row, field) : [];
+      let html = '<div class="p-2.5 text-xs">' +
+        '<div class="text-[11px] font-semibold mb-1.5 font-serif"><i class="fa-solid fa-paperclip text-tablify-terracotta mr-1"></i>Attachments</div>';
+      if (list.length) {
+        html += '<div class="space-y-1 mb-2">';
+        list.forEach((p, i) => {
+          html += '<div class="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-tablify-paper-inner dark:bg-tablify-dark-inner border border-tablify-paper-border dark:border-tablify-dark-border">' +
+            '<span class="font-mono text-[10px] truncate">' + esc(p) + '</span>' +
+            '<button onclick="attachRemove(' + i + ')" class="text-tablify-clay dark:text-gray-400 hover:text-rose-500"><i class="fa-solid fa-xmark text-[10px]"></i></button></div>';
+        });
+        html += '</div>';
+      } else {
+        html += '<div class="text-[11px] text-tablify-clay dark:text-gray-400 mb-2">No attachments.</div>';
+      }
+      html += '<input type="text" placeholder="Vault-relative path, e.g. Assets/photo.png" onkeydown="attachKey(event)" class="pill-input w-full rounded-lg px-3 py-1.5 text-[11px] font-mono focus:outline-none">' +
+        '<div class="text-[10px] text-tablify-clay dark:text-gray-400 mt-1.5">Type the path and press Enter (spec §2.3). File picking is Obsidian-side — simulated here.</div></div>';
+      openPanel(anchorEl, html, { kind: 'attach', rowId, fieldId });
+    }
+    function attachKey(ev) {
+      ev.stopPropagation();
+      if (ev.key !== 'Enter') return;
+      const path = ev.target.value.trim();
+      if (!path) return;
+      const { rowId, fieldId } = panelCtx;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const row = doc.rows.find(r => r.id === rowId);
+      mutate('Add attachment', () => {
+        const cur = Array.isArray(getCell(doc, row, field)) ? getCell(doc, row, field).slice() : [];
+        cur.push(path);
+        setCell(doc, row, field, cur);
+      });
+      openAttachmentPanel(document.querySelector('td[data-row="' + rowId + '"][data-fld="' + fieldId + '"] > div') || document.body, rowId, fieldId);
+    }
+    function attachRemove(i) {
+      const { rowId, fieldId } = panelCtx;
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      const row = doc.rows.find(r => r.id === rowId);
+      mutate('Remove attachment', () => {
+        const cur = Array.isArray(getCell(doc, row, field)) ? getCell(doc, row, field).slice() : [];
+        cur.splice(i, 1);
+        setCell(doc, row, field, cur);
+      });
+      openAttachmentPanel(document.querySelector('td[data-row="' + rowId + '"][data-fld="' + fieldId + '"] > div') || document.body, rowId, fieldId);
+    }
+
+    // ===== option manager (Feature 3) =====
+    let optMgrFieldId = null;
+    function openOptMgrFromPanel() {
+      const fid = panelCtx.fieldId;
+      closePanel();
+      openOptMgr(fid);
+    }
+    function openOptMgr(fieldId) {
+      optMgrFieldId = fieldId;
+      renderOptMgr();
+      document.getElementById('optMgrModal').classList.remove('hidden');
+    }
+    function closeOptMgr() { document.getElementById('optMgrModal').classList.add('hidden'); optMgrFieldId = null; }
+    function renderOptMgr() {
+      const doc = activeDoc();
+      const field = getField(doc, optMgrFieldId);
+      if (!field) return;
+      document.getElementById('optMgrTitle').textContent = 'Options — ' + field.name;
+      const host = document.getElementById('optMgrBody');
+      let html = '';
+      (field.options || []).forEach((o, i) => {
+        const c = optColor(o.color);
+        html += '<div class="flex items-center gap-2">' +
+          '<button onclick="optMgrMove(' + i + ',-1)" class="pill-btn w-6 h-6 rounded-lg text-[10px]" title="Move up"><i class="fa-solid fa-arrow-up"></i></button>' +
+          '<button onclick="optMgrMove(' + i + ',1)" class="pill-btn w-6 h-6 rounded-lg text-[10px]" title="Move down"><i class="fa-solid fa-arrow-down"></i></button>' +
+          '<button onclick="optMgrColor(' + i + ')" class="w-6 h-6 rounded-lg border border-tablify-paper-border dark:border-tablify-dark-border shrink-0" style="background:' + c.swatch + '" title="Cycle color (' + o.color + ')"></button>' +
+          '<input type="text" value="' + escAttr(o.name) + '" onchange="optMgrRename(' + i + ',this.value)" class="pill-input flex-1 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none">' +
+          '<button onclick="optMgrDelete(' + i + ')" class="text-tablify-clay dark:text-gray-400 hover:text-rose-500 w-6 h-6" title="Delete option"><i class="fa-solid fa-trash-can text-[11px]"></i></button>' +
+          '</div>';
+      });
+      host.innerHTML = html || '<div class="text-[11px] text-tablify-clay dark:text-gray-400">No options yet.</div>';
+    }
+    function optMgrMove(i, dir) {
+      const doc = activeDoc();
+      const field = getField(doc, optMgrFieldId);
+      const j = i + dir;
+      if (j < 0 || j >= field.options.length) return;
+      mutate('Reorder option', () => { const t = field.options[i]; field.options[i] = field.options[j]; field.options[j] = t; });
+      renderOptMgr();
+    }
+    function optMgrColor(i) {
+      const doc = activeDoc();
+      const field = getField(doc, optMgrFieldId);
+      mutate('Recolor option', () => {
+        const cur = OPT_COLOR_NAMES.indexOf(field.options[i].color);
+        field.options[i].color = OPT_COLOR_NAMES[(cur + 1) % OPT_COLOR_NAMES.length];
+      });
+      renderOptMgr();
+    }
+    function optMgrRename(i, name) {
+      name = name.trim();
+      if (!name) { renderOptMgr(); return; }
+      const doc = activeDoc();
+      const field = getField(doc, optMgrFieldId);
+      mutate('Rename option', () => { field.options[i].name = name; });
+      renderOptMgr();
+    }
+    function optMgrDelete(i) {
+      const doc = activeDoc();
+      const field = getField(doc, optMgrFieldId);
+      const opt = field.options[i];
+      mutate('Delete option', () => {
+        field.options.splice(i, 1);
+        doc.rows.forEach(r => {
+          const v = r.cells[field.id];
+          if (field.type === 'single_select' && v === opt.id) delete r.cells[field.id];
+          if (field.type === 'multi_select' && Array.isArray(v)) r.cells[field.id] = v.filter(id => id !== opt.id);
+        });
+      });
+      renderOptMgr();
+    }
+    function optMgrAdd() {
+      const inp = document.getElementById('optMgrNew');
+      const name = inp.value.trim();
+      if (!name) return;
+      const doc = activeDoc();
+      const field = getField(doc, optMgrFieldId);
+      mutate('Add option', () => {
+        field.options = field.options || [];
+        field.options.push({ id: uid('opt'), name: name, color: OPT_COLOR_NAMES[field.options.length % OPT_COLOR_NAMES.length] });
+      });
+      inp.value = '';
+      renderOptMgr();
+    }
+
+    // ===== rows / tables =====
+    function addRow() {
+      const doc = activeDoc();
+      mutate('Add row', () => { doc.rows.push(makeRow(doc, {})); });
+      showToast('Inserted row');
+    }
+    function toggleSelectRow(rowId) {
+      state.selected[rowId] = !state.selected[rowId];
+      renderGrid();
+    }
+    function toggleSelectAll(cb) {
+      const doc = activeDoc();
+      pipelineRows(doc).forEach(r => { state.selected[r.id] = cb.checked; });
+      renderGrid();
+    }
     function deleteSelectedRows() {
-      datasets[currentDataset].rows = datasets[currentDataset].rows.filter(r => !r.selected);
-      renderTable();
-      showToast("Selected rows deleted");
+      const doc = activeDoc();
+      const ids = Object.keys(state.selected).filter(id => state.selected[id]);
+      if (!ids.length) return;
+      mutate('Delete rows', () => { doc.rows = doc.rows.filter(r => !ids.includes(r.id)); });
+      state.selected = {};
+      showToast('Deleted ' + ids.length + ' row' + (ids.length === 1 ? '' : 's'));
     }
-
-    function switchDataset(key) {
-      currentDataset = key;
-      document.getElementById('tab1Btn').className = key === 'prompts' 
-        ? "px-3 py-1.5 text-xs font-medium rounded-full bg-anthropic-terracotta text-white shadow-sm transition"
-        : "px-3 py-1.5 text-xs font-medium rounded-full text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition";
-      
-      document.getElementById('tab2Btn').className = key === 'tasks' 
-        ? "px-3 py-1.5 text-xs font-medium rounded-full bg-anthropic-terracotta text-white shadow-sm transition"
-        : "px-3 py-1.5 text-xs font-medium rounded-full text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition";
-
-      renderTable();
+    function switchTable(tableId) {
+      state.active = tableId;
+      state.uiView = 'grid';
+      state.editing = null;
+      state.selected = {};
+      save();
+      renderAll();
     }
+    function addNewTable() {
+      const doc = makeDoc('Untitled table');
+      mutate('New table', () => { state.docs.push(doc); state.active = doc.tableId; });
+      showToast('Created new table');
+    }
+    function commitTitle(el) {
+      const name = el.textContent.trim();
+      const doc = activeDoc();
+      if (!name || name === doc.name) { renderTitle(); return; }
+      mutate('Rename table', () => { doc.name = name; });
+    }
+    function filterRows() { renderGrid(); }
 
-    // Modal & Field Handlers
-    function showAddFieldModal() { document.getElementById('addFieldModal').classList.remove('hidden'); }
-    function hideAddFieldModal() { document.getElementById('addFieldModal').classList.add('hidden'); }
-
+    // ===== add field modal =====
+    function showAddFieldModal() {
+      const sel = document.getElementById('newFieldType');
+      let html = '';
+      FT_GROUPS.forEach(([group, types]) => {
+        html += '<optgroup label="' + group + '">';
+        types.forEach(t => { html += '<option value="' + t + '">' + FT[t].label + '</option>'; });
+        html += '</optgroup>';
+      });
+      sel.innerHTML = html;
+      sel.value = 'text';
+      onFieldTypeChange();
+      document.getElementById('addFieldModal').classList.remove('hidden');
+      document.getElementById('newFieldName').focus();
+    }
+    function hideAddFieldModal() { document.getElementById('addFieldModal').classList.add('hidden'); document.getElementById('newFieldName').value = ''; document.getElementById('newFieldOptions').value = ''; }
+    function onFieldTypeChange() {
+      const t = document.getElementById('newFieldType').value;
+      document.getElementById('fieldOptionsWrap').classList.toggle('hidden', t !== 'single_select' && t !== 'multi_select');
+      /* @@FIELDTYPECHANGE */
+    }
     function confirmAddField() {
       const name = document.getElementById('newFieldName').value.trim();
       const type = document.getElementById('newFieldType').value;
-
-      if (!name) {
-        showToast("Field title cannot be empty");
-        return;
+      if (!name) { showToast('Field name cannot be empty'); return; }
+      const doc = activeDoc();
+      const extra = {};
+      if (type === 'single_select' || type === 'multi_select') {
+        extra.options = document.getElementById('newFieldOptions').value.split('\n').map(s => s.trim()).filter(Boolean)
+          .map((n, i) => ({ id: uid('opt'), name: n, color: OPT_COLOR_NAMES[i % OPT_COLOR_NAMES.length] }));
       }
-
-      const key = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-      datasets[currentDataset].columns.push({ key, title: name.toUpperCase(), type });
-
-      // Add default values for existing rows
-      datasets[currentDataset].rows.forEach(r => {
-        if (type === 'SCORE') r[key] = 5;
-        else if (type === 'MODEL') r[key] = "Claude 3.5 Sonnet";
-        else if (type === 'STATUS') r[key] = "Passed";
-        else r[key] = "Sample text";
+      /* @@FIELDCONFIRM */
+      const field = makeField(name, type, extra);
+      mutate('Add field', () => {
+        doc.fields.push(field);
+        docView(doc).order.push(field.id);
       });
-
       hideAddFieldModal();
-      document.getElementById('newFieldName').value = '';
-      renderTable();
-      showToast(`Added field "${name}"`);
+      showToast('Added field "' + name + '"');
     }
 
-    // Export & Utilities
-    function exportData(format) {
-      const data = datasets[currentDataset];
-      const jsonStr = JSON.stringify(data.rows, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
+    // ===== column menu (full context menus land in PR-09) =====
+    function openColumnMenu(ev, fieldId) {
+      ev.stopPropagation();
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      let html = '<div class="p-1.5 text-xs">';
+      if (field.type === 'single_select' || field.type === 'multi_select') {
+        html += '<button onclick="closePanel();openOptMgr(\'' + fieldId + '\')" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner"><i class="fa-solid fa-palette mr-2 text-tablify-terracotta"></i>Manage options</button>';
+      }
+      html += '<button onclick="hideFieldFromMenu(\'' + fieldId + '\')" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner"><i class="fa-solid fa-eye-slash mr-2 text-tablify-clay"></i>Hide field</button>';
+      html += '<button onclick="deleteFieldFromMenu(\'' + fieldId + '\')" class="w-full text-left px-3 py-1.5 rounded-lg hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner text-rose-500"><i class="fa-solid fa-trash-can mr-2"></i>Delete field</button>';
+      html += '</div>';
+      openPanel(ev.currentTarget, html, { kind: 'colmenu', fieldId });
+    }
+    function hideFieldFromMenu(fieldId) {
+      closePanel();
+      const doc = activeDoc();
+      mutate('Hide field', () => { const v = docView(doc); if (!v.hidden.includes(fieldId)) v.hidden.push(fieldId); });
+      showToast('Field hidden — unhide via Options');
+    }
+    function deleteFieldFromMenu(fieldId) {
+      closePanel();
+      const doc = activeDoc();
+      const field = getField(doc, fieldId);
+      if (field.primary) { showToast('Cannot delete the primary field'); return; }
+      if (!confirm('Delete field "' + field.name + '" and its data?')) return;
+      mutate('Delete field', () => {
+        doc.fields = doc.fields.filter(f => f.id !== fieldId);
+        const v = docView(doc);
+        v.order = v.order.filter(id => id !== fieldId);
+        v.hidden = v.hidden.filter(id => id !== fieldId);
+        doc.rows.forEach(r => { delete r.cells[fieldId]; });
+      });
+      showToast('Field deleted');
+    }
+    function toggleMoreMenu() { showToast('View options arrive with PR-05'); }
+
+    // ===== file source (Feature 1) =====
+    function serializeDoc(doc) {
+      const clean = deepCopy(doc);
+      return JSON.stringify(clean, null, 2) + '\n';
+    }
+    function openSourceModal() {
+      const doc = activeDoc();
+      document.getElementById('sourceFileName').textContent = 'Tables/' + doc.name.replace(/[\\/:*?"<>|]/g, '_') + '.tablify';
+      document.getElementById('sourceBody').textContent = serializeDoc(doc);
+      document.getElementById('sourceModal').classList.remove('hidden');
+    }
+    function closeSourceModal() { document.getElementById('sourceModal').classList.add('hidden'); }
+    function copySource() {
+      navigator.clipboard.writeText(serializeDoc(activeDoc())).then(() => showToast('Copied .tablify source')).catch(() => showToast('Copy failed'));
+    }
+    function downloadSource() {
+      const doc = activeDoc();
+      downloadFile(doc.name.replace(/[\\/:*?"<>|]/g, '_') + '.tablify', serializeDoc(doc), 'application/json');
+      showToast('Downloaded .tablify file');
+    }
+    function downloadFile(name, content, mime) {
+      const blob = new Blob([content], { type: mime || 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${data.title.toLowerCase().replace(/\s+/g, '_')}.json`;
-      a.click();
-      showToast("Exported JSON file");
+      a.href = url; a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
+    // ===== export (CSV real; full export dialog lands in PR-08) =====
+    function csvEscape(s) {
+      s = String(s == null ? '' : s);
+      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+    function buildCSV(doc, fields, rows) {
+      let out = fields.map(f => csvEscape(f.name)).join(',') + '\r\n';
+      rows.forEach(r => { out += fields.map(f => csvEscape(cellText(doc, r, f))).join(',') + '\r\n'; });
+      return out;
+    }
+    function exportData() {
+      const doc = activeDoc();
+      const fields = visibleFields(doc);
+      const rows = pipelineRows(doc);
+      downloadFile(doc.name.replace(/\s+/g, '_').toLowerCase() + '.csv', buildCSV(doc, fields, rows), 'text/csv');
+      showToast('Exported CSV (current view)');
+    }
     function copyMarkdownTable() {
-      const data = datasets[currentDataset];
-      let md = `| ${data.columns.map(c => c.title).join(' | ')} |\n`;
-      md += `| ${data.columns.map(() => '---').join(' | ')} |\n`;
-
-      data.rows.forEach(r => {
-        const rowVals = data.columns.map(c => r[c.key] || '');
-        md += `| ${rowVals.join(' | ')} |\n`;
+      const doc = activeDoc();
+      const fields = visibleFields(doc);
+      const rows = pipelineRows(doc);
+      let md = '| ' + fields.map(f => f.name.replace(/\|/g, '\\|')).join(' | ') + ' |\n';
+      md += '| ' + fields.map(() => '---').join(' | ') + ' |\n';
+      rows.forEach(r => {
+        md += '| ' + fields.map(f => cellText(doc, r, f).replace(/\|/g, '\\|').replace(/\n/g, ' ')).join(' | ') + ' |\n';
       });
-
-      navigator.clipboard.writeText(md).then(() => {
-        showToast("Copied Markdown table to clipboard");
-      }).catch(() => {
-        showToast("Markdown table generated");
-      });
+      navigator.clipboard.writeText(md).then(() => showToast('Copied Markdown table')).catch(() => showToast('Markdown generated'));
     }
 
-    function filterRows() { renderTable(); }
-    function addNewTable() { showToast("Created new workspace table"); }
-    function toggleMoreMenu() { showToast("Display settings & column options"); }
-    function openColumnMenu(colKey) { showToast(`Column settings for [${colKey}]`); }
-
+    // ===== misc UI =====
     function triggerSavedPulse() {
       const el = document.getElementById('savedIndicator');
+      if (!el) return;
       el.style.opacity = '1';
+      el.classList.add('text-emerald-600');
     }
-
     function showToast(msg) {
       const toast = document.getElementById('toast');
       document.getElementById('toastMsg').textContent = msg;
       toast.classList.remove('opacity-0', 'pointer-events-none');
       toast.classList.add('opacity-100');
-      setTimeout(() => {
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => {
         toast.classList.remove('opacity-100');
         toast.classList.add('opacity-0', 'pointer-events-none');
-      }, 2000);
+      }, 2200);
     }
 
-    function escapeHtml(str) {
-      return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    }
+    /* @@EXT */
 
-    window.onload = function() {
+    // ===== boot =====
+    window.onload = function () {
       initTheme();
-      renderTable();
+      load();
+      renderAll();
     };
   </script>
 </body>
