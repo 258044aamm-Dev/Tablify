@@ -362,3 +362,15 @@ Every field from the roadmap §7 contract appears in this spec:
 | `.tabula` not read | §9 |
 | Never contains Airtable token | §10 |
 | `formatVersion` unknown = error | §8 |
+
+## 8. formatVersion 2 (P8)
+
+Status: approved with the P8-01 spec (2026-10-10). Implemented in P8-03 (parser, serializer, schema).
+
+- **Readers:** accept `formatVersion` 1 and 2. Any other value is an error and nothing is written (§1 unchanged).
+- **Writers:** write `formatVersion` 2 only when a table has at least one field of type `formula` or `link`. Otherwise the file keeps its version (a plain v1 table stays v1).
+- **New field types:** `formula` and `link`. Both are reserved for v2 only.
+  - `formula`: `formula` (string, the expression, see `docs/formula-spec.md`). Results are not stored in the file.
+  - `link`: `linkTableId` (string, default target table ID). Each cell value is an array of `{ "tableId": string, "rowId": string }`.
+- **Older plugins** (1.0.x and 1.1) refuse a v2 file with "Unsupported formatVersion". They do not write it.
+- **Unknown keys** are still preserved on round-trip (roadmap P1-03).
