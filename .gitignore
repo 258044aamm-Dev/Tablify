@@ -5,3 +5,7 @@ coverage/
 
 # Dev sourcemap written by esbuild (owner decision, 2026-10-10)
 main.js.map
+
+# Visual-parity harness bundle (tests/visual/lib/harness.ts) and scratch runs
+tests/visual/harness/.out/
+docs/evidence/visual-parity/latest/

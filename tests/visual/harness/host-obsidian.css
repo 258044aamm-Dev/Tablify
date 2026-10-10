@@ -1,0 +1,103 @@
+/* Hostile host stylesheet for the visual-parity harness (SAD-75 / Step 0).
+ *
+ * Approximates the parts of Obsidian's app.css that reach into plugin views — the generic
+ * element-qualified form-control rules — with a Catppuccin Mocha-style palette, the host theme in
+ * the owner's screenshot (#1e1e2e chrome, #313244 buttons, #cdd6f4 text). The plugin must render
+ * correctly *despite* these rules (spec/branding.md §3). Selector specificities mirror Obsidian:
+ * `button:not(.clickable-icon)` is (0,1,1), `input[type='text']` is (0,1,1).
+ */
+body {
+  --background-primary: #1e1e2e;
+  --background-secondary: #181825;
+  --background-modifier-border: #45475a;
+  --background-modifier-form-field: #1a1a28;
+  --interactive-normal: #313244;
+  --interactive-hover: #45475a;
+  --text-normal: #cdd6f4;
+  --text-muted: #a6adc8;
+  --text-accent: #89b4fa;
+  --font-interface: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Ubuntu, sans-serif;
+  margin: 0;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-family: var(--font-interface);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-container,
+.workspace-leaf,
+.workspace-leaf-content {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Obsidian zeroes view padding for non-markdown leaves and makes the content scroll. */
+.workspace-leaf-content .view-content {
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+button:not(.clickable-icon) {
+  background-color: var(--interactive-normal);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  color: var(--text-accent);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid #444455;
+  padding: 4px 12px;
+  height: 30px;
+  line-height: 1.3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  appearance: none;
+}
+
+button:not(.clickable-icon):hover {
+  background-color: var(--interactive-hover);
+}
+
+input[type='text'],
+input[type='search'],
+input[type='number'],
+input[type='date'],
+input[type='email'],
+textarea,
+select {
+  background: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  height: 30px;
+  outline: none;
+  appearance: none;
+}
+
+input[type='checkbox'] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-modifier-form-field);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 2px #89b4fa;
+}

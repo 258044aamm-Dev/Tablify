@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tablify plugin harness</title>
+  <!-- Host (Obsidian-like) rules load first, exactly as app.css precedes plugin styles. -->
+  <link rel="stylesheet" href="host-obsidian.css">
+  <!-- The capture script injects the plugin's styles.css here as an inline <style>, the way
+       Obsidian does, so relative url() references resolve against the page, not the plugin. -->
+</head>
+<body class="theme-dark">
+  <div class="app-container">
+    <div class="workspace-leaf">
+      <div class="workspace-leaf-content" data-type="tablify"></div>
+    </div>
+  </div>
+</body>
+</html>

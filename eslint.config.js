@@ -32,6 +32,7 @@ export default tseslint.config(
       "main.js",
       "coverage/",
       "tests/visual/vendor/", // pinned third-party copies (Tailwind play CDN); not our code
+      "tests/visual/harness/.out/", // generated harness bundle (SAD-75)
       "esbuild.config.mjs",
       "vitest.config.ts",
       "eslint.config.js",
