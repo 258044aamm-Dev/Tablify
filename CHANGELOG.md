@@ -2,7 +2,7 @@
 
 All notable changes to Tablify are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] — 2026-10-10
 
 ### Added
 
@@ -57,4 +57,5 @@ These are measured and disclosed rather than hidden:
 5. **Column resize has no keyboard path** (drag only) — recorded as an accessibility backlog item (F-3 in `docs/accessibility/audit.md`).
 6. **No settings tab in 1.0** — the plugin requires no configuration.
 
+[1.0.1]: https://github.com/258044aamm-Dev/Tablify/releases/tag/v1.0.1
 [1.0.0]: https://github.com/258044aamm-Dev/Tablify/releases/tag/v1.0.0
