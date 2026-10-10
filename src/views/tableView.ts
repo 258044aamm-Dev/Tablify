@@ -38,6 +38,10 @@ export class TableView extends TextFileView {
   private toolbar: HTMLElement | null = null;
   private body: HTMLElement | null = null;
   private menuTarget: MenuTarget | null = null;
+  /** Bottom-of-shell "Insert Row" pill (SAD-71 Step 1, prototype parity). */
+  private insertBtn: HTMLButtonElement | null = null;
+  /** Empty-table hint shown above the Insert Row pill (SAD-71 Step 1). */
+  private emptyHint: HTMLElement | null = null;
   /** Text copied from a cell or row (system clipboard is also written when available). */
   private clipboardText: string | null = null;
   /** Long-press state for touch (P5-03). */
@@ -99,6 +103,8 @@ export class TableView extends TextFileView {
     this.session = null;
     this.editing = null;
     this.menuTarget = null;
+    this.insertBtn = null;
+    this.emptyHint = null;
     if (this.body) this.body.empty();
     this.syncToolbar();
   }
@@ -107,6 +113,14 @@ export class TableView extends TextFileView {
     this.clear();
     this.toolbarView?.destroy();
     this.toolbarView = null;
+  }
+
+  /**
+   * Obsidian lifecycle: the pane changed size (SAD-71 Step 1). The grid is CSS-sized, so
+   * only the virtual-row math needs redoing — it reads clientHeight, which just changed.
+   */
+  onResize(): void {
+    this.grid?.handleResize();
   }
 
   // ---- internals ----
@@ -246,9 +260,25 @@ export class TableView extends TextFileView {
       this.grid.root.addEventListener('keydown', (e) => this.onKeyDown(e));
       this.grid.root.addEventListener('contextmenu', (e) => this.onContextMenu(e));
       this.wirePressEvents(this.grid.root);
+      // SAD-71 Step 1: the prototype keeps an "Insert Row" pill at the bottom of the table
+      // container, and an empty table gets a hint instead of a black void. Plain DOM (not
+      // createEl) so the jsdom mock and the browser agree, exactly like toolbar/GridView.
+      this.emptyHint = document.createElement('div');
+      this.emptyHint.className = 'tablify__empty-hint';
+      this.emptyHint.textContent = 'This table is empty. Insert a row to get started.';
+      this.emptyHint.dataset.testid = 'tablify-empty-hint';
+      this.body.appendChild(this.emptyHint);
+      this.insertBtn = document.createElement('button');
+      this.insertBtn.type = 'button';
+      this.insertBtn.className = 'tablify__insert-row';
+      this.insertBtn.textContent = 'Insert Row';
+      this.insertBtn.dataset.testid = 'tablify-insert-row';
+      this.insertBtn.addEventListener('click', () => this.mutate((st) => st.addRow()));
+      this.body.appendChild(this.insertBtn);
     } else {
       this.grid.setModel(rows, fields, s.getView());
     }
+    if (this.emptyHint) this.emptyHint.hidden = rows.length !== 0;
   }
 
   // ---- keyboard ----

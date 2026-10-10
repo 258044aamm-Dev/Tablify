@@ -116,8 +116,11 @@
   pointer-events: none;
 }
 
-.tablify__search-input,
-.tablify__query-input {
+/* SAD-71 Step 1: scoped with an element qualifier (0,2,1) so Obsidian's element-qualified
+   form rules (input[type='search'] etc., 0,1,1) cannot repaint our inputs with the host
+   theme — spec/branding.md §3 requires the plugin theme to win regardless of host theme. */
+.tablify__toolbar input.tablify__search-input,
+.tablify__toolbar input.tablify__query-input {
   background: var(--tablify-bg);
   color: var(--tablify-text);
   border: 1px solid var(--tablify-border);
@@ -144,8 +147,8 @@
   opacity: 0.55;
 }
 
-.tablify__search-input:focus,
-.tablify__query-input:focus {
+.tablify__toolbar input.tablify__search-input:focus,
+.tablify__toolbar input.tablify__query-input:focus {
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
 }
@@ -153,7 +156,7 @@
 /* Invalid query. The message uses the normal text colour: the accent orange is a
    non-text token (it measures 2.96:1 on the light background), so using it here would
    fail WCAG AA. The accent marks the field; the words stay readable. */
-.tablify__query-input--invalid {
+.tablify__toolbar input.tablify__query-input--invalid {
   border-color: var(--tablify-accent-primary);
   border-style: solid;
   border-width: 2px;
@@ -286,6 +289,61 @@
   color: var(--tablify-text);
   opacity: 0.8;
   text-align: right;
+}
+
+/* ---- View layout (SAD-71 Step 1) ------------------------------------------------
+   The grid is CSS-sized: it fills whatever the pane gives .tablify__body, so a pane
+   resize reflows it (TableView.onResize only redoes the virtual-row math). v1.0.1 set
+   px sizes inline at construction, which froze the box at its open-time size. */
+.tablify-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.tablify__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tablify--grid {
+  flex: 1 1 auto;
+  min-height: 160px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Empty-state hint + bottom Insert Row pill (prototype parity, SAD-71 Step 1). */
+.tablify__empty-hint {
+  font-size: 12px;
+  color: var(--tablify-text);
+  opacity: 0.7;
+  text-align: center;
+  padding-top: 10px;
+}
+
+.tablify__insert-row {
+  background: var(--tablify-bg);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.tablify__insert-row:hover {
+  border-color: var(--tablify-accent-primary);
+}
+
+.tablify__insert-row:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
 }
 
 /* Frozen columns (SAD-69 C). The position and offset are set inline, because they depend on

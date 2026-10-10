@@ -97,8 +97,11 @@ export class GridView {
     // touch scrolling without blocking page
     this.root.style.overflow = 'auto';
     this.root.style.webkitOverflowScrolling = 'touch' as unknown as string;
-    this.root.style.height = `${opts.viewportHeight ?? 600}px`;
-    this.root.style.width = `${opts.viewportWidth ?? 800}px`;
+    // SAD-71 Step 1: no inline px size here. A px width/height captured at construction
+    // froze the grid: after a pane resize the table covered part of the view and a fixed
+    // 600px height left a black void under short tables (owner screenshot, v1.0.1).
+    // Sizing is CSS-driven instead (.tablify--grid fills .tablify__body); the opts remain
+    // as the jsdom/measure fallback wherever clientHeight is 0.
     this.root.style.position = 'relative';
     applyTheme(this.root, opts.theme);
 
@@ -234,6 +237,14 @@ export class GridView {
     applyTheme(this.root, theme);
   }
 
+  /**
+   * Pane resize hook (SAD-71 Step 1). Sizing is CSS-driven, so a resize reflows the root
+   * by itself; what needs redoing is the virtual-row math, which reads clientHeight.
+   */
+  handleResize(): void {
+    this.render();
+  }
+
   /** Number of DOM row elements currently mounted (active) */
   getRenderedRowCount(): number {
     return this.content.children.length;
@@ -289,7 +300,13 @@ export class GridView {
     cell.style.overflow = 'hidden';
     cell.style.textOverflow = 'ellipsis';
     cell.style.whiteSpace = 'nowrap';
-    cell.style.borderRight = '1px solid var(--tablify-border)';
+    // SAD-71 Step 1: separators between columns only. A trailing right border on the last
+    // cell made the filler space beside it read as an unnamed column (owner screenshot).
+    if (colIndex < this.fields.length - 1) {
+      cell.style.borderRight = '1px solid var(--tablify-border)';
+    } else {
+      cell.style.borderRight = 'none';
+    }
     if (colIndex < this.frozenColumns) {
       // Pinned to a fixed offset, so it holds position while the rest scrolls under it.
       // The opaque background comes from .tablify__cell--frozen in styles.css, which
