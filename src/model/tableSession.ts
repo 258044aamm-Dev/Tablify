@@ -15,6 +15,8 @@ import {
   type CommandStack,
 } from './commands.js';
 import { sortRows, visibleFields } from './viewOrder.js';
+import { filterRows, compileQuery } from './rowFilter.js';
+import type { QueryError } from '../query/parse.js';
 import { planTypeChange, type TypeChangePlan } from './fieldChange.js';
 
 export interface TableSession {
@@ -27,8 +29,17 @@ export interface TableSession {
   getField(fieldId: string): FieldDefinition | undefined;
   /** Current (first) view definition. */
   getView(): ViewDefinition;
-  /** Rows in display order: view sort applied. */
+  /**
+   * Rows in display order: view sort applied, then the persisted search and query.
+   * Both filters live here rather than in the view layer so the grid, the row count and any
+   * export that resolves the current view all agree on what is visible.
+   */
   getDisplayRows(): Row[];
+  /**
+   * Error from the persisted query, or null when the query is empty or valid.
+   * Let the UI show why a saved filter is not narrowing anything.
+   */
+  getFilterError(): QueryError | null;
   /** Set one cell through an undoable command. No-op if the value is unchanged. */
   setValue(rowId: string, fieldId: string, value: CellValue): void;
   /** Add an empty row at the end through an undoable command. */
@@ -41,6 +52,15 @@ export interface TableSession {
   deleteRow(rowId: string): void;
   /** Replace the view definition through an undoable command. */
   setView(view: ViewDefinition): void;
+  /**
+   * Update persisted view state that must NOT be undoable — search and query (SAD-69).
+   *
+   * setView() wraps every change in a command, so routing 200 ms-debounced search
+   * keystrokes through it would push an undo entry per tick, bury real edits several
+   * hundred steps deep, and mark the file dirty on every pause in typing. Layout changes
+   * (sort, hidden, freeze, row height) still go through setView() and stay undoable.
+   */
+  patchView(patch: Partial<ViewDefinition>): void;
   /** Change a field's type with value conversion. Blocked (no change) unless every value converts. */
   changeFieldType(fieldId: string, target: FieldTypeName): TypeChangePlan;
   undo(): boolean;
@@ -77,7 +97,15 @@ export function createSession(file: TablifyFile): TableSession {
       return view;
     },
     getDisplayRows() {
-      return sortRows(store.getAllRows(), view.sort, store.getFields() as FieldDefinition[]);
+      const fields = store.getFields() as FieldDefinition[];
+      const sorted = sortRows(store.getAllRows(), view.sort, fields);
+      // All fields, including hidden ones: P3-08 specifies "any cell". An unparsable query
+      // fails open here so a typo cannot hide every row.
+      return filterRows(sorted, fields, view.search, view.query).rows;
+    },
+    getFilterError() {
+      const compiled = compileQuery(view.query, store.getFields() as FieldDefinition[]);
+      return compiled.ok ? null : compiled.error;
     },
     setValue(rowId, fieldId, value) {
       const row = store.getRow(rowId);
@@ -109,6 +137,13 @@ export function createSession(file: TablifyFile): TableSession {
       const before = view;
       if (JSON.stringify(before) === JSON.stringify(next)) return;
       stack.execute(createSetViewCommand<ViewDefinition>({ apply: setViewState, before, after: next }));
+    },
+    patchView(patch) {
+      const next: ViewDefinition = { ...view, ...patch };
+      if (JSON.stringify(view) === JSON.stringify(next)) return;
+      // Deliberately no stack.execute — see the interface note. The caller is responsible
+      // for re-rendering and requesting a save, exactly as it is after setView().
+      setViewState(next);
     },
     changeFieldType(fieldId, target) {
       const field = store.getFields().find((f) => f.id === fieldId);
