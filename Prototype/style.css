@@ -31,6 +31,19 @@ body { transition: background-color 0.25s ease, color 0.25s ease; }
 .col-resize-handle { position: absolute; right: -8px; top: 0; height: 100%; width: 12px; cursor: col-resize; z-index: 2; }
 .sticky-col { position: sticky; z-index: 5; }
 th.sticky-col { z-index: 6; }
+/* Frozen-column gap fill: the table is border-separate (6px x / 8px y spacing),
+   and those gaps are transparent and never sticky — scrolling capsules used to
+   show through them, fragmenting the frozen block. Exact-offset solid shadows
+   paint the shell color into every gap (sides + corner intersections) without
+   bleeding onto adjacent cells. Colors = bg-tablify-paper-inner / dark-inner. */
+.light .sticky-col {
+  box-shadow: 6px 0 0 #F4EFE6, -6px 0 0 #F4EFE6, 0 8px 0 #F4EFE6, 0 -8px 0 #F4EFE6,
+              6px 8px 0 #F4EFE6, 6px -8px 0 #F4EFE6, -6px 8px 0 #F4EFE6, -6px -8px 0 #F4EFE6;
+}
+.dark .sticky-col {
+  box-shadow: 6px 0 0 #1B1A17, -6px 0 0 #1B1A17, 0 8px 0 #1B1A17, 0 -8px 0 #1B1A17,
+              6px 8px 0 #1B1A17, 6px -8px 0 #1B1A17, -6px 8px 0 #1B1A17, -6px -8px 0 #1B1A17;
+}
 .cell-invalid { border-color: #f43f5e !important; box-shadow: 0 0 0 1px rgba(244,63,94,0.35); }
 .cell-focus { outline: 2px solid #CC785C; outline-offset: -1px; }
 .dark .cell-focus { outline-color: #D97757; }

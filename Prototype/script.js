@@ -175,6 +175,28 @@ function freezeEnabled(view) {
   if (view.freezePrimary === 'auto' || view.freezePrimary == null) return window.innerWidth >= FREEZE_BREAKPOINT;
   return !!view.freezePrimary;
 }
+// Frozen columns: measure real rendered widths and set each sticky cell's
+// left offset, instead of trusting the hardcoded 0/38/76 assumptions —
+// table-layout is auto, so content (3-digit row numbers, zoom, fonts) can
+// widen the first columns and desync fixed offsets.
+function syncFrozenOffsets() {
+  const table = document.getElementById('mainTable');
+  if (!table || !table.querySelector) return;
+  const headRow = table.querySelector('thead tr');
+  if (!headRow) return;
+  const stickyThs = Array.prototype.filter.call(headRow.children, el => el.classList && el.classList.contains('sticky-col'));
+  if (!stickyThs.length) return;
+  const spacingX = parseFloat((window.getComputedStyle(table).borderSpacing || '6px').split(' ')[0]) || 6;
+  let left = 0;
+  const lefts = stickyThs.map(th => { const l = left; left += th.getBoundingClientRect().width + spacingX; return l; });
+  stickyThs.forEach((th, i) => { th.style.left = lefts[i] + 'px'; });
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    let i = 0;
+    Array.prototype.forEach.call(tr.children, td => {
+      if (td.classList && td.classList.contains('sticky-col') && i < lefts.length) td.style.left = lefts[i++] + 'px';
+    });
+  });
+}
 let _freezeRsT = null;
 window.addEventListener('resize', () => {
   clearTimeout(_freezeRsT);
@@ -572,6 +594,7 @@ function renderGrid() {
     rows.forEach((row, index) => { bodyHtml += renderRowTr(row, index); });
   }
   document.getElementById('tableBody').innerHTML = bodyHtml;
+  syncFrozenOffsets();
   // @@GRIDBODY-END
 
   // counts + selection
