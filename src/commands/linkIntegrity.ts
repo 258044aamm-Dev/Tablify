@@ -50,7 +50,7 @@ export class LinkIntegrityModal extends Modal {
 
     if (r.duplicates.length > 0) {
       this.contentEl.createEl('p', {
-        text: 'Some files share a table ID. Only the first file is used for links (copy a table to get a new ID).',
+        text: 'Some files share a table ID. Only the first file is used for links. To give a copy its own ID, close its tab and use "Give this copy a new table ID" in the file menu.',
         cls: 'tablify-link-integrity__summary',
       });
       const list = this.contentEl.createEl('ul', { cls: 'tablify-link-integrity__list' });

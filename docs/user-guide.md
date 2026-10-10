@@ -212,5 +212,5 @@ These two types are new in format version 2. A table that uses one is saved as v
 - If a linked row is deleted, its chip is dashed and the cell is marked as broken. The link is kept, so you can see what was lost. Uncheck the row in the picker to remove the link.
 - To find every broken link in your vault, run **Check link integrity (all tables)** from the command palette.
 - Renaming a field does not update formulas that refer to it. They show `#NAME?` until you edit them. Field rename is not built yet.
-- Limits: copying a table file with Obsidian's own **Duplicate** keeps the same table ID, so links keep pointing at the original and the integrity check reports the duplicate. Lookups and rollups are not available.
+- Limits: Tablify's own **Duplicate** gives the copy a new ID. Obsidian's file **Duplicate** copies the ID, so the copy is not linked. Its file menu then offers **Give this copy a new table ID** (close the table tab first). Lookups and rollups are not available.
 

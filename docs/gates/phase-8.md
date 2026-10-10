@@ -72,7 +72,7 @@
 |---|---|---|---|
 | R-1 | **Field rename rule (spec §12 item 1) is accepted but not built. Deferred by owner decision, 2026-10-10.** The app has no field-rename feature, so there is nothing to hook the `{reference}` rewrite into | A field renamed by editing the file leaves its formulas showing `#NAME?`. Listed as a known limit in the user guide §18 | Revisit when field rename is planned. Build it as one undoable command that rewrites references |
 | R-2 | Sort, filter, copy and export of a link column use the count ("2 linked"), not the names | A sort on a link column orders by count, which may surprise users | Owner decision. A name-based sort needs the index in the query layer |
-| R-3 | Obsidian's own file Duplicate copies the table ID. The integrity check reports the duplicate, and links resolve to the first file by path | Links can point at either copy | Documented in the README and user guide. Owner decision on whether to re-issue an ID on duplicate |
+| R-3 | Obsidian's own file Duplicate copies the table ID. The integrity check reports the duplicate, and links resolve to the first file by path | Links resolve to the first file by path, never to the copy | Follow-up done: file menu item "Give this copy a new table ID" (explicit, closed-tab only). Integrity check points to it. Not run in Obsidian yet |
 | R-4 | Link editing in embedded tables is not supported; the embed shows a notice to open the full table | Some users may expect to link from a note | Owner decision |
 | R-5 | The picker edits links into one default target table per field. Links into other tables are kept but cannot be edited yet | Mixed-target link fields cannot be fixed in the UI | Build a second picker, or keep one target per field |
 | R-6 | Performance targets are still proposed (G-P1) | Gates are not binding until confirmed | Owner to confirm or change |
@@ -89,6 +89,18 @@
 3. R-1 (field rename) is deferred; confirm or reopen it. Decide R-2 (sort by link), R-3 (duplicate IDs) and R-5 (second picker).
 4. Confirm or change the performance targets (R-6).
 5. Then change this verdict to PASS and move SAD-13 to Done.
+
+## Follow-up: duplicate table IDs (2026-10-10)
+
+The spec (R-D11) assumes a copy gets a new table ID. Tablify's own Copy does this. Obsidian's native Duplicate does not. Owner asked for the best practice, and the chosen approach is:
+
+- **No silent writes.** A copy is changed only when the user runs the file-menu item on it.
+- **Only `tableId` changes.** Rows, fields, views, sync data and unknown keys are kept.
+- **The owner is never changed.** The first file by path keeps the ID, as the index already does.
+- **Refuses if the copy is open** in a table tab, so an open view cannot save the old ID back.
+
+Code: `src/links/reissueTableId.ts` (pure, 7 tests), `src/menus/fileMenu.ts` (menu item shown only on a copy). Full check at this commit: exit 0, 80 files, 1,234 tests, 119 warnings (baseline).
+NOT RUN in Obsidian: the menu item appears on a real duplicate, the notice texts, and the view refresh after the write.
 
 ## Spot-check of the evidence (2026-10-10)
 

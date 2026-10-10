@@ -1125,7 +1125,7 @@ A phase gate opens only when all of these are true:
 - **Gate:** P8-01 through P8-04 accepted. Gate note `docs/gates/phase-8.md`.
 - **Assumptions and limitations:**
   - Formula language is limited to the approved spec. Anything outside it is an error.
-  - Linked records across files depend on table IDs staying stable. Copying a file creates a new table ID (R-D11), so links point to the original.
+  - Linked records across files depend on table IDs staying stable. Tablify's own Copy creates a new table ID (R-D11), so links point to the original. Obsidian's native Duplicate keeps the ID. The file menu item "Give this copy a new table ID" fixes the copy on request (P8-04 follow-up). No file is changed silently.
   - Lookups and rollups are not included.
 
 ---

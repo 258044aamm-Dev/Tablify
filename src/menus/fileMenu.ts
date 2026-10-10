@@ -5,6 +5,12 @@ import { App, Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from 'obsidi
 import { startImport } from '../commands/import.js';
 import { openExportModal } from '../commands/export.js';
 import { COPY_SUFFIX, NEW_TABLE_NAME, duplicateTableText, joinPath, menuItemsFor, newTableText, uniqueName, type FileMenuAction, type MenuTarget } from './fileMenuModel.js';
+import { linkIndexFor } from '../links/vaultLinkIndex.js';
+import { decideReissue, reissueTableIdText } from '../links/reissueTableId.js';
+import { TABLIFY_VIEW_TYPE } from '../views/tableView.js';
+
+/** P8-04 follow-up: shown only on a copy whose table ID is shared with another file. */
+export const REISSUE_LABEL = 'Give this copy a new table ID';
 
 export function registerFileMenu(plugin: Plugin): void {
   const app = plugin.app;
@@ -17,8 +23,45 @@ export function registerFileMenu(plugin: Plugin): void {
             .onClick(() => void run(app, file, item.id)),
         );
       }
+      if (file instanceof TFile && file.extension === 'tablify') {
+        const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
+        if (cached.kind === 'reissue') {
+          menu.addItem((mi) => mi.setTitle(REISSUE_LABEL).onClick(() => void reissueFile(app, file)));
+        }
+      }
     }),
   );
+}
+
+/** Re-check the index and the open tabs, then write the new ID. Refuses rather than guess. */
+async function reissueFile(app: App, file: TFile): Promise<void> {
+  const idx = linkIndexFor(app);
+  await idx.refresh();
+  const openPaths = app.workspace
+    .getLeavesOfType(TABLIFY_VIEW_TYPE)
+    .map((leaf) => (leaf.view as { file?: TFile | null }).file?.path)
+    .filter((p): p is string => typeof p === 'string');
+  const decision = decideReissue(idx.index.duplicates(), file.path, openPaths);
+  switch (decision.kind) {
+    case 'not-duplicated':
+      new Notice('This table ID is not shared. Nothing to change.');
+      return;
+    case 'keeps-id':
+      new Notice('This file keeps the table ID. Give the other copy a new ID instead.');
+      return;
+    case 'open':
+      new Notice('Close this table tab first, then try again.');
+      return;
+    case 'reissue':
+      break;
+  }
+  const result = reissueTableIdText(await app.vault.read(file));
+  if (!result.ok) {
+    new Notice(`Could not give a new ID: ${result.error}`);
+    return;
+  }
+  await app.vault.modify(file, result.text);
+  new Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
 }
 
 function targetOf(file: TAbstractFile): MenuTarget {

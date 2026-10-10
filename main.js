@@ -9711,7 +9711,7 @@ var LinkIntegrityModal = class extends import_obsidian3.Modal {
     }
     if (r.duplicates.length > 0) {
       this.contentEl.createEl("p", {
-        text: "Some files share a table ID. Only the first file is used for links (copy a table to get a new ID).",
+        text: 'Some files share a table ID. Only the first file is used for links. To give a copy its own ID, close its tab and use "Give this copy a new table ID" in the file menu.',
         cls: "tablify-link-integrity__summary"
       });
       const list = this.contentEl.createEl("ul", { cls: "tablify-link-integrity__list" });
@@ -14126,7 +14126,26 @@ function newTableText(name) {
   return serialize(file);
 }
 
+// src/links/reissueTableId.ts
+function reissueTableIdText(text) {
+  const parsed = parse(text);
+  if (!parsed.ok)
+    return { ok: false, error: parsed.error };
+  return { ok: true, text: serialize({ ...parsed.data, tableId: generateTableId() }) };
+}
+function decideReissue(duplicates, path, openPaths) {
+  const group = duplicates.find((d) => d.paths.includes(path));
+  if (!group)
+    return { kind: "not-duplicated" };
+  if (group.paths[0] === path)
+    return { kind: "keeps-id" };
+  if (openPaths.includes(path))
+    return { kind: "open" };
+  return { kind: "reissue" };
+}
+
 // src/menus/fileMenu.ts
+var REISSUE_LABEL = "Give this copy a new table ID";
 function registerFileMenu(plugin) {
   const app = plugin.app;
   plugin.registerEvent(
@@ -14136,8 +14155,40 @@ function registerFileMenu(plugin) {
           (mi) => mi.setTitle(item.label).onClick(() => void run(app, file, item.id))
         );
       }
+      if (file instanceof import_obsidian9.TFile && file.extension === "tablify") {
+        const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
+        if (cached.kind === "reissue") {
+          menu.addItem((mi) => mi.setTitle(REISSUE_LABEL).onClick(() => void reissueFile(app, file)));
+        }
+      }
     })
   );
+}
+async function reissueFile(app, file) {
+  const idx = linkIndexFor(app);
+  await idx.refresh();
+  const openPaths = app.workspace.getLeavesOfType(TABLIFY_VIEW_TYPE).map((leaf) => leaf.view.file?.path).filter((p) => typeof p === "string");
+  const decision = decideReissue(idx.index.duplicates(), file.path, openPaths);
+  switch (decision.kind) {
+    case "not-duplicated":
+      new import_obsidian9.Notice("This table ID is not shared. Nothing to change.");
+      return;
+    case "keeps-id":
+      new import_obsidian9.Notice("This file keeps the table ID. Give the other copy a new ID instead.");
+      return;
+    case "open":
+      new import_obsidian9.Notice("Close this table tab first, then try again.");
+      return;
+    case "reissue":
+      break;
+  }
+  const result = reissueTableIdText(await app.vault.read(file));
+  if (!result.ok) {
+    new import_obsidian9.Notice(`Could not give a new ID: ${result.error}`);
+    return;
+  }
+  await app.vault.modify(file, result.text);
+  new import_obsidian9.Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
 }
 function targetOf(file) {
   if (file instanceof import_obsidian9.TFile)
