@@ -80,6 +80,9 @@
 
     .cell-editing { outline: 2px solid #CC785C !important; outline-offset: -1px; }
     .dark .cell-editing { outline-color: #D97757 !important; }
+    .col-resize-handle { position: absolute; right: -8px; top: 0; height: 100%; width: 12px; cursor: col-resize; z-index: 2; }
+    .sticky-col { position: sticky; z-index: 5; }
+    th.sticky-col { z-index: 6; }
     /* @@CSS */
   </style>
 </head>
@@ -159,11 +162,15 @@
       <div class="flex flex-wrap items-center justify-between gap-2.5 mb-4">
         <div class="relative flex-1 min-w-[200px]">
           <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-tablify-clay dark:text-gray-400 text-xs"></i>
-          <input type="text" id="searchInput" placeholder="Search rows…" oninput="filterRows()"
+          <input type="text" id="searchInput" placeholder="Search or query — e.g. Status:Done  Task:~grid  &quot;Estimate (h)&quot;:>5  Tags:UI,Perf  Due:empty" oninput="filterRows()"
                  class="pill-input w-full text-xs rounded-full pl-10 pr-4 py-2.5 focus:outline-none shadow-sm transition font-mono">
         </div>
         <div class="flex items-center space-x-2">
           <!-- @@TOOLBARBTNS -->
+          <button onclick="openFilterBuilder()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95" title="Filter builder — produces the same result as the query string (spec §2.6)">
+            <i class="fa-solid fa-filter text-[10px] text-tablify-terracotta"></i>
+            <span>Filter</span>
+          </button>
           <button onclick="addRow()" class="pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
             <i class="fa-solid fa-plus text-[10px] text-tablify-terracotta"></i>
             <span>Add Row</span>
@@ -272,6 +279,29 @@
       <div class="mt-3 flex justify-end gap-2">
         <button onclick="copySource()" class="pill-btn px-3.5 py-2 text-xs rounded-xl"><i class="fa-solid fa-copy mr-1"></i>Copy</button>
         <button onclick="downloadSource()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl"><i class="fa-solid fa-download mr-1"></i>Download .tablify</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Builder Modal (Feature 6) -->
+  <div id="filterModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-tablify-paper-card dark:bg-tablify-dark-card border border-tablify-paper-border dark:border-tablify-dark-border rounded-2xl p-6 w-full max-w-xl shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold font-serif flex items-center gap-2"><i class="fa-solid fa-filter text-tablify-terracotta"></i> Filter builder</h3>
+        <button onclick="closeFilterBuilder()" class="text-tablify-clay dark:text-gray-400 hover:text-tablify-charcoal dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="filterBody" class="space-y-2 text-xs"></div>
+      <button onclick="fbAdd()" class="mt-3 text-xs text-tablify-terracotta hover:underline"><i class="fa-solid fa-plus mr-1 text-[10px]"></i>Add condition</button>
+      <div class="mt-4 p-2.5 rounded-xl bg-tablify-paper-inner dark:bg-tablify-dark-inner border border-tablify-paper-border dark:border-tablify-dark-border">
+        <div class="text-[10px] text-tablify-clay dark:text-gray-400 mb-1 font-medium uppercase tracking-wider">Equivalent query string (spec §2.6)</div>
+        <div id="filterPreview" class="font-mono text-[11px] break-all"></div>
+      </div>
+      <div class="mt-4 flex justify-between">
+        <button onclick="fbClearAll()" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:text-rose-500">Clear all</button>
+        <div class="flex gap-2">
+          <button onclick="closeFilterBuilder()" class="px-3.5 py-2 text-xs text-tablify-clay dark:text-gray-400 hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner rounded-xl">Cancel</button>
+          <button onclick="fbApply()" class="px-4 py-2 bg-tablify-terracotta hover:bg-tablify-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Apply filter</button>
+        </div>
       </div>
     </div>
   </div>
@@ -607,11 +637,29 @@
       return order.filter(fid => !v.hidden.includes(fid)).map(fid => getField(doc, fid));
     }
     function pipelineRows(doc) {
-      const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const q = (document.getElementById('searchInput').value || '').trim();
       let rows = doc.rows.slice();
       if (q) {
-        const fields = visibleFields(doc);
-        rows = rows.filter(r => fields.some(f => cellText(doc, r, f).toLowerCase().includes(q)));
+        const parsed = parseQuery(q);
+        if (parsed.global) {
+          const g = parsed.global.toLowerCase();
+          const fields = visibleFields(doc);
+          rows = rows.filter(r => fields.some(f => cellText(doc, r, f).toLowerCase().includes(g)));
+        }
+        parsed.terms.forEach(term => {
+          const field = findFieldByName(doc, term.field);
+          rows = rows.filter(r => field ? evalTerm(doc, r, field, term) : false);
+        });
+      }
+      const sorts = docView(doc).sorts.filter(st => getField(doc, st.fieldId));
+      if (sorts.length) {
+        rows.sort((a, b) => {
+          for (const st of sorts) {
+            const c = cmpRows(doc, a, b, getField(doc, st.fieldId));
+            if (c) return c * st.dir;
+          }
+          return 0;
+        });
       }
       return rows;
     }
@@ -649,17 +697,26 @@
     function headCellHtml(doc, field) {
       // @@HEADCELL-START
       const ft = FT[field.type];
-      return '<th class="pb-1 min-w-[160px]" data-fld="' + field.id + '">' +
-        '<div class="header-capsule flex items-center justify-between px-3.5 py-2 rounded-2xl shadow-sm">' +
+      const view = docView(doc);
+      const sortIdx = view.sorts.findIndex(st => st.fieldId === field.id);
+      const sort = sortIdx >= 0 ? view.sorts[sortIdx] : null;
+      const w = view.widths[field.id];
+      const frozen = view.freezePrimary && field.primary;
+      return '<th class="pb-1 min-w-[160px]' + (frozen ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '') + '" data-fld="' + field.id + '"' +
+        ' style="' + (w ? 'width:' + w + 'px;min-width:' + w + 'px;' : '') + (frozen ? 'left:76px;z-index:7;' : '') + '"' +
+        ' ondragover="colDragOver(event)" ondrop="colDrop(event,\'' + field.id + '\')">' +
+        '<div class="header-capsule relative flex items-center justify-between px-3.5 py-2 rounded-2xl shadow-sm">' +
           '<div class="flex items-center space-x-2 min-w-0">' +
-            '<i class="fa-solid fa-grip-vertical text-tablify-clay/50 dark:text-gray-500 text-[11px] cursor-grab"></i>' +
+            '<i class="fa-solid fa-grip-vertical text-tablify-clay/50 dark:text-gray-500 text-[11px] cursor-grab" draggable="true" ondragstart="colDragStart(event,\'' + field.id + '\')" title="Drag to reorder"></i>' +
             (field.primary ? '<i class="fa-solid fa-key text-[9px] text-tablify-terracotta" title="Primary field"></i>' : '') +
-            '<span class="text-xs font-semibold tracking-wide font-serif truncate">' + esc(field.name) + '</span>' +
+            '<button class="text-xs font-semibold tracking-wide font-serif truncate hover:text-tablify-terracotta transition" onclick="headerSortClick(event,\'' + field.id + '\')" title="Click: sort · Shift-click: add sort">' + esc(field.name) + '</button>' +
+            (sort ? '<span class="text-[9px] text-tablify-terracotta font-mono shrink-0">' + (sort.dir === 1 ? '&#9650;' : '&#9660;') + (view.sorts.length > 1 ? (sortIdx + 1) : '') + '</span>' : '') +
             '<span class="text-[9px] text-tablify-clay dark:text-gray-400 font-mono px-1.5 py-0.5 bg-tablify-paper-inner dark:bg-tablify-dark-inner rounded border border-tablify-paper-border dark:border-tablify-dark-border whitespace-nowrap" title="' + escAttr(ft.label) + '"><i class="fa-solid ' + ft.icon + ' mr-1"></i>' + field.type + '</span>' +
           '</div>' +
           '<button onclick="openColumnMenu(event,\'' + field.id + '\')" class="w-5 h-5 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner flex items-center justify-center text-tablify-clay dark:text-gray-400 transition shrink-0">' +
             '<i class="fa-solid fa-ellipsis-vertical text-[10px]"></i>' +
           '</button>' +
+          '<div class="col-resize-handle" onmousedown="colResizeStart(event,\'' + field.id + '\')" title="Drag to resize"></div>' +
         '</div></th>';
       // @@HEADCELL-END
     }
@@ -683,7 +740,7 @@
       return html;
     }
 
-    function cellHtml(doc, row, field, pad) {
+    function cellHtml(doc, row, field, pad, frozen) {
       const ft = FT[field.type];
       const editing = state.editing && state.editing.rowId === row.id && state.editing.fieldId === field.id;
       let inner;
@@ -696,7 +753,7 @@
         inner = '<div class="w-full min-w-0">' + cellInnerHtml(doc, row, field) + '</div>';
       }
       const handlers = editing ? '' : ' onclick="cellClick(event,\'' + row.id + '\',\'' + field.id + '\')"';
-      return '<td class="py-1 px-1 align-top" data-row="' + row.id + '" data-fld="' + field.id + '">' +
+      return '<td class="py-1 px-1 align-top' + (frozen ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '') + '" data-row="' + row.id + '" data-fld="' + field.id + '"' + (frozen ? ' style="left:76px"' : '') + '>' +
         '<div class="' + cls + (ft.readOnly ? ' opacity-80' : '') + '"' + handlers + '>' + inner + '</div></td>';
     }
 
@@ -733,22 +790,53 @@
 
       // header
       let headerHtml = '<tr class="text-tablify-clay dark:text-gray-400 text-[11px] font-semibold uppercase tracking-wider select-none">';
-      headerHtml += '<th class="w-8 text-center pb-1"><input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></th>';
-      headerHtml += '<th class="w-8 text-center pb-1 font-mono">#</th>';
+      const hdrFrozen = view.freezePrimary ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '';
+      headerHtml += '<th class="w-8 text-center pb-1' + hdrFrozen + '"' + (view.freezePrimary ? ' style="left:0;z-index:7"' : '') + '><input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></th>';
+      headerHtml += '<th class="w-8 text-center pb-1 font-mono' + hdrFrozen + '"' + (view.freezePrimary ? ' style="left:38px;z-index:7"' : '') + '>#</th>';
       fields.forEach(f => { headerHtml += headCellHtml(doc, f); });
       headerHtml += '</tr>';
       document.getElementById('tableHeaderHead').innerHTML = headerHtml;
 
       // body
       // @@GRIDBODY-START
+      const frozenOn = view.freezePrimary;
+      const stickyTd = ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner';
+      const renderRowTr = (row, index) => {
+        let h = '<tr data-row="' + row.id + '">';
+        h += '<td class="text-center py-1' + (frozenOn ? stickyTd : '') + '"' + (frozenOn ? ' style="left:0"' : '') + '><input type="checkbox" ' + (state.selected[row.id] ? 'checked' : '') + ' onchange="toggleSelectRow(\'' + row.id + '\')" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></td>';
+        h += '<td class="text-center py-1 text-tablify-clay dark:text-gray-400 font-mono text-xs select-none' + (frozenOn ? stickyTd : '') + '"' + (frozenOn ? ' style="left:38px"' : '') + '>' + (index + 1) + '</td>';
+        fields.forEach(f => { h += cellHtml(doc, row, f, pad, frozenOn && f.primary); });
+        return h + '</tr>';
+      };
       let bodyHtml = '';
-      rows.forEach((row, index) => {
-        bodyHtml += '<tr data-row="' + row.id + '">';
-        bodyHtml += '<td class="text-center py-1"><input type="checkbox" ' + (state.selected[row.id] ? 'checked' : '') + ' onchange="toggleSelectRow(\'' + row.id + '\')" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></td>';
-        bodyHtml += '<td class="text-center py-1 text-tablify-clay dark:text-gray-400 font-mono text-xs select-none">' + (index + 1) + '</td>';
-        fields.forEach(f => { bodyHtml += cellHtml(doc, row, f, pad); });
-        bodyHtml += '</tr>';
-      });
+      const gf = view.groupBy ? getField(doc, view.groupBy) : null;
+      if (gf) {
+        const groups = [];
+        const gmap = {};
+        rows.forEach(r => {
+          const key = cellText(doc, r, gf) || '(empty)';
+          if (!gmap[key]) { gmap[key] = { key: key, rows: [] }; groups.push(gmap[key]); }
+          gmap[key].rows.push(r);
+        });
+        _groupKeys = groups.map(g => g.key);
+        let gi = 0;
+        groups.forEach((g, idx) => {
+          const collapsed = view.collapsed.includes(g.key);
+          let label = esc(g.key);
+          if (gf.type === 'single_select') {
+            const o = (gf.options || []).find(o => o.name === g.key);
+            if (o) label = FT.single_select.fmt(o.id, gf, doc);
+          }
+          bodyHtml += '<tr><td colspan="' + (fields.length + 2) + '" class="pt-2 pb-0.5 px-2">' +
+            '<button onclick="toggleGroup(' + idx + ')" class="flex items-center gap-2 text-[11px] font-semibold text-tablify-clay dark:text-gray-400 uppercase tracking-wider font-serif">' +
+            '<i class="fa-solid fa-chevron-' + (collapsed ? 'right' : 'down') + ' text-[9px]"></i>' + label +
+            '<span class="font-mono text-[10px] normal-case tracking-normal">' + g.rows.length + '</span></button></td></tr>';
+          if (!collapsed) g.rows.forEach(r => { bodyHtml += renderRowTr(r, gi++); });
+          else gi += g.rows.length;
+        });
+      } else {
+        rows.forEach((row, index) => { bodyHtml += renderRowTr(row, index); });
+      }
       document.getElementById('tableBody').innerHTML = bodyHtml;
       // @@GRIDBODY-END
 
@@ -1225,7 +1313,6 @@
       });
       showToast('Field deleted');
     }
-    function toggleMoreMenu() { showToast('View options arrive with PR-05'); }
 
     // ===== file source (Feature 1) =====
     function serializeDoc(doc) {
@@ -1302,6 +1389,379 @@
         toast.classList.add('opacity-0', 'pointer-events-none');
       }, 2200);
     }
+
+
+    // ===== Feature 6: query grammar (spec §2.6, docs/query-grammar.md) =====
+    function parseQuery(q) {
+      q = String(q || '');
+      const res = { terms: [], global: '' };
+      const globals = [];
+      let i = 0;
+      const n = q.length;
+      function readQuoted() { // caller ensures q[i] === '"'
+        i++; let out = '';
+        while (i < n) {
+          if (q[i] === '"') {
+            if (q[i + 1] === '"') { out += '"'; i += 2; continue; }
+            i++; return out;
+          }
+          out += q[i++];
+        }
+        return out; // tolerate unclosed quote in the prototype
+      }
+      while (i < n) {
+        while (i < n && /\s/.test(q[i])) i++;
+        if (i >= n) break;
+        let name = '';
+        let nameQuoted = false;
+        if (q[i] === '"') { name = readQuoted(); nameQuoted = true; }
+        else { while (i < n && !/[\s:]/.test(q[i])) name += q[i++]; }
+        while (i < n && (q[i] === ' ' || q[i] === '\t')) i++;
+        if (q[i] === ':') {
+          i++;
+          while (i < n && (q[i] === ' ' || q[i] === '\t')) i++;
+          let op = '';
+          if (i < n && '~!><'.indexOf(q[i]) >= 0) { op = q[i]; i++; }
+          const values = [];
+          let cur = '', curQuoted = false, started = false;
+          while (i < n && !/\s/.test(q[i])) {
+            if (q[i] === '"') { cur += readQuoted(); curQuoted = true; started = true; continue; }
+            if (q[i] === ',') {
+              values.push({ v: cur.trim(), q: curQuoted });
+              cur = ''; curQuoted = false; i++;
+              while (i < n && (q[i] === ' ' || q[i] === '\t')) i++;
+              continue;
+            }
+            cur += q[i++]; started = true;
+          }
+          if (started || curQuoted || values.length) values.push({ v: cur.trim(), q: curQuoted });
+          const vals = values.map(x => x.v);
+          if (!op && vals.length === 1 && !values[0].q && vals[0].toLowerCase() === 'empty') {
+            res.terms.push({ field: name, op: 'empty', values: [] });
+          } else if (!op && vals.length === 1 && vals[0] === '' && !values[0].q) {
+            res.terms.push({ field: name, op: 'empty', values: [] }); // "field:" empty-value syntax (§3.6)
+          } else {
+            res.terms.push({ field: name, op: op, values: vals });
+          }
+        } else {
+          globals.push(nameQuoted ? name : name);
+        }
+      }
+      res.global = globals.join(' ').trim();
+      return res;
+    }
+    function findFieldByName(doc, name) {
+      const low = String(name).toLowerCase();
+      return doc.fields.find(f => f.name.toLowerCase() === low) || null;
+    }
+    function cellIsEmpty(v) { return v == null || v === '' || (Array.isArray(v) && v.length === 0); }
+    function compareKey(field, v) {
+      switch (field.type) {
+        case 'number': case 'currency': case 'percent': case 'rating': case 'auto_number': case 'duration':
+          return Number(v);
+        case 'checkbox': return v ? 1 : 0;
+        case 'date': return v ? new Date(String(v).length === 10 ? v + 'T00:00:00' : v).getTime() : null;
+        case 'date_time': case 'created_time': case 'modified_time':
+          return v ? new Date(v).getTime() : null;
+        default: return null;
+      }
+    }
+    function parseCompareValue(field, s) {
+      switch (field.type) {
+        case 'duration': return parseDuration(s);
+        case 'date': case 'date_time': case 'created_time': case 'modified_time': {
+          const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? s + 'T00:00:00' : s);
+          return isNaN(d) ? null : d.getTime();
+        }
+        default: {
+          const n = Number(String(s).replace(/[$,%\s]/g, ''));
+          return isNaN(n) ? null : n;
+        }
+      }
+    }
+    function equalsAnyValue(doc, row, field, values) {
+      const v = getCell(doc, row, field);
+      switch (field.type) {
+        case 'multi_select': {
+          const names = (Array.isArray(v) ? v : []).map(id => { const o = (field.options || []).find(o => o.id === id); return o ? o.name.toLowerCase() : ''; });
+          return values.some(val => names.includes(val.toLowerCase()));
+        }
+        case 'single_select': {
+          const o = (field.options || []).find(o => o.id === v);
+          return values.some(val => o && o.name.toLowerCase() === val.toLowerCase());
+        }
+        case 'checkbox':
+          return values.some(val => FT.checkbox.parse(val) === !!v);
+        case 'number': case 'currency': case 'percent': case 'rating': case 'auto_number': case 'duration':
+          return values.some(val => { const q = parseCompareValue(field, val); return q != null && Number(v) === q; });
+        default: {
+          const t = cellText(doc, row, field).toLowerCase();
+          return values.some(val => t === val.toLowerCase());
+        }
+      }
+    }
+    function evalTerm(doc, row, field, term) {
+      const v = getCell(doc, row, field);
+      const empty = cellIsEmpty(v);
+      if (term.op === 'empty') return empty;
+      if (empty) return term.op === '!';
+      switch (term.op) {
+        case '~': {
+          const t = cellText(doc, row, field).toLowerCase();
+          return term.values.some(val => t.indexOf(val.toLowerCase()) >= 0);
+        }
+        case '>': case '<': {
+          const k = compareKey(field, v);
+          const q = parseCompareValue(field, term.values[0] || '');
+          if (k == null || q == null || isNaN(k)) return false;
+          return term.op === '>' ? k > q : k < q;
+        }
+        case '!': return !equalsAnyValue(doc, row, field, term.values);
+        default: return equalsAnyValue(doc, row, field, term.values);
+      }
+    }
+
+    // ===== Feature 7: sorting =====
+    function sortKeyFor(doc, row, field) {
+      const v = getCell(doc, row, field);
+      if (cellIsEmpty(v)) return null;
+      const k = compareKey(field, v);
+      if (k != null && !isNaN(k)) return k;
+      if (field.type === 'single_select') {
+        const idx = (field.options || []).findIndex(o => o.id === v);
+        return idx >= 0 ? idx : null;
+      }
+      return cellText(doc, row, field).toLowerCase();
+    }
+    function cmpRows(doc, a, b, field) {
+      const ka = sortKeyFor(doc, a, field), kb = sortKeyFor(doc, b, field);
+      if (ka == null && kb == null) return 0;
+      if (ka == null) return 1;   // empties last
+      if (kb == null) return -1;
+      if (typeof ka === 'string' || typeof kb === 'string') return String(ka) < String(kb) ? -1 : String(ka) > String(kb) ? 1 : 0;
+      return ka - kb;
+    }
+    function headerSortClick(ev, fieldId) {
+      ev.stopPropagation();
+      const view = docView(activeDoc());
+      const i = view.sorts.findIndex(s => s.fieldId === fieldId);
+      if (ev.shiftKey) {
+        if (i < 0) view.sorts.push({ fieldId: fieldId, dir: 1 });
+        else if (view.sorts[i].dir === 1) view.sorts[i].dir = -1;
+        else view.sorts.splice(i, 1);
+      } else {
+        if (i < 0 || view.sorts.length > 1) view.sorts = [{ fieldId: fieldId, dir: 1 }];
+        else if (view.sorts[i].dir === 1) view.sorts[i].dir = -1;
+        else view.sorts = [];
+      }
+      save(); renderGrid();
+    }
+
+    // ===== Feature 7: column resize & reorder, freeze, group =====
+    let _drag = null;
+    function colResizeStart(ev, fieldId) {
+      ev.preventDefault(); ev.stopPropagation();
+      const th = document.querySelector('th[data-fld="' + fieldId + '"]');
+      _drag = { fieldId: fieldId, x: ev.clientX, w: th ? th.getBoundingClientRect().width : 160 };
+      document.body.style.cursor = 'col-resize';
+      const move = e => {
+        const w = Math.max(120, Math.min(520, _drag.w + (e.clientX - _drag.x)));
+        const t = document.querySelector('th[data-fld="' + _drag.fieldId + '"]');
+        if (t) { t.style.width = w + 'px'; t.style.minWidth = w + 'px'; }
+        _drag.cur = w;
+      };
+      const up = () => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        document.body.style.cursor = '';
+        if (_drag && _drag.cur) {
+          const view = docView(activeDoc());
+          view.widths[_drag.fieldId] = Math.round(_drag.cur);
+          save(); renderGrid();
+        }
+        _drag = null;
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    }
+    let _dragFld = null;
+    function colDragStart(ev, fieldId) { _dragFld = fieldId; if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move'; }
+    function colDragOver(ev) { if (_dragFld) ev.preventDefault(); }
+    function colDrop(ev, targetId) {
+      ev.preventDefault();
+      if (!_dragFld || _dragFld === targetId) { _dragFld = null; return; }
+      const view = docView(activeDoc());
+      const order = view.order.slice();
+      const from = order.indexOf(_dragFld), to = order.indexOf(targetId);
+      if (from < 0 || to < 0) { _dragFld = null; return; }
+      order.splice(from, 1);
+      order.splice(order.indexOf(targetId) + (from < to ? 1 : 0), 0, _dragFld);
+      view.order = order;
+      _dragFld = null;
+      save(); renderGrid();
+      showToast('Column reordered');
+    }
+    let _groupKeys = [];
+    function toggleGroup(i) {
+      const key = _groupKeys[i];
+      const view = docView(activeDoc());
+      const j = view.collapsed.indexOf(key);
+      if (j >= 0) view.collapsed.splice(j, 1); else view.collapsed.push(key);
+      save(); renderGrid();
+    }
+
+    // ===== Feature 7: Options popover (view settings) =====
+    function toggleMoreMenu() { renderOptionsPanel(); }
+    function renderOptionsPanel() {
+      const doc = activeDoc();
+      const view = docView(doc);
+      const groupable = doc.fields.filter(f => ['single_select', 'checkbox', 'rating', 'text', 'date'].includes(f.type));
+      let html = '<div class="p-3 text-xs w-[300px] max-h-[70vh] overflow-y-auto">' +
+        '<div class="text-[11px] font-semibold font-serif uppercase tracking-wider text-tablify-clay dark:text-gray-400 mb-2">View settings</div>';
+      // row height
+      html += '<div class="mb-3"><div class="mb-1 font-medium">Row height</div><div class="flex gap-1.5">';
+      [['s', 'Short'], ['m', 'Medium'], ['l', 'Tall']].forEach(([h, label]) => {
+        const on = view.rowHeight === h;
+        html += '<button onclick="optRowHeight(\'' + h + '\')" class="px-3 py-1.5 rounded-full text-[11px] font-medium ' + (on ? 'bg-tablify-terracotta text-white' : 'pill-btn') + '">' + label + '</button>';
+      });
+      html += '</div></div>';
+      // freeze
+      html += '<div class="mb-3 flex items-center justify-between"><span class="font-medium">Freeze primary column</span>' +
+        '<button onclick="optFreeze()" class="w-9 h-5 rounded-full relative transition ' + (view.freezePrimary ? 'bg-tablify-terracotta' : 'bg-gray-300 dark:bg-gray-600') + '"><span class="absolute top-0.5 ' + (view.freezePrimary ? 'right-0.5' : 'left-0.5') + ' w-4 h-4 bg-white rounded-full shadow"></span></button></div>';
+      // group by
+      html += '<div class="mb-3"><div class="mb-1 font-medium">Group by</div><select onchange="optGroupBy(this.value)" class="pill-input w-full rounded-lg px-2.5 py-1.5 focus:outline-none"><option value="">None</option>';
+      groupable.forEach(f => { html += '<option value="' + f.id + '"' + (view.groupBy === f.id ? ' selected' : '') + '>' + esc(f.name) + '</option>'; });
+      html += '</select></div>';
+      // sorts
+      html += '<div class="mb-3"><div class="mb-1 font-medium">Sort <span class="text-[10px] text-tablify-clay dark:text-gray-400">(multi — top first)</span></div>';
+      view.sorts.forEach((s, i) => {
+        const f = getField(doc, s.fieldId);
+        if (!f) return;
+        html += '<div class="flex items-center gap-1.5 mb-1">' +
+          '<span class="flex-1 truncate px-2 py-1 rounded-lg bg-tablify-paper-inner dark:bg-tablify-dark-inner border border-tablify-paper-border dark:border-tablify-dark-border">' + esc(f.name) + '</span>' +
+          '<button onclick="optSortDir(' + i + ')" class="pill-btn px-2 py-1 rounded-lg font-mono text-[10px]">' + (s.dir === 1 ? 'A→Z' : 'Z→A') + '</button>' +
+          '<button onclick="optSortRemove(' + i + ')" class="text-tablify-clay dark:text-gray-400 hover:text-rose-500 px-1"><i class="fa-solid fa-xmark text-[10px]"></i></button></div>';
+      });
+      html += '<select onchange="optSortAdd(this.value);this.value=\'\'" class="pill-input w-full rounded-lg px-2.5 py-1.5 focus:outline-none"><option value="">+ Add sort…</option>';
+      doc.fields.filter(f => !view.sorts.some(s => s.fieldId === f.id)).forEach(f => { html += '<option value="' + f.id + '">' + esc(f.name) + '</option>'; });
+      html += '</select></div>';
+      // hide/show fields
+      html += '<div class="mb-3"><div class="mb-1 font-medium">Fields <span class="text-[10px] text-tablify-clay dark:text-gray-400">(' + view.hidden.length + ' hidden)</span></div><div class="max-h-36 overflow-y-auto space-y-0.5 pr-1">';
+      const order = view.order.filter(fid => getField(doc, fid));
+      doc.fields.forEach(f => { if (!order.includes(f.id)) order.push(f.id); });
+      order.forEach(fid => {
+        const f = getField(doc, fid);
+        const hidden = view.hidden.includes(fid);
+        html += '<div class="flex items-center justify-between gap-2 px-1.5 py-0.5 rounded hover:bg-tablify-paper-inner dark:hover:bg-tablify-dark-inner">' +
+          '<span class="truncate ' + (hidden ? 'text-tablify-clay/60 dark:text-gray-500 line-through' : '') + '">' + esc(f.name) + '</span>' +
+          '<button onclick="optFieldVis(\'' + fid + '\')" class="text-[10px] font-medium px-2 py-0.5 rounded-full ' + (hidden ? 'bg-tablify-terracotta text-white' : 'pill-btn') + '">' + (hidden ? 'Show' : 'Hide') + '</button></div>';
+      });
+      html += '</div></div>';
+      html += '<button onclick="optClearFilters()" class="w-full pill-btn rounded-xl py-1.5 text-[11px]"><i class="fa-solid fa-filter-circle-xmark mr-1 text-tablify-terracotta"></i>Clear search & filters</button>';
+      html += '</div>';
+      openPanel(document.getElementById('optionsBtn'), html, { kind: 'options' });
+    }
+    function optRowHeight(h) { docView(activeDoc()).rowHeight = h; save(); renderGrid(); renderOptionsPanel(); }
+    function optFreeze() { const v = docView(activeDoc()); v.freezePrimary = !v.freezePrimary; save(); renderGrid(); renderOptionsPanel(); }
+    function optGroupBy(fid) { const v = docView(activeDoc()); v.groupBy = fid || null; v.collapsed = []; save(); renderGrid(); renderOptionsPanel(); }
+    function optSortAdd(fid) { if (!fid) return; docView(activeDoc()).sorts.push({ fieldId: fid, dir: 1 }); save(); renderGrid(); renderOptionsPanel(); }
+    function optSortDir(i) { const s = docView(activeDoc()).sorts[i]; s.dir = -s.dir; save(); renderGrid(); renderOptionsPanel(); }
+    function optSortRemove(i) { docView(activeDoc()).sorts.splice(i, 1); save(); renderGrid(); renderOptionsPanel(); }
+    function optFieldVis(fid) {
+      const v = docView(activeDoc());
+      const i = v.hidden.indexOf(fid);
+      if (i >= 0) v.hidden.splice(i, 1); else v.hidden.push(fid);
+      save(); renderGrid(); renderOptionsPanel();
+    }
+    function optClearFilters() {
+      document.getElementById('searchInput').value = '';
+      save(); renderGrid(); renderOptionsPanel();
+      showToast('Search & filters cleared');
+    }
+
+    // ===== Feature 6: filter builder (round-trips with the query string) =====
+    let FB = [];
+    let FBglobal = '';
+    function fbOpsFor(type) {
+      if (type === 'multi_select') return [['', 'contains any of'], ['!', 'does not contain'], ['empty', 'is empty']];
+      if (type === 'single_select') return [['', 'is'], ['!', 'is not'], ['empty', 'is empty']];
+      if (type === 'checkbox') return [['', 'is'], ['empty', 'is empty']];
+      if (['number', 'currency', 'percent', 'duration', 'rating', 'auto_number'].includes(type)) return [['', '='], ['>', '>'], ['<', '<'], ['!', '≠'], ['empty', 'is empty']];
+      if (['date', 'date_time', 'created_time', 'modified_time'].includes(type)) return [['', 'is'], ['>', 'is after'], ['<', 'is before'], ['empty', 'is empty']];
+      return [['', 'is'], ['~', 'contains'], ['!', 'is not'], ['empty', 'is empty']];
+    }
+    function openFilterBuilder() {
+      const doc = activeDoc();
+      const parsed = parseQuery(document.getElementById('searchInput').value);
+      FBglobal = parsed.global;
+      FB = parsed.terms.map(t => {
+        const f = findFieldByName(doc, t.field);
+        return { fieldId: f ? f.id : doc.fields[0].id, op: t.op, value: t.values.join(', ') };
+      });
+      if (!FB.length) FB.push({ fieldId: doc.fields[0].id, op: '', value: '' });
+      renderFilterBuilder();
+      document.getElementById('filterModal').classList.remove('hidden');
+    }
+    function closeFilterBuilder() { document.getElementById('filterModal').classList.add('hidden'); }
+    function renderFilterBuilder() {
+      const doc = activeDoc();
+      const host = document.getElementById('filterBody');
+      let html = '';
+      FB.forEach((c, i) => {
+        const field = getField(doc, c.fieldId) || doc.fields[0];
+        const ops = fbOpsFor(field.type);
+        html += '<div class="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">' +
+          '<span class="text-[10px] text-tablify-clay dark:text-gray-400 w-10 shrink-0 font-mono">' + (i === 0 ? 'Where' : 'and') + '</span>' +
+          '<select onchange="fbField(' + i + ',this.value)" class="pill-input rounded-lg px-2 py-1.5 text-xs focus:outline-none flex-1 min-w-[110px]">';
+        doc.fields.forEach(f => { html += '<option value="' + f.id + '"' + (f.id === c.fieldId ? ' selected' : '') + '>' + esc(f.name) + '</option>'; });
+        html += '</select><select onchange="fbOp(' + i + ',this.value)" class="pill-input rounded-lg px-2 py-1.5 text-xs focus:outline-none w-[120px]">';
+        ops.forEach(([op, label]) => { html += '<option value="' + op + '"' + (op === c.op ? ' selected' : '') + '>' + label + '</option>'; });
+        html += '</select>';
+        if (c.op !== 'empty') {
+          if (field.type === 'single_select' || field.type === 'multi_select') {
+            html += '<select onchange="fbValue(' + i + ',this.value)" class="pill-input rounded-lg px-2 py-1.5 text-xs focus:outline-none flex-1 min-w-[100px]"><option value="">—</option>';
+            (field.options || []).forEach(o => { html += '<option value="' + escAttr(o.name) + '"' + (o.name === c.value ? ' selected' : '') + '>' + esc(o.name) + '</option>'; });
+            html += '</select>';
+          } else if (field.type === 'checkbox') {
+            html += '<select onchange="fbValue(' + i + ',this.value)" class="pill-input rounded-lg px-2 py-1.5 text-xs focus:outline-none w-[90px]"><option value="true"' + (c.value !== 'false' ? ' selected' : '') + '>true</option><option value="false"' + (c.value === 'false' ? ' selected' : '') + '>false</option></select>';
+          } else {
+            html += '<input type="text" value="' + escAttr(c.value) + '" onchange="fbValue(' + i + ',this.value)" placeholder="value (a,b = any of)" class="pill-input rounded-lg px-2 py-1.5 text-xs focus:outline-none flex-1 min-w-[100px]">';
+          }
+        }
+        html += '<button onclick="fbRemove(' + i + ')" class="text-tablify-clay dark:text-gray-400 hover:text-rose-500 px-1 shrink-0"><i class="fa-solid fa-trash-can text-[11px]"></i></button></div>';
+      });
+      host.innerHTML = html || '<div class="text-[11px] text-tablify-clay dark:text-gray-400">No conditions — click “Add condition”.</div>';
+      document.getElementById('filterPreview').textContent = fbBuildQuery() || '(no filter)';
+    }
+    function fbField(i, v) { FB[i].fieldId = v; FB[i].op = ''; FB[i].value = ''; renderFilterBuilder(); }
+    function fbOp(i, v) { FB[i].op = v; renderFilterBuilder(); }
+    function fbValue(i, v) { FB[i].value = v; renderFilterBuilder(); }
+    function fbRemove(i) { FB.splice(i, 1); renderFilterBuilder(); }
+    function fbAdd() { FB.push({ fieldId: activeDoc().fields[0].id, op: '', value: '' }); renderFilterBuilder(); }
+    function fbQuoteName(name) { return /[\s:,"~!<>]/.test(name) ? '"' + name.replace(/"/g, '""') + '"' : name; }
+    function fbQuoteValue(v) { return /[\s:"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+    function fbBuildQuery() {
+      const doc = activeDoc();
+      const parts = [];
+      if (FBglobal) parts.push(FBglobal);
+      FB.forEach(c => {
+        const f = getField(doc, c.fieldId);
+        if (!f) return;
+        if (c.op === 'empty') { parts.push(fbQuoteName(f.name) + ':empty'); return; }
+        const val = String(c.value || '').trim();
+        if (!val) return;
+        const vals = val.split(',').map(s => s.trim()).filter(Boolean).map(fbQuoteValue).join(',');
+        parts.push(fbQuoteName(f.name) + ':' + c.op + vals);
+      });
+      return parts.join(' ');
+    }
+    function fbApply() {
+      document.getElementById('searchInput').value = fbBuildQuery();
+      closeFilterBuilder();
+      renderGrid();
+      showToast('Filter applied — same result as the query string');
+    }
+    function fbClearAll() { FB = []; FBglobal = ''; renderFilterBuilder(); }
 
     /* @@EXT */
 
