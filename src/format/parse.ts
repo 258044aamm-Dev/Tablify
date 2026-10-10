@@ -50,10 +50,11 @@ export function parse(input: string): ParseResult {
   if (!('formatVersion' in obj)) {
     return { ok: false, error: 'Missing required key: formatVersion' };
   }
-  if (obj.formatVersion !== 1) {
+  // P8-03: readers accept 1 and 2 (FORMAT_SPEC §8). Anything else is refused, never migrated.
+  if (obj.formatVersion !== 1 && obj.formatVersion !== 2) {
     return {
       ok: false,
-      error: `Unsupported formatVersion: ${JSON.stringify(obj.formatVersion)}. Expected 1.`,
+      error: `Unsupported formatVersion: ${JSON.stringify(obj.formatVersion)}. Expected 1 or 2.`,
     };
   }
 
@@ -102,6 +103,16 @@ export function parse(input: string): ParseResult {
     }
     if (typeof field.type !== 'string') {
       return { ok: false, error: `fields[${i}].type must be a string` };
+    }
+    // P8-03: formula and link exist only in formatVersion 2. A v1 file must not contain them.
+    if ((field.type === 'formula' || field.type === 'link') && obj.formatVersion !== 2) {
+      return { ok: false, error: `fields[${i}].type "${field.type}" requires formatVersion 2` };
+    }
+    if (field.formula !== undefined && typeof field.formula !== 'string') {
+      return { ok: false, error: `fields[${i}].formula must be a string` };
+    }
+    if (field.linkTableId !== undefined && typeof field.linkTableId !== 'string') {
+      return { ok: false, error: `fields[${i}].linkTableId must be a string` };
     }
     // P7-05: optional Airtable link metadata. Absent or null = local-only field.
     const airtableErr = validateFieldAirtableMeta(field.airtable);

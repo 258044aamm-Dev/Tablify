@@ -9,7 +9,9 @@ export type FieldTypeName =
   | 'duration' | 'rating' | 'checkbox' | 'date' | 'date_time'
   | 'url' | 'email' | 'phone'
   | 'single_select' | 'multi_select' | 'attachment'
-  | 'auto_number' | 'created_time' | 'modified_time';
+  | 'auto_number' | 'created_time' | 'modified_time'
+  // v2 only (formatVersion 2, P8). Writing these makes a table a v2 table.
+  | 'formula' | 'link';
 
 export type OptionColor =
   | 'gray' | 'brown' | 'orange' | 'yellow' | 'green'
@@ -47,13 +49,23 @@ export interface FieldDefinition {
   min?: number | string | null;
   max?: number | string | null;
   regex?: string | null;
+  /** formula only (v2, P8-03): the expression. Results are not stored in the file. */
+  formula?: string;
+  /** link only (v2, P8-04): default target table ID. */
+  linkTableId?: string;
   /** Reserved for v1.1 sync (P7-05). Absent or null on a local-only field. */
   airtable?: AirtableFieldMeta | null;
 }
 
 // ---- Row types ----
 
-export type CellValue = string | number | boolean | string[] | null;
+/** One link in a `link` cell (v2, P8). The target table and row IDs, not display text. */
+export interface LinkRef {
+  tableId: string;
+  rowId: string;
+}
+
+export type CellValue = string | number | boolean | string[] | LinkRef[] | null;
 
 /** Why a row and its remote record both changed (P7-08). */
 export type SyncConflictKind = 'both_changed' | 'remote_deleted';
@@ -160,7 +172,7 @@ export interface SyncLink {
 // ---- Table (top-level) ----
 
 export interface TablifyFile {
-  formatVersion: 1;
+  formatVersion: 1 | 2;
   tableId: string;
   name: string;
   fields: FieldDefinition[];

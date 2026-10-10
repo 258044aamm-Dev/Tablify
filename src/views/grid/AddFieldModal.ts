@@ -13,6 +13,7 @@ import { App, Modal, Notice, Setting } from 'obsidian';
 import { applyTheme } from '../../ui/theme/tokens.js';
 import { CHANGE_TARGET_TYPES, TYPE_LABELS } from '../../menus/tableMenuModel.js';
 import type { FieldTypeName } from '../../model/types.js';
+import { compileFormula } from '../../formula/index.js';
 
 /** Type preselected when the modal opens. */
 export const DEFAULT_NEW_FIELD_TYPE: FieldTypeName = 'text';
@@ -20,10 +21,11 @@ export const DEFAULT_NEW_FIELD_TYPE: FieldTypeName = 'text';
 export class AddFieldModal extends Modal {
   private name = '';
   private type: FieldTypeName = DEFAULT_NEW_FIELD_TYPE;
+  private expression = '';
 
   constructor(
     app: App,
-    private readonly onConfirm: (name: string, type: FieldTypeName) => void,
+    private readonly onConfirm: (name: string, type: FieldTypeName, formula?: string) => void,
   ) {
     super(app);
   }
@@ -53,8 +55,21 @@ export class AddFieldModal extends Modal {
         }
         dropdown.setValue(this.type).onChange((value) => {
           this.type = value as FieldTypeName;
+          formulaRow.style.display = this.type === 'formula' ? '' : 'none';
         });
       });
+
+    // P8-03: the expression is asked for only when the type is Formula.
+    const formulaRow = this.contentEl.createDiv();
+    formulaRow.style.display = this.type === 'formula' ? '' : 'none';
+    new Setting(formulaRow)
+      .setName('Formula')
+      .setDesc('Refer to fields as {Field name}. Example: {Price} * {Quantity}')
+      .addText((text) =>
+        text.setValue(this.expression).setPlaceholder('{Price} * 2').onChange((value) => {
+          this.expression = value;
+        }),
+      );
 
     new Setting(this.contentEl).addButton((button) =>
       button
@@ -80,6 +95,16 @@ export class AddFieldModal extends Modal {
       return;
     }
     // Validate before closing, so the modal stays open with the user's text intact.
+    if (this.type === 'formula') {
+      const compiled = compileFormula(this.expression);
+      if (!compiled.ok) {
+        new Notice('The formula has a syntax error.');
+        return;
+      }
+      this.close();
+      this.onConfirm(name, this.type, this.expression);
+      return;
+    }
     this.close();
     this.onConfirm(name, this.type);
   }

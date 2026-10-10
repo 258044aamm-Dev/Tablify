@@ -123,8 +123,9 @@ export function createSelectOptionManager(): SelectOptionManager {
       if (field.type === 'single_select' && cellValue === optionId) {
         affectedCells.push({ rowId: row.id, oldValue: cellValue });
         store.updateRow(row.id, { [field.id]: null });
-      } else if (field.type === 'multi_select' && Array.isArray(cellValue) && cellValue.includes(optionId)) {
-        const newValue = cellValue.filter(id => id !== optionId);
+      } else if (field.type === 'multi_select' && Array.isArray(cellValue) && (cellValue as string[]).includes(optionId)) {
+        // multi_select cells hold option IDs (strings); the field type guarantees it.
+        const newValue = (cellValue as string[]).filter(id => id !== optionId);
         affectedCells.push({ rowId: row.id, oldValue: cellValue });
         store.updateRow(row.id, { [field.id]: newValue.length > 0 ? newValue : null });
       }

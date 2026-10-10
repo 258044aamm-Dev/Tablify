@@ -78,6 +78,10 @@ export function remoteToLocal(field: FieldDefinition, raw: unknown): CellValue {
       return airtableType === 'multipleAttachments' ? attachmentNames(raw) : stringify(raw);
     case 'attachment':
       return attachmentNames(raw);
+    // P8: formula results are never synced, and link fields are not part of the P7 mapping.
+    case 'formula':
+    case 'link':
+      return null;
   }
 }
 
@@ -90,7 +94,8 @@ export function localToRemote(field: FieldDefinition, value: CellValue | undefin
   }
   if (field.type === 'multi_select') {
     if (!Array.isArray(v)) return [];
-    return v.map((id) => requireOptionName(field, id));
+    // multi_select cells hold option IDs (strings); the field type guarantees it.
+    return (v as string[]).map((id) => requireOptionName(field, id));
   }
   if (field.type === 'checkbox') return v === true;
   if (v === '') return null;
@@ -101,7 +106,7 @@ export function localToRemote(field: FieldDefinition, value: CellValue | undefin
 export function normalize(field: FieldDefinition, value: CellValue | undefined): CellValue {
   const v = value ?? null;
   if (field.type === 'checkbox') return v === true;
-  if (field.type === 'multi_select') return Array.isArray(v) ? [...v] : [];
+  if (field.type === 'multi_select') return Array.isArray(v) ? [...(v as string[])] : [];
   if (v === '') return null;
   return v;
 }

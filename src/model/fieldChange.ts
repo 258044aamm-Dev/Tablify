@@ -11,6 +11,8 @@ export const NOT_A_TARGET: Partial<Record<FieldTypeName, string>> = {
   single_select: 'Choose options in field settings (not in this version)',
   multi_select: 'Choose options in field settings (not in this version)',
   attachment: 'Attachments keep their own path',
+  formula: 'Formula fields are created with Add field',
+  link: 'Link fields are created with Add field',
 };
 
 export type TypeChangePlan =
@@ -25,6 +27,8 @@ function isEmpty(v: CellValue | undefined): boolean {
 export function planTypeChange(rows: readonly Row[], field: FieldDefinition, target: FieldTypeName): TypeChangePlan {
   if (!isKnownType(target)) return { ok: false, reason: `Unknown type ${target}`, blockedRows: 0 };
   if (target === field.type) return { ok: false, reason: `Already ${field.type}`, blockedRows: 0 };
+  // P8-03: link values cannot be converted to another type without losing their targets.
+  if (field.type === 'link') return { ok: false, reason: 'Link fields keep their type', blockedRows: 0 };
   const note = NOT_A_TARGET[target];
   if (note) return { ok: false, reason: note, blockedRows: 0 };
   const targetType = getFieldType(target);
@@ -32,6 +36,9 @@ export function planTypeChange(rows: readonly Row[], field: FieldDefinition, tar
 
   const next: FieldDefinition = { ...field, type: target };
   if (target !== 'single_select' && target !== 'multi_select') delete next.options;
+  // P8: the formula and link keys belong only to their own types.
+  if (target !== 'formula') delete next.formula;
+  if (target !== 'link') delete next.linkTableId;
 
   const oldType = getFieldType(field.type);
   const valuesByRow: Record<string, CellValue> = {};

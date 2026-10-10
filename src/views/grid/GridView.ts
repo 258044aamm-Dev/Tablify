@@ -16,6 +16,7 @@ import { RowPool } from './rowPool.js';
 import { applyTheme } from '../../ui/theme/tokens.js';
 import type { Row, FieldDefinition } from '../../model/types.js';
 import type { ViewDefinition } from '../../model/types.js';
+import { getFieldType } from '../../model/fieldTypes/registry.js';
 
 export interface GridOptions {
   rows: Row[];
@@ -26,6 +27,8 @@ export interface GridOptions {
   viewportWidth?: number; // default 800, for column measurement
   /** Called when a body cell is clicked. Indexes refer to the current rows and fields. */
   onCellClick?: (rowIndex: number, colIndex: number) => void;
+  /** P8-03: error state of a formula cell (tooltip and styling). Null for a good value. */
+  formulaError?: (rowId: string, fieldId: string) => { code: string; message: string } | null;
 }
 
 export interface GridSelection {
@@ -378,11 +381,23 @@ export class GridView {
           const cell = document.createElement('div');
           this.styleCell(cell, colIndex, '1');
           const val = row.values[field.id];
+          // P8-03: a formula error shows its code, with the reason in the tooltip.
+          const formulaErr = field.type === 'formula' && this.opts.formulaError ? this.opts.formulaError(row.id, field.id) : null;
           // SAD-71 Step 4: the value lives in a span so the capsule can be a flex box with
           // a real ellipsis; cell.textContent is unchanged for every consumer.
           const text = document.createElement('span');
           text.className = 'tablify__cell-text';
-          text.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
+          if (formulaErr) {
+            text.textContent = formulaErr.code;
+            cell.classList.add('tablify__cell--error');
+            cell.title = formulaErr.message;
+            cell.setAttribute('data-formula-error', formulaErr.code);
+          } else if (field.type === 'link') {
+            // P8-03: link cells show their count through the type's format (never [object Object]).
+            text.textContent = getFieldType('link').format(val ?? null, field);
+          } else {
+            text.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
+          }
           cell.appendChild(text);
           cell.setAttribute('data-field-id', field.id);
           cell.dataset.colIndex = String(colIndex);

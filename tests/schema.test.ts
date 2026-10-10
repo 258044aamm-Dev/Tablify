@@ -16,6 +16,18 @@ describe('tablify.schema.json validation', () => {
     validate = ajv.compile(schema);
   });
 
+  describe('valid samples (samples/v2/, P8-03)', () => {
+    it('accepts formula-link.tablify (formula and link fields, formatVersion 2)', () => {
+      const data = JSON.parse(
+        readFileSync(join(process.cwd(), 'samples', 'v2', 'formula-link.tablify'), 'utf-8')
+      );
+      expect(data.formatVersion).toBe(2);
+      const valid = validate(data);
+      if (!valid) console.error('Validation errors:', validate.errors);
+      expect(valid).toBe(true);
+    });
+  });
+
   describe('valid samples (samples/v1/)', () => {
     const validFiles = ['empty.tablify', 'typical.tablify', 'edge.tablify', 'synced.tablify'];
 
@@ -107,9 +119,9 @@ describe('tablify.schema.json validation', () => {
   });
 
   describe('formatVersion enforcement', () => {
-    it('rejects formatVersion other than 1', () => {
+    it('rejects formatVersion other than 1 or 2', () => {
       const data = {
-        formatVersion: 2,
+        formatVersion: 3,
         tableId: 'tbl_TEST',
         name: 'Test',
         fields: [{ id: 'fld_name', name: 'Name', type: 'text', primary: true }],

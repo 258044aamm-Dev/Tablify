@@ -15,8 +15,18 @@ export function serialize(file: TablifyFile): string {
 /** Top-level key order per FORMAT_SPEC.md §2. */
 const TOP_LEVEL_KEYS = ['formatVersion', 'tableId', 'name', 'fields', 'rows', 'views', 'syncLink'] as const;
 
+/**
+ * FORMAT_SPEC §8: write formatVersion 2 only when the table has a formula or link field.
+ * Otherwise keep the file's own version, so a plain v1 table stays v1.
+ */
+export function formatVersionFor(file: TablifyFile): 1 | 2 {
+  const needsV2 = (file.fields as FieldDefinition[]).some((f) => f.type === 'formula' || f.type === 'link');
+  if (needsV2) return 2;
+  return file.formatVersion === 2 ? 2 : 1;
+}
+
 /** Field key order per FORMAT_SPEC.md §3. */
-const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'unique', 'min', 'max', 'regex', 'airtable'] as const;
+const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'unique', 'min', 'max', 'regex', 'formula', 'linkTableId', 'airtable'] as const;
 
 /** Row key order per FORMAT_SPEC.md §4. */
 const ROW_KEYS = ['id', 'rev', 'createdAt', 'updatedAt', 'values', 'sync'] as const;
@@ -40,7 +50,9 @@ function orderTopLevel(file: TablifyFile): Record<string, unknown> {
   const sanitizedViews = file.views ? sanitizeViewsForSave(file.views as ViewDefinition[], file.fields as FieldDefinition[]) : file.views;
   for (const key of TOP_LEVEL_KEYS) {
     if (key in file) {
-      if (key === 'fields') {
+      if (key === 'formatVersion') {
+        result[key] = formatVersionFor(file);
+      } else if (key === 'fields') {
         result[key] = (file.fields as FieldDefinition[]).map(orderField);
       } else if (key === 'rows') {
         result[key] = (file.rows as Row[]).map(orderRow);

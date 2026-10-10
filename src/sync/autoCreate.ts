@@ -31,6 +31,8 @@ const NOT_CREATED: Partial<Record<FieldTypeName, string>> = {
   auto_number: 'system field',
   created_time: 'system field',
   modified_time: 'system field',
+  formula: 'computed in Tablify; never sent to Airtable',
+  link: 'links are not created in Airtable from Tablify',
 };
 
 export interface AutoCreateItem {

@@ -12,8 +12,8 @@ import { CHANGE_TARGET_TYPES } from '../../src/menus/tableMenuModel.js';
 
 function open() {
   const app = new App();
-  const confirmed: Array<{ name: string; type: string }> = [];
-  const modal = new AddFieldModal(app, (name, type) => confirmed.push({ name, type }));
+  const confirmed: Array<{ name: string; type: string; formula?: string }> = [];
+  const modal = new AddFieldModal(app, (name, type, formula) => confirmed.push({ name, type, formula }));
   modal.open();
   return { modal, confirmed };
 }
@@ -63,6 +63,37 @@ describe('AddFieldModal', () => {
     dropdown(modal).dispatchEvent(new Event('change'));
     addButton(modal).click();
     expect(confirmed).toEqual([{ name: 'Score', type: 'number' }]);
+  });
+
+  it('P8-03: a formula field takes an expression and passes it to onConfirm', () => {
+    const { modal, confirmed } = open();
+    const input = textInput(modal);
+    input.value = 'Double';
+    input.dispatchEvent(new Event('input'));
+    dropdown(modal).value = 'formula';
+    dropdown(modal).dispatchEvent(new Event('change'));
+    // The expression input is the second text box (after the name).
+    const expr = modal.contentEl.querySelectorAll('input[type="text"]')[1] as HTMLInputElement;
+    expr.value = '{Price} * 2';
+    expr.dispatchEvent(new Event('input'));
+    addButton(modal).click();
+    expect(confirmed).toEqual([{ name: 'Double', type: 'formula', formula: '{Price} * 2' }]);
+  });
+
+  it('P8-03: a formula with a syntax error warns and stays open', () => {
+    const { modal, confirmed } = open();
+    const input = textInput(modal);
+    input.value = 'Broken';
+    input.dispatchEvent(new Event('input'));
+    dropdown(modal).value = 'formula';
+    dropdown(modal).dispatchEvent(new Event('change'));
+    const expr = modal.contentEl.querySelectorAll('input[type="text"]')[1] as HTMLInputElement;
+    expr.value = '{Price} * (';
+    expr.dispatchEvent(new Event('input'));
+    addButton(modal).click();
+    expect(confirmed).toHaveLength(0);
+    expect(modal.isOpen).toBe(true);
+    expect(Notice.messages.at(-1)).toBe('The formula has a syntax error.');
   });
 
   it('trims whitespace from the name', () => {

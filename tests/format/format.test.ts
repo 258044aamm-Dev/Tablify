@@ -110,7 +110,7 @@ describe('Parser', () => {
   });
 
   it('rejects wrong formatVersion', () => {
-    const result = parse(JSON.stringify({ formatVersion: 2, tableId: 't', name: 'n', fields: [], rows: [], views: [], syncLink: null }));
+    const result = parse(JSON.stringify({ formatVersion: 3, tableId: 't', name: 'n', fields: [], rows: [], views: [], syncLink: null }));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain('Unsupported formatVersion');

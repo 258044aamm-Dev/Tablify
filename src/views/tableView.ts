@@ -20,6 +20,7 @@ import { createDefaultView } from '../model/view.js';
 import { setFrozenColumns, setRowHeight } from './grid/columns.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
+import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 
 export const TABLIFY_VIEW_TYPE = 'tablify';
@@ -224,9 +225,9 @@ export class TableView extends TextFileView {
 
   private promptAddField(): void {
     if (!this.session) return;
-    new AddFieldModal(this.app, (name, type) => {
+    new AddFieldModal(this.app, (name, type, formula) => {
       if (!this.session) return;
-      this.session.addField(name, type);
+      this.session.addField(name, type, formula);
       this.afterChange();
     }).open();
   }
@@ -279,6 +280,8 @@ export class TableView extends TextFileView {
         theme,
         viewportWidth: this.contentEl.clientWidth || 800,
         onCellClick: () => this.grid?.root.focus(),
+        // P8-03: formula cells show their error code, with the reason in the tooltip.
+        formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
       });
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
@@ -454,6 +457,7 @@ export class TableView extends TextFileView {
       isPrimary: field.primary === true,
       colIndex: col,
       view: this.session.getView(),
+      fieldType: field.type,
     });
     this.showMenu(entries, { row: -1, col }, pos);
   }
@@ -520,6 +524,16 @@ export class TableView extends TextFileView {
         });
         new TypePickerModal(this.app, targets, (target) => {
           const result = s.changeFieldType(field.id, target.type);
+          if (!result.ok) new Notice(result.reason);
+          this.afterChange();
+        }).open();
+        return;
+      }
+      case 'header.formula': {
+        // P8-03: Edit formula. Save goes through the command path, so undo works.
+        const current = field.formula ?? '';
+        new FormulaEditModal(this.app, current, (expression) => {
+          const result = s.setFormula(field.id, expression);
           if (!result.ok) new Notice(result.reason);
           this.afterChange();
         }).open();

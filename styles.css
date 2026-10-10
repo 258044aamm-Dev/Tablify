@@ -624,3 +624,9 @@
 .tablify-sync__skipped {
   opacity: 0.7;
 }
+
+/* P8-03: formula cell error. Uses the accent token; the code text and tooltip carry the meaning. */
+.tablify__cell--error .tablify__cell-text {
+  color: var(--tablify-accent-primary);
+  font-style: italic;
+}

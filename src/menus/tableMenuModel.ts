@@ -35,6 +35,7 @@ export const TYPE_LABELS: Partial<Record<FieldTypeName, string>> = {
   single_select: 'Single select',
   multi_select: 'Multi select',
   attachment: 'Attachment',
+  formula: 'Formula',
 };
 
 /** Types offered by Change field type. System types (auto number, created/modified time) are not targets. */
@@ -55,6 +56,7 @@ export const CHANGE_TARGET_TYPES: FieldTypeName[] = [
   'single_select',
   'multi_select',
   'attachment',
+  'formula',
 ];
 
 export interface CellContext {
@@ -106,6 +108,8 @@ export interface HeaderContext {
   /** 0-based index among visible columns. */
   colIndex: number;
   view: ViewDefinition;
+  /** P8-03: the field's type, so a formula field gets "Edit formula…". */
+  fieldType?: FieldTypeName;
 }
 
 export function headerEntries(ctx: HeaderContext): MenuEntry[] {
@@ -115,6 +119,8 @@ export function headerEntries(ctx: HeaderContext): MenuEntry[] {
   return [
     // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
     { id: 'header.type', label: 'Change field type…', enabled: true },
+    // P8-03: only formula fields have an expression to edit.
+    ...(ctx.fieldType === 'formula' ? [{ id: 'header.formula', label: 'Edit formula…', enabled: true }] : []),
     {
       id: 'header.hide',
       label: 'Hide field',

@@ -329,3 +329,32 @@ export function createChangeFieldTypeCommand(data: { before: FieldSnapshot; afte
     },
   };
 }
+
+export interface SetFormulaData {
+  fieldId: string;
+  oldFormula: string | undefined;
+  newFormula: string;
+}
+
+/** Change a formula field's expression (P8-03). Undoable like any other edit. */
+export function createSetFormulaCommand(data: SetFormulaData): Command {
+  const { fieldId, oldFormula, newFormula } = data;
+  const apply = (store: TableStore, formula: string | undefined): void => {
+    const field = store.getFields().find((f) => f.id === fieldId);
+    if (!field) return;
+    const next: FieldDefinition = { ...field };
+    if (formula === undefined) delete next.formula;
+    else next.formula = formula;
+    store.replaceField(next, {});
+  };
+  return {
+    type: 'setFormula',
+    targetKey: `setFormula:${fieldId}`,
+    do(store: TableStore): void {
+      apply(store, newFormula);
+    },
+    undo(store: TableStore): void {
+      apply(store, oldFormula);
+    },
+  };
+}

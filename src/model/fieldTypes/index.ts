@@ -10,3 +10,5 @@ export { singleSelectType, multiSelectType } from './select.js';
 export { attachmentType } from './attachment.js';
 export { autoNumberType, createdTimeType, modifiedTimeType } from './system.js';
 export { getFieldType, isKnownType, ALL_TYPE_NAMES, TYPE_COUNT } from './registry.js';
+export { formulaType } from './formula.js';
+export { linkType, isLinkRef } from './link.js';

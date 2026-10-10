@@ -13,13 +13,20 @@ import {
   createInsertRowCommand,
   createSetViewCommand,
   createAddFieldCommand,
+  createSetFormulaCommand,
   type CommandStack,
 } from './commands.js';
+import { createFormulaRuntime, ERROR_MESSAGES, type FormulaError } from './formulaRuntime.js';
+import { compileFormula } from '../formula/index.js';
+
 import { generateFieldId } from '../utils/idGen.js';
 import { sortRows, visibleFields } from './viewOrder.js';
 import { filterRows, compileQuery } from './rowFilter.js';
 import type { QueryError } from '../query/parse.js';
 import { planTypeChange, type TypeChangePlan } from './fieldChange.js';
+
+/** Result of changing a formula (P8-03). */
+export type FormulaSetResult = { ok: true } | { ok: false; reason: string };
 
 export interface TableSession {
   readonly store: TableStore;
@@ -68,7 +75,14 @@ export interface TableSession {
    * (SAD-70). The field and the column order move together in one undo step.
    * Returns the new definition, including its generated id.
    */
-  addField(name: string, type: FieldTypeName): FieldDefinition;
+  addField(name: string, type: FieldTypeName, formula?: string): FieldDefinition;
+  /**
+   * Replace a formula field's expression (P8-03). Blocked (no change) if the expression does not
+   * parse. Unknown names and cycles are not blocked: they show as error values on the cell.
+   */
+  setFormula(fieldId: string, formula: string): FormulaSetResult;
+  /** Error state of a formula cell for the grid's tooltip, or null. */
+  getFormulaError(rowId: string, fieldId: string): FormulaError | null;
   /** Change a field's type with value conversion. Blocked (no change) unless every value converts. */
   changeFieldType(fieldId: string, target: FieldTypeName): TypeChangePlan;
   undo(): boolean;
@@ -86,6 +100,9 @@ export function createSession(file: TablifyFile): TableSession {
     initialRows: file.rows,
   });
   const stack = createCommandStack({ store });
+  // P8-03: formula results are display-only. Plain tables never build an engine.
+  const formulas = createFormulaRuntime(store);
+  const afterMutation = (): void => formulas.sync();
   let view: ViewDefinition = file.views[0];
   // P7-06: the Airtable link is session state, so toFile() never writes a stale copy.
   let syncLink: SyncLink | null = file.syncLink ?? null;
@@ -110,41 +127,71 @@ export function createSession(file: TablifyFile): TableSession {
       return view;
     },
     getDisplayRows() {
+      formulas.sync();
       const fields = store.getFields() as FieldDefinition[];
       const sorted = sortRows(store.getAllRows(), view.sort, fields);
       // All fields, including hidden ones: P3-08 specifies "any cell". An unparsable query
       // fails open here so a typo cannot hide every row.
-      return filterRows(sorted, fields, view.search, view.query).rows;
+      const rows = filterRows(sorted, fields, view.search, view.query).rows;
+      // P8-03: formula cells show their computed value. Sorting and filtering read the same
+      // value. The stored rows are untouched.
+      const formulaIds = fields.filter((f) => f.type === 'formula').map((f) => f.id);
+      if (formulaIds.length === 0) return rows;
+      return rows.map((r) => {
+        const values = { ...r.values };
+        for (const id of formulaIds) values[id] = formulas.displayValue(r.id, id);
+        return { ...r, values };
+      });
+    },
+    getFormulaError(rowId, fieldId) {
+      return formulas.error(rowId, fieldId);
+    },
+    setFormula(fieldId, formula) {
+      const field = store.getFields().find((f) => f.id === fieldId);
+      if (!field || field.type !== 'formula') return { ok: false, reason: 'Not a formula field' };
+      const compiled = compileFormula(formula);
+      if (!compiled.ok) return { ok: false, reason: ERROR_MESSAGES['#PARSE!'] };
+      if (field.formula === formula) return { ok: true };
+      stack.execute(createSetFormulaCommand({ fieldId, oldFormula: field.formula, newFormula: formula }));
+      afterMutation();
+      return { ok: true };
     },
     getFilterError() {
       const compiled = compileQuery(view.query, store.getFields() as FieldDefinition[]);
       return compiled.ok ? null : compiled.error;
     },
     setValue(rowId, fieldId, value) {
+      // P8-03: a formula cell is never edited. Its value comes from the formula.
+      if (store.getFields().some((f) => f.id === fieldId && f.type === 'formula')) return;
       const row = store.getRow(rowId);
       if (!row) return;
       const oldValue = row.values[fieldId] ?? null;
       if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
       stack.execute(createEditCellCommand({ rowId, fieldId, oldValue, newValue: value }));
+      afterMutation();
     },
     addRow() {
       stack.execute(createAddRowCommand({ values: {} }));
+      afterMutation();
     },
     insertRowNear(rowId, where) {
       const order = store.getAllRows().map((r) => r.id);
       const idx = order.indexOf(rowId);
       if (idx === -1) return;
       stack.execute(createInsertRowCommand({ index: where === 'above' ? idx : idx + 1, values: {} }));
+      afterMutation();
     },
     duplicateRow(rowId) {
       const source = store.getRow(rowId);
       if (!source) return;
       const idx = store.getAllRows().findIndex((r) => r.id === rowId);
       stack.execute(createInsertRowCommand({ index: idx + 1, values: { ...source.values } }));
+      afterMutation();
     },
     deleteRow(rowId) {
       if (!store.getRow(rowId)) return;
       stack.execute(createDeleteRowCommand({ rowId }));
+      afterMutation();
     },
     setView(next) {
       const before = view;
@@ -158,8 +205,13 @@ export function createSession(file: TablifyFile): TableSession {
       // for re-rendering and requesting a save, exactly as it is after setView().
       setViewState(next);
     },
-    addField(name, type) {
-      const field: FieldDefinition = { id: generateFieldId(), name, type };
+    addField(name, type, formula) {
+      const field: FieldDefinition = {
+        id: generateFieldId(),
+        name,
+        type,
+        ...(type === 'formula' ? { formula: formula ?? '' } : {}),
+      };
       const viewBefore = view;
       const viewAfter: ViewDefinition = {
         ...view,
@@ -168,6 +220,7 @@ export function createSession(file: TablifyFile): TableSession {
       stack.execute(
         createAddFieldCommand({ field, applyView: setViewState, viewBefore, viewAfter }),
       );
+      afterMutation();
       return field;
     },
     changeFieldType(fieldId, target) {
@@ -186,13 +239,18 @@ export function createSession(file: TablifyFile): TableSession {
           after: { field: plan.field, valuesByRow: plan.valuesByRow },
         }),
       );
+      afterMutation();
       return plan;
     },
     undo() {
-      return stack.undo();
+      const changed = stack.undo();
+      afterMutation();
+      return changed;
     },
     redo() {
-      return stack.redo();
+      const changed = stack.redo();
+      afterMutation();
+      return changed;
     },
     getSyncLink() {
       return syncLink;
@@ -203,7 +261,16 @@ export function createSession(file: TablifyFile): TableSession {
     toFile() {
       const views = file.views.slice();
       views[0] = view;
-      return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows: store.getAllRows(), views, syncLink };
+      // P8-03: formula results are never written. Drop any formula key from row values.
+      const formulaIds = store.getFields().filter((f) => f.type === 'formula').map((f) => f.id);
+      const rows = formulaIds.length === 0
+        ? store.getAllRows()
+        : store.getAllRows().map((r) => {
+            const values = { ...r.values };
+            for (const id of formulaIds) delete values[id];
+            return { ...r, values };
+          });
+      return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows, views, syncLink };
     },
   };
 }

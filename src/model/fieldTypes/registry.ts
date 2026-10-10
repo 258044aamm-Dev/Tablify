@@ -8,6 +8,8 @@ import { urlType, emailType, phoneType } from './string.js';
 import { singleSelectType, multiSelectType } from './select.js';
 import { attachmentType } from './attachment.js';
 import { autoNumberType, createdTimeType, modifiedTimeType } from './system.js';
+import { formulaType } from './formula.js';
+import { linkType } from './link.js';
 
 const registry = new Map<FieldTypeName, FieldType>([
   ['text', textType],
@@ -29,6 +31,8 @@ const registry = new Map<FieldTypeName, FieldType>([
   ['auto_number', autoNumberType],
   ['created_time', createdTimeType],
   ['modified_time', modifiedTimeType],
+  ['formula', formulaType],
+  ['link', linkType],
 ]);
 
 /**
@@ -55,6 +59,7 @@ export const ALL_TYPE_NAMES: readonly FieldTypeName[] = [
   'url', 'email', 'phone',
   'single_select', 'multi_select', 'attachment',
   'auto_number', 'created_time', 'modified_time',
+  'formula', 'link',
 ];
 
 /** Number of registered types */

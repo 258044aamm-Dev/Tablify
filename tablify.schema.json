@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://tablify.dev/schemas/tablify.schema.json",
   "title": "Tablify v1 File Format",
-  "description": "JSON Schema for .tablify files (formatVersion 1). See FORMAT_SPEC.md for the authoritative specification.",
+  "description": "JSON Schema for .tablify files (formatVersion 1 or 2). See FORMAT_SPEC.md for the authoritative specification.",
   "type": "object",
   "required": [
     "formatVersion",
@@ -16,8 +16,8 @@
   "properties": {
     "formatVersion": {
       "type": "integer",
-      "const": 1,
-      "description": "File format version. Must be 1."
+      "enum": [1, 2],
+      "description": "File format version. 1, or 2 when a table has a formula or link field (FORMAT_SPEC §8)."
     },
     "tableId": {
       "type": "string",
@@ -105,9 +105,11 @@
             "attachment",
             "auto_number",
             "created_time",
-            "modified_time"
+            "modified_time",
+            "formula",
+            "link"
           ],
-          "description": "Field type. One of 19 supported types."
+          "description": "Field type. One of 21 supported types. formula and link require formatVersion 2."
         },
         "primary": {
           "type": "boolean",
@@ -120,6 +122,15 @@
             "$ref": "#/$defs/selectOption"
           },
           "description": "Options for single_select and multi_select fields."
+        },
+        "formula": {
+          "type": "string",
+          "description": "formula fields only (v2). The expression. Results are not stored in the file."
+        },
+        "linkTableId": {
+          "type": "string",
+          "pattern": "^tbl_[A-Za-z0-9]+$",
+          "description": "link fields only (v2). Default target table ID."
         },
         "required": {
           "type": "boolean",

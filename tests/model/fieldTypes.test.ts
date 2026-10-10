@@ -18,9 +18,9 @@ const TEST_OPTIONS: SelectOption[] = [
 ];
 
 describe('Field type registry', () => {
-  it('has exactly 19 registered types', () => {
-    expect(TYPE_COUNT).toBe(19);
-    expect(ALL_TYPE_NAMES).toHaveLength(19);
+  it('has exactly 21 registered types (19 + formula and link, P8-03)', () => {
+    expect(TYPE_COUNT).toBe(21);
+    expect(ALL_TYPE_NAMES).toHaveLength(21);
   });
 
   it('every type name resolves to a FieldType', () => {

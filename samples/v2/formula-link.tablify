@@ -1,0 +1,98 @@
+{
+  "formatVersion": 2,
+  "tableId": "tbl_01J9B7ORDR",
+  "name": "Orders",
+  "fields": [
+    {
+      "id": "fld_item",
+      "name": "Item",
+      "type": "text",
+      "primary": true,
+      "required": true,
+      "unique": false,
+      "min": null,
+      "max": null,
+      "regex": null
+    },
+    {
+      "id": "fld_price",
+      "name": "Price",
+      "type": "number",
+      "min": 0,
+      "max": null
+    },
+    {
+      "id": "fld_qty",
+      "name": "Quantity",
+      "type": "number",
+      "min": 0,
+      "max": null
+    },
+    {
+      "id": "fld_total",
+      "name": "Total",
+      "type": "formula",
+      "formula": "{Price} * {Quantity}"
+    },
+    {
+      "id": "fld_customer",
+      "name": "Customer",
+      "type": "link",
+      "linkTableId": "tbl_01J9B7CUST"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_01J9B8A001",
+      "rev": 1,
+      "createdAt": "2026-10-09T08:00:00Z",
+      "updatedAt": "2026-10-09T08:00:00Z",
+      "values": {
+        "fld_item": "Notebook",
+        "fld_price": 4.5,
+        "fld_qty": 3,
+        "fld_customer": [
+          {
+            "tableId": "tbl_01J9B7CUST",
+            "rowId": "row_01J9B9C001"
+          }
+        ]
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J9B8A002",
+      "rev": 1,
+      "createdAt": "2026-10-09T08:05:00Z",
+      "updatedAt": "2026-10-09T08:05:00Z",
+      "values": {
+        "fld_item": "Pen set",
+        "fld_price": 12,
+        "fld_qty": 2,
+        "fld_customer": null
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {},
+      "columnOrder": [
+        "fld_item",
+        "fld_price",
+        "fld_qty",
+        "fld_total",
+        "fld_customer"
+      ],
+      "warnings": []
+    }
+  ],
+  "syncLink": null
+}
