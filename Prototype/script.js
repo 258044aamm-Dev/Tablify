@@ -206,6 +206,17 @@ function syncInsertRowWidth() {
   if (!table || !wrap) return;
   const w = table.offsetWidth;
   wrap.style.width = w ? w + 'px' : '';
+  // size the sticky label strip to the visible scrollport width so the
+  // icon + text stay centered in view at any horizontal scroll position
+  const cont = document.getElementById('tableInnerContainer');
+  const label = document.getElementById('insertRowLabel');
+  if (cont && label) {
+    const cs = window.getComputedStyle ? window.getComputedStyle(cont) : null;
+    const padX = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+    const vis = cont.clientWidth - padX;
+    label.style.width = vis > 0 ? vis + 'px' : '';
+    label.style.left = cs ? (parseFloat(cs.paddingLeft) || 0) + 'px' : '';
+  }
 }
 let _freezeRsT = null;
 window.addEventListener('resize', () => {

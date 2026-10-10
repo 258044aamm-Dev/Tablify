@@ -1,4 +1,3 @@
-// Test body for prototype-dom-test.js — plain JS, no template-literal escaping.
 
 ;window.onload();
 (function(){
@@ -183,6 +182,25 @@
   // renderGrid re-syncs automatically (hook present)
   renderGrid();
   A('S10 renderGrid keeps wrapper + button intact', !!document.getElementById('insertRowWrap') && !!document.querySelector('#insertRowWrap button'));
+
+  // ---- S11: Insert Row label stays centered in the visible strip ----
+  renderGrid();
+  const label11 = document.getElementById('insertRowLabel');
+  A('S11 sticky label strip exists inside button', !!label11 && !!label11.closest('button') && label11.className.includes('insert-row-label'));
+  A('S11 icon + text inside the strip', !!label11.querySelector('i.fa-plus') && label11.textContent.includes('Insert Row'));
+  // visible-width sizing (layout stubbed)
+  const cont11 = document.getElementById('tableInnerContainer');
+  Object.defineProperty(cont11, 'clientWidth', { value: 800, configurable: true });
+  Object.defineProperty(document.getElementById('mainTable'), 'offsetWidth', { value: 1480, configurable: true });
+  syncInsertRowWidth();
+  A('S11 strip sized to visible width, not table width', label11.style.width === '800px' && document.getElementById('insertRowWrap').style.width === '1480px');
+  A('S11 button still calls addRow', document.querySelector('#insertRowWrap button').getAttribute('onclick') === 'addRow()');
+  const rowsB4 = activeDoc().rows.length;
+  document.querySelector('#insertRowWrap button').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  A('S11 insert still works', activeDoc().rows.length === rowsB4 + 1);
+  // cleanup: remove the added row via undo
+  undo();
+  A('S11 undo removed test row', activeDoc().rows.length === rowsB4);
 
   window.__log('DOM TEST DONE');
 })();

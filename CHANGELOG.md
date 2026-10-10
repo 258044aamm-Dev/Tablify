@@ -6,6 +6,11 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Insert Row label stays centered in view (prototype)** — the icon + text now live in a
+  `position: sticky; left: <container padding>` strip sized to the scrollport's visible width
+  (synced on render/resize), so they remain perfectly centered in the visible button area at any
+  horizontal scroll position. Pure CSS during scrolling — no per-scroll JS; button behavior,
+  styling and the full-width pill are unchanged.
 - **Insert Row button spans the full scrollable table width (prototype)** — the button's wrapper
   was a plain block inside the overflow-x container, so it only covered the visible width and was
   left behind when scrolling right. `syncInsertRowWidth()` now sizes it to the table's full width
