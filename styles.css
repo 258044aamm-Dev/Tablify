@@ -30,6 +30,15 @@
   font-style: italic;
   font-display: swap;
 }
+/* SAD-71 Step 5 (owner D-2): mono face for type badges, row-count badge and any mono
+   chips — the prototype's JetBrains Mono, bundled offline like Poppins and Lora. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('assets/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 .tablify {
   background: var(--tablify-bg);

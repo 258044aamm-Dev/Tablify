@@ -29,6 +29,11 @@ Status: decisions recorded from owner answers on 2026-10-09. No code written.
 - Both are open-source (SIL Open Font License). Include the license file in the release.
 - Verify the OFL terms before release (step to add to P6-06 license check).
 - Impact: plugin size grows. Record the size in the P6 release evidence.
+- **SAD-71 Step 5 (owner D-2, 2026-10-10):** add **JetBrains Mono** (SIL OFL, latin-400
+  subset, `assets/fonts/JetBrainsMono-Regular.woff2`) for type badges, the row-count badge
+  and mono chips — the prototype's mono voice. Poppins/Lora stay for headings/body; the
+  prototype's Inter and DM Serif Display were considered and **declined** (this decision
+  stands), so the Poppins-vs-Inter divergence is intentional and accepted.
 
 ## 5. Palette (prototype ladder — owner-approved 2026-10-10, SAD-71 D-6)
 

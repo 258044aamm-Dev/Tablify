@@ -13,8 +13,10 @@ describe('P3-10 — Bundle and load fonts', () => {
     expect(fs.existsSync(path.join(fontsDir, 'Poppins-SemiBold.woff2'))).toBe(true);
     expect(fs.existsSync(path.join(fontsDir, 'Lora-Regular.woff2'))).toBe(true);
     expect(fs.existsSync(path.join(fontsDir, 'Lora-Italic.woff2'))).toBe(true);
+    // SAD-71 Step 5: mono face for badges/row-count (owner D-2).
+    expect(fs.existsSync(path.join(fontsDir, 'JetBrainsMono-Regular.woff2'))).toBe(true);
     // size sanity — each woff2 should be >4KB and <100KB
-    for (const f of ['Poppins-Regular.woff2', 'Poppins-SemiBold.woff2', 'Lora-Regular.woff2', 'Lora-Italic.woff2']) {
+    for (const f of ['Poppins-Regular.woff2', 'Poppins-SemiBold.woff2', 'Lora-Regular.woff2', 'Lora-Italic.woff2', 'JetBrainsMono-Regular.woff2']) {
       const st = fs.statSync(path.join(fontsDir, f));
       expect(st.size).toBeGreaterThan(4000);
       expect(st.size).toBeLessThan(100_000);
@@ -27,6 +29,7 @@ describe('P3-10 — Bundle and load fonts', () => {
     expect(txt).toMatch(/SIL OPEN FONT LICENSE/i);
     expect(txt).toMatch(/Poppins/i);
     expect(txt).toMatch(/Lora/i);
+    expect(txt).toMatch(/JetBrains Mono/i);
   });
 
   it('@font-face rules exist with fallbacks', () => {
@@ -37,6 +40,8 @@ describe('P3-10 — Bundle and load fonts', () => {
     expect(css).toMatch(/font-family:\s*'Lora'/);
     expect(css).toMatch(/assets\/fonts\/Poppins-Regular\.woff2/);
     expect(css).toMatch(/assets\/fonts\/Lora-Regular\.woff2/);
+    expect(css).toMatch(/font-family:\s*'JetBrains Mono'/);
+    expect(css).toMatch(/assets\/fonts\/JetBrainsMono-Regular\.woff2/);
     // fallbacks: Arial for headings, Georgia for body — check they appear
     // We set heading fallback via Poppins, Arial and body via Lora, Georgia — check strings exist
     expect(css).toMatch(/Poppins/);
