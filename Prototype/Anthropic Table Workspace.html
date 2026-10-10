@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anthropic Studio | Workspace Table View</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: DM Serif Display, Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            anthropic: {
+              terracotta: '#CC785C',
+              'terracotta-hover': '#B8654A',
+              'terracotta-dark': '#D97757',
+              paper: '#FAF7F2',
+              'paper-card': '#FFFFFF',
+              'paper-inner': '#F4EFE6',
+              'paper-capsule': '#FDFBF7',
+              'paper-border': '#E6E0D5',
+              dark: '#181715',
+              'dark-card': '#22201D',
+              'dark-inner': '#1B1A17',
+              'dark-capsule': '#2A2723',
+              'dark-border': '#38342E',
+              clay: '#8C827A',
+              charcoal: '#1E1B18',
+              sand: '#E3DCCE',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            serif: ['"DM Serif Display"', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Anthropic Theme Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .light ::-webkit-scrollbar-track {
+      background: #FAF7F2;
+    }
+    .light ::-webkit-scrollbar-thumb {
+      background: #D5CEC2;
+      border-radius: 9999px;
+    }
+    .dark ::-webkit-scrollbar-track {
+      background: #181715;
+    }
+    .dark ::-webkit-scrollbar-thumb {
+      background: #3A3630;
+      border-radius: 9999px;
+    }
+
+    body {
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    /* Anthropic Dynamic Light/Dark Pill Styles */
+    .anthropic-pill-btn {
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .light .anthropic-pill-btn {
+      background-color: #FFFFFF;
+      border: 1px solid #E6E0D5;
+      color: #1E1B18;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+    .light .anthropic-pill-btn:hover {
+      background-color: #F6F2EA;
+      border-color: #D3CAB9;
+    }
+
+    .dark .anthropic-pill-btn {
+      background-color: #24221E;
+      border: 1px solid #38342E;
+      color: #ECE7E1;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    .dark .anthropic-pill-btn:hover {
+      background-color: #2D2A25;
+      border-color: #4A453E;
+    }
+
+    /* Inputs */
+    .light .anthropic-pill-input {
+      background-color: #FFFFFF;
+      border: 1px solid #E6E0D5;
+      color: #1E1B18;
+    }
+    .light .anthropic-pill-input:focus-within {
+      border-color: #CC785C;
+      box-shadow: 0 0 0 2px rgba(204, 120, 92, 0.15);
+    }
+
+    .dark .anthropic-pill-input {
+      background-color: #24221E;
+      border: 1px solid #38342E;
+      color: #ECE7E1;
+    }
+    .dark .anthropic-pill-input:focus-within {
+      border-color: #D97757;
+      box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.2);
+    }
+
+    /* Column and Cell Capsules */
+    .light .header-capsule, .light .cell-capsule {
+      background-color: #FFFFFF;
+      border: 1px solid #E6E0D5;
+      color: #1E1B18;
+    }
+    .dark .header-capsule, .dark .cell-capsule {
+      background-color: #262420;
+      border: 1px solid #3A3630;
+      color: #ECE7E1;
+    }
+
+    /* Subtle shimmer for Claude AI generation */
+    @keyframes aiGlow {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    .ai-sparkle-glow {
+      animation: aiGlow 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+
+<body class="h-full font-sans antialiased bg-anthropic-paper text-anthropic-charcoal dark:bg-anthropic-dark dark:text-gray-100 flex flex-col justify-between p-3 sm:p-6 overflow-x-hidden min-h-screen">
+
+  <!-- Top Brand Navigation Bar -->
+  <header class="w-full max-w-5xl mx-auto flex items-center justify-between mb-4 px-2">
+    <div class="flex items-center gap-3">
+      <!-- Anthropic Logo Mark SVG -->
+      <div class="w-8 h-8 rounded-lg bg-anthropic-terracotta flex items-center justify-center text-white shadow-md">
+        <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+          <path d="M13.82 3.5l5.68 17h-3.24l-1.34-4.16H8.92L7.58 20.5H4.34l5.68-17h3.8zm-1.12 4.14L10.3 13.5h3.25l-2.4-5.86z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-xs font-semibold uppercase tracking-wider text-anthropic-clay dark:text-gray-400">Anthropic Studio</h1>
+        <p class="text-sm font-serif text-anthropic-charcoal dark:text-anthropic-paper font-semibold leading-none">Workspace Tables</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <!-- Claude AI Assist Button -->
+      <button onclick="openClaudeModal()" class="px-3 py-1.5 rounded-full text-xs font-medium bg-anthropic-terracotta/10 text-anthropic-terracotta hover:bg-anthropic-terracotta/20 border border-anthropic-terracotta/30 flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-wand-magic-sparkles text-[11px] ai-sparkle-glow"></i>
+        <span>Ask Claude</span>
+      </button>
+
+      <!-- Theme Switcher -->
+      <button onclick="toggleTheme()" class="anthropic-pill-btn p-2 rounded-full text-xs w-8 h-8 flex items-center justify-center" title="Toggle Theme">
+        <i id="themeIcon" class="fa-solid fa-moon"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="w-full max-w-5xl mx-auto my-auto">
+    
+    <!-- Outer Main Container Card -->
+    <div class="bg-anthropic-paper-card dark:bg-anthropic-dark-card border border-anthropic-paper-border dark:border-anthropic-dark-border rounded-[24px] sm:rounded-[32px] p-4 sm:p-7 shadow-xl relative overflow-hidden transition-colors">
+
+      <!-- Top Workspace Controls Row -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-3 border-b border-anthropic-paper-border/60 dark:border-anthropic-dark-border/60">
+        
+        <!-- Table Tabs & Indicator -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+          <span class="text-xs font-medium text-anthropic-clay dark:text-gray-400 whitespace-nowrap mr-1">
+            <i class="fa-solid fa-folder-tree mr-1 text-anthropic-terracotta"></i> Dataset:
+          </span>
+          <button id="tab1Btn" onclick="switchDataset('prompts')" class="px-3 py-1.5 text-xs font-medium rounded-full bg-anthropic-terracotta text-white shadow-sm transition">
+            Prompt Evaluations
+          </button>
+          <button id="tab2Btn" onclick="switchDataset('tasks')" class="px-3 py-1.5 text-xs font-medium rounded-full text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition">
+            Model Benchmarks
+          </button>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <span id="savedIndicator" class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 opacity-100 transition-opacity">
+            <i class="fa-solid fa-circle-check text-[10px]"></i> Saved to Anthropic Cloud
+          </span>
+          <button onclick="addNewTable()" class="anthropic-pill-btn px-3.5 py-1.5 text-xs font-medium rounded-xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-plus text-[10px] text-anthropic-terracotta"></i>
+            <span>New Table</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mb-5 flex items-baseline justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <h2 id="editableTableTitle" contenteditable="true" spellcheck="false" 
+              class="text-2xl sm:text-3xl font-serif text-anthropic-charcoal dark:text-anthropic-paper focus:outline-none focus:ring-1 focus:ring-anthropic-terracotta/40 rounded px-1 -ml-1 transition inline-block">
+            Prompt Engineering Logs
+          </h2>
+          <span class="text-xs text-anthropic-clay font-mono bg-anthropic-paper-inner dark:bg-anthropic-dark-inner px-2 py-0.5 rounded border border-anthropic-paper-border dark:border-anthropic-dark-border">
+            v2.4
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="exportData('csv')" class="text-xs text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition">
+            <i class="fa-solid fa-file-csv mr-1"></i> Export CSV
+          </button>
+          <button onclick="copyMarkdownTable()" class="text-xs text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white px-2 py-1 rounded hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition">
+            <i class="fa-solid fa-copy mr-1"></i> Copy Markdown
+          </button>
+        </div>
+      </div>
+
+      <!-- Toolbar Search & Actions Row -->
+      <div class="flex flex-wrap items-center justify-between gap-2.5 mb-4">
+        
+        <!-- Search Input Capsule -->
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-anthropic-clay text-xs"></i>
+          <input type="text" id="searchInput" placeholder="Search rows, categories, prompts..." oninput="filterRows()" 
+                 class="anthropic-pill-input w-full text-xs rounded-full pl-10 pr-4 py-2.5 focus:outline-none shadow-sm transition">
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex items-center space-x-2">
+          <button onclick="addRow()" class="anthropic-pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-plus text-[10px] text-anthropic-terracotta"></i>
+            <span>Add Row</span>
+          </button>
+          
+          <button onclick="showAddFieldModal()" class="anthropic-pill-btn px-4 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-columns text-[10px] text-anthropic-terracotta"></i>
+            <span>Add Field</span>
+          </button>
+
+          <button onclick="toggleMoreMenu()" class="anthropic-pill-btn px-3 py-2.5 text-xs font-medium rounded-2xl flex items-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-sliders text-[11px] text-anthropic-clay"></i>
+            <span>Options</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mb-2 px-1">
+        <div id="selectionSummary" class="text-[11px] text-anthropic-terracotta font-medium hidden flex items-center gap-2">
+          <span id="selectedCount">0 selected</span>
+          <button onclick="deleteSelectedRows()" class="text-red-500 hover:underline"><i class="fa-solid fa-trash-can mr-1"></i>Delete</button>
+        </div>
+        <div class="ml-auto flex items-center gap-3">
+          <span id="rowCountBadge" class="text-[11px] font-medium text-anthropic-clay dark:text-gray-400 tracking-wider font-mono">
+            0 rows
+          </span>
+        </div>
+      </div>
+
+      <!-- Inner Table Container (Warm Anthropic Paper Inner Tint) -->
+      <div id="tableInnerContainer" class="bg-anthropic-paper-inner dark:bg-anthropic-dark-inner w-full overflow-x-auto rounded-2xl border border-anthropic-paper-border dark:border-anthropic-dark-border p-2 sm:p-3 shadow-inner">
+        <table class="w-full border-separate border-spacing-y-2 border-spacing-x-1.5 text-left text-xs">
+          
+          <thead id="tableHeaderHead">
+            <!-- Rendered via JS -->
+          </thead>
+
+          <tbody id="tableBody">
+            <!-- Rendered via JS -->
+          </tbody>
+        </table>
+
+        <!-- Bottom Quick Add Row Capsule -->
+        <div class="mt-3">
+          <button onclick="addRow()" class="anthropic-pill-btn w-full py-2.5 text-xs font-medium rounded-2xl transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-plus text-[11px] text-anthropic-terracotta"></i>
+            <span>Insert Row</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer Copyright & Info -->
+  <footer class="w-full max-w-5xl mx-auto mt-6 text-center text-[11px] text-anthropic-clay">
+    <p>Anthropic Studio Workspace &bull; Powered by Claude AI Datasets &bull; Built with HTML & Tailwind CSS</p>
+  </footer>
+
+  <!-- Add Field Modal -->
+  <div id="addFieldModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-anthropic-paper-card dark:bg-anthropic-dark-card border border-anthropic-paper-border dark:border-anthropic-dark-border rounded-2xl p-6 w-full max-w-sm shadow-2xl transition-all">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-anthropic-charcoal dark:text-anthropic-paper flex items-center gap-2 font-serif">
+          <i class="fa-solid fa-columns text-anthropic-terracotta"></i> Add New Column Field
+        </h3>
+        <button onclick="hideAddFieldModal()" class="text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-anthropic-clay dark:text-gray-400 mb-1 font-medium">Field Title</label>
+          <input type="text" id="newFieldName" placeholder="e.g. Model, Temperature, Pass Rate..." 
+                 class="anthropic-pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-anthropic-clay dark:text-gray-400 mb-1 font-medium">Field Type</label>
+          <select id="newFieldType" class="anthropic-pill-input w-full rounded-xl px-3.5 py-2.5 focus:outline-none">
+            <option value="TEXT">Text String</option>
+            <option value="STATUS">Status Tag</option>
+            <option value="SCORE">Score / Rating (1-5)</option>
+            <option value="MODEL">Claude Model Tag</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-5 flex justify-end space-x-2">
+        <button onclick="hideAddFieldModal()" class="px-3.5 py-2 text-xs text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner rounded-xl">Cancel</button>
+        <button onclick="confirmAddField()" class="px-4 py-2 bg-anthropic-terracotta hover:bg-anthropic-terracotta-hover text-white text-xs font-semibold rounded-xl shadow">Add Field</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Claude AI Assistant Modal -->
+  <div id="claudeModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-anthropic-paper-card dark:bg-anthropic-dark-card border border-anthropic-terracotta/40 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 rounded bg-anthropic-terracotta text-white flex items-center justify-center text-xs">
+            <i class="fa-solid fa-sparkles"></i>
+          </div>
+          <h3 class="text-base font-serif font-semibold text-anthropic-charcoal dark:text-anthropic-paper">Ask Claude Assistant</h3>
+        </div>
+        <button onclick="closeClaudeModal()" class="text-anthropic-clay hover:text-anthropic-charcoal dark:hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-anthropic-clay mb-4">Generate synthetic benchmark data or optimize your table rows with Claude AI.</p>
+
+      <div class="space-y-3">
+        <button onclick="generateAiRows('eval')" class="w-full text-left p-3 rounded-xl border border-anthropic-paper-border dark:border-anthropic-dark-border hover:border-anthropic-terracotta hover:bg-anthropic-terracotta/5 transition flex items-center justify-between group">
+          <div>
+            <div class="text-xs font-semibold text-anthropic-charcoal dark:text-anthropic-paper group-hover:text-anthropic-terracotta">Generate 3 Prompt Eval Test Cases</div>
+            <div class="text-[11px] text-anthropic-clay">Creates prompt test cases with parameters</div>
+          </div>
+          <i class="fa-solid fa-arrow-right text-xs text-anthropic-clay group-hover:text-anthropic-terracotta"></i>
+        </button>
+
+        <button onclick="generateAiRows('benchmark')" class="w-full text-left p-3 rounded-xl border border-anthropic-paper-border dark:border-anthropic-dark-border hover:border-anthropic-terracotta hover:bg-anthropic-terracotta/5 transition flex items-center justify-between group">
+          <div>
+            <div class="text-xs font-semibold text-anthropic-charcoal dark:text-anthropic-paper group-hover:text-anthropic-terracotta">Simulate Model Latency & Pass Rates</div>
+            <div class="text-[11px] text-anthropic-clay">Populates Claude 3.5 Sonnet vs Haiku tests</div>
+          </div>
+          <i class="fa-solid fa-arrow-right text-xs text-anthropic-clay group-hover:text-anthropic-terracotta"></i>
+        </button>
+      </div>
+
+      <div id="claudeLoading" class="hidden mt-4 text-center py-3 text-xs text-anthropic-terracotta font-medium flex items-center justify-center gap-2">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+        <span>Claude is generating rows...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anthropic Toast Notification Capsule -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-anthropic-charcoal text-anthropic-paper dark:bg-anthropic-paper dark:text-anthropic-charcoal px-4 py-2.5 rounded-full text-xs shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2.5 z-50 border border-anthropic-terracotta/30">
+    <i class="fa-solid fa-sparkles text-anthropic-terracotta"></i>
+    <span id="toastMsg">Workspace updated</span>
+  </div>
+
+  <script>
+    // Anthropic Datasets Definition
+    let currentDataset = 'prompts';
+
+    const datasets = {
+      prompts: {
+        title: "Prompt Engineering Logs",
+        columns: [
+          { key: "name", title: "PROMPT NAME", type: "TEXT" },
+          { key: "model", title: "MODEL", type: "MODEL" },
+          { key: "score", title: "QUALITY SCORE", type: "SCORE" },
+          { key: "status", title: "EVAL STATUS", type: "STATUS" }
+        ],
+        rows: [
+          { id: 1, selected: false, name: "System prompt for code refactoring", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" },
+          { id: 2, selected: false, name: "Short story creative writer v2", model: "Claude 3 Opus", score: 4, status: "In Review" },
+          { id: 3, selected: false, name: "JSON extractor for invoices", model: "Claude 3.5 Haiku", score: 3, status: "Optimizing" },
+          { id: 4, selected: false, name: "Multi-turn math solver test", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" }
+        ]
+      },
+      tasks: {
+        title: "Model Benchmark Suite",
+        columns: [
+          { key: "name", title: "BENCHMARK TASK", type: "TEXT" },
+          { key: "model", title: "TARGET MODEL", type: "MODEL" },
+          { key: "score", title: "ACCURACY RATING", type: "SCORE" },
+          { key: "status", title: "BENCHMARK STATE", type: "STATUS" }
+        ],
+        rows: [
+          { id: 101, selected: false, name: "HumanEval Python Completion", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" },
+          { id: 102, selected: false, name: "GSM8K Math Reasoning", model: "Claude 3 Opus", score: 4, status: "Passed" },
+          { id: 103, selected: false, name: "MMLU High School Physics", model: "Claude 3.5 Haiku", score: 4, status: "In Review" }
+        ]
+      }
+    };
+
+    // Anthropic Color Status Config
+    const statusConfig = {
+      "Passed": { 
+        bg: "bg-[#1E3A2B] text-[#6EE7B7] border-[#27593F]", 
+        lightBg: "bg-[#E6F4EA] text-[#137333] border-[#CEEAD6]",
+        dot: "bg-emerald-500" 
+      },
+      "In Review": { 
+        bg: "bg-[#3D2E14] text-[#FCD34D] border-[#5E4820]", 
+        lightBg: "bg-[#FEF7E0] text-[#B06000] border-[#FCE8B2]",
+        dot: "bg-amber-500" 
+      },
+      "Optimizing": { 
+        bg: "bg-[#3B1D1D] text-[#FCA5A5] border-[#5E2B2B]", 
+        lightBg: "bg-[#FCE8E6] text-[#C5221F] border-[#FAD2CF]",
+        dot: "bg-rose-500" 
+      }
+    };
+
+    const modelBadgeConfig = {
+      "Claude 3.5 Sonnet": "bg-anthropic-terracotta/15 text-anthropic-terracotta border-anthropic-terracotta/30",
+      "Claude 3 Opus": "bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30",
+      "Claude 3.5 Haiku": "bg-sky-500/15 text-sky-600 dark:text-sky-300 border-sky-500/30"
+    };
+
+    // Theme Management
+    function initTheme() {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        document.getElementById('themeIcon').className = 'fa-solid fa-sun';
+      } else {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        document.getElementById('themeIcon').className = 'fa-solid fa-moon';
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        document.getElementById('themeIcon').className = 'fa-solid fa-moon';
+      } else {
+        document.documentElement.classList.remove('light');
+        document.documentElement.classList.add('dark');
+        document.getElementById('themeIcon').className = 'fa-solid fa-sun';
+      }
+    }
+
+    function renderTable() {
+      const activeData = datasets[currentDataset];
+      document.getElementById('editableTableTitle').textContent = activeData.title;
+
+      const thead = document.getElementById('tableHeaderHead');
+      const tbody = document.getElementById('tableBody');
+      const searchVal = document.getElementById('searchInput').value.toLowerCase();
+
+      // Header Rendering
+      let headerHtml = `<tr class="text-anthropic-clay dark:text-gray-400 text-[11px] font-semibold uppercase tracking-wider select-none">`;
+      headerHtml += `<th class="w-8 text-center pb-1">
+        <input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-anthropic-paper-border accent-anthropic-terracotta cursor-pointer">
+      </th>`;
+      headerHtml += `<th class="w-8 text-center pb-1 font-mono">#</th>`;
+
+      activeData.columns.forEach((col, idx) => {
+        headerHtml += `
+          <th class="pb-1 min-w-[160px]">
+            <div class="header-capsule flex items-center justify-between px-3.5 py-2 rounded-2xl shadow-sm">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-grip-vertical text-anthropic-clay/50 text-[11px] cursor-grab"></i>
+                <span class="text-xs font-semibold tracking-wide">${escapeHtml(col.title)}</span>
+                <span class="text-[9px] text-anthropic-clay font-mono px-1.5 py-0.5 bg-anthropic-paper-inner dark:bg-anthropic-dark-inner rounded border border-anthropic-paper-border dark:border-anthropic-dark-border">${col.type}</span>
+              </div>
+              <button onclick="openColumnMenu('${col.key}')" class="w-5 h-5 rounded hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner flex items-center justify-center text-anthropic-clay transition">
+                <i class="fa-solid fa-ellipsis-vertical text-[10px]"></i>
+              </button>
+            </div>
+          </th>
+        `;
+      });
+      headerHtml += `</tr>`;
+      thead.innerHTML = headerHtml;
+
+      // Filter Rows
+      const filteredRows = activeData.rows.filter(row => {
+        return activeData.columns.some(col => {
+          const val = String(row[col.key] || '').toLowerCase();
+          return val.includes(searchVal);
+        });
+      });
+
+      document.getElementById('rowCountBadge').textContent = `${filteredRows.length} row${filteredRows.length === 1 ? '' : 's'}`;
+
+      // Update Selection state badge
+      const selectedRows = activeData.rows.filter(r => r.selected);
+      const selSummary = document.getElementById('selectionSummary');
+      if (selectedRows.length > 0) {
+        selSummary.classList.remove('hidden');
+        document.getElementById('selectedCount').textContent = `${selectedRows.length} selected`;
+      } else {
+        selSummary.classList.add('hidden');
+      }
+
+      // Body Rendering
+      tbody.innerHTML = '';
+      filteredRows.forEach((row, index) => {
+        const tr = document.createElement('tr');
+
+        // Selection Checkbox
+        let bodyHtml = `
+          <td class="text-center py-1">
+            <input type="checkbox" ${row.selected ? 'checked' : ''} onchange="toggleSelectRow(${row.id})" class="rounded border-anthropic-paper-border accent-anthropic-terracotta cursor-pointer">
+          </td>
+          <td class="text-center py-1 text-anthropic-clay font-mono text-xs select-none">
+            <span>${index + 1}</span>
+          </td>
+        `;
+
+        // Render each dynamic column cell
+        activeData.columns.forEach(col => {
+          const cellVal = row[col.key];
+
+          if (col.type === 'TEXT') {
+            bodyHtml += `
+              <td class="py-1 px-1">
+                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between shadow-sm rounded-2xl">
+                  <input type="text" value="${escapeHtml(cellVal || '')}" 
+                         onchange="updateRowValue(${row.id}, '${col.key}', this.value)"
+                         class="w-full bg-transparent text-xs focus:outline-none font-normal">
+                </div>
+              </td>
+            `;
+          } else if (col.type === 'MODEL') {
+            const badgeStyle = modelBadgeConfig[cellVal] || "bg-gray-500/10 text-gray-500 border-gray-500/20";
+            bodyHtml += `
+              <td class="py-1 px-1">
+                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between shadow-sm rounded-2xl cursor-pointer" onclick="cycleModel(${row.id}, '${col.key}')">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-mono border ${badgeStyle}">
+                    <i class="fa-solid fa-microchip mr-1.5 text-[9px]"></i>
+                    ${escapeHtml(cellVal || 'Select Model')}
+                  </span>
+                  <i class="fa-solid fa-chevron-down text-[9px] text-anthropic-clay ml-1"></i>
+                </div>
+              </td>
+            `;
+          } else if (col.type === 'SCORE') {
+            let stars = '';
+            const rating = Number(cellVal) || 0;
+            for (let i = 1; i <= 5; i++) {
+              const active = i <= rating ? 'text-anthropic-terracotta' : 'text-gray-300 dark:text-gray-600';
+              stars += `<i class="fa-solid fa-star ${active} cursor-pointer hover:scale-110 transition" onclick="setScore(${row.id}, '${col.key}', ${i})"></i>`;
+            }
+            bodyHtml += `
+              <td class="py-1 px-1">
+                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between shadow-sm rounded-2xl">
+                  <div class="flex items-center space-x-1 text-xs">
+                    ${stars}
+                  </div>
+                  <span class="text-[10px] font-mono text-anthropic-clay ml-2">${rating}/5</span>
+                </div>
+              </td>
+            `;
+          } else if (col.type === 'STATUS') {
+            const isDark = document.documentElement.classList.contains('dark');
+            const st = statusConfig[cellVal] || statusConfig["Passed"];
+            const tagClass = isDark ? st.bg : st.lightBg;
+
+            bodyHtml += `
+              <td class="py-1 px-1">
+                <div class="cell-capsule px-3.5 py-2 flex items-center justify-between cursor-pointer shadow-sm rounded-2xl" onclick="cycleStatus(${row.id}, '${col.key}')">
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${tagClass}">
+                    <span class="w-1.5 h-1.5 rounded-full ${st.dot} mr-1.5"></span>
+                    ${escapeHtml(cellVal || 'Status')}
+                  </span>
+                  <i class="fa-solid fa-chevron-down text-[9px] text-anthropic-clay ml-1"></i>
+                </div>
+              </td>
+            `;
+          }
+        });
+
+        tr.innerHTML = bodyHtml;
+        tbody.appendChild(tr);
+      });
+
+      triggerSavedPulse();
+    }
+
+    function updateRowValue(id, key, val) {
+      const row = datasets[currentDataset].rows.find(r => r.id === id);
+      if (row) {
+        row[key] = val;
+        triggerSavedPulse();
+      }
+    }
+
+    function setScore(id, key, score) {
+      const row = datasets[currentDataset].rows.find(r => r.id === id);
+      if (row) {
+        row[key] = score;
+        renderTable();
+      }
+    }
+
+    function cycleStatus(id, key) {
+      const row = datasets[currentDataset].rows.find(r => r.id === id);
+      if (!row) return;
+      const keys = Object.keys(statusConfig);
+      const curIndex = keys.indexOf(row[key]);
+      row[key] = keys[(curIndex + 1) % keys.length];
+      renderTable();
+      showToast(`Status set to ${row[key]}`);
+    }
+
+    function cycleModel(id, key) {
+      const row = datasets[currentDataset].rows.find(r => r.id === id);
+      if (!row) return;
+      const models = Object.keys(modelBadgeConfig);
+      const curIndex = models.indexOf(row[key]);
+      row[key] = models[(curIndex + 1) % models.length];
+      renderTable();
+      showToast(`Model updated to ${row[key]}`);
+    }
+
+    function addRow() {
+      const activeData = datasets[currentDataset];
+      const newId = Date.now();
+      const newRow = { id: newId, selected: false };
+
+      activeData.columns.forEach(col => {
+        if (col.type === 'TEXT') newRow[col.key] = "New benchmark query";
+        else if (col.type === 'MODEL') newRow[col.key] = "Claude 3.5 Sonnet";
+        else if (col.type === 'SCORE') newRow[col.key] = 4;
+        else if (col.type === 'STATUS') newRow[col.key] = "Passed";
+      });
+
+      activeData.rows.push(newRow);
+      renderTable();
+      showToast("Inserted row");
+    }
+
+    function toggleSelectRow(id) {
+      const row = datasets[currentDataset].rows.find(r => r.id === id);
+      if (row) row.selected = !row.selected;
+      renderTable();
+    }
+
+    function toggleSelectAll(masterCb) {
+      datasets[currentDataset].rows.forEach(r => r.selected = masterCb.checked);
+      renderTable();
+    }
+
+    function deleteSelectedRows() {
+      datasets[currentDataset].rows = datasets[currentDataset].rows.filter(r => !r.selected);
+      renderTable();
+      showToast("Selected rows deleted");
+    }
+
+    function switchDataset(key) {
+      currentDataset = key;
+      document.getElementById('tab1Btn').className = key === 'prompts' 
+        ? "px-3 py-1.5 text-xs font-medium rounded-full bg-anthropic-terracotta text-white shadow-sm transition"
+        : "px-3 py-1.5 text-xs font-medium rounded-full text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition";
+      
+      document.getElementById('tab2Btn').className = key === 'tasks' 
+        ? "px-3 py-1.5 text-xs font-medium rounded-full bg-anthropic-terracotta text-white shadow-sm transition"
+        : "px-3 py-1.5 text-xs font-medium rounded-full text-anthropic-clay hover:bg-anthropic-paper-inner dark:hover:bg-anthropic-dark-inner transition";
+
+      renderTable();
+    }
+
+    // Modal & Field Handlers
+    function showAddFieldModal() { document.getElementById('addFieldModal').classList.remove('hidden'); }
+    function hideAddFieldModal() { document.getElementById('addFieldModal').classList.add('hidden'); }
+
+    function confirmAddField() {
+      const name = document.getElementById('newFieldName').value.trim();
+      const type = document.getElementById('newFieldType').value;
+
+      if (!name) {
+        showToast("Field title cannot be empty");
+        return;
+      }
+
+      const key = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      datasets[currentDataset].columns.push({ key, title: name.toUpperCase(), type });
+
+      // Add default values for existing rows
+      datasets[currentDataset].rows.forEach(r => {
+        if (type === 'SCORE') r[key] = 5;
+        else if (type === 'MODEL') r[key] = "Claude 3.5 Sonnet";
+        else if (type === 'STATUS') r[key] = "Passed";
+        else r[key] = "Sample text";
+      });
+
+      hideAddFieldModal();
+      document.getElementById('newFieldName').value = '';
+      renderTable();
+      showToast(`Added field "${name}"`);
+    }
+
+    // Claude Assistant Modal Simulations
+    function openClaudeModal() { document.getElementById('claudeModal').classList.remove('hidden'); }
+    function closeClaudeModal() { document.getElementById('claudeModal').classList.add('hidden'); }
+
+    function generateAiRows(type) {
+      const loading = document.getElementById('claudeLoading');
+      loading.classList.remove('hidden');
+
+      setTimeout(() => {
+        loading.classList.add('hidden');
+        closeClaudeModal();
+
+        if (type === 'eval') {
+          datasets.prompts.rows.push(
+            { id: Date.now() + 1, selected: false, name: "Summarize legal NDA clause", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" },
+            { id: Date.now() + 2, selected: false, name: "Extract JSON entities from unstructured chat", model: "Claude 3.5 Haiku", score: 4, status: "In Review" }
+          );
+        } else {
+          datasets.tasks.rows.push(
+            { id: Date.now() + 3, selected: false, name: "HumanEval multi-file TS synthesis", model: "Claude 3.5 Sonnet", score: 5, status: "Passed" }
+          );
+        }
+
+        renderTable();
+        showToast("Claude generated new table rows!");
+      }, 1200);
+    }
+
+    // Export & Utilities
+    function exportData(format) {
+      const data = datasets[currentDataset];
+      const jsonStr = JSON.stringify(data.rows, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${data.title.toLowerCase().replace(/\s+/g, '_')}.json`;
+      a.click();
+      showToast("Exported JSON file");
+    }
+
+    function copyMarkdownTable() {
+      const data = datasets[currentDataset];
+      let md = `| ${data.columns.map(c => c.title).join(' | ')} |\n`;
+      md += `| ${data.columns.map(() => '---').join(' | ')} |\n`;
+
+      data.rows.forEach(r => {
+        const rowVals = data.columns.map(c => r[c.key] || '');
+        md += `| ${rowVals.join(' | ')} |\n`;
+      });
+
+      navigator.clipboard.writeText(md).then(() => {
+        showToast("Copied Markdown table to clipboard");
+      }).catch(() => {
+        showToast("Markdown table generated");
+      });
+    }
+
+    function filterRows() { renderTable(); }
+    function addNewTable() { showToast("Created new workspace table"); }
+    function toggleMoreMenu() { showToast("Display settings & column options"); }
+    function openColumnMenu(colKey) { showToast(`Column settings for [${colKey}]`); }
+
+    function triggerSavedPulse() {
+      const el = document.getElementById('savedIndicator');
+      el.style.opacity = '1';
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2000);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    window.onload = function() {
+      initTheme();
+      renderTable();
+    };
+  </script>
+</body>
+</html>
