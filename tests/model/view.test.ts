@@ -306,3 +306,111 @@ describe('View — persistence via format parse/serialize', () => {
     expect(v.warnings && v.warnings.length).toBeGreaterThan(0);
   });
 });
+
+describe('View — search and query persistence (SAD-69)', () => {
+  /**
+   * `search` and `query` are persisted view state added by SAD-69. They are OPTIONAL:
+   * a file written before they existed must still round-trip byte-identical, so no code
+   * path may inject empty defaults into a view that does not carry them.
+   *
+   * The load path (parse.ts) preserves unknown view keys as a side effect of its
+   * "preserve unknown keys" loop, but the save path runs sanitizeViewsForSave →
+   * validateView → cloneView, and cloneView copies field by field. Anything cloneView
+   * does not name is silently dropped on every save. These tests pin both halves.
+   */
+  const withFilters: ViewDefinition = { ...BASE_VIEW, search: 'alpha', query: 'Status:done' };
+
+  it('cloneView preserves search and query', () => {
+    const c = cloneView(withFilters);
+    expect(c.search).toBe('alpha');
+    expect(c.query).toBe('Status:done');
+  });
+
+  it('validateView preserves search and query', () => {
+    const res = validateView(withFilters, FIELDS);
+    expect(res.ok).toBe(true);
+    expect(res.view.search).toBe('alpha');
+    expect(res.view.query).toBe('Status:done');
+  });
+
+  it('sanitizeViewsForSave keeps search and query', () => {
+    const [out] = sanitizeViewsForSave([withFilters], FIELDS);
+    expect(out.search).toBe('alpha');
+    expect(out.query).toBe('Status:done');
+  });
+
+  it('normalizeView preserves search and query from raw JSON', () => {
+    const res = normalizeView({ ...BASE_VIEW, search: 'beta', query: 'Score>3' }, FIELDS);
+    expect(res.view.search).toBe('beta');
+    expect(res.view.query).toBe('Score>3');
+  });
+
+  it('normalizeView drops non-string search/query and records warnings', () => {
+    const res = normalizeView({ ...BASE_VIEW, search: 42, query: 7 }, FIELDS);
+    expect(res.view.search).toBeUndefined();
+    expect(res.view.query).toBeUndefined();
+    expect(res.warnings.join(' ')).toContain('search');
+    expect(res.warnings.join(' ')).toContain('query');
+  });
+
+  it('a view without search/query does not gain empty defaults', () => {
+    // Guards the v1 sample fixtures and every file written before this change: adding
+    // unconditional defaults would make each of them gain two keys on save and break the
+    // byte-identical round-trip tests in tests/format/format.test.ts.
+    const normalized = normalizeView({ ...BASE_VIEW }, FIELDS);
+    expect('search' in normalized.view).toBe(false);
+    expect('query' in normalized.view).toBe(false);
+
+    const validated = validateView(BASE_VIEW, FIELDS);
+    expect('search' in validated.view).toBe(false);
+    expect('query' in validated.view).toBe(false);
+
+    const [saved] = sanitizeViewsForSave([BASE_VIEW], FIELDS);
+    expect('search' in saved).toBe(false);
+    expect('query' in saved).toBe(false);
+  });
+
+  it('createDefaultView emits no search or query keys', () => {
+    const v = createDefaultView(FIELDS);
+    expect('search' in v).toBe(false);
+    expect('query' in v).toBe(false);
+  });
+
+  it('search and query survive serialize → parse round-trip', async () => {
+    const { parse } = await import('../../src/format/parse.js');
+    const { serialize } = await import('../../src/format/serialize.js');
+    const file = {
+      formatVersion: 1 as const,
+      tableId: 'tbl_test',
+      name: 'Test',
+      fields: FIELDS,
+      rows: [],
+      views: [withFilters],
+      syncLink: null as const,
+    };
+    const parsed = parse(serialize(file as never));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.views[0].search).toBe('alpha');
+    expect(parsed.data.views[0].query).toBe('Status:done');
+  });
+
+  it('a view without search/query round-trips without gaining them', async () => {
+    const { parse } = await import('../../src/format/parse.js');
+    const { serialize } = await import('../../src/format/serialize.js');
+    const file = {
+      formatVersion: 1 as const,
+      tableId: 'tbl_test',
+      name: 'Test',
+      fields: FIELDS,
+      rows: [],
+      views: [BASE_VIEW],
+      syncLink: null as const,
+    };
+    const parsed = parse(serialize(file as never));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect('search' in parsed.data.views[0]).toBe(false);
+    expect('query' in parsed.data.views[0]).toBe(false);
+  });
+});

@@ -216,12 +216,17 @@ Each view object has these keys **in this order**:
 | `frozenColumns` | integer | ✅ | Number of columns frozen from the left. At least 1 (primary column is always frozen). |
 | `rowHeight` | string | ✅ | One of: `"small"`, `"medium"`, `"large"`. |
 | `columnWidths` | object | ✅ | Map of field ID to width in pixels (integer). Missing fields use the default width. |
+| `search` | string | ❌ | Global search text persisted with the view (SAD-69). Optional; `""` means no search. |
+| `query` | string\\|null | ❌ | P2-02 query persisted with the view (SAD-69). Optional; `null` means no query filter. |
+
+`search` and `query` were added by SAD-69 and appear **after** `columnWidths` (and after `warnings`, if present) so that files written before they existed keep their original key order.
 
 ### 5.1 View rules
 
 - View settings are stored in the `.tablify` file (R-D10). The table travels with its layout.
 - The primary field cannot be hidden (R-D13). If `hidden` contains the primary field ID, the file is invalid.
 - At least one view must exist.
+- `search` and `query` are **optional**. Absent means "no filter", and an absent key must stay absent: no reader may inject an empty default, so that files written before these keys existed still round-trip byte-identical. A present-but-wrong-typed value is dropped with a warning rather than coerced.
 
 ---
 

@@ -73,6 +73,17 @@ export interface ViewDefinition {
   columnWidths: Record<string, number>;
   columnOrder: string[];
   warnings?: string[];
+  /**
+   * Global search text persisted with the view (SAD-69).
+   * Optional and absent by default: a file written before these keys existed must still
+   * round-trip byte-identical, so nothing may inject an empty default. Absent or '' = no search.
+   */
+  search?: string;
+  /**
+   * P2-02 query persisted with the view (SAD-69). Same optionality rule as `search`.
+   * Absent or null = no query filter.
+   */
+  query?: string | null;
 }
 
 // ---- Table (top-level) ----

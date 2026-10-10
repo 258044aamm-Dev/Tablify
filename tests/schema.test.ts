@@ -210,3 +210,38 @@ describe('tablify.schema.json validation', () => {
     });
   });
 });
+
+describe('tablify.schema.json — persisted search and query (SAD-69)', () => {
+  const schemaObj = JSON.parse(readFileSync(join(process.cwd(), 'tablify.schema.json'), 'utf-8'));
+  const ajv2 = new Ajv2020({ allErrors: true, strict: false });
+  addFormats(ajv2);
+  const validate = ajv2.compile(schemaObj);
+
+  function withView(extra: Record<string, unknown>) {
+    const data = JSON.parse(readFileSync(join(process.cwd(), 'samples', 'v1', 'empty.tablify'), 'utf-8'));
+    Object.assign(data.views[0], extra);
+    return data;
+  }
+
+  it('accepts a view carrying search and query', () => {
+    const valid = validate(withView({ search: 'alpha', query: 'Status:done' }));
+    if (!valid) console.error('Validation errors:', validate.errors);
+    expect(valid).toBe(true);
+  });
+
+  it('accepts an explicit null query (means no filter)', () => {
+    expect(validate(withView({ query: null }))).toBe(true);
+  });
+
+  it('accepts an empty search string', () => {
+    expect(validate(withView({ search: '' }))).toBe(true);
+  });
+
+  it('rejects a non-string search', () => {
+    expect(validate(withView({ search: 42 }))).toBe(false);
+  });
+
+  it('rejects a non-string, non-null query', () => {
+    expect(validate(withView({ query: 7 }))).toBe(false);
+  });
+});

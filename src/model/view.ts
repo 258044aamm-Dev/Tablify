@@ -27,6 +27,11 @@ function cloneView(view: ViewDefinition): ViewDefinition {
     columnWidths: { ...view.columnWidths },
     columnOrder: [...view.columnOrder],
     ...(view.warnings ? { warnings: [...view.warnings] } : {}),
+    // SAD-69: search and query are persisted view state. They are copied conditionally —
+    // an unconditional `search: view.search` would give every view written before this
+    // change two extra keys on its next save and break byte-identical round-trips.
+    ...(view.search !== undefined ? { search: view.search } : {}),
+    ...(view.query !== undefined && view.query !== null ? { query: view.query } : {}),
   };
 }
 
@@ -250,6 +255,10 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
     columnWidths: typeof obj.columnWidths === 'object' && obj.columnWidths !== null ? (obj.columnWidths as Record<string, number>) : {},
     columnOrder: Array.isArray(obj.columnOrder) ? (obj.columnOrder as string[]) : fields.map((f) => f.id),
     warnings: Array.isArray(obj.warnings) ? (obj.warnings as string[]) : [],
+    // SAD-69: persisted search/query. Only a string is accepted; anything else is dropped
+    // below with a warning rather than coerced, so a corrupt file cannot silently filter rows.
+    ...(typeof obj.search === 'string' ? { search: obj.search } : {}),
+    ...(typeof obj.query === 'string' ? { query: obj.query } : {}),
   };
 
   if (!Array.isArray(obj.columnOrder)) {
@@ -261,6 +270,14 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
   if (!Array.isArray(obj.hidden)) warnings.push('view hidden missing — set to []');
   if (typeof obj.frozenColumns !== 'number') warnings.push('view frozenColumns missing — set to 0');
   if (typeof obj.rowHeight !== 'string') warnings.push('view rowHeight missing — set to medium');
+  // SAD-69: search/query are optional. Absent means "no filter" and must stay absent;
+  // present-but-wrong-type is dropped with a warning.
+  if (obj.search !== undefined && typeof obj.search !== 'string') {
+    warnings.push('view search is not a string — ignored');
+  }
+  if (obj.query !== undefined && obj.query !== null && typeof obj.query !== 'string') {
+    warnings.push('view query is not a string — ignored');
+  }
 
   const result = validateView(view, fields);
   // Merge initial warnings

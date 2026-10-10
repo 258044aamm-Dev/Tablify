@@ -22,7 +22,8 @@ const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'uni
 const ROW_KEYS = ['id', 'rev', 'createdAt', 'updatedAt', 'values', 'sync'] as const;
 
 /** View key order per FORMAT_SPEC.md §5. */
-const VIEW_KEYS = ['id', 'name', 'sort', 'groupBy', 'hidden', 'frozenColumns', 'rowHeight', 'columnWidths', 'columnOrder', 'warnings'] as const;
+/** SAD-69: `search` and `query` are appended last so existing files keep their key order. */
+const VIEW_KEYS = ['id', 'name', 'sort', 'groupBy', 'hidden', 'frozenColumns', 'rowHeight', 'columnWidths', 'columnOrder', 'warnings', 'search', 'query'] as const;
 
 /** Option key order per FORMAT_SPEC.md §3.2. */
 const OPTION_KEYS = ['id', 'name', 'color'] as const;

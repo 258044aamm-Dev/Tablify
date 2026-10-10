@@ -160,6 +160,16 @@ export function parse(input: string): ParseResult {
         warnings: Array.isArray((v as unknown as Record<string, unknown>).warnings)
           ? ((v as unknown as Record<string, unknown>).warnings as string[])
           : [],
+        // SAD-69: persisted search/query. Kept here (rather than relying on the
+        // "preserve unknown keys" loop below) so validateView carries them and every
+        // downstream reader sees them as first-class view state. Non-strings are left out;
+        // the loop below still preserves the raw value so nothing is lost on round-trip.
+        ...(typeof (v as unknown as Record<string, unknown>).search === 'string'
+          ? { search: (v as unknown as Record<string, unknown>).search as string }
+          : {}),
+        ...(typeof (v as unknown as Record<string, unknown>).query === 'string'
+          ? { query: (v as unknown as Record<string, unknown>).query as string }
+          : {}),
       } as unknown as ViewDefinition;
       const result = validateView(viewWithDefaults, fieldsForView);
       // For file load, even if primary hidden error, auto-fix by removing primary from hidden (warnings)

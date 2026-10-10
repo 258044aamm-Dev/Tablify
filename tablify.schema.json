@@ -223,6 +223,14 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Non-fatal warnings recorded during view normalization (e.g., unknown field IDs ignored)."
+        },
+        "search": {
+          "type": "string",
+          "description": "Global search text persisted with the view (SAD-69). Empty string means no search."
+        },
+        "query": {
+          "type": ["string", "null"],
+          "description": "P2-02 query persisted with the view (SAD-69). null means no query filter."
         }
       },
       "additionalProperties": true

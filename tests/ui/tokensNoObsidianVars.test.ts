@@ -87,7 +87,8 @@ describe('SAD-69 D — grid is themed by Tablify tokens, not Obsidian variables'
     const selected = grid.root.querySelector<HTMLElement>('.tablify__cell--selected');
     expect(selected, 'a selected cell should be rendered').not.toBeNull();
 
-    const outline = selected!.style.outline;
+    if (!selected) return;
+    const outline = selected.style.outline;
     expect(outline).toContain('--tablify-selection');
     expect(outline).not.toContain('--interactive-accent');
 
