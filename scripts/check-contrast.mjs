@@ -23,37 +23,58 @@ function ratio(a, b) {
 // Mirrors src/ui/theme/tokens.ts. Kept in sync by hand; the vitest suite is the authority
 // (tests/ui/contrast.test.ts imports the real tokens, so a drift fails the build).
 const palette = {
-  dark: '#141413',
-  light: '#faf9f5',
+  dark: '#181715',
+  light: '#FAF7F2',
   midGray: '#b0aea5',
   lightGray: '#e8e6dc',
   accentOrange: '#d97757',
+  terracotta: '#CC785C',
   accentBlue: '#6a9bcc',
   accentGreen: '#788c5d',
-  // Added for SAD-69 D. The dark theme used midGray (#b0aea5) as its stripe and subtle
-  // surface, which put body text at 2.11:1 — see docs/evidence/P3-11.md.
-  darkSurface: '#2a2926',
-  darkHeader: '#33322d',
+  // SAD-71 Step 2: prototype surface ladder (owner-approved D-6). Replaces the SAD-69 D
+  // darkSurface/darkHeader stopgaps and the mid-gray border; see spec/branding.md §5.
+  cardDark: '#22201D',
+  cardLight: '#FFFFFF',
+  innerDark: '#1B1A17',
+  innerLight: '#F4EFE6',
+  capsuleDark: '#262420',
+  capsuleLight: '#FFFFFF',
+  borderDark: '#38342E',
+  borderLight: '#E6E0D5',
+  textOnDark: '#ECE7E1',
+  textOnLight: '#1E1B18',
+  mutedDark: '#9CA3AF',
+  mutedLight: '#6E655C',
 };
 
 const pairs = [
   // Body-text pairs. `required` means the script exits non-zero if any of them fails AA.
-  { name: 'light: text on bg', fg: palette.dark, bg: palette.light, use: 'body text', required: true },
-  { name: 'light: text on stripe', fg: palette.dark, bg: palette.lightGray, use: 'body text on striped rows', required: true },
-  { name: 'light: text on header', fg: palette.dark, bg: palette.lightGray, use: 'body text on header / subtle surfaces', required: true },
-  { name: 'dark: text on bg', fg: palette.light, bg: palette.dark, use: 'body text', required: true },
-  { name: 'dark: text on stripe', fg: palette.light, bg: palette.darkSurface, use: 'body text on striped rows', required: true },
-  { name: 'dark: text on header', fg: palette.light, bg: palette.darkHeader, use: 'body text on header / subtle surfaces', required: true },
+  { name: 'light: text on bg', fg: palette.textOnLight, bg: palette.light, use: 'body text', required: true },
+  { name: 'light: text on card', fg: palette.textOnLight, bg: palette.cardLight, use: 'body text on card', required: true },
+  { name: 'light: text on inner/shell', fg: palette.textOnLight, bg: palette.innerLight, use: 'body text on grid shell & header capsules', required: true },
+  { name: 'light: text on capsule', fg: palette.textOnLight, bg: palette.capsuleLight, use: 'body text on cell capsules', required: true },
+  { name: 'dark: text on bg', fg: palette.textOnDark, bg: palette.dark, use: 'body text', required: true },
+  { name: 'dark: text on card', fg: palette.textOnDark, bg: palette.cardDark, use: 'body text on card', required: true },
+  { name: 'dark: text on inner/shell', fg: palette.textOnDark, bg: palette.innerDark, use: 'body text on grid shell', required: true },
+  { name: 'dark: text on capsule', fg: palette.textOnDark, bg: palette.capsuleDark, use: 'body text on cell/header capsules', required: true },
+  // Muted small text (row counts, header labels, badges) — required since SAD-71 Step 2.
+  { name: 'light: muted on bg', fg: palette.mutedLight, bg: palette.light, use: 'muted 11px labels', required: true },
+  { name: 'light: muted on inner', fg: palette.mutedLight, bg: palette.innerLight, use: 'muted 11px labels on shell', required: true },
+  { name: 'dark: muted on bg', fg: palette.mutedDark, bg: palette.dark, use: 'muted 11px labels', required: true },
+  { name: 'dark: muted on capsule', fg: palette.mutedDark, bg: palette.capsuleDark, use: 'muted 11px labels on capsules', required: true },
+  // Accent ink on accent (active pills, CTAs) — required since SAD-71 Step 2.
+  { name: 'light: ink on terracotta', fg: palette.textOnLight, bg: palette.terracotta, use: 'active pill / CTA ink', required: true },
+  { name: 'dark: ink on accent', fg: palette.dark, bg: palette.accentOrange, use: 'active pill / CTA ink', required: true },
   // Secondary and accent pairs — recorded, not gating.
-  { name: 'light: muted on bg', fg: palette.midGray, bg: palette.light, use: 'secondary/border — not body text' },
-  { name: 'dark: muted on bg', fg: palette.midGray, bg: palette.dark, use: 'secondary/border — not body text' },
   { name: 'orange on light', fg: palette.accentOrange, bg: palette.light, use: 'accent — selection/focus, not body text if <4.5' },
   { name: 'orange on dark', fg: palette.accentOrange, bg: palette.dark, use: 'accent on dark' },
+  { name: 'terracotta on light', fg: palette.terracotta, bg: palette.light, use: 'light accent — focus/selection ≥3:1 non-text' },
   { name: 'blue on light', fg: palette.accentBlue, bg: palette.light, use: 'secondary accent — non-text only on light' },
   { name: 'blue on dark', fg: palette.accentBlue, bg: palette.dark, use: 'secondary accent on dark' },
   { name: 'green on light', fg: palette.accentGreen, bg: palette.light, use: 'success accent — non-text if <4.5' },
   { name: 'green on dark', fg: palette.accentGreen, bg: palette.dark, use: 'success accent on dark' },
-  { name: 'midGray border on light', fg: palette.midGray, bg: palette.light, use: 'border — UI component 3:1' },
+  { name: 'light border on light bg', fg: palette.borderLight, bg: palette.light, use: 'subtle border — divider by design (D-6 deviation)' },
+  { name: 'dark border on dark bg', fg: palette.borderDark, bg: palette.dark, use: 'subtle border — divider by design (D-6 deviation)' },
 ];
 
 console.log('Tablify contrast check — WCAG 2.1 AA\n');
@@ -74,10 +95,10 @@ for (const p of pairs) {
 // Informational: the light-theme result is recorded in docs/accessibility/audit.md;
 // changing the palette belongs to P3-11/branding, not here.
 console.log('\nFocus indicator (WCAG 1.4.11 — UI component ≥ 3:1):');
-for (const theme of ['light', 'dark']) {
+for (const [theme, accent] of [['light', palette.terracotta], ['dark', palette.accentOrange]]) {
   const bg = palette[theme];
-  const r = ratio(palette.accentOrange, bg);
-  console.log(`focus (${palette.accentOrange}) on ${theme} (${bg}) → ${r.toFixed(2)}:1 — 1.4.11 ${r >= 3 ? 'PASS' : 'FAIL (marginal)'}`);
+  const r = ratio(accent, bg);
+  console.log(`focus (${accent}) on ${theme} (${bg}) → ${r.toFixed(2)}:1 — 1.4.11 ${r >= 3 ? 'PASS' : 'FAIL (marginal)'}`);
 }
 
 console.log('\n' + (ok

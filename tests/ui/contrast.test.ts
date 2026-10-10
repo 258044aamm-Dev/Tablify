@@ -61,10 +61,56 @@ describe('P3-11 — Contrast and visual verification', () => {
     }
   });
 
-  it('muted/border on light fails AA — used for borders/striping, not body text', () => {
-    const r = contrastRatio(palette.midGray, palette.light);
-    expect(r).toBeLessThan(4.5);
-    // UI components need 3:1; border on light is 2.11 <3, so it is used for secondary/border where contrast is not required for text
-    expect(r).toBeLessThan(3);
+  // ---- SAD-71 Step 2: the prototype surface ladder ----
+
+  it('body text passes AA on every ladder surface in both themes', () => {
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      for (const surface of [t.bg, t.bgCard, t.bgInner, t.bgCapsule]) {
+        const ratio = contrastRatio(t.text, surface);
+        expect(ratio, `${name}: text on ${surface} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('muted small text passes AA on every surface it is painted on', () => {
+    // The prototype's raw clay (#8C827A) is 3.55:1 on paper — too low for the 11px labels
+    // that carry it — so the ladder ships the accessible variant instead.
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      for (const surface of [t.bg, t.bgCard, t.bgInner, t.bgCapsule]) {
+        const ratio = contrastRatio(t.textMuted, surface);
+        expect(ratio, `${name}: muted on ${surface} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('subtle borders stay subtle in both themes (documented 1.4.11 deviation)', () => {
+    // Prototype language: surface step + shadow carry the boundary, borders are dividers,
+    // not the sole identifier of a control. Focus/selection carry the ≥3:1 duty instead.
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      const ratio = contrastRatio(t.borderSubtle, t.bg);
+      expect(ratio, `${name}: borderSubtle on bg = ${ratio.toFixed(2)}:1`).toBeLessThan(3);
+    }
+  });
+
+  it('focus and selection meet the 3:1 non-text floor in both themes', () => {
+    // SAD-69 left the light focus ring at 2.96:1; the ladder's terracotta clears 3:1.
+    expect(contrastRatio(lightTheme.focus, lightTheme.bg)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(darkTheme.focus, darkTheme.bg)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('accent ink passes AA on its theme accent (active pills, CTAs)', () => {
+    // The prototype paints active pills white-on-terracotta (2.83:1); the ladder uses a
+    // dark ink instead so 12px labels stay readable.
+    expect(contrastRatio(lightTheme.onAccent, lightTheme.accentPrimary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(darkTheme.onAccent, darkTheme.accentPrimary)).toBeGreaterThanOrEqual(4.5);
   });
 });

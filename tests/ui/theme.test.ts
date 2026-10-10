@@ -7,14 +7,30 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 describe('P3-09 — Design tokens', () => {
-  it('palette matches branding.md §5 exactly (unverified)', () => {
-    expect(palette.dark).toBe('#141413');
-    expect(palette.light).toBe('#faf9f5');
-    expect(palette.midGray).toBe('#b0aea5');
-    expect(palette.lightGray).toBe('#e8e6dc');
-    expect(palette.accentOrange).toBe('#d97757');
-    expect(palette.accentBlue).toBe('#6a9bcc');
-    expect(palette.accentGreen).toBe('#788c5d');
+  it('palette matches branding.md §5 exactly (prototype ladder, owner-approved D-6)', () => {
+    // SAD-71 Step 2: the surface ladder and subtle borders of the design source
+    // (Prototype/Anthropic Table Workspace.html), with the accessible muted-clay variant.
+    const expected: Record<keyof typeof palette, string> = {
+      dark: '#181715',
+      light: '#FAF7F2',
+      cardDark: '#22201D',
+      cardLight: '#FFFFFF',
+      innerDark: '#1B1A17',
+      innerLight: '#F4EFE6',
+      capsuleDark: '#262420',
+      capsuleLight: '#FFFFFF',
+      borderDark: '#38342E',
+      borderLight: '#E6E0D5',
+      textOnDark: '#ECE7E1',
+      textOnLight: '#1E1B18',
+      mutedDark: '#9CA3AF',
+      mutedLight: '#6E655C',
+      accentOrange: '#d97757',
+      terracotta: '#CC785C',
+      accentBlue: '#6a9bcc',
+      accentGreen: '#788c5d',
+    };
+    expect(palette).toEqual(expected);
   });
 
   it('every token resolves in both themes', () => {
@@ -72,14 +88,17 @@ describe('P3-09 — Design tokens', () => {
     expect(el.classList.contains('tablify')).toBe(true);
     expect(el.classList.contains('tablify--light')).toBe(true);
     expect(el.style.getPropertyValue(cssVars.bg)).toBe(palette.light);
-    expect(el.style.getPropertyValue(cssVars.text)).toBe(palette.dark);
+    // SAD-71 Step 2: light text is its own token now (charcoal), not the dark background.
+    expect(el.style.getPropertyValue(cssVars.text)).toBe(palette.textOnLight);
+    expect(el.style.getPropertyValue(cssVars.bgCapsule)).toBe(palette.capsuleLight);
     expect(document.body.classList.contains('tablify--light')).toBe(false);
 
     applyTheme(el, 'dark');
     expect(el.classList.contains('tablify--dark')).toBe(true);
     expect(el.classList.contains('tablify--light')).toBe(false);
     expect(el.style.getPropertyValue(cssVars.bg)).toBe(palette.dark);
-    expect(el.style.getPropertyValue(cssVars.text)).toBe(palette.light);
+    expect(el.style.getPropertyValue(cssVars.text)).toBe(palette.textOnDark);
+    expect(el.style.getPropertyValue(cssVars.borderSubtle)).toBe(palette.borderDark);
     expect(document.body.classList.contains('tablify--dark')).toBe(false);
   });
 

@@ -30,38 +30,49 @@ Status: decisions recorded from owner answers on 2026-10-09. No code written.
 - Verify the OFL terms before release (step to add to P6-06 license check).
 - Impact: plugin size grows. Record the size in the P6 release evidence.
 
-## 5. Palette (from a third-party summary, NOT yet verified against an official Anthropic source)
+## 5. Palette (prototype ladder — owner-approved 2026-10-10, SAD-71 D-6)
 
-| Token | Hex | Intended use |
-| --- | --- | --- |
-| dark | #141413 | primary text (light theme), dark theme background |
-| light | #faf9f5 | light theme background, text on dark |
-| mid-gray | #b0aea5 | secondary elements, borders |
-| light-gray | #e8e6dc | subtle backgrounds, row striping |
-| accent-orange | #d97757 | primary accent, focus, selection |
-| accent-blue | #6a9bcc | secondary accent (links, info) |
-| accent-green | #788c5d | success and tertiary accent |
+Superseded on 2026-10-10: the values now follow the design source
+`Prototype/Anthropic Table Workspace.html` (its `tailwind.config` colour block), which the
+owner confirmed as the target in [SAD-71](https://linear.app/sad-mod/issue/SAD-71). The
+previous third-party summary (dark #141413 / light #faf9f5 / mid-gray #b0aea5 /
+light-gray #e8e6dc) and the SAD-69 stopgaps (dark-surface #2a2926 / dark-header #33322d)
+are **retired**; `src/ui/theme/tokens.ts` and `tests/ui/theme.test.ts` carry the live values.
 
-### 5.1 Tokens added by Tablify
-
-These two are **not** part of the third-party summary above. They were added while fixing
-[SAD-69](https://linear.app/sad-mod/issue/SAD-69) (dark-theme contrast failure) and are
-Tablify's own values, so they do not depend on G-B1 being resolved.
-
-| Token | Hex | Intended use | Contrast on body text |
+| Token | Light | Dark | Intended use |
 | --- | --- | --- | --- |
-| dark-surface | #2a2926 | dark-theme row striping (`bgStripe`) | 13.81:1 ✅ AA |
-| dark-header | #33322d | dark-theme header and subtle surfaces (`bgSubtle`) | 12.19:1 ✅ AA |
+| bg | #FAF7F2 | #181715 | view background behind the card |
+| bg-card | #FFFFFF | #22201D | workspace card, toolbar buttons, popovers |
+| bg-inner | #F4EFE6 | #1B1A17 | grid shell (inner container) |
+| bg-capsule | #FFFFFF | #262420 | cell + header capsules, option pills |
+| border-subtle | #E6E0D5 | #38342E | all chrome borders (dividers, not identifiers) |
+| text | #1E1B18 | #ECE7E1 | body text |
+| text-muted | #6E655C | #9CA3AF | 11px labels, row count, badges |
+| accent | #CC785C | #d97757 | focus, selection, active pills, CTA |
+| on-accent | #1E1B18 | #181715 | ink on accent (AA-checked; prototype's white is 2.83:1) |
+| accent-blue | #6a9bcc | #6a9bcc | secondary accent (links, info) |
+| accent-green | #788c5d | #788c5d | success and tertiary accent |
 
-Why they exist: the summary's mid-gray `#b0aea5` was reused for the dark theme's subtle and
-striped surfaces. Body text `#faf9f5` on `#b0aea5` measures **2.11:1**, far below the WCAG 2.1 AA
-minimum of 4.5:1, so every striped row was illegible in dark mode. The new values stay a
-deliberate, subtle step above the `#141413` background (1.27:1 for the stripe, 1.44:1 for the
-header) so they read as surfaces rather than dividers.
+### 5.1 Deviations from the prototype, recorded
 
-The light theme needed no change: text `#141413` on the light-gray stripe `#e8e6dc` is 14.73:1.
+- **Muted clay, light:** prototype clay #8C827A measures 3.55:1 on #FAF7F2 — below AA for the
+  11px labels that carry it. Ships as #6E655C (5.34:1). Dark keeps the prototype's gray-400.
+- **On-accent ink:** prototype paints active tabs white on terracotta (2.83:1). Ships dark
+  ink instead (5.23:1 light / 5.74:1 dark).
+- **Subtle borders:** 1.25:1 (light) / 1.45:1 (dark) against their background — below WCAG
+  1.4.11's 3:1 when a border is the *sole* identifier of a control. By design the surface
+  step + shadow carry the boundary; focus/selection (3.07:1 / 5.74:1) carry the 3:1 duty.
+  Same treatment as the pre-ladder focus-ring note in `docs/evidence/P3-11.md`.
 
-Open item: confirm these values against an official Anthropic source before release. Until confirmed, label them "unverified" in the plugin docs.
+### 5.2 History (kept for the audit trail)
+
+- v1.0.0–v1.0.1 used the third-party summary above; its mid-gray `#b0aea5` as dark subtle/
+  stripe surface put body text at 2.11:1 (SAD-69 D), fixed then by dark-surface/dark-header.
+- The ladder retires both stopgaps; contrast pairs are asserted in `tests/ui/contrast.test.ts`
+  and `scripts/check-contrast.mjs` (required pairs gate the script).
+
+Open item: confirm the ladder against an official Anthropic source before release (G-B1).
+Until confirmed, label it "unverified" in the plugin docs.
 
 Accessibility rule: every text/background pair must meet WCAG 2.1 AA (4.5:1 for body text). Check the orange and green accents as text on light backgrounds before use; use them for non-text elements if they fail.
 
