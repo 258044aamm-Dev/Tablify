@@ -14,7 +14,7 @@
 import { getVisibleRange, rowHeightPx, totalHeight, OVERSCAN } from './virtual.js';
 import { RowPool } from './rowPool.js';
 import { applyTheme } from '../../ui/theme/tokens.js';
-import type { Row, FieldDefinition } from '../../model/types.js';
+import type { Row, FieldDefinition, CellValue } from '../../model/types.js';
 import type { ViewDefinition } from '../../model/types.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 
@@ -29,6 +29,8 @@ export interface GridOptions {
   onCellClick?: (rowIndex: number, colIndex: number) => void;
   /** P8-03: error state of a formula cell (tooltip and styling). Null for a good value. */
   formulaError?: (rowId: string, fieldId: string) => { code: string; message: string } | null;
+  /** P8-04: label text for a link cell, and how many of its links are broken. */
+  linkSummary?: (value: CellValue | undefined) => { text: string; broken: number };
 }
 
 export interface GridSelection {
@@ -393,8 +395,16 @@ export class GridView {
             cell.title = formulaErr.message;
             cell.setAttribute('data-formula-error', formulaErr.code);
           } else if (field.type === 'link') {
-            // P8-03: link cells show their count through the type's format (never [object Object]).
-            text.textContent = getFieldType('link').format(val ?? null, field);
+            // P8-04: resolved row names. A broken link is marked, never removed from the cell.
+            const summary = this.opts.linkSummary
+              ? this.opts.linkSummary(val)
+              : { text: getFieldType('link').format(val ?? null, field), broken: 0 };
+            text.textContent = summary.text;
+            if (summary.broken > 0) {
+              cell.classList.add('tablify__cell--broken-link');
+              cell.title = `${summary.broken} broken ${summary.broken === 1 ? 'link' : 'links'}: the linked row or table was not found.`;
+              cell.setAttribute('data-broken-links', String(summary.broken));
+            }
           } else {
             text.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
           }

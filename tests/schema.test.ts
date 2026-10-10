@@ -17,6 +17,15 @@ describe('tablify.schema.json validation', () => {
   });
 
   describe('valid samples (samples/v2/, P8-03)', () => {
+    it('accepts customers.tablify (the link target for formula-link.tablify, P8-04)', () => {
+      const data = JSON.parse(
+        readFileSync(join(process.cwd(), 'samples', 'v2', 'customers.tablify'), 'utf-8')
+      );
+      const valid = validate(data);
+      if (!valid) console.error('Validation errors:', validate.errors);
+      expect(valid).toBe(true);
+    });
+
     it('accepts formula-link.tablify (formula and link fields, formatVersion 2)', () => {
       const data = JSON.parse(
         readFileSync(join(process.cwd(), 'samples', 'v2', 'formula-link.tablify'), 'utf-8')

@@ -36,6 +36,7 @@ export const TYPE_LABELS: Partial<Record<FieldTypeName, string>> = {
   multi_select: 'Multi select',
   attachment: 'Attachment',
   formula: 'Formula',
+  link: 'Link',
 };
 
 /** Types offered by Change field type. System types (auto number, created/modified time) are not targets. */
@@ -57,22 +58,33 @@ export const CHANGE_TARGET_TYPES: FieldTypeName[] = [
   'multi_select',
   'attachment',
   'formula',
+  'link',
 ];
 
 export interface CellContext {
   readOnly: boolean;
   cellEmpty: boolean;
   hasClipboard: boolean;
+  /** P8-04: a link cell is changed through the row picker, and paste is refused. */
+  isLink?: boolean;
 }
 
 export function cellEntries(ctx: CellContext): MenuEntry[] {
+  const entries: MenuEntry[] = [{ id: 'cell.copy', label: 'Copy', enabled: true }];
+  if (ctx.isLink) {
+    entries.push({ id: 'cell.links', label: 'Choose linked rows…', enabled: !ctx.readOnly });
+  }
   return [
-    { id: 'cell.copy', label: 'Copy', enabled: true },
+    ...entries,
     {
       id: 'cell.paste',
       label: 'Paste',
-      enabled: !ctx.readOnly && ctx.hasClipboard,
-      reason: ctx.readOnly ? 'Read-only field' : 'Nothing copied yet',
+      enabled: !ctx.readOnly && ctx.hasClipboard && !ctx.isLink,
+      reason: ctx.readOnly
+        ? 'Read-only field'
+        : ctx.isLink
+          ? 'Use Choose linked rows instead'
+          : 'Nothing copied yet',
     },
     {
       id: 'cell.clear',

@@ -107,13 +107,26 @@ describe('P8-03 formula fields (T-E)', () => {
     expect(text).not.toContain('13.5');
   });
 
-  it('link cell is read-only and formats as a count, never [object Object]', () => {
+  it('link cell formats as a count, never [object Object] (P8-04: edited in the picker)', () => {
     const session = createSession(loadSample());
     const row = session.getDisplayRows()[0];
     const linkType = getFieldType('link');
-    expect(linkType.readOnly).toBe(true);
+    expect(linkType.readOnly).toBe(false);
     expect(linkType.format(row.values['fld_customer'] ?? null, {} as never)).toBe('1 linked');
     expect(linkType.format(null, {} as never)).toBe('');
+  });
+
+  it('P8-04: a new link field defaults to this table, and a link value goes through the command path', () => {
+    const session = createSession(loadSample());
+    const linkId = session.addField('Parent', 'link').id;
+    expect(session.getField(linkId)?.linkTableId).toBe('tbl_01J9B7ORDR');
+    const rowId = session.getDisplayRows()[0].id;
+    const ref = { tableId: 'tbl_01J9B7CUST', rowId: 'row_01J9B9C002' };
+    session.setValue(rowId, linkId, [ref]);
+    expect(session.toFile().rows[0].values[linkId]).toEqual([ref]);
+    expect(session.toFile().formatVersion).toBe(2);
+    expect(session.undo()).toBe(true);
+    expect(session.toFile().rows[0].values[linkId] ?? null).toBeNull();
   });
 
   it('a plain table without formula or link fields keeps formatVersion 1', () => {

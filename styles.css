@@ -630,3 +630,57 @@
   color: var(--tablify-accent-primary);
   font-style: italic;
 }
+
+/* P8-04: broken link marker. Dashed underline; the tooltip says what is missing. */
+.tablify__cell--broken-link .tablify__cell-text {
+  color: var(--tablify-accent-primary);
+  text-decoration: underline dashed;
+}
+
+/* P8-04: row picker for link cells. Full-width rows are touch-friendly. */
+.tablify-link-picker__note {
+  color: var(--tablify-text-muted);
+  font-size: 12px;
+}
+.tablify-link-picker__search {
+  width: 100%;
+  margin: 6px 0;
+}
+.tablify-link-picker__list {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+}
+.tablify-link-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.tablify-link-picker__row:hover {
+  background: var(--tablify-bg-subtle);
+}
+.tablify-link-picker__heading {
+  padding: 8px 12px 4px;
+  font-size: 12px;
+  color: var(--tablify-text-muted);
+}
+.tablify-link-picker__missing {
+  font-style: italic;
+  color: var(--tablify-accent-primary);
+}
+
+/* P8-04: integrity check list. */
+.tablify-link-integrity__summary {
+  margin: 8px 0;
+}
+.tablify-link-integrity__where {
+  font-weight: 600;
+}
+.tablify-link-integrity__target {
+  font-size: 12px;
+  color: var(--tablify-text-muted);
+}

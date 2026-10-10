@@ -22,6 +22,11 @@ function textInput(modal: Modal): HTMLInputElement {
   return modal.contentEl.querySelector('input[type="text"]') as HTMLInputElement;
 }
 
+/** The second text box: the formula expression, after the name (P8-03). */
+function secondTextInput(modal: Modal): HTMLInputElement {
+  return modal.contentEl.querySelectorAll('input[type="text"]')[1] as unknown as HTMLInputElement;
+}
+
 function dropdown(modal: Modal): HTMLSelectElement {
   return modal.contentEl.querySelector('select') as HTMLSelectElement;
 }
@@ -73,7 +78,7 @@ describe('AddFieldModal', () => {
     dropdown(modal).value = 'formula';
     dropdown(modal).dispatchEvent(new Event('change'));
     // The expression input is the second text box (after the name).
-    const expr = modal.contentEl.querySelectorAll('input[type="text"]')[1] as HTMLInputElement;
+    const expr = secondTextInput(modal);
     expr.value = '{Price} * 2';
     expr.dispatchEvent(new Event('input'));
     addButton(modal).click();
@@ -87,13 +92,13 @@ describe('AddFieldModal', () => {
     input.dispatchEvent(new Event('input'));
     dropdown(modal).value = 'formula';
     dropdown(modal).dispatchEvent(new Event('change'));
-    const expr = modal.contentEl.querySelectorAll('input[type="text"]')[1] as HTMLInputElement;
+    const expr = secondTextInput(modal);
     expr.value = '{Price} * (';
     expr.dispatchEvent(new Event('input'));
     addButton(modal).click();
     expect(confirmed).toHaveLength(0);
-    expect(modal.isOpen).toBe(true);
-    expect(Notice.messages.at(-1)).toBe('The formula has a syntax error.');
+    expect((modal as unknown as { isOpen: boolean }).isOpen).toBe(true);
+    expect((Notice as unknown as { messages: string[] }).messages.at(-1)).toBe('The formula has a syntax error.');
   });
 
   it('trims whitespace from the name', () => {
@@ -130,5 +135,50 @@ describe('AddFieldModal', () => {
     input.dispatchEvent(new Event('input'));
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(confirmed).toEqual([{ name: 'Note', type: DEFAULT_NEW_FIELD_TYPE }]);
+  });
+});
+
+describe('AddFieldModal link type (P8-04)', () => {
+  it('a link field asks for a target table, defaults to this table, and passes the chosen ID', () => {
+    const app = new App();
+    const got: unknown[][] = [];
+    const modal = new AddFieldModal(
+      app,
+      (...args) => got.push(args),
+      {
+        linkTargets: [
+          { tableId: 'tbl_self', name: 'Orders' },
+          { tableId: 'tbl_c', name: 'Customers' },
+        ],
+        defaultLinkTableId: 'tbl_self',
+      },
+    );
+    modal.open();
+    textInput(modal).value = 'Customer';
+    textInput(modal).dispatchEvent(new Event('input'));
+    dropdown(modal).value = 'link';
+    dropdown(modal).dispatchEvent(new Event('change'));
+    const targetSelect = modal.contentEl.querySelectorAll('select')[1] as unknown as HTMLSelectElement;
+    expect(Array.from(targetSelect.options).map((o) => o.value)).toEqual(['tbl_self', 'tbl_c']);
+    expect(targetSelect.value).toBe('tbl_self');
+    targetSelect.value = 'tbl_c';
+    targetSelect.dispatchEvent(new Event('change'));
+    addButton(modal).click();
+    expect(got).toEqual([['Customer', 'link', undefined, 'tbl_c']]);
+  });
+
+  it('with no table to link to, it warns and stays open', () => {
+    const app = new App();
+    const got: unknown[][] = [];
+    const modal = new AddFieldModal(app, (...args) => got.push(args), { linkTargets: [] });
+    modal.open();
+    textInput(modal).value = 'Customer';
+    textInput(modal).dispatchEvent(new Event('input'));
+    dropdown(modal).value = 'link';
+    dropdown(modal).dispatchEvent(new Event('change'));
+    addButton(modal).click();
+    expect(got).toHaveLength(0);
+    expect((modal as unknown as { isOpen: boolean }).isOpen).toBe(true);
+    expect((Notice as unknown as { messages: string[] }).messages.at(-1)).toBe('Choose a table to link to.');
   });
 });

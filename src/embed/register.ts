@@ -6,6 +6,7 @@ import { MarkdownRenderChild, TFile, type App, type MarkdownPostProcessorContext
 import { EmbedRegistry, type EmbedIO } from './embedDocument.js';
 import { EmbedView } from './embedView.js';
 import { parseEmbedSource } from './embedSource.js';
+import { linkIndexFor } from '../links/vaultLinkIndex.js';
 
 export const EMBED_FENCE_LANGUAGE = 'tablify';
 
@@ -65,6 +66,7 @@ export function registerEmbedProcessor(plugin: Plugin): EmbedRegistration {
         onOpenFull: (p) => {
           void app.workspace.openLinkText(p, '', false);
         },
+        links: linkIndexFor(app),
       });
       el.appendChild(view.root);
       ctx.addChild(

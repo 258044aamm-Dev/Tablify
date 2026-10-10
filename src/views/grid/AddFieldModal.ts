@@ -18,16 +18,32 @@ import { compileFormula } from '../../formula/index.js';
 /** Type preselected when the modal opens. */
 export const DEFAULT_NEW_FIELD_TYPE: FieldTypeName = 'text';
 
+/** A table a link field can point to (P8-04). */
+export interface LinkTargetChoice {
+  tableId: string;
+  name: string;
+}
+
+export interface AddFieldOptions {
+  /** Tables offered for a Link field. The current table should be first. */
+  linkTargets?: LinkTargetChoice[];
+  /** Preselected link target. Defaults to the first entry of linkTargets. */
+  defaultLinkTableId?: string;
+}
+
 export class AddFieldModal extends Modal {
   private name = '';
   private type: FieldTypeName = DEFAULT_NEW_FIELD_TYPE;
   private expression = '';
+  private linkTableId: string;
 
   constructor(
     app: App,
-    private readonly onConfirm: (name: string, type: FieldTypeName, formula?: string) => void,
+    private readonly onConfirm: (name: string, type: FieldTypeName, formula?: string, linkTableId?: string) => void,
+    private readonly options: AddFieldOptions = {},
   ) {
     super(app);
+    this.linkTableId = options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? '';
   }
 
   onOpen(): void {
@@ -55,13 +71,12 @@ export class AddFieldModal extends Modal {
         }
         dropdown.setValue(this.type).onChange((value) => {
           this.type = value as FieldTypeName;
-          formulaRow.style.display = this.type === 'formula' ? '' : 'none';
+          showTypeRows();
         });
       });
 
     // P8-03: the expression is asked for only when the type is Formula.
     const formulaRow = this.contentEl.createDiv();
-    formulaRow.style.display = this.type === 'formula' ? '' : 'none';
     new Setting(formulaRow)
       .setName('Formula')
       .setDesc('Refer to fields as {Field name}. Example: {Price} * {Quantity}')
@@ -70,6 +85,26 @@ export class AddFieldModal extends Modal {
           this.expression = value;
         }),
       );
+
+    // P8-04: a link field needs a target table.
+    const linkRow = this.contentEl.createDiv();
+    const targets = this.options.linkTargets ?? [];
+    new Setting(linkRow)
+      .setName('Link to table')
+      .setDesc(targets.length === 0 ? 'No tables are available to link to.' : 'Rows are picked from this table.')
+      .addDropdown((dropdown) => {
+        for (const t of targets) dropdown.addOption(t.tableId, t.name);
+        if (this.linkTableId) dropdown.setValue(this.linkTableId);
+        dropdown.onChange((value) => {
+          this.linkTableId = value;
+        });
+      });
+
+    const showTypeRows = (): void => {
+      formulaRow.style.display = this.type === 'formula' ? '' : 'none';
+      linkRow.style.display = this.type === 'link' ? '' : 'none';
+    };
+    showTypeRows();
 
     new Setting(this.contentEl).addButton((button) =>
       button
@@ -95,6 +130,15 @@ export class AddFieldModal extends Modal {
       return;
     }
     // Validate before closing, so the modal stays open with the user's text intact.
+    if (this.type === 'link') {
+      if (!this.linkTableId) {
+        new Notice('Choose a table to link to.');
+        return;
+      }
+      this.close();
+      this.onConfirm(name, this.type, undefined, this.linkTableId);
+      return;
+    }
     if (this.type === 'formula') {
       const compiled = compileFormula(this.expression);
       if (!compiled.ok) {

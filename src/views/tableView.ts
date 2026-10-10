@@ -8,7 +8,7 @@ import { serialize } from '../format/serialize.js';
 import { createSession, type TableSession } from '../model/tableSession.js';
 import { planTypeChange } from '../model/fieldChange.js';
 import { getFieldType } from '../model/fieldTypes/registry.js';
-import type { CellValue, FieldDefinition, Row } from '../model/types.js';
+import type { CellValue, FieldDefinition, LinkRef, Row } from '../model/types.js';
 import { createEditor, isReadOnly, parseInput } from './grid/editors/index.js';
 import { GridView, type GridSelection } from './grid/GridView.js';
 import { getGridAction, shouldHandleForGrid } from './grid/keyboard.js';
@@ -20,6 +20,9 @@ import { createDefaultView } from '../model/view.js';
 import { setFrozenColumns, setRowHeight } from './grid/columns.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
+import { LinkPickerModal } from './grid/LinkPickerModal.js';
+import { linkIndexFor } from '../links/vaultLinkIndex.js';
+import { snapshotTable, summarizeLinks } from '../links/linkModel.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 
@@ -55,6 +58,8 @@ export class TableView extends TextFileView {
   private suppressClick = false;
   /** Time of the last touch, used to ignore the native touch context menu (P5-03). */
   private lastTouchAt = 0;
+  /** P8-04: unsubscribe from the vault link index on close. */
+  private linkUnsub: (() => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -90,6 +95,10 @@ export class TableView extends TextFileView {
     this.body = document.createElement('div');
     this.body.className = 'tablify__body';
     this.card.appendChild(this.body);
+    // P8-04: a change in any table (a target renamed, a row deleted) redraws link markers here.
+    this.linkUnsub = linkIndexFor(this.app).onChange(() => {
+      if (this.session) this.renderGrid();
+    });
   }
 
   setViewData(data: string, clear: boolean): void {
@@ -102,6 +111,7 @@ export class TableView extends TextFileView {
       return;
     }
     this.session = createSession(parsed.data);
+    this.publishLive();
     this.renderGrid();
   }
 
@@ -124,7 +134,11 @@ export class TableView extends TextFileView {
   }
 
   async onClose(): Promise<void> {
+    const path = this.file?.path;
     this.clear();
+    this.linkUnsub?.();
+    this.linkUnsub = null;
+    if (path) linkIndexFor(this.app).dropLive(path);
     this.toolbarView?.destroy();
     this.toolbarView = null;
   }
@@ -225,11 +239,22 @@ export class TableView extends TextFileView {
 
   private promptAddField(): void {
     if (!this.session) return;
-    new AddFieldModal(this.app, (name, type, formula) => {
-      if (!this.session) return;
-      this.session.addField(name, type, formula);
-      this.afterChange();
-    }).open();
+    const s = this.session;
+    const selfId = s.toFile().tableId;
+    const others = linkIndexFor(this.app).index
+      .tables()
+      .filter((t) => t.tableId !== selfId)
+      .map((t) => ({ tableId: t.tableId, name: t.name }));
+    const selfName = this.file?.basename ?? 'This table';
+    new AddFieldModal(
+      this.app,
+      (name, type, formula, linkTableId) => {
+        if (!this.session) return;
+        this.session.addField(name, type, formula, linkTableId);
+        this.afterChange();
+      },
+      { linkTargets: [{ tableId: selfId, name: selfName }, ...others], defaultLinkTableId: selfId },
+    ).open();
   }
 
   private showError(message: string): void {
@@ -245,8 +270,17 @@ export class TableView extends TextFileView {
   }
 
   private afterChange(): void {
+    this.publishLive();
     this.renderGrid();
     this.requestSave();
+  }
+
+  /** P8-04: publish this table's live state to the vault link index (unsaved edits included). */
+  private publishLive(): void {
+    const s = this.session;
+    const path = this.file?.path;
+    if (!s || !path) return;
+    linkIndexFor(this.app).noteLive(path, snapshotTable(s.toFile(), path));
   }
 
   /** Sync hooks (P7-10). The sync modal works on this view's session and saves through the view. */
@@ -282,6 +316,8 @@ export class TableView extends TextFileView {
         onCellClick: () => this.grid?.root.focus(),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
+        // P8-04: resolved row names for link cells; broken links are counted for the marker.
+        linkSummary: (value) => summarizeLinks(value, linkIndexFor(this.app).index),
       });
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
@@ -444,6 +480,7 @@ export class TableView extends TextFileView {
       readOnly: isReadOnly(field),
       cellEmpty: isEmptyValue(value),
       hasClipboard: this.clipboardText !== null,
+      isLink: field.type === 'link',
     });
     this.showMenu(entries, { row, col }, pos);
   }
@@ -487,6 +524,9 @@ export class TableView extends TextFileView {
           return;
         case 'cell.paste':
           this.pasteInto(row, field);
+          return;
+        case 'cell.links':
+          this.openLinkPicker(row.id, field);
           return;
         case 'cell.clear':
           s.setValue(row.id, field.id, null);
@@ -558,6 +598,11 @@ export class TableView extends TextFileView {
   }
 
   private pasteInto(row: Row, field: FieldDefinition): void {
+    // P8-04: pasted text cannot name a row ID, so it never changes a link cell.
+    if (field.type === 'link') {
+      new Notice('Use Choose linked rows to change links.');
+      return;
+    }
     if (this.clipboardText === null) {
       new Notice('Nothing copied yet.');
       return;
@@ -576,6 +621,28 @@ export class TableView extends TextFileView {
     void navigator.clipboard?.writeText(text).catch(() => undefined);
   }
 
+  // ---- link picker (P8-04) ----
+
+  /** Row picker for a link cell. Save goes through setValue, so it is undoable and saved with the file. */
+  private openLinkPicker(rowId: string, field: FieldDefinition): void {
+    const s = this.session;
+    if (!s) return;
+    const stored = s.store.getRow(rowId);
+    if (!stored) return;
+    const value = stored.values[field.id];
+    const current: LinkRef[] = Array.isArray(value) ? (value as LinkRef[]) : [];
+    new LinkPickerModal({
+      app: this.app,
+      field,
+      current,
+      index: linkIndexFor(this.app).index,
+      onSave: (refs) => {
+        s.setValue(rowId, field.id, refs);
+        this.afterChange();
+      },
+    }).open();
+  }
+
   // ---- inline editing ----
 
   /** Open the inline editor over the selected cell. Commit goes through the command stack. */
@@ -590,12 +657,18 @@ export class TableView extends TextFileView {
     if (!row || !field) return;
     const storeRow = s.store.getRow(row.id);
     if (!storeRow) return;
+    // P8-04: link cells are changed in the row picker, never in an inline editor.
+    if (field.type === 'link') {
+      this.openLinkPicker(row.id, field);
+      return;
+    }
 
     grid.scrollToRow(sel.row);
     const cell = this.cellElement(sel);
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
       this.editing = null;
       editor?.remove();
+      if (committed) this.publishLive();
       this.renderGrid();
       grid.root.focus();
       if (committed) this.requestSave();

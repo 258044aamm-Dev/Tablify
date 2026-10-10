@@ -75,7 +75,7 @@ export interface TableSession {
    * (SAD-70). The field and the column order move together in one undo step.
    * Returns the new definition, including its generated id.
    */
-  addField(name: string, type: FieldTypeName, formula?: string): FieldDefinition;
+  addField(name: string, type: FieldTypeName, formula?: string, linkTableId?: string): FieldDefinition;
   /**
    * Replace a formula field's expression (P8-03). Blocked (no change) if the expression does not
    * parse. Unknown names and cycles are not blocked: they show as error values on the cell.
@@ -205,12 +205,14 @@ export function createSession(file: TablifyFile): TableSession {
       // for re-rendering and requesting a save, exactly as it is after setView().
       setViewState(next);
     },
-    addField(name, type, formula) {
+    addField(name, type, formula, linkTableId) {
       const field: FieldDefinition = {
         id: generateFieldId(),
         name,
         type,
         ...(type === 'formula' ? { formula: formula ?? '' } : {}),
+        // P8-04: a link field's default target table (FORMAT_SPEC §8).
+        ...(type === 'link' ? { linkTableId: linkTableId ?? file.tableId } : {}),
       };
       const viewBefore = view;
       const viewAfter: ViewDefinition = {

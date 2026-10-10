@@ -1,0 +1,65 @@
+{
+  "formatVersion": 2,
+  "tableId": "tbl_01J9B7CUST",
+  "name": "Customers",
+  "fields": [
+    {
+      "id": "fld_cname",
+      "name": "Name",
+      "type": "text",
+      "primary": true,
+      "required": true,
+      "unique": false,
+      "min": null,
+      "max": null,
+      "regex": null
+    },
+    {
+      "id": "fld_cemail",
+      "name": "Email",
+      "type": "email"
+    }
+  ],
+  "rows": [
+    {
+      "id": "row_01J9B9C001",
+      "rev": 1,
+      "createdAt": "2026-10-09T07:50:00Z",
+      "updatedAt": "2026-10-09T07:50:00Z",
+      "values": {
+        "fld_cname": "Ada Lovelace",
+        "fld_cemail": "ada@example.com"
+      },
+      "sync": null
+    },
+    {
+      "id": "row_01J9B9C002",
+      "rev": 1,
+      "createdAt": "2026-10-09T07:55:00Z",
+      "updatedAt": "2026-10-09T07:55:00Z",
+      "values": {
+        "fld_cname": "Grace Hopper",
+        "fld_cemail": "grace@example.com"
+      },
+      "sync": null
+    }
+  ],
+  "views": [
+    {
+      "id": "view_default",
+      "name": "Default",
+      "sort": [],
+      "groupBy": null,
+      "hidden": [],
+      "frozenColumns": 1,
+      "rowHeight": "medium",
+      "columnWidths": {},
+      "columnOrder": [
+        "fld_cname",
+        "fld_cemail"
+      ],
+      "warnings": []
+    }
+  ],
+  "syncLink": null
+}

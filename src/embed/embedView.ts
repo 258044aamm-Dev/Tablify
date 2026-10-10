@@ -11,6 +11,9 @@ import { GridView, type GridSelection } from '../views/grid/GridView.js';
 import { getGridAction } from '../views/grid/keyboard.js';
 import { moveSelection } from '../views/tableController.js';
 import type { EmbedDocument } from './embedDocument.js';
+import type { VaultLinkIndex } from '../links/vaultLinkIndex.js';
+import { summarizeLinks } from '../links/linkModel.js';
+import { Notice } from 'obsidian';
 
 /** Height limit for an embed. The full view is not limited. */
 export const EMBED_VIEWPORT_HEIGHT = 320;
@@ -20,6 +23,8 @@ export interface EmbedViewOptions {
   onOpenFull: (path: string) => void;
   theme?: 'light' | 'dark';
   viewportWidth?: number;
+  /** P8-04: the vault link index. Link cells then show resolved names and broken-link markers. */
+  links?: VaultLinkIndex;
 }
 
 export class EmbedView {
@@ -32,6 +37,7 @@ export class EmbedView {
   private sel: GridSelection = { row: 0, col: 0 };
   private editing: HTMLElement | null = null;
   private readonly unsubscribe: () => void;
+  private unlinks: (() => void) | null = null;
   private destroyed = false;
 
   constructor(opts: EmbedViewOptions) {
@@ -60,6 +66,8 @@ export class EmbedView {
     this.root.appendChild(this.body);
 
     this.unsubscribe = this.doc.subscribe(() => this.render());
+    // P8-04: a change in a linked table redraws this embed's link markers.
+    this.unlinks = this.opts.links?.onChange(() => this.render()) ?? null;
     this.render();
   }
 
@@ -107,6 +115,11 @@ export class EmbedView {
     if (!row || !field) return false;
     const storeRow = s.store.getRow(row.id);
     if (!storeRow) return false;
+    // P8-04: link cells use the row picker, which lives in the full table view.
+    if (field.type === 'link') {
+      new Notice('Open the full table to change links.');
+      return false;
+    }
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
       this.editing = null;
       editor?.remove();
@@ -149,6 +162,7 @@ export class EmbedView {
     if (this.destroyed) return;
     this.destroyed = true;
     this.unsubscribe();
+    this.unlinks?.();
     this.editing?.remove();
     this.editing = null;
     this.grid?.destroy();
@@ -166,6 +180,7 @@ export class EmbedView {
   private ensureGrid(): void {
     if (this.grid) return;
     const s = this.doc.getSession() as TableSession;
+    const links = this.opts.links;
     this.grid = new GridView({
       rows: s.getDisplayRows(),
       fields: s.getVisibleFields(),
@@ -176,6 +191,7 @@ export class EmbedView {
       onCellClick: (row, col) => {
         this.sel = { row, col };
       },
+      linkSummary: links ? (value) => summarizeLinks(value, links.index) : undefined,
     });
     this.grid.root.tabIndex = 0;
     this.grid.root.addEventListener('keydown', (e) => this.onKeyDown(e));

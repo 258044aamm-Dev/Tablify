@@ -13,8 +13,8 @@ import type { CommandStack } from '../../../model/commands.js';
 
 export type EditorCommitResult = { ok: true; value: CellValue } | { ok: false; error: string };
 
-// P8-03: formula results are computed, and link cells are not edited in P8-03 (P8-04 adds link editing).
-const READONLY_TYPES = new Set(['auto_number', 'created_time', 'modified_time', 'formula', 'link']);
+// P8-03: formula results are computed. P8-04: link cells are edited in the row picker, not inline.
+const READONLY_TYPES = new Set(['auto_number', 'created_time', 'modified_time', 'formula']);
 
 export function isReadOnly(field: FieldDefinition): boolean {
   // P7-05: an Airtable field Tablify cannot write back is read-only, whatever its Tablify type.
