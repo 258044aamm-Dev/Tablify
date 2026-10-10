@@ -4,6 +4,29 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- **Prototype refactored into three files** (`ce7870c`) — `Prototype/Anthropic Table Workspace.html`
+  split into `Prototype/index.html` (markup + inline Tailwind CDN config), `Prototype/style.css`
+  (all custom rules) and `Prototype/script.js` (entire app). No functional changes; UI, behavior
+  and responsiveness preserved.
+- **Primary-column freeze defaults to the viewport** (`c761a2a`) — `freezePrimary: 'auto'` resolves
+  to off below 768px (mobile) and on at ≥768px (desktop); manual toggles store an explicit boolean
+  that wins over the default; a debounced resize re-render applies the default when the viewport
+  crosses the breakpoint; `serializeDoc` resolves `'auto'` to a boolean for schema conformance.
+
+### Fixed
+
+- **Stale cell highlight** (`ad03da5`) — tapping/clicking anywhere outside the grid now clears the
+  focused-cell outline and range highlight (document-level mousedown handler; pending cell edits
+  are committed first so no typed input is lost; clicks inside the grid, floating panels, or open
+  modals leave the selection untouched).
+- **Fragmented frozen columns during horizontal scroll** (`8e2da57`) — two root causes: transparent
+  `border-separate` spacing gaps let scrolling capsules show through the frozen block, and sticky
+  `left` offsets were hardcoded while table layout is auto. Fixed with exact-offset gap-filling
+  shadows on `.sticky-col` and `syncFrozenOffsets()`, which measures rendered header widths +
+  computed border-spacing after every render and aligns all sticky header/body cells.
+
 ### Added
 
 - **Prototype feature parity (SAD-72)** — `Prototype/Anthropic Table Workspace.html` upgraded
