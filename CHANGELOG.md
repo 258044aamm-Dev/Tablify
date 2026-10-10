@@ -6,6 +6,14 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Fixed, uniform cell dimensions (prototype)** — `#mainTable` now uses `table-layout: fixed`;
+  every column carries an explicit width (default 160px or the user's resize), so content can
+  never widen a column. Cell capsules have fixed heights matching the previous single-line
+  rendering exactly (34px short/medium, 40px tall), with `overflow: hidden` + single-line
+  ellipsis truncation. Full content stays accessible via hover tooltip and the cell editor;
+  an actively-editing cell may grow transiently (long-text textarea scrolls internally,
+  resize disabled). Row-number column widened to 40px so the drag grip + 3-digit numbers fit.
+
 - **Row drag-and-drop reordering (prototype)** — drag the row-number cell (grip handle) to move a
   row; works with mouse and touch via Pointer Events (`touch-action: none` on the handle, so pages
   still scroll normally elsewhere). Terracotta drop-indicator line, dimmed dragged row, edge

@@ -410,6 +410,11 @@ function pipelineRows(doc) {
 
 // ===== rendering =====
 const ROWPAD = { s: 'py-1', m: 'py-2', l: 'py-3' };
+// Fixed capsule heights per row-height setting — identical to what a
+// single-line cell rendered at before (min-h 34px / l: 16px line + 24px pad),
+// so normal content looks unchanged while long content now clips instead of
+// growing the row.
+const CAPH = { s: 'h-[34px]', m: 'h-[34px]', l: 'h-[40px]' };
 
 function renderAll() {
   renderTabs();
@@ -452,7 +457,7 @@ function headCellHtml(doc, field) {
   const w = view.widths[field.id];
   const frozen = freezeEnabled(view) && field.primary;
   return '<th class="pb-1 min-w-[160px]' + (frozen ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '') + '" data-fld="' + field.id + '"' +
-    ' style="' + (w ? 'width:' + w + 'px;min-width:' + w + 'px;' : '') + (frozen ? 'left:76px;z-index:7;' : '') + '"' +
+    ' style="width:' + (w || 160) + 'px;' + (frozen ? 'left:76px;z-index:7;' : '') + '"' +
     ' ondragover="colDragOver(event)" ondrop="colDrop(event,\'' + field.id + '\')">' +
     '<div class="header-capsule relative flex items-center justify-between px-3.5 py-2 rounded-2xl shadow-sm">' +
       '<div class="flex items-center space-x-2 min-w-0">' +
@@ -493,7 +498,7 @@ function cellHtml(doc, row, field, pad, frozen) {
   const ft = FT[field.type];
   const editing = state.editing && state.editing.rowId === row.id && state.editing.fieldId === field.id;
   let inner;
-  let cls = 'cell-capsule px-3.5 ' + pad + ' shadow-sm rounded-2xl text-xs min-h-[34px] flex items-center';
+  let cls = 'cell-capsule px-3.5 ' + pad + ' shadow-sm rounded-2xl text-xs ' + (CAPH[docView(doc).rowHeight] || CAPH.m) + ' flex items-center';
   if (ft.align === 'right') cls += ' justify-end';
   const invMsg = _invalid[row.id] && _invalid[row.id][field.id];
   if (invMsg) cls += ' cell-invalid';
@@ -503,9 +508,10 @@ function cellHtml(doc, row, field, pad, frozen) {
     inner = editorHtml(doc, row, field);
     cls += ' cell-editing';
   } else {
-    inner = '<div class="w-full min-w-0">' + cellInnerHtml(doc, row, field) + '</div>';
+    inner = '<div class="w-full min-w-0 cell-clip">' + cellInnerHtml(doc, row, field) + '</div>';
   }
-  const handlers = (editing ? '' : ' onclick="cellClick(event,\'' + row.id + '\',\'' + field.id + '\')"') + (invMsg ? ' title="' + escAttr(invMsg) + '"' : '');
+  const fullTxt = editing ? '' : cellText(doc, row, field);
+  const handlers = (editing ? '' : ' onclick="cellClick(event,\'' + row.id + '\',\'' + field.id + '\')"') + (invMsg ? ' title="' + escAttr(invMsg) + '"' : (fullTxt ? ' title="' + escAttr(fullTxt) + '"' : ''));
   return '<td class="py-1 px-1 align-top' + (frozen ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '') + '" data-row="' + row.id + '" data-fld="' + field.id + '"' + (frozen ? ' style="left:76px"' : '') + '>' +
     '<div class="' + cls + (ft.readOnly ? ' opacity-80' : '') + '"' + handlers + '>' + inner + '</div></td>';
 }
@@ -546,7 +552,7 @@ function renderGrid() {
   const frzOn = freezeEnabled(view);
   const hdrFrozen = frzOn ? ' sticky-col bg-tablify-paper-inner dark:bg-tablify-dark-inner' : '';
   headerHtml += '<th class="w-8 text-center pb-1' + hdrFrozen + '"' + (frzOn ? ' style="left:0;z-index:7"' : '') + '><input type="checkbox" onchange="toggleSelectAll(this)" class="rounded border-tablify-paper-border accent-tablify-terracotta cursor-pointer"></th>';
-  headerHtml += '<th class="w-8 text-center pb-1 font-mono' + hdrFrozen + '"' + (frzOn ? ' style="left:38px;z-index:7"' : '') + '>#</th>';
+  headerHtml += '<th class="w-10 text-center pb-1 font-mono' + hdrFrozen + '"' + (frzOn ? ' style="left:38px;z-index:7"' : '') + '>#</th>';
   fields.forEach(f => { headerHtml += headCellHtml(doc, f); });
   headerHtml += '</tr>';
   document.getElementById('tableHeaderHead').innerHTML = headerHtml;
