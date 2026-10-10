@@ -206,16 +206,18 @@ function syncInsertRowWidth() {
   if (!table || !wrap) return;
   const w = table.offsetWidth;
   wrap.style.width = w ? w + 'px' : '';
-  // size the sticky label strip to the visible scrollport width so the
-  // icon + text stay centered in view at any horizontal scroll position
+  // size the sticky button to the visible scrollport width and pin it at the
+  // container's content edge: the whole pill keeps balanced side spacing,
+  // visible rounded corners and a centered label at any scroll position
   const cont = document.getElementById('tableInnerContainer');
-  const label = document.getElementById('insertRowLabel');
-  if (cont && label) {
+  const btn = document.getElementById('insertRowBtn');
+  if (cont && btn) {
     const cs = window.getComputedStyle ? window.getComputedStyle(cont) : null;
-    const padX = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+    const padL = cs ? (parseFloat(cs.paddingLeft) || 0) : 0;
+    const padX = padL + (cs ? (parseFloat(cs.paddingRight) || 0) : 0);
     const vis = cont.clientWidth - padX;
-    label.style.width = vis > 0 ? vis + 'px' : '';
-    label.style.left = cs ? (parseFloat(cs.paddingLeft) || 0) + 'px' : '';
+    btn.style.width = vis > 0 ? vis + 'px' : '';
+    btn.style.left = cs ? padL + 'px' : '';
   }
 }
 let _freezeRsT = null;

@@ -67,6 +67,7 @@ body.row-dragging-active { user-select: none; -webkit-user-select: none; cursor:
 .cell-capsule.cell-editing { height: auto !important; min-height: 34px; }
 .cell-capsule textarea { resize: none; overflow-y: auto; max-height: 96px; }
 
-/* Insert Row label: sticky strip the width of the visible scrollport, so the
-   icon + text stay centered in view while the full-width button scrolls */
-.insert-row-label { position: sticky; left: 0; width: 100%; }
+/* Insert Row button: sticky and sized to the visible scrollport, so the whole
+   pill (rounded corners, balanced side spacing, centered label) stays in view
+   at any horizontal scroll position; its wrapper row still spans the table. */
+.insert-row-btn { position: sticky; left: 0; width: 100%; }

@@ -183,20 +183,19 @@
   renderGrid();
   A('S10 renderGrid keeps wrapper + button intact', !!document.getElementById('insertRowWrap') && !!document.querySelector('#insertRowWrap button'));
 
-  // ---- S11: Insert Row label stays centered in the visible strip ----
+  // ---- S11: Insert Row button keeps balanced spacing + centered label while scrolling ----
   renderGrid();
-  const label11 = document.getElementById('insertRowLabel');
-  A('S11 sticky label strip exists inside button', !!label11 && !!label11.closest('button') && label11.className.includes('insert-row-label'));
-  A('S11 icon + text inside the strip', !!label11.querySelector('i.fa-plus') && label11.textContent.includes('Insert Row'));
+  const btn11 = document.getElementById('insertRowBtn');
+  A('S11 sticky button exists with centered layout', !!btn11 && btn11.className.includes('insert-row-btn') && btn11.className.includes('justify-center'));
+  A('S11 icon + text inside the button', !!btn11.querySelector('i.fa-plus') && btn11.textContent.includes('Insert Row'));
   // visible-width sizing (layout stubbed)
   const cont11 = document.getElementById('tableInnerContainer');
   Object.defineProperty(cont11, 'clientWidth', { value: 800, configurable: true });
   Object.defineProperty(document.getElementById('mainTable'), 'offsetWidth', { value: 1480, configurable: true });
   syncInsertRowWidth();
-  A('S11 strip sized to visible width, not table width', label11.style.width === '800px' && document.getElementById('insertRowWrap').style.width === '1480px');
-  A('S11 button still calls addRow', document.querySelector('#insertRowWrap button').getAttribute('onclick') === 'addRow()');
+  A('S11 button sized to visible width, wrapper spans table', btn11.style.width === '800px' && document.getElementById('insertRowWrap').style.width === '1480px');
   const rowsB4 = activeDoc().rows.length;
-  document.querySelector('#insertRowWrap button').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  btn11.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   A('S11 insert still works', activeDoc().rows.length === rowsB4 + 1);
   // cleanup: remove the added row via undo
   undo();
