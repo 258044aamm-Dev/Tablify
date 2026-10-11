@@ -70,6 +70,13 @@ Tablify supports **only its own `.tablify` extension** — see the note below.
 
 **Add Field** in the toolbar adds a column: give it a name, pick a type, and it appears at the right of the table. Adding a field is a single undo step.
 
+The **Add New Field** dialog also takes, depending on the type:
+
+- **Options (one per line)** for Single select and Multi select; each line becomes an option with the next colour.
+- **Validation rules:** **Required** and **Unique** for every type, **Min** / **Max** for number, currency, percent, duration, rating, date and date-and-time fields (entered as you would type a cell), and a **Regex** for text, long text, URL, email and phone fields. An invalid bound or regex keeps the dialog open with a notice. The rules are saved with the field in the `.tablify` file. Cells are not checked against them yet; a rating's Max is used as the scale in its group headings (for example `3/10`).
+- **Formula**, with a live **Preview (row 1)** computed on the first row.
+- **Linked table** for Link fields.
+
 Use the header menu (**Change field type…**) to change a column's type. A type is offered only when **every** existing value converts cleanly — otherwise nothing changes and the menu shows the reason. This protects you from silent data loss.
 
 | Type | Accepts |

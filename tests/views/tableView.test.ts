@@ -336,13 +336,39 @@ describe('TableView — toolbar actions', () => {
     const select = modal.contentEl.querySelector('select') as HTMLSelectElement;
     select.value = 'number';
     select.dispatchEvent(new Event('change'));
-    (modal.contentEl.querySelector('button') as HTMLButtonElement).click();
+    // "Save Field" (SAD-86: Cancel precedes it in the footer, as in the prototype).
+    (modal.contentEl.querySelector('button.tablify__pmodal-btn--primary') as unknown as HTMLButtonElement).click();
 
     const headers = Array.from(view.contentEl.querySelectorAll('.tablify__header-cell')).map(
       (h) => h.textContent,
     );
     expect(headers).toContain('Score');
     expect(savedView(view).columnOrder).toContain(savedView(view).columnOrder.slice(-1)[0]);
+  });
+
+  it('SAD-86: Add Field stores select options on the new field and previews formulas on this table', async () => {
+    const view = await openView(sampleFile());
+    need(action(view, 'add-field') as unknown as HTMLElement | null, 'add field button').click();
+    const modal = (Modal as unknown as { opened: AddFieldModal[] }).opened[0];
+    const set = (sel: string, value: string, event = 'input') => {
+      const el = modal.contentEl.querySelector(sel) as unknown as HTMLInputElement;
+      el.value = value;
+      el.dispatchEvent(new Event(event));
+    };
+    set('#tablify__af-type', 'formula', 'change');
+    set('#tablify__af-formula', '1 + 1');
+    expect(modal.contentEl.querySelector('.tablify__af-preview')?.textContent).toBe('Preview (row 1): 2');
+
+    set('#tablify__af-type', 'single_select', 'change');
+    set('#tablify__af-name', 'Stage');
+    set('#tablify__af-options', 'Todo\nDone');
+    (modal.contentEl.querySelector('button.tablify__pmodal-btn--primary') as unknown as HTMLButtonElement).click();
+
+    const session = (view as unknown as { session: { store: { getFields(): Array<{ name: string; options?: Array<{ name: string }> }> } } }).session;
+    const stage = session.store.getFields().find((f) => f.name === 'Stage');
+    expect(stage?.options?.map((o) => o.name)).toEqual(['Todo', 'Done']);
+    const headers = Array.from(view.contentEl.querySelectorAll('.tablify__header-cell'), (h) => (h as unknown as HTMLElement).textContent);
+    expect(headers).toContain('Stage');
   });
 });
 

@@ -22,6 +22,7 @@ import { createFormulaRuntime, ERROR_MESSAGES, type FormulaError } from './formu
 import { compileFormula } from '../formula/index.js';
 
 import { generateFieldId } from '../utils/idGen.js';
+import { createSelectOptionManager } from './selectOptions.js';
 import { sortRows, visibleFields } from './viewOrder.js';
 import { filterRows, compileQuery } from './rowFilter.js';
 import type { QueryError } from '../query/parse.js';
@@ -87,8 +88,18 @@ export interface TableSession {
    * Add a field, appending it to the view's column order so the column appears immediately
    * (SAD-70). The field and the column order move together in one undo step.
    * Returns the new definition, including its generated id.
+   *
+   * SAD-86: `extras` (from the prototype Add Field dialog) adds select options and validation
+   * rules to the new field in the same undo step. Only the keys that are set are written, so a
+   * call without extras creates exactly the field it always did.
    */
-  addField(name: string, type: FieldTypeName, formula?: string, linkTableId?: string): FieldDefinition;
+  addField(
+    name: string,
+    type: FieldTypeName,
+    formula?: string,
+    linkTableId?: string,
+    extras?: NewFieldExtras,
+  ): FieldDefinition;
   /**
    * Replace a formula field's expression (P8-03). Blocked (no change) if the expression does not
    * parse. Unknown names and cycles are not blocked: they show as error values on the cell.
@@ -241,7 +252,7 @@ export function createSession(file: TablifyFile): TableSession {
       // for re-rendering and requesting a save, exactly as it is after setView().
       setViewState(next);
     },
-    addField(name, type, formula, linkTableId) {
+    addField(name, type, formula, linkTableId, extras) {
       const field: FieldDefinition = {
         id: generateFieldId(),
         name,
@@ -250,6 +261,7 @@ export function createSession(file: TablifyFile): TableSession {
         // P8-04: a link field's default target table (FORMAT_SPEC §12).
         ...(type === 'link' ? { linkTableId: linkTableId ?? file.tableId } : {}),
       };
+      if (extras) applyNewFieldExtras(field, extras);
       const viewBefore = view;
       const viewAfter: ViewDefinition = {
         ...view,
@@ -311,4 +323,36 @@ export function createSession(file: TablifyFile): TableSession {
       return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows, views, syncLink };
     },
   };
+}
+
+/**
+ * SAD-86: what the prototype Add Field dialog can set on a new field besides its name and type.
+ * Every key is optional; an unset key is not written to the field.
+ */
+export interface NewFieldExtras {
+  /** Single / multi select: option names, in order (blank and duplicate names are skipped). */
+  options?: readonly string[];
+  required?: boolean;
+  unique?: boolean;
+  /** Already in the field type's stored form (number, `YYYY-MM-DD`, ISO date-time, ms). */
+  min?: number | string | null;
+  max?: number | string | null;
+  regex?: string | null;
+}
+
+/** Copy the set extras onto a field that is being created (never on an existing field). */
+export function applyNewFieldExtras(field: FieldDefinition, extras: NewFieldExtras): void {
+  if ((field.type === 'single_select' || field.type === 'multi_select') && extras.options) {
+    // The same option factory as cell entry: generated ids, the next colour in turn, and
+    // case-insensitive de-duplication.
+    const manager = createSelectOptionManager();
+    for (const name of extras.options) {
+      if (name.trim()) manager.findOrCreate(name, field);
+    }
+  }
+  if (extras.required) field.required = true;
+  if (extras.unique) field.unique = true;
+  if (extras.min !== undefined && extras.min !== null && extras.min !== '') field.min = extras.min;
+  if (extras.max !== undefined && extras.max !== null && extras.max !== '') field.max = extras.max;
+  if (extras.regex) field.regex = extras.regex;
 }

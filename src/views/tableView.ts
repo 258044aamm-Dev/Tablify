@@ -23,6 +23,7 @@ import { groupRows, toggleCollapsed, type GroupedRows } from './grid/grouping.js
 import { pruneSelection, setVisibleRows, toggleRow } from './grid/selection.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
+import { previewFormula } from '../model/formulaPreview.js';
 import { LinkPickerModal } from './grid/LinkPickerModal.js';
 import { linkIndexFor } from '../links/vaultLinkIndex.js';
 import { snapshotTable, summarizeLinks } from '../model/link.js';
@@ -419,12 +420,22 @@ export class TableView extends TextFileView {
     const selfName = this.file?.basename ?? 'This table';
     new AddFieldModal(
       this.app,
-      (name, type, formula, linkTableId) => {
+      (name, type, formula, linkTableId, extras) => {
         if (!this.session) return;
-        this.session.addField(name, type, formula, linkTableId);
+        // SAD-86: extras (options, validation rules) only when the dialog set any.
+        if (extras) this.session.addField(name, type, formula, linkTableId, extras);
+        else this.session.addField(name, type, formula, linkTableId);
         this.afterChange();
       },
-      { linkTargets: [{ tableId: selfId, name: selfName }, ...others], defaultLinkTableId: selfId },
+      {
+        linkTargets: [{ tableId: selfId, name: selfName }, ...others],
+        defaultLinkTableId: selfId,
+        // SAD-86: "Preview (row 1)" — evaluated on a throwaway engine, never on the live table.
+        formulaPreview: (expression) => {
+          const firstId = s.store.getDisplayOrder()[0];
+          return previewFormula(s.store.getFields() as FieldDefinition[], firstId === undefined ? undefined : s.store.getRow(firstId), expression);
+        },
+      },
     ).open();
   }
 

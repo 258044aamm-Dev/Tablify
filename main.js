@@ -12093,6 +12093,127 @@ function createFormulaRuntime(store) {
   };
 }
 
+// src/model/selectOptions.ts
+function createSelectOptionManager() {
+  function findOrCreate(name, field) {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Option name cannot be empty");
+    }
+    const lower = trimmed.toLowerCase();
+    if (field.options) {
+      const existing = field.options.find((opt) => opt.name.trim().toLowerCase() === lower);
+      if (existing)
+        return existing;
+    }
+    const newOption = {
+      id: generateOptionId(),
+      name: trimmed,
+      color: getNextColor(field)
+    };
+    if (!field.options) {
+      field.options = [];
+    }
+    field.options.push(newOption);
+    return newOption;
+  }
+  function rename(optionId, newName, field) {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      throw new Error("Option name cannot be empty");
+    }
+    if (!field.options) {
+      throw new Error("Field has no options");
+    }
+    const option = field.options.find((o) => o.id === optionId);
+    if (!option) {
+      throw new Error(`Option not found: ${optionId}`);
+    }
+    option.name = trimmed;
+    return option;
+  }
+  function reorder(optionIds, field) {
+    if (!field.options) {
+      throw new Error("Field has no options");
+    }
+    const optionMap = new Map(field.options.map((o) => [o.id, o]));
+    const reordered = [];
+    for (const id of optionIds) {
+      const opt = optionMap.get(id);
+      if (!opt) {
+        throw new Error(`Option not found: ${id}`);
+      }
+      reordered.push(opt);
+    }
+    for (const opt of field.options) {
+      if (!optionIds.includes(opt.id)) {
+        reordered.push(opt);
+      }
+    }
+    field.options = reordered;
+  }
+  function deleteOption(optionId, field, store) {
+    if (!field.options) {
+      throw new Error("Field has no options");
+    }
+    const optionIndex = field.options.findIndex((o) => o.id === optionId);
+    if (optionIndex === -1) {
+      throw new Error(`Option not found: ${optionId}`);
+    }
+    const option = field.options[optionIndex];
+    const affectedCells = [];
+    const allRows = store.getAllRows();
+    for (const row of allRows) {
+      const cellValue = row.values[field.id];
+      if (field.type === "single_select" && cellValue === optionId) {
+        affectedCells.push({ rowId: row.id, oldValue: cellValue });
+        store.updateRow(row.id, { [field.id]: null });
+      } else if (field.type === "multi_select" && Array.isArray(cellValue) && cellValue.includes(optionId)) {
+        const newValue = cellValue.filter((id) => id !== optionId);
+        affectedCells.push({ rowId: row.id, oldValue: cellValue });
+        store.updateRow(row.id, { [field.id]: newValue.length > 0 ? newValue : null });
+      }
+    }
+    field.options.splice(optionIndex, 1);
+    return { option, affectedCells };
+  }
+  function createDeleteCommand(optionId, field, store) {
+    let affectedCells = [];
+    let removedOption;
+    return {
+      type: "deleteOption",
+      targetKey: `deleteOption:${field.id}:${optionId}`,
+      do(_store) {
+        const result = deleteOption(optionId, field, store);
+        affectedCells = result.affectedCells;
+        removedOption = result.option;
+      },
+      undo(store2) {
+        if (removedOption && field.options) {
+          field.options.push(removedOption);
+        }
+        for (const { rowId, oldValue } of affectedCells) {
+          store2.updateRow(rowId, { [field.id]: oldValue });
+        }
+      }
+    };
+  }
+  return {
+    findOrCreate,
+    rename,
+    reorder,
+    delete: deleteOption,
+    createDeleteCommand
+  };
+}
+function getNextColor(field) {
+  if (!field.options || field.options.length === 0) {
+    return OPTION_COLORS[0];
+  }
+  const colorIndex = field.options.length % OPTION_COLORS.length;
+  return OPTION_COLORS[colorIndex];
+}
+
 // src/model/rowFilter.ts
 function searchableText(value, field) {
   if (value === null || value === void 0)
@@ -12322,7 +12443,7 @@ function createSession(file) {
         return;
       setViewState(next);
     },
-    addField(name, type, formula, linkTableId) {
+    addField(name, type, formula, linkTableId, extras) {
       const field = {
         id: generateFieldId(),
         name,
@@ -12331,6 +12452,8 @@ function createSession(file) {
         // P8-04: a link field's default target table (FORMAT_SPEC §12).
         ...type === "link" ? { linkTableId: linkTableId ?? file.tableId } : {}
       };
+      if (extras)
+        applyNewFieldExtras(field, extras);
       const viewBefore = view;
       const viewAfter = {
         ...view,
@@ -12392,6 +12515,25 @@ function createSession(file) {
       return { ...file, fields: store.getFields().map((f) => ({ ...f })), rows, views, syncLink };
     }
   };
+}
+function applyNewFieldExtras(field, extras) {
+  if ((field.type === "single_select" || field.type === "multi_select") && extras.options) {
+    const manager = createSelectOptionManager();
+    for (const name of extras.options) {
+      if (name.trim())
+        manager.findOrCreate(name, field);
+    }
+  }
+  if (extras.required)
+    field.required = true;
+  if (extras.unique)
+    field.unique = true;
+  if (extras.min !== void 0 && extras.min !== null && extras.min !== "")
+    field.min = extras.min;
+  if (extras.max !== void 0 && extras.max !== null && extras.max !== "")
+    field.max = extras.max;
+  if (extras.regex)
+    field.regex = extras.regex;
 }
 
 // src/views/grid/editors/index.ts
@@ -14928,7 +15070,60 @@ var Toolbar = class _Toolbar {
 
 // src/views/grid/AddFieldModal.ts
 var import_obsidian5 = require("obsidian");
+
+// src/model/formulaPreview.ts
+var PREVIEW_FIELD_ID = "fld__preview";
+var PREVIEW_FIELD_NAME = "\n(preview)";
+var EMPTY_PREVIEW = "\u2014";
+var NO_ROWS_PREVIEW = "(no rows)";
+function previewFormula(fields, firstRow, expression) {
+  if (!expression.trim())
+    return EMPTY_PREVIEW;
+  if (!firstRow)
+    return NO_ROWS_PREVIEW;
+  const specs = fields.map(
+    (f) => f.type === "formula" ? { id: f.id, name: f.name, formula: f.formula ?? "" } : { id: f.id, name: f.name }
+  );
+  specs.push({ id: PREVIEW_FIELD_ID, name: PREVIEW_FIELD_NAME, formula: expression });
+  const inputs = {};
+  for (const f of fields) {
+    if (f.type !== "formula")
+      inputs[f.id] = cellToValue(f, firstRow.values[f.id] ?? null);
+  }
+  const modifiedMs = Date.parse(firstRow.updatedAt);
+  const createdMs = Date.parse(firstRow.createdAt ?? firstRow.updatedAt);
+  try {
+    const engine = new FormulaEngine({
+      fields: specs,
+      rows: [
+        {
+          id: firstRow.id,
+          createdMs: Number.isNaN(createdMs) ? 0 : createdMs,
+          modifiedMs: Number.isNaN(modifiedMs) ? 0 : modifiedMs,
+          inputs
+        }
+      ],
+      now: () => Date.now()
+    });
+    const cell2 = valueToCell(engine.value(firstRow.id, PREVIEW_FIELD_ID));
+    return cell2 === null || cell2 === "" ? EMPTY_PREVIEW : String(cell2);
+  } catch {
+    return "#ERROR!";
+  }
+}
+
+// src/views/grid/AddFieldModal.ts
 var DEFAULT_NEW_FIELD_TYPE = "text";
+var TYPE_GROUPS = [
+  ["Basic", ["text", "long_text", "number", "currency", "percent", "duration", "rating", "checkbox"]],
+  ["Date", ["date", "date_time"]],
+  ["Links & contact", ["url", "email", "phone"]],
+  ["Select & attachment", ["single_select", "multi_select", "attachment"]],
+  ["Computed", ["formula", "link"]]
+];
+var MIN_MAX_TYPES = ["number", "currency", "percent", "duration", "rating", "date", "date_time"];
+var REGEX_TYPES = ["text", "long_text", "url", "email", "phone"];
+var SELECT_TYPES = ["single_select", "multi_select"];
 var AddFieldModal = class extends import_obsidian5.Modal {
   constructor(app, onConfirm, options = {}) {
     super(app);
@@ -14940,56 +15135,218 @@ var AddFieldModal = class extends import_obsidian5.Modal {
   type = DEFAULT_NEW_FIELD_TYPE;
   expression = "";
   linkTableId;
+  optionsText = "";
+  required = false;
+  unique = false;
+  minText = "";
+  maxText = "";
+  regexText = "";
   onOpen() {
-    this.setTitle("Add field");
-    this.modalEl.addClass("tablify__modal");
-    applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
-    new import_obsidian5.Setting(this.contentEl).setName("Field name").setDesc("Shown as the column heading.").addText(
-      (text) => text.setValue(this.name).onChange((value) => {
-        this.name = value;
-      })
-    );
-    new import_obsidian5.Setting(this.contentEl).setName("Field type").addDropdown((dropdown) => {
-      for (const type of CHANGE_TARGET_TYPES) {
-        dropdown.addOption(type, TYPE_LABELS[type] ?? type);
-      }
-      dropdown.setValue(this.type).onChange((value) => {
-        this.type = value;
-        showTypeRows();
-      });
+    this.setTitle("Add New Field");
+    dressProtoModal(this, { icon: "table-columns", size: "sm" });
+    this.modalEl.addClass("tablify__af-modal");
+    const body = this.contentEl.createDiv({ cls: "tablify__af-body" });
+    const nameWrap = body.createDiv();
+    this.label(nameWrap, "Field name", "tablify__af-name");
+    const nameInput = nameWrap.createEl("input", { type: "text", cls: "tablify__pmodal-input" });
+    nameInput.id = "tablify__af-name";
+    nameInput.placeholder = "e.g. Status, Budget, Due date\u2026";
+    nameInput.value = this.name;
+    nameInput.addEventListener("input", () => {
+      this.name = nameInput.value;
     });
-    const formulaRow = this.contentEl.createDiv();
-    new import_obsidian5.Setting(formulaRow).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
-      (text) => text.setValue(this.expression).setPlaceholder("{Price} * 2").onChange((value) => {
-        this.expression = value;
-      })
-    );
-    const linkRow = this.contentEl.createDiv();
-    const targets = this.options.linkTargets ?? [];
-    new import_obsidian5.Setting(linkRow).setName("Link to table").setDesc(targets.length === 0 ? "No tables are available to link to." : "Rows are picked from this table.").addDropdown((dropdown) => {
-      for (const t of targets)
-        dropdown.addOption(t.tableId, t.name);
-      if (this.linkTableId)
-        dropdown.setValue(this.linkTableId);
-      dropdown.onChange((value) => {
-        this.linkTableId = value;
-      });
+    const typeWrap = body.createDiv();
+    this.label(typeWrap, "Field type", "tablify__af-type");
+    const typeSelect = typeWrap.createEl("select", { cls: "tablify__pmodal-input" });
+    typeSelect.id = "tablify__af-type";
+    const grouped = /* @__PURE__ */ new Set();
+    for (const [group, types] of TYPE_GROUPS) {
+      const offered = types.filter((t) => CHANGE_TARGET_TYPES.includes(t));
+      if (offered.length === 0)
+        continue;
+      const optgroup = typeSelect.createEl("optgroup");
+      optgroup.label = group;
+      for (const t of offered) {
+        grouped.add(t);
+        const option = optgroup.createEl("option", { value: t });
+        option.textContent = TYPE_LABELS[t] ?? t;
+      }
+    }
+    for (const t of CHANGE_TARGET_TYPES) {
+      if (grouped.has(t))
+        continue;
+      const option = typeSelect.createEl("option", { value: t });
+      option.textContent = TYPE_LABELS[t] ?? t;
+    }
+    typeSelect.value = this.type;
+    typeSelect.addEventListener("change", () => {
+      this.type = typeSelect.value;
+      showTypeRows();
+    });
+    const optionsWrap = body.createDiv();
+    this.label(optionsWrap, "Options (one per line)", "tablify__af-options");
+    const optionsInput = optionsWrap.createEl("textarea", { cls: "tablify__pmodal-input" });
+    optionsInput.id = "tablify__af-options";
+    optionsInput.rows = 4;
+    optionsInput.placeholder = "Backlog\nIn Progress\nDone";
+    optionsInput.addEventListener("input", () => {
+      this.optionsText = optionsInput.value;
+    });
+    const rulesWrap = body.createDiv({ cls: "tablify__af-rules" });
+    rulesWrap.createDiv({ text: "Validation rules", cls: "tablify__pmodal-label tablify__af-rules-label" });
+    const checks = rulesWrap.createDiv({ cls: "tablify__af-grid" });
+    const requiredBox = this.checkbox(checks, "Required");
+    requiredBox.addEventListener("change", () => {
+      this.required = requiredBox.checked;
+    });
+    const uniqueBox = this.checkbox(checks, "Unique");
+    uniqueBox.addEventListener("change", () => {
+      this.unique = uniqueBox.checked;
+    });
+    const minMaxWrap = rulesWrap.createDiv({ cls: "tablify__af-grid" });
+    const minInput = minMaxWrap.createEl("input", { type: "text", cls: "tablify__pmodal-input tablify__af-rule-input" });
+    minInput.id = "tablify__af-min";
+    minInput.placeholder = "Min (number / date)";
+    minInput.setAttribute("aria-label", "Minimum");
+    minInput.addEventListener("input", () => {
+      this.minText = minInput.value;
+    });
+    const maxInput = minMaxWrap.createEl("input", { type: "text", cls: "tablify__pmodal-input tablify__af-rule-input" });
+    maxInput.id = "tablify__af-max";
+    maxInput.placeholder = "Max";
+    maxInput.setAttribute("aria-label", "Maximum");
+    maxInput.addEventListener("input", () => {
+      this.maxText = maxInput.value;
+    });
+    const regexWrap = rulesWrap.createDiv({ cls: "tablify__af-regex" });
+    const regexInput = regexWrap.createEl("input", {
+      type: "text",
+      cls: "tablify__pmodal-input tablify__af-rule-input tablify__af-mono"
+    });
+    regexInput.id = "tablify__af-regex-input";
+    regexInput.placeholder = "Regex, e.g. ^[A-Z].*";
+    regexInput.setAttribute("aria-label", "Regex");
+    regexInput.addEventListener("input", () => {
+      this.regexText = regexInput.value;
+    });
+    const formulaWrap = body.createDiv();
+    this.label(formulaWrap, "Formula", "tablify__af-formula");
+    const formulaInput = formulaWrap.createEl("textarea", {
+      cls: "tablify__pmodal-input tablify__af-mono tablify__af-formula"
+    });
+    formulaInput.id = "tablify__af-formula";
+    formulaInput.rows = 2;
+    formulaInput.placeholder = 'IF({Budget} > 10000, "big", "small")';
+    formulaInput.value = this.expression;
+    const preview = formulaWrap.createDiv({ cls: "tablify__af-preview" });
+    preview.append("Preview (row 1): ");
+    const previewOut = preview.createSpan({ text: EMPTY_PREVIEW, cls: "tablify__af-mono" });
+    const updatePreview = () => {
+      previewOut.textContent = this.options.formulaPreview ? this.options.formulaPreview(this.expression) : EMPTY_PREVIEW;
+    };
+    formulaInput.addEventListener("input", () => {
+      this.expression = formulaInput.value;
+      updatePreview();
+    });
+    const linkWrap = body.createDiv();
+    this.label(linkWrap, "Linked table", "tablify__af-link");
+    const linkSelect = linkWrap.createEl("select", { cls: "tablify__pmodal-input" });
+    linkSelect.id = "tablify__af-link";
+    for (const t of this.options.linkTargets ?? []) {
+      const option = linkSelect.createEl("option", { value: t.tableId });
+      option.textContent = t.name;
+    }
+    if (this.linkTableId)
+      linkSelect.value = this.linkTableId;
+    linkSelect.addEventListener("change", () => {
+      this.linkTableId = linkSelect.value;
     });
     const showTypeRows = () => {
-      formulaRow.style.display = this.type === "formula" ? "" : "none";
-      linkRow.style.display = this.type === "link" ? "" : "none";
+      optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? "" : "none";
+      minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? "" : "none";
+      regexWrap.style.display = REGEX_TYPES.includes(this.type) ? "" : "none";
+      formulaWrap.style.display = this.type === "formula" ? "" : "none";
+      linkWrap.style.display = this.type === "link" ? "" : "none";
     };
     showTypeRows();
-    new import_obsidian5.Setting(this.contentEl).addButton(
-      (button) => button.setButtonText("Add field").setCta().onClick(() => this.submit())
-    );
+    const footer = this.contentEl.createDiv({ cls: "tablify__af-footer" });
+    const cancel = footer.createEl("button", { text: "Cancel", cls: "tablify__pmodal-btn" });
+    cancel.type = "button";
+    cancel.addEventListener("click", () => this.close());
+    const save = footer.createEl("button", {
+      text: "Save Field",
+      cls: "tablify__pmodal-btn tablify__pmodal-btn--primary mod-cta"
+    });
+    save.type = "button";
+    save.addEventListener("click", () => this.submit());
     this.contentEl.addEventListener("keydown", (event) => {
       const evt = event;
-      if (evt.key === "Enter" && evt.target?.tagName === "INPUT") {
+      if (evt.key !== "Enter")
+        return;
+      const target = evt.target;
+      const isFormula = target?.tagName === "TEXTAREA" && target.classList.contains("tablify__af-formula");
+      if (target?.tagName === "INPUT" || isFormula) {
         evt.preventDefault();
         this.submit();
       }
     });
+    nameInput.focus();
+  }
+  label(parent, text, forId) {
+    const label = parent.createEl("label", { text, cls: "tablify__pmodal-label" });
+    label.htmlFor = forId;
+  }
+  checkbox(parent, text) {
+    const label = parent.createEl("label", { cls: "tablify__af-check" });
+    const box = label.createEl("input", { type: "checkbox" });
+    label.append(` ${text}`);
+    return box;
+  }
+  /** Min / Max in the field type's stored form; `false` (after a notice) when it does not parse. */
+  ruleBound(text, which) {
+    const raw = text.trim();
+    if (!raw || !MIN_MAX_TYPES.includes(this.type))
+      return null;
+    const parsed = parseInput({ id: "fld_rule", name: which, type: this.type }, raw);
+    if (!parsed.ok || typeof parsed.value !== "number" && typeof parsed.value !== "string") {
+      new import_obsidian5.Notice(`${which} is not a valid ${TYPE_LABELS[this.type]?.toLowerCase() ?? this.type} value.`);
+      return false;
+    }
+    return parsed.value;
+  }
+  /** The optional extras, or undefined when nothing was set (onConfirm then gets the old arguments). */
+  collectExtras() {
+    const extras = {};
+    if (SELECT_TYPES.includes(this.type)) {
+      const options = this.optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
+      if (options.length > 0)
+        extras.options = options;
+    }
+    if (this.required)
+      extras.required = true;
+    if (this.unique)
+      extras.unique = true;
+    const min = this.ruleBound(this.minText, "Min");
+    if (min === false)
+      return false;
+    const max2 = this.ruleBound(this.maxText, "Max");
+    if (max2 === false)
+      return false;
+    if (min !== null)
+      extras.min = min;
+    if (max2 !== null)
+      extras.max = max2;
+    const regex = this.regexText.trim();
+    if (regex && REGEX_TYPES.includes(this.type)) {
+      try {
+        new RegExp(regex);
+      } catch {
+        new import_obsidian5.Notice("The regex is not valid.");
+        return false;
+      }
+      extras.regex = regex;
+    }
+    return Object.keys(extras).length > 0 ? extras : void 0;
   }
   submit() {
     const name = this.name.trim();
@@ -14997,27 +15354,28 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       new import_obsidian5.Notice("Field name cannot be empty.");
       return;
     }
-    if (this.type === "link") {
-      if (!this.linkTableId) {
-        new import_obsidian5.Notice("Choose a table to link to.");
-        return;
-      }
-      this.close();
-      this.onConfirm(name, this.type, void 0, this.linkTableId);
+    if (this.type === "link" && !this.linkTableId) {
+      new import_obsidian5.Notice("Choose a table to link to.");
       return;
     }
-    if (this.type === "formula") {
-      const compiled = compileFormula(this.expression);
-      if (!compiled.ok) {
-        new import_obsidian5.Notice("The formula has a syntax error.");
-        return;
-      }
-      this.close();
-      this.onConfirm(name, this.type, this.expression);
+    if (this.type === "formula" && !compileFormula(this.expression).ok) {
+      new import_obsidian5.Notice("The formula has a syntax error.");
       return;
     }
+    const extras = this.collectExtras();
+    if (extras === false)
+      return;
     this.close();
-    this.onConfirm(name, this.type);
+    const formula = this.type === "formula" ? this.expression : void 0;
+    const linkTableId = this.type === "link" ? this.linkTableId : void 0;
+    if (extras)
+      this.onConfirm(name, this.type, formula, linkTableId, extras);
+    else if (this.type === "link")
+      this.onConfirm(name, this.type, void 0, linkTableId);
+    else if (this.type === "formula")
+      this.onConfirm(name, this.type, formula);
+    else
+      this.onConfirm(name, this.type);
   }
 };
 
@@ -16030,13 +16388,24 @@ var TableView = class extends import_obsidian9.TextFileView {
     const selfName = this.file?.basename ?? "This table";
     new AddFieldModal(
       this.app,
-      (name, type, formula, linkTableId) => {
+      (name, type, formula, linkTableId, extras) => {
         if (!this.session)
           return;
-        this.session.addField(name, type, formula, linkTableId);
+        if (extras)
+          this.session.addField(name, type, formula, linkTableId, extras);
+        else
+          this.session.addField(name, type, formula, linkTableId);
         this.afterChange();
       },
-      { linkTargets: [{ tableId: selfId, name: selfName }, ...others], defaultLinkTableId: selfId }
+      {
+        linkTargets: [{ tableId: selfId, name: selfName }, ...others],
+        defaultLinkTableId: selfId,
+        // SAD-86: "Preview (row 1)" — evaluated on a throwaway engine, never on the live table.
+        formulaPreview: (expression) => {
+          const firstId = s.store.getDisplayOrder()[0];
+          return previewFormula(s.store.getFields(), firstId === void 0 ? void 0 : s.store.getRow(firstId), expression);
+        }
+      }
     ).open();
   }
   showError(message) {

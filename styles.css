@@ -1603,6 +1603,126 @@
   display: none;
 }
 
+/* ---- Add Field (SAD-86) — prototype #addFieldModal ---------------------------------
+   `max-h-[90vh]`, title `text-tablify-charcoal dark:text-tablify-paper`, body `space-y-3 text-xs`.
+   Labels `block mb-1 font-medium` in clay; the rules block `pt-1 border-t`, its label `mb-1.5`,
+   two-column grids `gap-2 mb-2`, rule inputs `px-3 py-2`; the formula box mono 11px with the
+   preview line `mt-1 text-[10px]` under it; footer `mt-5 flex justify-end space-x-2`. */
+.tablify__af-modal {
+  max-height: 90vh;
+}
+
+.tablify__af-modal .modal-title {
+  color: var(--tablify-text-title);
+}
+
+.tablify__pmodal-label {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--tablify-text-muted);
+}
+
+/* Block flow with sibling margins (Tailwind `space-y-3`), not a flex gap: the trailing `mb-2` /
+   `mb-1` of the rule rows must collapse into the 12px gap and the footer's 20px as they do in the
+   prototype — flex items never collapse margins. */
+.tablify__af-body {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tablify__af-body > * + * {
+  margin-top: 12px;
+}
+
+.tablify__af-rules {
+  padding-top: 4px;
+  border-top: 1px solid var(--tablify-border-subtle);
+}
+
+.tablify__af-rules .tablify__af-rules-label {
+  margin-bottom: 6px;
+}
+
+.tablify__af-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tablify__af-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--tablify-text);
+}
+
+.tablify__af-regex {
+  margin-bottom: 4px;
+}
+
+.tablify.tablify__pmodal input.tablify__af-rule-input {
+  padding: 8px 12px;
+}
+
+.tablify.tablify__pmodal input.tablify__af-mono,
+.tablify.tablify__pmodal textarea.tablify__af-mono,
+.tablify__af-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tablify.tablify__pmodal textarea.tablify__af-formula {
+  font-size: 11px;
+  line-height: 16px;
+}
+
+/* Inline-block on the text baseline, as an unreset textarea renders in the prototype (the line box
+   leaves the same few pixels under it). */
+.tablify.tablify__pmodal textarea.tablify__pmodal-input {
+  display: inline-block;
+  vertical-align: baseline;
+  resize: vertical;
+}
+
+/* The prototype's selects keep the native control (no forms reset). */
+.tablify.tablify__pmodal select.tablify__pmodal-input {
+  appearance: auto;
+  -webkit-appearance: auto;
+}
+
+.tablify__af-preview {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--tablify-text-muted);
+}
+
+/* Add Field only: the prototype's `focus:outline-none` — the accent border and the soft 2px ring
+   (15% light, 20% dark) are the focus indicator. The other dressed dialogs keep the outline. */
+.tablify.tablify__pmodal.tablify__af-modal input.tablify__pmodal-input:focus,
+.tablify.tablify__pmodal.tablify__af-modal select.tablify__pmodal-input:focus,
+.tablify.tablify__pmodal.tablify__af-modal textarea.tablify__pmodal-input:focus {
+  outline: none;
+}
+
+.tablify--dark.tablify__pmodal.tablify__af-modal input.tablify__pmodal-input:focus,
+.tablify--dark.tablify__pmodal.tablify__af-modal select.tablify__pmodal-input:focus,
+.tablify--dark.tablify__pmodal.tablify__af-modal textarea.tablify__pmodal-input:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
+}
+
+.tablify__af-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
 /* Link picker inside the card: inner-surface list (`rounded-xl`), rows on the pill hover. */
 .tablify__pmodal .tablify-link-picker__note {
   margin: 0 0 8px;

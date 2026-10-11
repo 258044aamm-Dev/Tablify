@@ -7,6 +7,8 @@ import { FilterBuilderModal } from '../../../src/views/grid/FilterBuilderModal';
 import { FormulaEditModal } from '../../../src/views/grid/FormulaEditModal';
 import { LinkPickerModal } from '../../../src/views/grid/LinkPickerModal';
 import { LinkIntegrityModal } from '../../../src/commands/linkIntegrity';
+import { AddFieldModal } from '../../../src/views/grid/AddFieldModal';
+import { previewFormula } from '../../../src/model/formulaPreview';
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
 
 declare global {
@@ -70,6 +72,23 @@ async function mount(): Promise<void> {
   window.__tablifyOpenModal = (kind: string) => {
     const noop = () => undefined;
     if (kind === 'formula') mountModal(new FormulaEditModal(app as never, '{Price} * 2', noop));
+    if (kind === 'addField') {
+      // SAD-86: as TableView.promptAddField builds it — this table as the link target, the
+      // preview evaluated against row 1 of the live table.
+      type Store = { getFields(): unknown[]; getDisplayOrder(): readonly string[]; getRow(id: string): unknown };
+      const s = (view as unknown as { session: { store: Store; toFile(): { tableId: string } } }).session;
+      const selfId = s.toFile().tableId;
+      mountModal(
+        new AddFieldModal(app as never, noop, {
+          linkTargets: [{ tableId: selfId, name: f.basename }],
+          defaultLinkTableId: selfId,
+          formulaPreview: (expression) => {
+            const first = s.store.getDisplayOrder()[0];
+            return previewFormula(s.store.getFields() as never, (first === undefined ? undefined : s.store.getRow(first)) as never, expression);
+          },
+        }),
+      );
+    }
     if (kind === 'linkPicker') {
       const rows = ['Acme Corp', 'Globex', 'Initech', 'Umbrella'].map((label, i) => ({ id: `r${i}`, label }));
       const index = { byTableId: () => ({ id: 't1', name: 'Customers', rows }) };
