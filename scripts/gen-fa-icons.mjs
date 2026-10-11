@@ -66,6 +66,13 @@ const GLYPHS = [
   'filter-circle-xmark',
   'chevron-down',
   'chevron-right',
+  // Select panel, option manager, attachment panel (SAD-90, the prototype's own glyphs:
+  // fa-check on a picked row, fa-palette in the panel footer and the manager title,
+  // fa-arrow-up / fa-arrow-down on the per-option reorder buttons)
+  'check',
+  'palette',
+  'arrow-up',
+  'arrow-down',
 ];
 
 function build() {

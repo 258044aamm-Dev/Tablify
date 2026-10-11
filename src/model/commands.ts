@@ -390,6 +390,26 @@ export function createChangeFieldTypeCommand(data: { before: FieldSnapshot; afte
   };
 }
 
+/**
+ * Replace a select field's option list (Step 11) — rename, recolor, reorder and add, plus the
+ * delete path, whose `valuesByRow` carries the cells that referenced the option (R-D12).
+ *
+ * Same shape as a type change — definition and cells move together — so one option edit is one
+ * undo step, and undo puts the old list and the old cell values back in a single action.
+ */
+export function createSetFieldOptionsCommand(data: { before: FieldSnapshot; after: FieldSnapshot }): Command {
+  return {
+    type: 'setFieldOptions',
+    targetKey: uniqueKey('setFieldOptions'),
+    do(store: TableStore): void {
+      store.replaceField(data.after.field, data.after.valuesByRow);
+    },
+    undo(store: TableStore): void {
+      store.replaceField(data.before.field, data.before.valuesByRow);
+    },
+  };
+}
+
 export interface SetFormulaData {
   fieldId: string;
   oldFormula: string | undefined;

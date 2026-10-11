@@ -75,6 +75,18 @@ export const palette = {
   /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
   placeholderLight: '#C5C1BE',
   /**
+   * #F3F4F6 — the dark ink a prototype modal card inherits when it carries no colour class:
+   * `#optMgrModal`'s card sits on `body.dark`, whose Tailwind `text-gray-100` is this value
+   * (the plugin's own dark body ink is the warmer #ECE7E1). SAD-90.
+   */
+  modalInkDark: '#F3F4F6',
+  /**
+   * #9CA3AF — placeholder ink the prototype's Tailwind preflight paints (gray-400), in both
+   * themes. The Step-11 float panels' inputs follow it exactly; the toolbar and the modals keep
+   * the accessible `muted` treatment they were verified with (SAD-71/SAD-85).
+   */
+  fieldPlaceholder: '#9CA3AF',
+  /**
    * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
    * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
    * rule as mutedLight (SAD-80).
@@ -144,8 +156,15 @@ function withAlpha(hex: string, alpha: number): string {
  * border of the hue, 700 / 300 ink, solid dot. Unknown colours fall back to gray, as
  * `optColor()` does.
  */
+/** The hue family a colour paints with (the select panel names its chip classes by hue). */
+export function optionChipHue(color: string | undefined): keyof typeof chipHues {
+  return chipHueFor[color ?? ''] ?? 'gray';
+}
+
 export function optionChipColors(color: string | undefined, theme: ThemeName): OptionChipColors {
-  const hue = chipHueFor[color ?? ''] ?? 'gray';
+  // Callers pass either a plugin colour (`red` → rose) or a hue family (`rose`) — the panel's
+  // generated rules name their selectors by hue, so both spellings work.
+  const hue = color && color in chipHues ? (color as keyof typeof chipHues) : optionChipHue(color);
   const [base, inkLight, inkDark] = chipHues[hue];
   return {
     background: withAlpha(base, 0.15),
@@ -184,6 +203,8 @@ export interface Theme {
   borderPillHover: string;
   /** SAD-76: prototype `.header-capsule` / `.cell-capsule` border. */
   borderCapsule: string;
+  /** SAD-90: ink of a modal card the prototype leaves uncoloured (`#optMgrModal`). */
+  textModal: string;
   /** SAD-77: prototype title ink (`text-tablify-charcoal dark:text-tablify-paper`). */
   textTitle: string;
   /** SAD-77: prototype title-link hover ink (`hover:text-tablify-charcoal dark:hover:text-white`). */
@@ -198,6 +219,8 @@ export interface Theme {
    * dark:text-gray-600`). A placeholder glyph, not content.
    */
   textPlaceholder: string;
+  /** SAD-90: placeholder ink inside the float panels (prototype preflight gray-400). */
+  fieldPlaceholder: string;
   /** SAD-80: prototype `#selectionSummary` ink (`text-tablify-terracotta`), AA-adjusted on light. */
   textSelected: string;
   /** SAD-80: prototype Delete ink (`text-red-500`), AA-adjusted in both themes. */
@@ -243,9 +266,11 @@ export const lightTheme: Theme = {
   borderPillHover: palette.pillBorderHoverLight,
   borderCapsule: palette.borderLight,
   textTitle: palette.textOnLight,
+  textModal: palette.textOnLight,
   textStrong: palette.textOnLight,
   textFaint: palette.gripLight,
   textPlaceholder: palette.placeholderLight,
+  fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracottaTextLight,
   textDanger: palette.dangerLight,
   accentCheck: palette.terracotta,
@@ -277,9 +302,11 @@ export const darkTheme: Theme = {
   borderPillHover: palette.pillBorderHoverDark,
   borderCapsule: palette.capsuleBorderDark,
   textTitle: palette.light,
+  textModal: palette.modalInkDark,
   textStrong: palette.cardLight,
   textFaint: palette.gripDark,
   textPlaceholder: palette.placeholderDark,
+  fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracotta,
   textDanger: palette.dangerDark,
   accentCheck: palette.terracotta,
@@ -321,9 +348,11 @@ export const cssVars = {
   borderPillHover: '--tablify-border-pill-hover',
   borderCapsule: '--tablify-border-capsule',
   textTitle: '--tablify-text-title',
+  textModal: '--tablify-text-modal',
   textStrong: '--tablify-text-strong',
   textFaint: '--tablify-text-faint',
   textPlaceholder: '--tablify-text-placeholder',
+  fieldPlaceholder: '--tablify-field-placeholder',
   textSelected: '--tablify-text-selected',
   textDanger: '--tablify-text-danger',
   accentCheck: '--tablify-accent-check',
@@ -363,9 +392,11 @@ export function applyTheme(root: HTMLElement, theme: ThemeName): void {
   root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
   root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
   root.style.setProperty(cssVars.textTitle, t.textTitle);
+  root.style.setProperty(cssVars.textModal, t.textModal);
   root.style.setProperty(cssVars.textStrong, t.textStrong);
   root.style.setProperty(cssVars.textFaint, t.textFaint);
   root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
+  root.style.setProperty(cssVars.fieldPlaceholder, t.fieldPlaceholder);
   root.style.setProperty(cssVars.textSelected, t.textSelected);
   root.style.setProperty(cssVars.textDanger, t.textDanger);
   root.style.setProperty(cssVars.accentCheck, t.accentCheck);

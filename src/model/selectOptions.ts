@@ -25,33 +25,79 @@ export interface SelectOptionManager {
   createDeleteCommand(optionId: string, field: FieldDefinition, store: TableStore): Command;
 }
 
+/**
+ * What deleting an option leaves behind (R-D12), as data: the option list without `optionId` and
+ * the cells that referenced it, each with the value it should hold afterwards — `null` for a
+ * single_select cell, the remaining ids for a multi_select one. Pure, so the UI can carry the
+ * write through its own undoable path (`createSetFieldOptionsCommand`) instead of editing cells
+ * one by one.
+ */
+export function planOptionRemoval(
+  optionId: string,
+  field: FieldDefinition,
+  store: TableStore
+): { options: SelectOption[]; values: Record<string, CellValue> } {
+  const options = (field.options ?? []).filter(o => o.id !== optionId);
+  const values: Record<string, CellValue> = {};
+
+  for (const row of store.getAllRows()) {
+    const cellValue = row.values[field.id];
+
+    if (field.type === 'single_select' && cellValue === optionId) {
+      values[row.id] = null;
+    } else if (
+      field.type === 'multi_select' &&
+      Array.isArray(cellValue) &&
+      (cellValue as string[]).includes(optionId)
+    ) {
+      // multi_select cells hold option IDs (strings); the field type guarantees it.
+      const rest = (cellValue as string[]).filter(id => id !== optionId);
+      values[row.id] = rest.length > 0 ? rest : null;
+    }
+  }
+
+  return { options, values };
+}
+
+/**
+ * What adding an option leaves behind, as data: the option list with the new entry appended (or
+ * unchanged when a trimmed, case-insensitive match already exists) and the option itself. Pure, so
+ * the UI can put the new option and the cell write into one undoable command
+ * (`createSetFieldOptionsCommand`) instead of mutating the field outside the stack.
+ */
+export function planOptionAdd(
+  name: string,
+  field: FieldDefinition
+): { options: SelectOption[]; option: SelectOption; created: boolean } {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('Option name cannot be empty');
+  }
+
+  const lower = trimmed.toLowerCase();
+  const current = field.options ?? [];
+  const existing = current.find(opt => opt.name.trim().toLowerCase() === lower);
+  if (existing) return { options: current, option: existing, created: false };
+
+  const option: SelectOption = {
+    id: generateOptionId(),
+    name: trimmed,
+    color: getNextColor(field),
+  };
+  return { options: [...current, option], option, created: true };
+}
+
 export function createSelectOptionManager(): SelectOptionManager {
   function findOrCreate(name: string, field: FieldDefinition): SelectOption {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      throw new Error('Option name cannot be empty');
+    // Match by trimmed, case-insensitive name; otherwise append a new option.
+    const plan = planOptionAdd(name, field);
+    if (plan.created) {
+      if (!field.options) {
+        field.options = [];
+      }
+      field.options.push(plan.option);
     }
-
-    const lower = trimmed.toLowerCase();
-
-    // Match by trimmed, case-insensitive name
-    if (field.options) {
-      const existing = field.options.find(opt => opt.name.trim().toLowerCase() === lower);
-      if (existing) return existing;
-    }
-
-    // Create new option
-    const newOption: SelectOption = {
-      id: generateOptionId(),
-      name: trimmed,
-      color: getNextColor(field),
-    };
-
-    if (!field.options) {
-      field.options = [];
-    }
-    field.options.push(newOption);
-    return newOption;
+    return plan.option;
   }
 
   function rename(optionId: string, newName: string, field: FieldDefinition): SelectOption {
@@ -113,22 +159,13 @@ export function createSelectOptionManager(): SelectOptionManager {
     }
 
     const option = field.options[optionIndex];
+    const plan = planOptionRemoval(optionId, field, store);
     const affectedCells: Array<{ rowId: string; oldValue: CellValue }> = [];
 
-    // Clear cells that reference this option
-    const allRows = store.getAllRows();
-    for (const row of allRows) {
-      const cellValue = row.values[field.id];
-
-      if (field.type === 'single_select' && cellValue === optionId) {
-        affectedCells.push({ rowId: row.id, oldValue: cellValue });
-        store.updateRow(row.id, { [field.id]: null });
-      } else if (field.type === 'multi_select' && Array.isArray(cellValue) && (cellValue as string[]).includes(optionId)) {
-        // multi_select cells hold option IDs (strings); the field type guarantees it.
-        const newValue = (cellValue as string[]).filter(id => id !== optionId);
-        affectedCells.push({ rowId: row.id, oldValue: cellValue });
-        store.updateRow(row.id, { [field.id]: newValue.length > 0 ? newValue : null });
-      }
+    // Clear cells that reference this option (R-D12)
+    for (const [rowId, value] of Object.entries(plan.values)) {
+      affectedCells.push({ rowId, oldValue: (store.getRow(rowId)?.values[field.id] ?? null) as CellValue });
+      store.updateRow(rowId, { [field.id]: value });
     }
 
     // Remove option from field

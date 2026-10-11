@@ -48,6 +48,10 @@ describe('P3-09 — Design tokens', () => {
       switchOffLight: '#D1D5DB',
       // SAD-85: prototype light scrollbar thumb.
       scrollThumbLight: '#D5CEC2',
+      // SAD-90: placeholder ink the prototype's Tailwind preflight paints (gray-400), both themes.
+      fieldPlaceholder: '#9CA3AF',
+      // SAD-90: the ink a prototype modal card inherits from `body.dark` (Tailwind gray-100).
+      modalInkDark: '#F3F4F6',
     };
     expect(palette).toEqual(expected);
   });

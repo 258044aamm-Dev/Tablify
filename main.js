@@ -9846,6 +9846,18 @@ var palette = {
   /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
   placeholderLight: "#C5C1BE",
   /**
+   * #F3F4F6 — the dark ink a prototype modal card inherits when it carries no colour class:
+   * `#optMgrModal`'s card sits on `body.dark`, whose Tailwind `text-gray-100` is this value
+   * (the plugin's own dark body ink is the warmer #ECE7E1). SAD-90.
+   */
+  modalInkDark: "#F3F4F6",
+  /**
+   * #9CA3AF — placeholder ink the prototype's Tailwind preflight paints (gray-400), in both
+   * themes. The Step-11 float panels' inputs follow it exactly; the toolbar and the modals keep
+   * the accessible `muted` treatment they were verified with (SAD-71/SAD-85).
+   */
+  fieldPlaceholder: "#9CA3AF",
+  /**
    * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
    * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
    * rule as mutedLight (SAD-80).
@@ -9885,8 +9897,11 @@ function withAlpha(hex, alpha) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
 }
+function optionChipHue(color) {
+  return chipHueFor[color ?? ""] ?? "gray";
+}
 function optionChipColors(color, theme) {
-  const hue = chipHueFor[color ?? ""] ?? "gray";
+  const hue = color && color in chipHues ? color : optionChipHue(color);
   const [base, inkLight, inkDark] = chipHues[hue];
   return {
     background: withAlpha(base, 0.15),
@@ -9917,9 +9932,11 @@ var lightTheme = {
   borderPillHover: palette.pillBorderHoverLight,
   borderCapsule: palette.borderLight,
   textTitle: palette.textOnLight,
+  textModal: palette.textOnLight,
   textStrong: palette.textOnLight,
   textFaint: palette.gripLight,
   textPlaceholder: palette.placeholderLight,
+  fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracottaTextLight,
   textDanger: palette.dangerLight,
   accentCheck: palette.terracotta,
@@ -9950,9 +9967,11 @@ var darkTheme = {
   borderPillHover: palette.pillBorderHoverDark,
   borderCapsule: palette.capsuleBorderDark,
   textTitle: palette.light,
+  textModal: palette.modalInkDark,
   textStrong: palette.cardLight,
   textFaint: palette.gripDark,
   textPlaceholder: palette.placeholderDark,
+  fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracotta,
   textDanger: palette.dangerDark,
   accentCheck: palette.terracotta,
@@ -9987,9 +10006,11 @@ var cssVars = {
   borderPillHover: "--tablify-border-pill-hover",
   borderCapsule: "--tablify-border-capsule",
   textTitle: "--tablify-text-title",
+  textModal: "--tablify-text-modal",
   textStrong: "--tablify-text-strong",
   textFaint: "--tablify-text-faint",
   textPlaceholder: "--tablify-text-placeholder",
+  fieldPlaceholder: "--tablify-field-placeholder",
   textSelected: "--tablify-text-selected",
   textDanger: "--tablify-text-danger",
   accentCheck: "--tablify-accent-check",
@@ -10023,9 +10044,11 @@ function applyTheme(root, theme) {
   root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
   root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
   root.style.setProperty(cssVars.textTitle, t.textTitle);
+  root.style.setProperty(cssVars.textModal, t.textModal);
   root.style.setProperty(cssVars.textStrong, t.textStrong);
   root.style.setProperty(cssVars.textFaint, t.textFaint);
   root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
+  root.style.setProperty(cssVars.fieldPlaceholder, t.fieldPlaceholder);
   root.style.setProperty(cssVars.textSelected, t.textSelected);
   root.style.setProperty(cssVars.textDanger, t.textDanger);
   root.style.setProperty(cssVars.accentCheck, t.accentCheck);
@@ -10077,7 +10100,11 @@ var GLYPHS = {
   "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" },
   "filter-circle-xmark": { w: 576, d: "M3.9 22.9C10.5 8.9 24.5 0 40 0H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L396.4 195.6C316.2 212.1 256 283 256 368c0 27.4 6.3 53.4 17.5 76.5c-1.6-.8-3.2-1.8-4.7-2.9l-64-48c-8.1-6-12.8-15.5-12.8-25.6V288.9L9 65.3C-.7 53.4-2.8 36.8 3.9 22.9zM432 224a144 144 0 1 1 0 288 144 144 0 1 1 0-288zm59.3 107.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L432 345.4l-36.7-36.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6L409.4 368l-36.7 36.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L432 390.6l36.7 36.7c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L454.6 368l36.7-36.7z" },
   "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
-  "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" }
+  "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" },
+  "check": { w: 448, d: "M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z" },
+  "palette": { w: 512, d: "M512 256c0 .9 0 1.8 0 2.7c-.4 36.5-33.6 61.3-70.1 61.3H344c-26.5 0-48 21.5-48 48c0 3.4 .4 6.7 1 9.9c2.1 10.2 6.5 20 10.8 29.9c6.1 13.8 12.1 27.5 12.1 42c0 31.8-21.6 60.7-53.4 62c-3.5 .1-7 .2-10.6 .2C114.6 512 0 397.4 0 256S114.6 0 256 0S512 114.6 512 256zM128 288a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm0-96a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm96 96a32 32 0 1 0 0-64 32 32 0 1 0 0 64z" },
+  "arrow-up": { w: 384, d: "M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z" },
+  "arrow-down": { w: 384, d: "M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z" }
 };
 function faIcon(name, sizePx) {
   const g = GLYPHS[name];
@@ -10543,6 +10570,18 @@ function createChangeFieldTypeCommand(data) {
   return {
     type: "changeFieldType",
     targetKey: uniqueKey("changeFieldType"),
+    do(store) {
+      store.replaceField(data.after.field, data.after.valuesByRow);
+    },
+    undo(store) {
+      store.replaceField(data.before.field, data.before.valuesByRow);
+    }
+  };
+}
+function createSetFieldOptionsCommand(data) {
+  return {
+    type: "setFieldOptions",
+    targetKey: uniqueKey("setFieldOptions"),
     do(store) {
       store.replaceField(data.after.field, data.after.valuesByRow);
     },
@@ -12094,28 +12133,47 @@ function createFormulaRuntime(store) {
 }
 
 // src/model/selectOptions.ts
+function planOptionRemoval(optionId, field, store) {
+  const options = (field.options ?? []).filter((o) => o.id !== optionId);
+  const values = {};
+  for (const row of store.getAllRows()) {
+    const cellValue = row.values[field.id];
+    if (field.type === "single_select" && cellValue === optionId) {
+      values[row.id] = null;
+    } else if (field.type === "multi_select" && Array.isArray(cellValue) && cellValue.includes(optionId)) {
+      const rest = cellValue.filter((id) => id !== optionId);
+      values[row.id] = rest.length > 0 ? rest : null;
+    }
+  }
+  return { options, values };
+}
+function planOptionAdd(name, field) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error("Option name cannot be empty");
+  }
+  const lower = trimmed.toLowerCase();
+  const current = field.options ?? [];
+  const existing = current.find((opt) => opt.name.trim().toLowerCase() === lower);
+  if (existing)
+    return { options: current, option: existing, created: false };
+  const option = {
+    id: generateOptionId(),
+    name: trimmed,
+    color: getNextColor(field)
+  };
+  return { options: [...current, option], option, created: true };
+}
 function createSelectOptionManager() {
   function findOrCreate(name, field) {
-    const trimmed = name.trim();
-    if (!trimmed) {
-      throw new Error("Option name cannot be empty");
+    const plan = planOptionAdd(name, field);
+    if (plan.created) {
+      if (!field.options) {
+        field.options = [];
+      }
+      field.options.push(plan.option);
     }
-    const lower = trimmed.toLowerCase();
-    if (field.options) {
-      const existing = field.options.find((opt) => opt.name.trim().toLowerCase() === lower);
-      if (existing)
-        return existing;
-    }
-    const newOption = {
-      id: generateOptionId(),
-      name: trimmed,
-      color: getNextColor(field)
-    };
-    if (!field.options) {
-      field.options = [];
-    }
-    field.options.push(newOption);
-    return newOption;
+    return plan.option;
   }
   function rename(optionId, newName, field) {
     const trimmed = newName.trim();
@@ -12161,18 +12219,11 @@ function createSelectOptionManager() {
       throw new Error(`Option not found: ${optionId}`);
     }
     const option = field.options[optionIndex];
+    const plan = planOptionRemoval(optionId, field, store);
     const affectedCells = [];
-    const allRows = store.getAllRows();
-    for (const row of allRows) {
-      const cellValue = row.values[field.id];
-      if (field.type === "single_select" && cellValue === optionId) {
-        affectedCells.push({ rowId: row.id, oldValue: cellValue });
-        store.updateRow(row.id, { [field.id]: null });
-      } else if (field.type === "multi_select" && Array.isArray(cellValue) && cellValue.includes(optionId)) {
-        const newValue = cellValue.filter((id) => id !== optionId);
-        affectedCells.push({ rowId: row.id, oldValue: cellValue });
-        store.updateRow(row.id, { [field.id]: newValue.length > 0 ? newValue : null });
-      }
+    for (const [rowId, value] of Object.entries(plan.values)) {
+      affectedCells.push({ rowId, oldValue: store.getRow(rowId)?.values[field.id] ?? null });
+      store.updateRow(rowId, { [field.id]: value });
     }
     field.options.splice(optionIndex, 1);
     return { option, affectedCells };
@@ -16056,6 +16107,785 @@ var FilterBuilderModal = class extends import_obsidian8.Modal {
   }
 };
 
+// src/views/grid/select/panel.ts
+var PANEL_WIDTH = 320;
+function createPanelCard(testid, theme = "light", bodyClass = "tablify__dropdown-body") {
+  const card = document.createElement("div");
+  card.className = "tablify__panel";
+  card.dataset.testid = testid;
+  card.setAttribute("role", "dialog");
+  applyTheme(card, theme);
+  const body = document.createElement("div");
+  body.className = bodyClass;
+  card.appendChild(body);
+  return { card, body };
+}
+function anchorPanel(card, anchor) {
+  const r = anchor.getBoundingClientRect();
+  const vw = typeof window === "undefined" ? PANEL_WIDTH + 24 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  const pw = Math.min(PANEL_WIDTH, vw - 24);
+  const x = Math.min(r.left, vw - pw - 12);
+  const y = r.bottom + 6;
+  card.style.position = "fixed";
+  card.style.left = `${Math.max(8, x)}px`;
+  card.style.top = `${y}px`;
+  card.style.zIndex = "70";
+  const height = card.getBoundingClientRect().height;
+  if (y + height > vh - 8)
+    card.style.top = `${Math.max(8, r.top - height - 6)}px`;
+}
+function wirePanelDismiss(card, onDismiss) {
+  const onPress = (ev) => {
+    if (!card.contains(ev.target))
+      onDismiss();
+  };
+  const onKey = (ev) => {
+    if (ev.key === "Escape")
+      onDismiss();
+  };
+  document.addEventListener("mousedown", onPress);
+  document.addEventListener("touchstart", onPress, { passive: true });
+  document.addEventListener("keydown", onKey);
+  return () => {
+    document.removeEventListener("mousedown", onPress);
+    document.removeEventListener("touchstart", onPress);
+    document.removeEventListener("keydown", onKey);
+  };
+}
+
+// src/views/grid/select/Dropdown.ts
+var SEARCH_PLACEHOLDER2 = "Search or create\u2026";
+var EMPTY_HINT = "No options yet \u2014 type to create.";
+function chipRule(hue, theme) {
+  const c = optionChipColors(hue, theme);
+  return `.tablify__panel .tablify__chip--${hue}{background:${c.background};border-color:${c.border};color:${c.text}}.tablify__panel .tablify__chip--${hue} .tablify__chip-dot{background:${c.dot}}`;
+}
+var SelectDropdown = class {
+  constructor(opts) {
+    this.opts = opts;
+    this.theme = opts.theme ?? "light";
+    const { card, body } = createPanelCard("tablify-select-panel", this.theme);
+    this.container = card;
+    this.container.setAttribute("aria-label", `Options for ${opts.field.name}`);
+    this.input = document.createElement("input");
+    this.input.className = "tablify__dropdown-input";
+    this.input.type = "text";
+    this.input.placeholder = SEARCH_PLACEHOLDER2;
+    this.input.setAttribute("aria-label", SEARCH_PLACEHOLDER2);
+    this.input.addEventListener("compositionstart", () => this.isComposing = true);
+    this.input.addEventListener("compositionend", () => {
+      this.isComposing = false;
+      this.render();
+    });
+    this.input.addEventListener("input", () => {
+      if (!this.isComposing)
+        this.render();
+    });
+    this.input.addEventListener("keydown", (e) => this.onKey(e));
+    this.list = document.createElement("div");
+    this.list.className = "tablify__dropdown-list";
+    this.foot = document.createElement("div");
+    this.foot.className = "tablify__dropdown-foot";
+    this.style = document.createElement("style");
+    this.style.dataset.testid = "tablify-select-panel-styles";
+    body.appendChild(this.input);
+    body.appendChild(this.list);
+    body.appendChild(this.foot);
+    this.container.insertBefore(this.style, body);
+    this.render();
+  }
+  container;
+  input;
+  list;
+  foot;
+  manager = createSelectOptionManager();
+  isComposing = false;
+  items = [];
+  activeIndex = -1;
+  style;
+  unwireDismiss = null;
+  theme;
+  get element() {
+    return this.container;
+  }
+  /** Anchor the panel under a cell and take over dismissal, like `openPanel()` does. */
+  open(anchor) {
+    if (!this.container.isConnected)
+      document.body.appendChild(this.container);
+    anchorPanel(this.container, anchor);
+    this.input.focus();
+    this.input.setSelectionRange(this.input.value.length, this.input.value.length);
+    this.unwireDismiss ??= wirePanelDismiss(this.container, () => this.dismiss());
+  }
+  /**
+   * Point the panel at the live definition. The store swaps the field object out whenever an
+   * option-list change goes through the command stack, so the host calls this after `createOption`.
+   */
+  setField(field) {
+    this.opts.field = field;
+    this.render();
+  }
+  /** Update the picked set without rebuilding the panel (multi-select toggles stay open). */
+  setValue(value) {
+    this.opts.value = value;
+    this.render();
+  }
+  close() {
+    this.unwireDismiss?.();
+    this.unwireDismiss = null;
+    this.container.remove();
+  }
+  dismiss() {
+    this.close();
+    this.opts.onDismiss?.();
+  }
+  // ---- behaviour -------------------------------------------------------------------------
+  onKey(e) {
+    if (this.isComposing)
+      return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      this.move(1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      this.move(-1);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      this.commit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      this.dismiss();
+    }
+    e.stopPropagation();
+  }
+  move(delta) {
+    if (!this.items.length)
+      return;
+    const next = this.activeIndex + delta;
+    this.activeIndex = next < 0 ? this.items.length - 1 : next >= this.items.length ? 0 : next;
+    this.items.forEach(
+      (row, i) => row.classList.toggle("tablify__dropdown-item--active", i === this.activeIndex)
+    );
+  }
+  commit() {
+    const raw = this.input.value.trim();
+    const active = this.items[this.activeIndex];
+    if (active) {
+      const opt = this.optionById(active.dataset.optionId ?? "");
+      if (opt) {
+        this.pick(opt);
+        return;
+      }
+    }
+    if (!raw)
+      return;
+    const lower = raw.toLowerCase();
+    const exact = (this.opts.field.options ?? []).find((o) => o.name.trim().toLowerCase() === lower);
+    if (exact)
+      this.pick(exact);
+    else
+      this.createOption();
+  }
+  /** A new name: one option per spelling (dedup), then the caller writes the cell. */
+  createOption() {
+    const raw = this.input.value.trim();
+    if (!raw)
+      return;
+    const option = this.opts.createOption ? this.opts.createOption(raw) : this.manager.findOrCreate(raw, this.opts.field);
+    this.input.value = "";
+    this.render();
+    this.opts.onCreate(option);
+  }
+  pick(option) {
+    this.opts.onSelect(option);
+  }
+  optionById(id) {
+    return (this.opts.field.options ?? []).find((o) => o.id === id);
+  }
+  /** The picked ids (prototype `curIds`) — string cells or arrays, never mixed. */
+  pickedIds() {
+    const v = this.opts.value;
+    if (this.opts.field.type === "multi_select") {
+      return Array.isArray(v) ? v.map((x) => String(x)) : [];
+    }
+    return typeof v === "string" && v ? [v] : [];
+  }
+  render() {
+    const raw = this.input.value.trim();
+    const lower = raw.toLowerCase();
+    const options = this.opts.field.options ?? [];
+    const filtered = lower ? options.filter((o) => o.name.toLowerCase().includes(lower)) : options;
+    const picked = this.pickedIds();
+    const usedHues = /* @__PURE__ */ new Set();
+    this.list.textContent = "";
+    this.items = [];
+    for (const opt of filtered) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "tablify__dropdown-item";
+      row.dataset.optionId = opt.id;
+      const hue = optionChipHue(opt.color);
+      usedHues.add(hue);
+      const chip = document.createElement("span");
+      chip.className = `tablify__chip tablify__chip--${hue}`;
+      const dot = document.createElement("span");
+      dot.className = "tablify__chip-dot";
+      const label = document.createElement("span");
+      label.className = "tablify__chip-label";
+      label.textContent = opt.name;
+      chip.appendChild(dot);
+      chip.appendChild(label);
+      row.appendChild(chip);
+      if (picked.includes(opt.id)) {
+        const check = document.createElement("span");
+        check.className = "tablify__dropdown-check";
+        check.innerHTML = faIcon("check", 12);
+        row.appendChild(check);
+      }
+      row.addEventListener("click", () => this.pick(opt));
+      this.list.appendChild(row);
+      this.items.push(row);
+    }
+    if (!options.length && !raw) {
+      const hint = document.createElement("div");
+      hint.className = "tablify__dropdown-empty";
+      hint.textContent = EMPTY_HINT;
+      this.list.appendChild(hint);
+    }
+    const exact = options.some((o) => o.name.trim().toLowerCase() === lower);
+    if (raw && !exact) {
+      const create = document.createElement("button");
+      create.type = "button";
+      create.className = "tablify__dropdown-create";
+      const icon = document.createElement("span");
+      icon.className = "tablify__dropdown-create-icon";
+      icon.innerHTML = faIcon("plus", 10);
+      const name = document.createElement("b");
+      name.textContent = raw;
+      create.appendChild(icon);
+      create.appendChild(document.createTextNode('Create "'));
+      create.appendChild(name);
+      create.appendChild(document.createTextNode('"'));
+      create.addEventListener("click", () => this.createOption());
+      this.list.appendChild(create);
+    }
+    this.activeIndex = -1;
+    this.style.textContent = [...usedHues].sort().map((h) => chipRule(h, this.theme)).join("");
+    this.renderFoot();
+    const active = document.activeElement;
+    if (this.container.isConnected && active !== this.input)
+      this.input.focus();
+  }
+  /** Prototype footer: Clear on the left, Manage options on the right (only when wired). */
+  renderFoot() {
+    const { onClear, onManageOptions } = this.opts;
+    this.foot.textContent = "";
+    if (!onClear && !onManageOptions) {
+      this.foot.hidden = true;
+      return;
+    }
+    this.foot.hidden = false;
+    if (onClear) {
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "tablify__dropdown-clear";
+      clear.textContent = "Clear";
+      clear.addEventListener("click", () => {
+        onClear();
+        this.close();
+      });
+      this.foot.appendChild(clear);
+    }
+    if (onManageOptions) {
+      const manage = document.createElement("button");
+      manage.type = "button";
+      manage.className = "tablify__dropdown-manage";
+      const icon = document.createElement("span");
+      icon.className = "tablify__dropdown-manage-icon";
+      icon.innerHTML = faIcon("palette", 11);
+      manage.appendChild(icon);
+      manage.appendChild(document.createTextNode("Manage options"));
+      manage.addEventListener("click", () => {
+        onManageOptions();
+        this.close();
+      });
+      this.foot.appendChild(manage);
+    }
+  }
+  // For tests: get visible items
+  getVisibleOptionNames() {
+    return Array.from(this.list.querySelectorAll(".tablify__dropdown-item")).map(
+      (el2) => el2.textContent ?? ""
+    );
+  }
+  hasCreateOption() {
+    return !!this.list.querySelector(".tablify__dropdown-create");
+  }
+};
+
+// src/views/grid/select/OptionManager.ts
+var OptionManagerDialog = class {
+  constructor(field, store, hooks = {}) {
+    this.field = field;
+    this.store = store;
+    this.hooks = hooks;
+    this.backdrop = document.createElement("div");
+    this.backdrop.className = "tablify__optmgr-backdrop";
+    this.card = document.createElement("div");
+    const header = document.createElement("div");
+    header.className = "tablify__optmgr-head";
+    this.title = document.createElement("h3");
+    this.title.className = "modal-title";
+    this.label = document.createElement("span");
+    this.label.className = "tablify__optmgr-title";
+    this.title.appendChild(this.label);
+    header.appendChild(this.title);
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "tablify__optmgr-close";
+    close.setAttribute("aria-label", "Close");
+    close.innerHTML = faIcon("xmark", 16);
+    close.addEventListener("click", () => this.close());
+    header.appendChild(close);
+    this.body = document.createElement("div");
+    this.body.className = "modal-content";
+    this.card.appendChild(header);
+    this.card.appendChild(this.body);
+    this.backdrop.appendChild(this.card);
+    dressProtoModal({ modalEl: this.card, titleEl: this.title }, { icon: "palette", size: "md" });
+    this.render();
+  }
+  card;
+  backdrop;
+  title;
+  /** The title's label. `dressProtoModal` prepends the glyph; only this span is rewritten. */
+  label;
+  body;
+  unwire = null;
+  get element() {
+    return this.backdrop;
+  }
+  open() {
+    if (!this.backdrop.isConnected)
+      document.body.appendChild(this.backdrop);
+    if (!this.unwire) {
+      const onPress = (ev) => {
+        if (ev.target === this.backdrop)
+          this.close();
+      };
+      const onKey = (ev) => {
+        if (ev.key === "Escape")
+          this.close();
+      };
+      document.addEventListener("mousedown", onPress);
+      document.addEventListener("keydown", onKey);
+      this.unwire = () => {
+        document.removeEventListener("mousedown", onPress);
+        document.removeEventListener("keydown", onKey);
+      };
+    }
+    this.render();
+  }
+  close() {
+    this.unwire?.();
+    this.unwire = null;
+    this.backdrop.remove();
+  }
+  // ---- public API (unchanged) ------------------------------------------------------------
+  rename(optionId, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed)
+      throw new Error("Option name cannot be empty");
+    if (!this.field.options)
+      throw new Error("Field has no options");
+    const option = this.field.options.find((o) => o.id === optionId);
+    if (!option)
+      throw new Error(`Option not found: ${optionId}`);
+    this.commit(this.field.options.map((o) => o.id === optionId ? { ...o, name: trimmed } : o), {});
+    return this.liveField().options?.find((o) => o.id === optionId) ?? { ...option, name: trimmed };
+  }
+  recolor(optionId, newColor) {
+    const option = this.field.options?.find((o) => o.id === optionId);
+    if (!option)
+      throw new Error("Option not found");
+    this.commit(
+      (this.field.options ?? []).map(
+        (o) => o.id === optionId ? { ...o, color: newColor } : o
+      ),
+      {}
+    );
+    return this.liveField().options?.find((o) => o.id === optionId) ?? option;
+  }
+  reorder(optionIds) {
+    const current = this.field.options ?? [];
+    const byId = new Map(current.map((o) => [o.id, o]));
+    const next = [];
+    for (const id of optionIds) {
+      const opt = byId.get(id);
+      if (!opt)
+        throw new Error(`Option not found: ${id}`);
+      next.push(opt);
+    }
+    for (const opt of current)
+      if (!optionIds.includes(opt.id))
+        next.push(opt);
+    this.commit(next, {});
+  }
+  /** Add an option (prototype `optMgrAdd`). The colour cycles like the model's `findOrCreate`. */
+  add(name) {
+    const trimmed = name.trim();
+    if (!trimmed)
+      return null;
+    const current = this.field.options ?? [];
+    const option = {
+      id: generateOptionId(),
+      name: trimmed,
+      color: OPTION_COLORS[current.length % OPTION_COLORS.length]
+    };
+    this.commit([...current, option], {});
+    return option;
+  }
+  /**
+   * Delete with confirmation — returns affected cell count for UI.
+   * Caller should show confirm dialog with this count before calling `confirmDelete`.
+   */
+  getDeleteAffectedCount(optionId) {
+    return Object.keys(planOptionRemoval(optionId, this.field, this.store).values).length;
+  }
+  confirmDelete(optionId) {
+    const before = this.getDeleteAffectedCount(optionId);
+    const option = this.field.options?.find((o) => o.id === optionId);
+    if (!option)
+      throw new Error(`Option not found: ${optionId}`);
+    const plan = planOptionRemoval(optionId, this.field, this.store);
+    this.commit(plan.options, plan.values);
+    return { option, affected: before };
+  }
+  // For tests: get options in order
+  getOptions() {
+    return [...this.field.options ?? []];
+  }
+  // ---- card ------------------------------------------------------------------------------
+  /** The live definition: the store swaps the object out when a change is applied through it. */
+  liveField() {
+    return this.store.getFields().find((f) => f.id === this.field.id) ?? this.field;
+  }
+  /**
+   * Write one option-list change. With hooks the host owns the write (undo stack, save,
+   * re-render) and hands back the live field on the next read; without them the field is edited
+   * in place, exactly as this dialog always did.
+   */
+  commit(options, values) {
+    if (this.hooks.apply) {
+      this.hooks.apply(options, values);
+      this.field = this.liveField();
+      this.hooks.onChanged?.();
+      this.render();
+      return;
+    }
+    this.field.options = options;
+    for (const [rowId, value] of Object.entries(values)) {
+      this.store.updateRow(rowId, { [this.field.id]: value });
+    }
+    this.render();
+  }
+  render() {
+    const options = this.field.options ?? [];
+    this.label.textContent = `Options \u2014 ${this.field.name}`;
+    this.body.textContent = "";
+    const rows = document.createElement("div");
+    rows.className = "tablify__optmgr-rows";
+    options.forEach((option, index) => rows.appendChild(this.optionRow(option, index)));
+    if (!options.length) {
+      const empty = document.createElement("div");
+      empty.className = "tablify__optmgr-empty";
+      empty.textContent = "No options yet.";
+      rows.appendChild(empty);
+    }
+    this.body.appendChild(rows);
+    const add = document.createElement("div");
+    add.className = "tablify__optmgr-add";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tablify__optmgr-input";
+    input.placeholder = "New option\u2026";
+    input.setAttribute("aria-label", "New option");
+    const submit = () => {
+      if (this.add(input.value))
+        input.value = "";
+    };
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        submit();
+      }
+      ev.stopPropagation();
+    });
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tablify__optmgr-addbtn";
+    button.textContent = "Add";
+    button.addEventListener("click", submit);
+    add.appendChild(input);
+    add.appendChild(button);
+    this.body.appendChild(add);
+    const hint = document.createElement("p");
+    hint.className = "tablify__optmgr-hint";
+    hint.textContent = "Rename, recolor (click swatch), reorder (arrows), delete. Changes are undoable.";
+    this.body.appendChild(hint);
+  }
+  optionRow(option, index) {
+    const row = document.createElement("div");
+    row.className = "tablify__optmgr-row";
+    row.dataset.optionId = option.id;
+    row.appendChild(this.glyphButton("arrow-up", "Move up", () => this.moveBy(index, -1)));
+    row.appendChild(this.glyphButton("arrow-down", "Move down", () => this.moveBy(index, 1)));
+    const swatch = document.createElement("button");
+    swatch.type = "button";
+    swatch.className = "tablify__optmgr-swatch";
+    swatch.title = `Cycle color (${option.color})`;
+    swatch.style.background = optionChipColors(option.color, "light").dot;
+    swatch.addEventListener("click", () => this.cycleColor(index));
+    row.appendChild(swatch);
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "tablify__optmgr-name";
+    name.value = option.name;
+    name.setAttribute("aria-label", `Name of ${option.name}`);
+    const commitName = () => {
+      const next = name.value.trim();
+      if (!next || next === option.name) {
+        name.value = option.name;
+        return;
+      }
+      this.rename(option.id, next);
+    };
+    name.addEventListener("change", commitName);
+    name.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        commitName();
+        name.blur();
+      }
+      ev.stopPropagation();
+    });
+    row.appendChild(name);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "tablify__optmgr-delete";
+    remove.title = "Delete option";
+    remove.setAttribute("aria-label", `Delete ${option.name}`);
+    remove.innerHTML = faIcon("trash-can", 11);
+    remove.addEventListener("click", () => {
+      const plan = planOptionRemoval(option.id, this.field, this.store);
+      this.commit(plan.options, plan.values);
+    });
+    row.appendChild(remove);
+    return row;
+  }
+  glyphButton(glyph, label, onClick) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tablify__optmgr-move";
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.innerHTML = faIcon(glyph, 10);
+    button.addEventListener("click", onClick);
+    return button;
+  }
+  moveBy(index, delta) {
+    const ids = (this.field.options ?? []).map((o) => o.id);
+    const target = index + delta;
+    if (target < 0 || target >= ids.length)
+      return;
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    this.reorder(ids);
+  }
+  cycleColor(index) {
+    const option = (this.field.options ?? [])[index];
+    if (!option)
+      return;
+    const current = OPTION_COLORS.indexOf(option.color);
+    const next = OPTION_COLORS[(current + 1) % OPTION_COLORS.length];
+    this.recolor(option.id, next);
+  }
+};
+
+// src/views/grid/AttachmentPanel.ts
+var INPUT_PLACEHOLDER = "Vault-relative path, e.g. Assets/photo.png";
+var HINT = "Vault-relative path \u2014 the file is checked when you press Enter. An unknown path still saves once you confirm.";
+var AttachmentPanel = class {
+  constructor(opts) {
+    this.opts = opts;
+    const theme = opts.theme ?? "light";
+    const { card, body } = createPanelCard("tablify-attachment-panel", theme, "tablify__attach");
+    card.classList.add("tablify__panel--attach");
+    this.container = card;
+    this.body = body;
+    this.container.setAttribute("aria-label", `Attachments for ${opts.field.name}`);
+    const head = document.createElement("div");
+    head.className = "tablify__attach-head";
+    const icon = document.createElement("span");
+    icon.className = "tablify__attach-icon";
+    icon.innerHTML = faIcon("paperclip", 11);
+    head.appendChild(icon);
+    head.appendChild(document.createTextNode("Attachments"));
+    this.list = document.createElement("div");
+    this.list.className = "tablify__attach-list";
+    this.input = document.createElement("input");
+    this.input.type = "text";
+    this.input.className = "tablify__attach-input";
+    this.input.placeholder = INPUT_PLACEHOLDER;
+    this.input.setAttribute("aria-label", INPUT_PLACEHOLDER);
+    this.input.addEventListener("keydown", (ev) => this.onKey(ev));
+    const hint = document.createElement("div");
+    hint.className = "tablify__attach-hint";
+    hint.textContent = HINT;
+    this.body.appendChild(head);
+    this.body.appendChild(this.list);
+    this.body.appendChild(this.input);
+    this.body.appendChild(hint);
+    this.render();
+  }
+  container;
+  body;
+  list;
+  input;
+  warn = null;
+  unwireDismiss = null;
+  get element() {
+    return this.container;
+  }
+  /** Anchor the panel under a cell and take over dismissal, like `openPanel()` does. */
+  open(anchor) {
+    if (!this.container.isConnected)
+      document.body.appendChild(this.container);
+    anchorPanel(this.container, anchor);
+    this.input.focus();
+    this.unwireDismiss ??= wirePanelDismiss(this.container, () => {
+      this.close();
+      this.opts.onDismiss?.();
+    });
+  }
+  /** Update the shown list after the host wrote a new value. */
+  setValue(value) {
+    this.opts.value = value;
+    this.warn = null;
+    this.render();
+  }
+  close() {
+    this.unwireDismiss?.();
+    this.unwireDismiss = null;
+    this.container.remove();
+  }
+  // ---- behaviour -------------------------------------------------------------------------
+  onKey(ev) {
+    ev.stopPropagation();
+    if (ev.key !== "Enter")
+      return;
+    ev.preventDefault();
+    const raw = this.input.value.trim();
+    if (!raw)
+      return;
+    const check = this.opts.checkPath?.(raw);
+    if (check && !check.ok) {
+      this.showWarning(check);
+      return;
+    }
+    this.add(check?.path ?? raw);
+  }
+  add(path) {
+    this.opts.onAdd(path);
+    this.input.value = "";
+    this.warn = null;
+    this.render();
+  }
+  showWarning(result) {
+    this.warn = document.createElement("div");
+    this.warn.className = "tablify__attach-warn";
+    const message = document.createElement("span");
+    message.textContent = result.message;
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "tablify__attach-warn-btn";
+    save.textContent = "Save anyway";
+    save.addEventListener("click", () => this.add(result.path));
+    this.warn.appendChild(message);
+    this.warn.appendChild(save);
+    this.render();
+  }
+  /** The paths shown: the cell's single path, or every entry of a legacy list value. */
+  paths() {
+    const v = this.opts.value;
+    if (Array.isArray(v))
+      return v.map((entry) => String(entry));
+    return typeof v === "string" && v ? [v] : [];
+  }
+  render() {
+    for (const stale of Array.from(this.body.querySelectorAll(".tablify__attach-warn")))
+      stale.remove();
+    this.list.textContent = "";
+    const paths = this.paths();
+    paths.forEach((path, index) => {
+      const row = document.createElement("div");
+      row.className = "tablify__attach-row";
+      row.dataset.testid = "tablify-attachment-row";
+      const label = document.createElement("span");
+      label.className = "tablify__attach-path";
+      label.textContent = path;
+      label.title = path;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "tablify__attach-remove";
+      remove.setAttribute("aria-label", `Remove ${path}`);
+      remove.innerHTML = faIcon("xmark", 10);
+      remove.addEventListener("click", () => this.remove(index));
+      row.appendChild(label);
+      row.appendChild(remove);
+      this.list.appendChild(row);
+    });
+    if (!paths.length) {
+      const empty = document.createElement("div");
+      empty.className = "tablify__attach-empty";
+      empty.textContent = "No attachments.";
+      this.list.appendChild(empty);
+    }
+    if (this.warn)
+      this.body.insertBefore(this.warn, this.input);
+    const active = document.activeElement;
+    if (this.container.isConnected && active !== this.input)
+      this.input.focus();
+  }
+  remove(index) {
+    this.opts.onRemove(index);
+    this.warn = null;
+    this.render();
+  }
+};
+
+// src/views/grid/attachment.ts
+function normalizeAttachmentPath(input) {
+  let p = input.trim().replace(/\\/g, "/");
+  p = p.replace(/^\/+/, "");
+  p = p.replace(/\/{2,}/g, "/");
+  return p;
+}
+function checkAttachmentPath(raw, vault) {
+  const path = normalizeAttachmentPath(raw);
+  if (path === "")
+    return { ok: true, path: "" };
+  const exists = vault.getAbstractFileByPath(path) !== null;
+  if (exists)
+    return { ok: true, path };
+  return {
+    ok: false,
+    needsConfirm: true,
+    path,
+    message: `File not found in vault: "${path}". Save anyway?`
+  };
+}
+
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
 var TableView = class extends import_obsidian9.TextFileView {
@@ -16874,6 +17704,11 @@ var TableView = class extends import_obsidian9.TextFileView {
     }
     grid.scrollToRow(sel.row);
     const cell2 = this.cellElement(sel);
+    if (field.type === "single_select" || field.type === "multi_select" || field.type === "attachment") {
+      if (cell2)
+        this.openCellPanel(row.id, field, cell2);
+      return;
+    }
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
       this.editing = null;
       editor?.remove();
@@ -16895,6 +17730,144 @@ var TableView = class extends import_obsidian9.TextFileView {
     editor.style.width = `${cellRect.width}px`;
     editor.style.height = `${cellRect.height}px`;
     grid.root.appendChild(editor);
+  }
+  // ---- cell panels (Step 11): select, attachment, option manager ----
+  /** Theme of the host surface, as the modals elsewhere read it. */
+  isDark() {
+    return document.body.classList.contains("theme-dark");
+  }
+  /**
+   * The prototype's `#floatPanel` screens for `single_select` / `multi_select` /
+   * `attachment` cells (`renderSelectPanel` ~895, `openAttachmentPanel` ~987).
+   *
+   * The panel lives in `document.body`, not in the grid: re-rendering the grid after each write
+   * must not take the panel down with it (multi-select stays open). Every write goes through
+   * `setValue` or an option command, so each change is exactly one undo step.
+   */
+  openCellPanel(rowId, field, cell2) {
+    const s = this.session;
+    const grid = this.grid;
+    if (!s || !grid)
+      return;
+    const anchor = cell2.querySelector(".tablify__capsule") ?? cell2;
+    const value = () => s.store.getRow(rowId)?.values[field.id] ?? null;
+    const closePanel = (focusGrid = true) => {
+      panel.close();
+      if (focusGrid)
+        grid.root.focus();
+    };
+    if (field.type === "attachment") {
+      const panel2 = new AttachmentPanel({
+        field,
+        value: value(),
+        theme: this.isDark() ? "dark" : "light",
+        checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
+        onAdd: (raw) => {
+          const path = normalizeAttachmentPath(raw);
+          if (!path)
+            return;
+          s.setValue(rowId, field.id, path);
+          panel2.setValue(path);
+          this.afterChange();
+        },
+        onRemove: () => {
+          s.setValue(rowId, field.id, null);
+          panel2.setValue(null);
+          this.afterChange();
+        },
+        onDismiss: () => closePanel()
+      });
+      panel2.open(anchor);
+      return;
+    }
+    const write = (next, close) => {
+      s.setValue(rowId, field.id, next);
+      this.afterChange();
+      if (close)
+        closePanel();
+      else
+        panel.setValue(next);
+    };
+    const pick = (option) => {
+      if (field.type === "multi_select") {
+        const ids = Array.isArray(value()) ? value().map(String) : [];
+        const next = ids.includes(option.id) ? ids.filter((id) => id !== option.id) : [...ids, option.id];
+        write(next.length ? next : null, false);
+      } else {
+        write(option.id, true);
+      }
+    };
+    const panel = new SelectDropdown({
+      field,
+      value: value(),
+      theme: this.isDark() ? "dark" : "light",
+      onSelect: pick,
+      /**
+       * Prototype `selectPanelCreate`: the new option and the cell write land in one undo step, so
+       * one undo takes back both. The option colour and the case-insensitive dedup come from the
+       * model (`planOptionAdd`).
+       */
+      createOption: (name) => {
+        const live = s.getField(field.id) ?? field;
+        const plan = planOptionAdd(name, live);
+        const next = plan.created ? field.type === "multi_select" ? [...Array.isArray(value()) ? value().map(String) : [], plan.option.id] : plan.option.id : value();
+        const before = {
+          field: { ...live, options: (live.options ?? []).map((o) => ({ ...o })) },
+          valuesByRow: { [rowId]: value() }
+        };
+        const after = {
+          field: { ...live, options: plan.options },
+          valuesByRow: { [rowId]: next }
+        };
+        s.stack.execute(createSetFieldOptionsCommand({ before, after }));
+        this.afterChange();
+        panel.setField(s.getField(field.id) ?? live);
+        if (plan.created)
+          new import_obsidian9.Notice(`Created option "${plan.option.name}"`);
+        return plan.option;
+      },
+      // `createOption` already wrote the cell, so only the panel's own state is left to settle.
+      onCreate: () => {
+        panel.setValue(value());
+        if (field.type !== "multi_select")
+          closePanel();
+      },
+      onClear: () => {
+        s.setValue(rowId, field.id, null);
+        this.afterChange();
+      },
+      onManageOptions: () => this.openOptionManager(field),
+      onDismiss: () => closePanel()
+    });
+    panel.open(anchor);
+  }
+  /**
+   * Prototype `#optMgrModal`: rename / recolor / reorder / delete / add. Each change is one undo
+   * step — `apply` carries it through the command stack, the same shape as a delete-option command,
+   * whose cells are cleared by `planOptionRemoval` (R-D12).
+   */
+  openOptionManager(field) {
+    const s = this.session;
+    if (!s)
+      return;
+    new OptionManagerDialog(field, s.store, {
+      apply: (options, values) => {
+        const live = s.getField(field.id) ?? field;
+        const before = {
+          field: { ...live, options: (live.options ?? []).map((o) => ({ ...o })) },
+          valuesByRow: Object.fromEntries(
+            Object.keys(values).map((rowId) => [rowId, s.store.getRow(rowId)?.values[field.id] ?? null])
+          )
+        };
+        s.stack.execute(
+          createSetFieldOptionsCommand({
+            before,
+            after: { field: { ...live, options }, valuesByRow: values }
+          })
+        );
+      },
+      onChanged: () => this.afterChange()
+    }).open();
   }
 };
 function formatValue(value, field) {

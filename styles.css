@@ -1167,6 +1167,10 @@
   font-weight: 600;
   line-height: 20px;
   color: var(--tablify-text);
+  /* `.tablify h1/h2/h3` paints the grid's title band (bg-subtle + a 1px rule); a dialog title
+     sits on the plain card, so it must not inherit that band. */
+  background: transparent;
+  border-bottom: 0;
 }
 
 .tablify__fb-modal .modal-content,
@@ -2473,5 +2477,588 @@
 }
 .tablify-link-integrity__target {
   font-size: 12px;
+  color: var(--tablify-text-muted);
+}
+
+/* ---- Cell panels: select, attachment, option manager (Step 11) -------------------------
+   The prototype's `#floatPanel` screens — `renderSelectPanel` (script.js ~895) and
+   `openAttachmentPanel` (~987) — plus `#optMgrModal` (~1040). Geometry is the prototype's
+   Tailwind scale, translated to the pixel values its compiled classes resolve to: body `p-2` /
+   `p-2.5`, option list `max-h-52 space-y-0.5`, rows `px-2 py-1.5 rounded-lg`, chips
+   `px-2.5 py-0.5 text-[11px] font-medium`, footer `mt-1.5 pt-1.5 border-t`, card
+   `rounded-2xl p-6 max-w-md`. The card surface mirrors `.tablify__options` (the view-settings
+   panel is the same `#floatPanel` element, already at parity).
+
+   Line height stays unitless (1.5) so it inherits the way Tailwind's `line-height: 1.5` does;
+   the prototype's chip (`text-[11px]` with no leading class) depends on that. */
+
+/* The host paints a drop shadow under every button (`box-shadow: 0 1px 1px rgba(0,0,0,.25)`),
+   which the prototype's flat panel controls do not have. */
+.tablify.tablify__panel button,
+.tablify__optmgr-backdrop button {
+  box-shadow: none;
+}
+
+/* The prototype's Tailwind preflight paints placeholders gray-400 in both themes; the panel
+   inputs follow it (the toolbar and the modals keep the accessible muted treatment). */
+.tablify.tablify__panel input.tablify__dropdown-input::placeholder,
+.tablify.tablify__panel input.tablify__attach-input::placeholder {
+  color: var(--tablify-field-placeholder);
+  opacity: 1;
+}
+
+/* The prototype ships Tailwind's preflight, so every element it draws is border-box. The panels,
+   their rows and the option-manager card are Step-11 surfaces with no other users: scoping the same
+   box model to them keeps padding/border out of every width and height, exactly as the prototype
+   computes them (and as the visual harness reads them). */
+.tablify__panel,
+.tablify__panel *,
+.tablify__optmgr-backdrop,
+.tablify__optmgr-backdrop * {
+  box-sizing: border-box;
+}
+
+.tablify__panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  box-sizing: border-box;
+  min-width: 220px;
+  max-width: 320px;
+  background: var(--tablify-bg-pill);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  color: var(--tablify-text);
+  font-family: 'Lora', Georgia, serif;
+  line-height: 1.5;
+}
+
+/* -- select panel: `p-2` body, `.pill-input` search, `max-h-52` list -- */
+.tablify__dropdown-body {
+  box-sizing: border-box;
+  padding: 8px;
+  text-align: left;
+}
+
+/* Element-qualified: Obsidian's own `input[type='text']` rule is (0,1,1) and would otherwise
+   repaint the field (the same trap the pmodal inputs document at ``.tablify.tablify__pmodal``). */
+.tablify input.tablify__dropdown-input,
+.tablify input.tablify__attach-input {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  box-shadow: none;
+}
+
+.tablify input.tablify__dropdown-input {
+  margin-bottom: 6px;
+}
+
+.tablify input.tablify__dropdown-input::placeholder,
+.tablify input.tablify__attach-input::placeholder {
+  color: var(--tablify-text-placeholder);
+}
+
+.tablify input.tablify__dropdown-input:focus,
+.tablify input.tablify__attach-input:focus {
+  outline: none;
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
+}
+
+.tablify__dropdown-list {
+  display: flex;
+  flex-direction: column;
+  /* `space-y-0.5`: a 2 px step between rows. A flex gap, not sibling margins — the item rule's
+     `margin: 0` reset would win the cascade against a `> * + *` margin. */
+  gap: 2px;
+  max-height: 208px;
+  overflow-y: auto;
+}
+
+.tablify button.tablify__dropdown-item,
+.tablify button.tablify__dropdown-create {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: 0;
+  height: auto;
+  appearance: none;
+}
+
+.tablify button.tablify__dropdown-item:hover,
+.tablify button.tablify__dropdown-item--active,
+.tablify button.tablify__dropdown-create:hover {
+  background: var(--tablify-bg-inner);
+}
+
+.tablify__dropdown-item--active {
+  box-shadow: inset 0 0 0 1px var(--tablify-border-subtle);
+}
+
+/* The chip: prototype `inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px]
+   font-medium border`; its colours come per hue from the panel's own stylesheet, generated from
+   the palette in tokens.ts. */
+.tablify__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tablify__chip-dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 9999px;
+  flex: 0 0 auto;
+}
+
+.tablify .tablify__dropdown-check {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--tablify-accent-primary);
+}
+
+.tablify .tablify__dropdown-empty {
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__dropdown-create {
+  justify-content: flex-start;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tablify__dropdown-create-icon {
+  display: inline-flex;
+  margin-right: 8px;
+  font-size: 10px;
+  color: var(--tablify-accent-primary);
+}
+
+.tablify__dropdown-create b {
+  font-weight: 600;
+}
+
+/* Footer `border-t mt-1.5 pt-1.5 flex justify-between items-center` */
+.tablify__dropdown-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--tablify-border-subtle);
+}
+
+.tablify__dropdown-foot[hidden] {
+  display: none;
+}
+
+.tablify button.tablify__dropdown-clear,
+.tablify button.tablify__dropdown-manage {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 4px 8px;
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: inherit;
+  cursor: pointer;
+  min-height: 0;
+  height: auto;
+  appearance: none;
+}
+
+.tablify button.tablify__dropdown-clear {
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__dropdown-clear:hover {
+  color: var(--tablify-text-danger);
+}
+
+.tablify button.tablify__dropdown-manage {
+  color: var(--tablify-accent-primary);
+}
+
+.tablify button.tablify__dropdown-manage:hover {
+  text-decoration: underline;
+}
+
+.tablify__dropdown-manage-icon {
+  display: inline-flex;
+  margin-right: 4px;
+}
+
+/* -- attachment panel: `p-2.5 text-xs`, paper-inner rows -- */
+/* The attachment card's content outgrows the 320 px cap, so the prototype's card sits exactly at
+   320 (`.float-panel` max-width); the select card stays content-sized at its 220 px floor. Pin the
+   attachment width so a shorter production hint cannot shrink the card. */
+.tablify__panel--attach {
+  width: 320px;
+  max-width: min(320px, calc(100vw - 16px));
+}
+
+.tablify__attach {
+  box-sizing: border-box;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+}
+
+.tablify .tablify__attach-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  /* the prototype's `font-serif`, which its Tailwind config maps to Poppins (the same stack the
+     modal titles use — NOT Georgia) */
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tablify-text);
+}
+
+.tablify__attach-icon {
+  display: inline-flex;
+  margin-right: 4px;
+  color: var(--tablify-accent-primary);
+}
+
+.tablify__attach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tablify__attach-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+}
+
+.tablify__attach-path {
+  overflow: hidden;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tablify button.tablify__attach-remove,
+.tablify button.tablify__optmgr-delete,
+.tablify button.tablify__optmgr-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--tablify-text-muted);
+  cursor: pointer;
+  min-height: 0;
+  height: auto;
+  appearance: none;
+}
+
+/* Each control keeps the type size its prototype element inherits: the attachment bin and the
+   option bin sit in 12 px bodies, the manager's close button in the 16 px card header. */
+.tablify button.tablify__attach-remove {
+  height: 16px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tablify.tablify__pmodal button.tablify__optmgr-close {
+  height: 24px;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.tablify button.tablify__attach-remove:hover,
+.tablify button.tablify__optmgr-delete:hover,
+.tablify button.tablify__optmgr-close:hover {
+  color: var(--tablify-text-danger);
+}
+
+/* The prototype wraps the rows in `space-y-1 mb-2`, and its empty message carries `mb-2` itself.
+   Here both live inside the list, so the 8 px step belongs to the list alone. */
+.tablify__attach-list {
+  margin-bottom: 8px;
+}
+
+.tablify .tablify__attach-empty {
+  margin-bottom: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify input.tablify__attach-input {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.tablify .tablify__attach-hint {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--tablify-text-muted);
+}
+
+/* Plugin-only: a path that is not in the vault asks before it is saved (P3-04). */
+.tablify .tablify__attach-warn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  font-size: 10px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__attach-warn-btn {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 9999px;
+  color: var(--tablify-text);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  appearance: none;
+}
+
+/* -- option manager: `#optMgrModal` card over the blurred backdrop -- */
+.tablify__optmgr-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.tablify__optmgr-backdrop .tablify__pmodal {
+  background: var(--tablify-bg-card);
+  border: 1px solid var(--tablify-border-subtle);
+  /* the prototype modal shell: Tailwind's base type, inherited by the card's own children */
+  font-size: 16px;
+  line-height: 24px;
+  /* `#optMgrModal`'s card carries no colour class, so its ink (the unclassed h3 above all)
+     inherits `body.dark`'s Tailwind gray-100 — cooler than the plugin's own dark body ink. */
+  color: var(--tablify-text-modal);
+}
+
+/* The shared `.modal-title` rule pins the title ink; `#optMgrModal h3` has no colour class of
+   its own and follows the card instead. */
+.tablify__optmgr-backdrop .tablify__pmodal .modal-title {
+  color: var(--tablify-text-modal);
+}
+
+.tablify__optmgr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 0;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+/* The header row is 24 px tall — its close button — and the title's own line box is 20 px, as in
+   `#optMgrModal`. (The pmodal header rule's 24 px title floor is for dialogs whose header is only
+   a title, and its `margin: 0` only reaches `.modal-header` children or a direct card child.) */
+.tablify__optmgr-head .modal-title {
+  margin: 0;
+  min-height: 20px;
+}
+
+.tablify__optmgr-rows {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* `space-y-2` — an 8 px step between option rows, as the prototype's sibling margins. Option rows
+   are plain divs (no host margin reset to fight, unlike the dropdown's buttons). */
+.tablify__optmgr-rows > * + * {
+  margin-top: 8px;
+}
+
+/* The add row is a 34 px control row, like the name inputs above it. */
+.tablify.tablify__pmodal button.tablify__optmgr-addbtn {
+  height: 34px;
+}
+
+/* `text-[10px] mt-3` — the hint closes the card, so its 12 px step is above it. */
+.tablify.tablify__pmodal .tablify__optmgr-hint {
+  margin: 12px 0 0;
+  line-height: 15px;
+}
+
+.tablify__optmgr-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* `pill-btn w-6 h-6 rounded-lg text-[10px]` */
+.tablify button.tablify__optmgr-move {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 16px;
+  cursor: pointer;
+  box-shadow: var(--tablify-pill-shadow, 0 1px 2px rgba(0, 0, 0, 0.2));
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  appearance: none;
+}
+
+.tablify button.tablify__optmgr-move:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+}
+
+.tablify button.tablify__optmgr-move:active {
+  transform: scale(0.95);
+}
+
+.tablify button.tablify__optmgr-swatch {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  appearance: none;
+}
+
+/* `.pill-input flex-1 rounded-lg px-2.5 py-1.5 text-xs` inside the card */
+.tablify.tablify__pmodal input.tablify__optmgr-name {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.tablify button.tablify__optmgr-delete {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tablify__optmgr-empty {
+  font-size: 11px;
+  color: var(--tablify-text-muted);
+}
+
+/* `mt-4 flex gap-2` — `.pill-input rounded-xl px-3.5 py-2 text-xs` + the accent Add button */
+.tablify__optmgr-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.tablify.tablify__pmodal input.tablify__optmgr-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+}
+
+.tablify button.tablify__optmgr-addbtn {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 14px;
+  min-height: 0;
+  background: var(--tablify-accent-fill);
+  color: var(--tablify-on-accent);
+  border: 0;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__optmgr-addbtn:hover {
+  background: color-mix(in srgb, var(--tablify-accent-fill) 88%, black);
+}
+
+.tablify .tablify__optmgr-hint {
+  margin: 12px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
   color: var(--tablify-text-muted);
 }

@@ -36,6 +36,13 @@ import { writeExport } from '../io/export/exporter.js';
 import { toMarkdown } from '../io/export/markdown.js';
 import type { ExportTable } from '../io/export/view.js';
 import { FilterBuilderModal } from './grid/FilterBuilderModal.js';
+import { SelectDropdown } from './grid/select/Dropdown.js';
+import { OptionManagerDialog } from './grid/select/OptionManager.js';
+import { AttachmentPanel } from './grid/AttachmentPanel.js';
+import { checkAttachmentPath, normalizeAttachmentPath } from './grid/attachment.js';
+import { createSetFieldOptionsCommand } from '../model/commands.js';
+import { planOptionAdd } from '../model/selectOptions.js';
+import type { SelectOption } from '../model/types.js';
 
 /** Plugin-level services the view cannot reach itself (it has no access to plugin settings). */
 export interface TableViewHooks {
@@ -917,6 +924,11 @@ export class TableView extends TextFileView {
 
     grid.scrollToRow(sel.row);
     const cell = this.cellElement(sel);
+    // Step 11: select and attachment cells open the prototype's anchored float panel.
+    if (field.type === 'single_select' || field.type === 'multi_select' || field.type === 'attachment') {
+      if (cell) this.openCellPanel(row.id, field, cell);
+      return;
+    }
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
       this.editing = null;
       editor?.remove();
@@ -937,6 +949,151 @@ export class TableView extends TextFileView {
     editor.style.width = `${cellRect.width}px`;
     editor.style.height = `${cellRect.height}px`;
     grid.root.appendChild(editor);
+  }
+
+  // ---- cell panels (Step 11): select, attachment, option manager ----
+
+  /** Theme of the host surface, as the modals elsewhere read it. */
+  private isDark(): boolean {
+    return document.body.classList.contains('theme-dark');
+  }
+
+  /**
+   * The prototype's `#floatPanel` screens for `single_select` / `multi_select` /
+   * `attachment` cells (`renderSelectPanel` ~895, `openAttachmentPanel` ~987).
+   *
+   * The panel lives in `document.body`, not in the grid: re-rendering the grid after each write
+   * must not take the panel down with it (multi-select stays open). Every write goes through
+   * `setValue` or an option command, so each change is exactly one undo step.
+   */
+  private openCellPanel(rowId: string, field: FieldDefinition, cell: HTMLElement): void {
+    const s = this.session;
+    const grid = this.grid;
+    if (!s || !grid) return;
+    const anchor = cell.querySelector<HTMLElement>('.tablify__capsule') ?? cell;
+    const value = (): CellValue => s.store.getRow(rowId)?.values[field.id] ?? null;
+    const closePanel = (focusGrid = true): void => {
+      panel.close();
+      if (focusGrid) grid.root.focus();
+    };
+
+    if (field.type === 'attachment') {
+      const panel = new AttachmentPanel({
+        field,
+        value: value(),
+        theme: this.isDark() ? 'dark' : 'light',
+        checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
+        onAdd: (raw) => {
+          const path = normalizeAttachmentPath(raw);
+          if (!path) return;
+          s.setValue(rowId, field.id, path);
+          panel.setValue(path);
+          this.afterChange();
+        },
+        onRemove: () => {
+          s.setValue(rowId, field.id, null);
+          panel.setValue(null);
+          this.afterChange();
+        },
+        onDismiss: () => closePanel(),
+      });
+      panel.open(anchor);
+      return;
+    }
+
+    /** Write the cell (one undo step) and keep the panel in step with the new value. */
+    const write = (next: CellValue, close: boolean): void => {
+      s.setValue(rowId, field.id, next);
+      this.afterChange();
+      if (close) closePanel();
+      else panel.setValue(next);
+    };
+    /** Prototype `selectPanelPick`: set for single, toggle for multi. */
+    const pick = (option: SelectOption): void => {
+      if (field.type === 'multi_select') {
+        const ids = Array.isArray(value()) ? (value() as string[]).map(String) : [];
+        const next = ids.includes(option.id)
+          ? ids.filter((id) => id !== option.id)
+          : [...ids, option.id];
+        write(next.length ? next : null, false);
+      } else {
+        write(option.id, true);
+      }
+    };
+
+    const panel = new SelectDropdown({
+      field,
+      value: value(),
+      theme: this.isDark() ? 'dark' : 'light',
+      onSelect: pick,
+      /**
+       * Prototype `selectPanelCreate`: the new option and the cell write land in one undo step, so
+       * one undo takes back both. The option colour and the case-insensitive dedup come from the
+       * model (`planOptionAdd`).
+       */
+      createOption: (name) => {
+        const live = s.getField(field.id) ?? field;
+        const plan = planOptionAdd(name, live);
+        const next = plan.created
+          ? field.type === 'multi_select'
+            ? [...(Array.isArray(value()) ? (value() as string[]).map(String) : []), plan.option.id]
+            : plan.option.id
+          : value();
+        const before = {
+          field: { ...live, options: (live.options ?? []).map((o) => ({ ...o })) },
+          valuesByRow: { [rowId]: value() },
+        };
+        const after = {
+          field: { ...live, options: plan.options },
+          valuesByRow: { [rowId]: next },
+        };
+        s.stack.execute(createSetFieldOptionsCommand({ before, after }));
+        this.afterChange();
+        panel.setField(s.getField(field.id) ?? live);
+        if (plan.created) new Notice(`Created option "${plan.option.name}"`);
+        return plan.option;
+      },
+      // `createOption` already wrote the cell, so only the panel's own state is left to settle.
+      onCreate: () => {
+        panel.setValue(value());
+        if (field.type !== 'multi_select') closePanel();
+      },
+      onClear: () => {
+        s.setValue(rowId, field.id, null);
+        this.afterChange();
+      },
+      onManageOptions: () => this.openOptionManager(field),
+      onDismiss: () => closePanel(),
+    });
+    panel.open(anchor);
+  }
+
+  /**
+   * Prototype `#optMgrModal`: rename / recolor / reorder / delete / add. Each change is one undo
+   * step — `apply` carries it through the command stack, the same shape as a delete-option command,
+   * whose cells are cleared by `planOptionRemoval` (R-D12).
+   */
+  private openOptionManager(field: FieldDefinition): void {
+    const s = this.session;
+    if (!s) return;
+    new OptionManagerDialog(field, s.store, {
+      apply: (options, values) => {
+        const live = s.getField(field.id) ?? field;
+        const before = {
+          field: { ...live, options: (live.options ?? []).map((o) => ({ ...o })) },
+          valuesByRow: Object.fromEntries(
+            Object.keys(values).map((rowId) => [rowId, (s.store.getRow(rowId)?.values[field.id] ?? null) as CellValue]),
+          ),
+        };
+        s.stack.execute(
+          createSetFieldOptionsCommand({
+            before,
+            after: { field: { ...live, options }, valuesByRow: values },
+          }),
+        );
+      },
+      onChanged: () => this.afterChange(),
+    }).open();
   }
 }
 
