@@ -4,9 +4,12 @@
 
 import { parse } from '../format/parse.js';
 import { serialize } from '../format/serialize.js';
-import type { FieldDefinition, TablifyFile } from '../model/types.js';
+import type { FieldDefinition, Row, TablifyFile } from '../model/types.js';
 import { createDefaultView } from '../model/view.js';
-import { generateFieldId, generateTableId } from '../utils/idGen.js';
+import { generateFieldId, generateOptionId, generateRowId, generateTableId } from '../utils/idGen.js';
+
+/** Empty rows a new table starts with (SAD-84, owner decision S-8). */
+export const NEW_TABLE_ROW_COUNT = 3;
 
 export type MenuTarget = { kind: 'file'; extension: string } | { kind: 'folder'; path: string } | { kind: 'other' };
 
@@ -63,16 +66,46 @@ export function duplicateTableText(text: string, newName: string): TransformResu
   return { ok: true, text: serialize(copy) };
 }
 
-/** Text for a new, empty table: one primary text field "Name", no rows, default view. */
+/**
+ * Text for a new table (SAD-84, owner decision S-8, 2026-10-10): five typed fields — Name (primary
+ * text), Notes (long text), Status (single select: Todo / In progress / Done), Due date and
+ * Attachments — and three empty rows, so the table is immediately editable. All types are v1, so
+ * the file stays formatVersion 1. Used only by the file-menu "New table" action; Import, Duplicate
+ * and existing files never go through here. Rows have the same shape as tableStore.createRow().
+ */
 export function newTableText(name: string): string {
-  const primary: FieldDefinition = { id: generateFieldId(), name: 'Name', type: 'text', primary: true };
+  const fields: FieldDefinition[] = [
+    { id: generateFieldId(), name: 'Name', type: 'text', primary: true },
+    { id: generateFieldId(), name: 'Notes', type: 'long_text' },
+    {
+      id: generateFieldId(),
+      name: 'Status',
+      type: 'single_select',
+      options: [
+        { id: generateOptionId(), name: 'Todo', color: 'gray' },
+        { id: generateOptionId(), name: 'In progress', color: 'blue' },
+        { id: generateOptionId(), name: 'Done', color: 'green' },
+      ],
+    },
+    { id: generateFieldId(), name: 'Due date', type: 'date' },
+    { id: generateFieldId(), name: 'Attachments', type: 'attachment' },
+  ];
+  const now = new Date().toISOString();
+  const rows: Row[] = Array.from({ length: NEW_TABLE_ROW_COUNT }, () => ({
+    id: generateRowId(),
+    rev: 1,
+    createdAt: now,
+    updatedAt: now,
+    values: {},
+    sync: null,
+  }));
   const file: TablifyFile = {
     formatVersion: 1,
     tableId: generateTableId(),
     name,
-    fields: [primary],
-    rows: [],
-    views: [createDefaultView([primary])],
+    fields,
+    rows,
+    views: [createDefaultView(fields)],
     syncLink: null,
   };
   return serialize(file);

@@ -33,7 +33,7 @@ Note on A7: the macOS/Linux cells are marked N/A because A7 exercises the mobile
 
 The scenario *logic* is covered by the automated suite (558 tests at creation, all passing — see `docs/evidence/P6-01.md`). Mapping:
 
-- **A1** new-table default (`Untitled table`, primary text field `Name`): `tests/menus/fileMenuModel.test.ts`; view wiring `tests/views/tableController.test.ts`.
+- **A1** new-table default (`Untitled table`; five fields Name / Notes / Status / Due date / Attachments and three empty rows, SAD-84): `tests/menus/fileMenuModel.test.ts`; view wiring `tests/views/tableController.test.ts`, `tests/views/tableView.test.ts`.
 - **A2** CSV parse + type inference + build: `tests/io/csv.test.ts`, `tests/io/csv.differential.test.ts`, `tests/io/csv.fuzz.test.ts`, `tests/io/infer.test.ts`, `tests/io/import.build.test.ts`, `tests/io/import.importer.test.ts`, `tests/io/import.e2e.test.ts`; 500-row round-trip: `tests/io/import.e2e.test.ts`.
 - **A3** XLSX import: `tests/io/import.importer.test.ts`, `tests/io/import.e2e.test.ts` (5,000-row FX-XLSX fixture covers the same reader path).
 - **A4** query parity: `tests/query/parse.test.ts`, `tests/query/evaluate.test.ts`, `tests/query/differential.test.ts`; builder UI: `tests/views/grid/filterBar.test.ts`.
@@ -51,7 +51,7 @@ Fixtures live in `samples/fixtures/` (deterministic; SHA-256 in `samples/fixture
 
 ### T-M-DEV-P6-A1 — New table via right-click (all platforms)
 1. Right-click a folder in the file explorer → **New table**.
-2. Expected: a new `.tablify` file is created and opens in the grid with default name `Untitled table` and one primary text field `Name`.
+2. Expected: a new `.tablify` file is created and opens in the grid with default name `Untitled table`, five fields (`Name` primary, `Notes`, `Status` with Todo / In progress / Done, `Due date`, `Attachments`) and three empty rows; the first cell can be edited at once (SAD-84).
 3. Evidence: screenshot of the new grid + the file visible in the explorer.
 
 ### T-M-DEV-P6-A2 — Import 500-row CSV (all platforms)

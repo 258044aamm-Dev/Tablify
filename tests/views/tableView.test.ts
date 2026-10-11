@@ -14,6 +14,7 @@ import { TableView } from '../../src/views/tableView.js';
 import { AddFieldModal } from '../../src/views/grid/AddFieldModal.js';
 import { WorkspaceLeaf, Modal } from 'obsidian';
 import { DEBOUNCE_MS } from '../../src/views/grid/toolbar.js';
+import { newTableText } from '../../src/menus/fileMenuModel.js';
 
 function sampleFile(): string {
   return JSON.stringify({
@@ -294,5 +295,42 @@ describe('TableView — view settings (Options)', () => {
     select.value = '2';
     select.dispatchEvent(new Event('change'));
     expect(savedView(view).frozenColumns).toBe(2);
+  });
+});
+
+// SAD-84 (owner decision S-8): a brand-new table opens with five columns and three empty rows,
+// and the first cell is editable straight away (Enter → type → Enter commits and saves).
+describe('TableView — new table defaults (SAD-84)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    Modal.reset();
+  });
+
+  it('renders five header cells and three empty body rows', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    const headers = Array.from(view.contentEl.querySelectorAll('.tablify__header-cell'));
+    expect(headers).toHaveLength(5);
+    expect(gridRows(view)).toHaveLength(3);
+    for (const row of gridRows(view)) {
+      for (const text of Array.from(row.querySelectorAll('.tablify__cell-text'))) {
+        expect(text.textContent ?? '').toBe('');
+      }
+    }
+  });
+
+  it('lets the first cell be edited immediately and saves the value', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    const root = need(el(view, '.tablify--grid'), 'grid root');
+    root.focus();
+    root.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const editor = need(root.querySelector<HTMLInputElement>('input'), 'inline editor');
+    editor.value = 'First task';
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const saved = JSON.parse(view.getViewData());
+    const nameId = saved.fields[0].id;
+    expect(saved.rows).toHaveLength(3);
+    expect(saved.rows[0].values[nameId]).toBe('First task');
+    expect(saved.rows[1].values).toEqual({});
+    expect(saved.rows[2].values).toEqual({});
   });
 });

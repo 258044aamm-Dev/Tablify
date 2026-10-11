@@ -14145,6 +14145,7 @@ function isEmptyValue(v) {
 var import_obsidian9 = require("obsidian");
 
 // src/menus/fileMenuModel.ts
+var NEW_TABLE_ROW_COUNT = 3;
 var COPY_SUFFIX = " copy";
 var NEW_TABLE_NAME = "Untitled table";
 var OPEN = { id: "open", label: "Open" };
@@ -14179,14 +14180,38 @@ function duplicateTableText(text, newName) {
   return { ok: true, text: serialize(copy) };
 }
 function newTableText(name) {
-  const primary = { id: generateFieldId(), name: "Name", type: "text", primary: true };
+  const fields = [
+    { id: generateFieldId(), name: "Name", type: "text", primary: true },
+    { id: generateFieldId(), name: "Notes", type: "long_text" },
+    {
+      id: generateFieldId(),
+      name: "Status",
+      type: "single_select",
+      options: [
+        { id: generateOptionId(), name: "Todo", color: "gray" },
+        { id: generateOptionId(), name: "In progress", color: "blue" },
+        { id: generateOptionId(), name: "Done", color: "green" }
+      ]
+    },
+    { id: generateFieldId(), name: "Due date", type: "date" },
+    { id: generateFieldId(), name: "Attachments", type: "attachment" }
+  ];
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const rows = Array.from({ length: NEW_TABLE_ROW_COUNT }, () => ({
+    id: generateRowId(),
+    rev: 1,
+    createdAt: now,
+    updatedAt: now,
+    values: {},
+    sync: null
+  }));
   const file = {
     formatVersion: 1,
     tableId: generateTableId(),
     name,
-    fields: [primary],
-    rows: [],
-    views: [createDefaultView([primary])],
+    fields,
+    rows,
+    views: [createDefaultView(fields)],
     syncLink: null
   };
   return serialize(file);

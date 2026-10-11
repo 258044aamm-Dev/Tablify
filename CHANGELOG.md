@@ -6,6 +6,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **New tables start ready to use (SAD-84)** — **New table** now creates five fields (`Name`
+  primary text, `Notes` long text, `Status` single select with Todo / In progress / Done,
+  `Due date`, `Attachments`) and three empty rows, so the first cell can be edited at once.
+  Previously a new table had only `Name` and no rows. The file stays `formatVersion` 1. Import,
+  Duplicate and existing tables are unchanged.
+
 - **Insert Row button keeps balanced side spacing while scrolling (prototype)** — the button
   itself is now the sticky element, sized to the scrollport's visible width and pinned at the
   container's content edge. The whole pill (both rounded corners, equal left/right spacing,

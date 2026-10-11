@@ -27,7 +27,17 @@ Everything in this guide covers the 1.0.0 (MVP) feature set, on desktop and mobi
 
 ## 1. Creating a table
 
-Right-click a folder in the file explorer → **New table**. Tablify creates `Untitled table.tablify` (numbered on collision, e.g. `Untitled table 2.tablify`) and opens it in the grid. A new table has one primary text field, `Name`.
+Right-click a folder in the file explorer → **New table**. Tablify creates `Untitled table.tablify` (numbered on collision, e.g. `Untitled table 2.tablify`) and opens it in the grid. A new table has five fields and three empty rows, so you can start typing straight away:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| Name | Text | Primary field (frozen on the left) |
+| Notes | Long text | |
+| Status | Single select | Options: Todo, In progress, Done |
+| Due date | Date | |
+| Attachments | Attachment | |
+
+Rename, retype, hide or delete any of them as usual. Tables created by **Import** or **Duplicate** keep their own fields and rows.
 
 The primary field cannot be hidden or deleted; it labels each row.
 

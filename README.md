@@ -44,7 +44,7 @@ Tablify adds typed, structured tables to your vault: text, numbers, dates, check
 
 ## Getting started
 
-1. Right-click a folder in the file explorer → **New table**. A `.tablify` file opens in the grid with a primary text field `Name`.
+1. Right-click a folder in the file explorer → **New table**. A `.tablify` file opens in the grid with five fields — `Name` (primary text), `Notes` (long text), `Status` (single select: Todo / In progress / Done), `Due date` (date) and `Attachments` — and three empty rows, ready to type into.
 2. Double-click (or press Enter on) a cell to edit. Use the header menu to change field types, sort, hide, or freeze columns; the toolbar's **Options** menu sets row height and freeze, and shows hidden columns again.
 3. See the [user guide](docs/user-guide.md) for every feature, and the [shortcut table](docs/shortcuts.md) for keyboard use.
 
