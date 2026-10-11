@@ -9,6 +9,8 @@ import {
   createAddRowCommand,
   createChangeFieldTypeCommand,
   createDeleteRowCommand,
+  createDeleteRowsCommand,
+  createMoveRowCommand,
   createEditCellCommand,
   createInsertRowCommand,
   createSetViewCommand,
@@ -59,6 +61,17 @@ export interface TableSession {
   duplicateRow(rowId: string): void;
   /** Delete a row through an undoable command. */
   deleteRow(rowId: string): void;
+  /**
+   * Delete several rows as one undoable command (SAD-80 bulk delete). Unknown ids are ignored;
+   * returns how many rows were deleted (0 = nothing changed, no undo entry).
+   */
+  deleteRows(rowIds: string[]): number;
+  /**
+   * Move a row in the stored (manual) order so it sits directly above `beforeRowId`, or at the
+   * end for null (SAD-80, prototype `moveRowBefore`). One undo step. Returns false, with no undo
+   * entry, when the row is unknown or the move would not change the order.
+   */
+  moveRowBefore(rowId: string, beforeRowId: string | null): boolean;
   /** Replace the view definition through an undoable command. */
   setView(view: ViewDefinition): void;
   /**
@@ -192,6 +205,29 @@ export function createSession(file: TablifyFile): TableSession {
       if (!store.getRow(rowId)) return;
       stack.execute(createDeleteRowCommand({ rowId }));
       afterMutation();
+    },
+    deleteRows(rowIds) {
+      const ids = rowIds.filter((id, i) => rowIds.indexOf(id) === i && store.getRow(id) !== undefined);
+      if (ids.length === 0) return 0;
+      stack.execute(createDeleteRowsCommand({ rowIds: ids }));
+      afterMutation();
+      return ids.length;
+    },
+    moveRowBefore(rowId, beforeRowId) {
+      const order = store.getDisplayOrder();
+      const i = order.indexOf(rowId);
+      if (i < 0) return false;
+      if (beforeRowId !== null && !order.includes(beforeRowId)) return false;
+      // The prototype's no-op test: dropping a row onto itself, onto the slot it already
+      // occupies (directly above the next row), or at the end when it is already last.
+      const noop =
+        beforeRowId === rowId ||
+        (beforeRowId === null && i === order.length - 1) ||
+        (beforeRowId !== null && order[i + 1] === beforeRowId);
+      if (noop) return false;
+      stack.execute(createMoveRowCommand({ rowId, beforeRowId }));
+      afterMutation();
+      return true;
     },
     setView(next) {
       const before = view;

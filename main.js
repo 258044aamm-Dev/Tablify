@@ -10123,6 +10123,48 @@ function createDeleteRowCommand(data) {
 }
 var uniqueSeq = 0;
 var uniqueKey = (prefix) => `${prefix}:${++uniqueSeq}`;
+function createDeleteRowsCommand(data) {
+  let deleted = [];
+  return {
+    type: "deleteRows",
+    targetKey: uniqueKey("deleteRows"),
+    do(store) {
+      const order = store.getAllRows();
+      const ids = new Set(data.rowIds);
+      deleted = [];
+      order.forEach((row, index) => {
+        if (ids.has(row.id))
+          deleted.push({ row, index });
+      });
+      for (const d of deleted)
+        store.deleteRow(d.row.id);
+    },
+    undo(store) {
+      for (const d of deleted)
+        store.restoreRow(d.row, d.index);
+    }
+  };
+}
+function createMoveRowCommand(data) {
+  let fromIndex = -1;
+  return {
+    type: "moveRow",
+    targetKey: uniqueKey("moveRow"),
+    do(store) {
+      const order = store.getDisplayOrder();
+      fromIndex = order.indexOf(data.rowId);
+      if (fromIndex < 0)
+        return;
+      const rest = order.filter((id) => id !== data.rowId);
+      const at2 = data.beforeRowId === null ? rest.length : rest.indexOf(data.beforeRowId);
+      store.moveRow(data.rowId, at2 < 0 ? rest.length : at2);
+    },
+    undo(store) {
+      if (fromIndex >= 0)
+        store.moveRow(data.rowId, fromIndex);
+    }
+  };
+}
 function createInsertRowCommand(data) {
   let created;
   return {
@@ -11916,6 +11958,28 @@ function createSession(file) {
       stack.execute(createDeleteRowCommand({ rowId }));
       afterMutation();
     },
+    deleteRows(rowIds) {
+      const ids = rowIds.filter((id, i) => rowIds.indexOf(id) === i && store.getRow(id) !== void 0);
+      if (ids.length === 0)
+        return 0;
+      stack.execute(createDeleteRowsCommand({ rowIds: ids }));
+      afterMutation();
+      return ids.length;
+    },
+    moveRowBefore(rowId, beforeRowId) {
+      const order = store.getDisplayOrder();
+      const i = order.indexOf(rowId);
+      if (i < 0)
+        return false;
+      if (beforeRowId !== null && !order.includes(beforeRowId))
+        return false;
+      const noop = beforeRowId === rowId || beforeRowId === null && i === order.length - 1 || beforeRowId !== null && order[i + 1] === beforeRowId;
+      if (noop)
+        return false;
+      stack.execute(createMoveRowCommand({ rowId, beforeRowId }));
+      afterMutation();
+      return true;
+    },
     setView(next) {
       const before = view;
       if (JSON.stringify(before) === JSON.stringify(next))
@@ -12254,7 +12318,17 @@ var palette = {
   /** #4B5563 — dark empty-cell dash and row-number grip (prototype dark `gray-600`) */
   placeholderDark: "#4B5563",
   /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
-  placeholderLight: "#C5C1BE"
+  placeholderLight: "#C5C1BE",
+  /**
+   * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
+   * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
+   * rule as mutedLight (SAD-80).
+   */
+  terracottaTextLight: "#B5573A",
+  /** #DC2626 — light Delete ink (Tailwind red-600, 4.83:1). Prototype red-500 is 3.76:1 (SAD-80). */
+  dangerLight: "#DC2626",
+  /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
+  dangerDark: "#F87171"
 };
 var lightTheme = {
   bg: palette.light,
@@ -12280,7 +12354,10 @@ var lightTheme = {
   textTitle: palette.textOnLight,
   textStrong: palette.textOnLight,
   textFaint: palette.gripLight,
-  textPlaceholder: palette.placeholderLight
+  textPlaceholder: palette.placeholderLight,
+  textSelected: palette.terracottaTextLight,
+  textDanger: palette.dangerLight,
+  accentCheck: palette.terracotta
 };
 var darkTheme = {
   bg: palette.dark,
@@ -12306,7 +12383,10 @@ var darkTheme = {
   textTitle: palette.light,
   textStrong: palette.cardLight,
   textFaint: palette.gripDark,
-  textPlaceholder: palette.placeholderDark
+  textPlaceholder: palette.placeholderDark,
+  textSelected: palette.terracotta,
+  textDanger: palette.dangerDark,
+  accentCheck: palette.terracotta
 };
 var themes = {
   light: lightTheme,
@@ -12336,7 +12416,10 @@ var cssVars = {
   textTitle: "--tablify-text-title",
   textStrong: "--tablify-text-strong",
   textFaint: "--tablify-text-faint",
-  textPlaceholder: "--tablify-text-placeholder"
+  textPlaceholder: "--tablify-text-placeholder",
+  textSelected: "--tablify-text-selected",
+  textDanger: "--tablify-text-danger",
+  accentCheck: "--tablify-accent-check"
 };
 function applyTheme(root, theme) {
   root.classList.remove("tablify--light", "tablify--dark");
@@ -12366,6 +12449,9 @@ function applyTheme(root, theme) {
   root.style.setProperty(cssVars.textStrong, t.textStrong);
   root.style.setProperty(cssVars.textFaint, t.textFaint);
   root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
+  root.style.setProperty(cssVars.textSelected, t.textSelected);
+  root.style.setProperty(cssVars.textDanger, t.textDanger);
+  root.style.setProperty(cssVars.accentCheck, t.accentCheck);
 }
 
 // src/ui/faIcons.ts
@@ -12579,6 +12665,10 @@ var RESIZE_MIN_WIDTH = 120;
 var RESIZE_MAX_WIDTH = 520;
 var DRAG_THRESHOLD_PX = 4;
 var LEAD_SLOTS = 2;
+var ROW_DRAG_THRESHOLD_PX = 5;
+var ROW_DROP_INSET_PX = 10;
+var ROW_DRAG_EDGE_PX = 48;
+var ROW_DRAG_SCROLL_STEP = 14;
 function columnWidths(fields, view) {
   const widths = view.columnWidths ?? {};
   return fields.map((f) => {
@@ -12606,7 +12696,7 @@ var GridView = class {
     this.root.className = "tablify tablify--grid";
     this.root.setAttribute("role", "grid");
     this.root.setAttribute("aria-rowcount", String(this.totalRows + 1));
-    this.root.setAttribute("aria-colcount", String(this.fields.length));
+    this.root.setAttribute("aria-colcount", String(this.fields.length + this.ariaColBase()));
     this.sortState = Array.isArray(opts.view.sort) ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) : [];
     this.applyRowHeightClass(opts.view.rowHeight);
     this.measure(opts.view);
@@ -12636,6 +12726,24 @@ var GridView = class {
     this.content.style.right = "0";
     this.viewport.appendChild(this.content);
     this.root.appendChild(this.viewport);
+    this.content.addEventListener("change", (e) => {
+      const box = e.target;
+      if (!box?.classList?.contains("tablify__row-check"))
+        return;
+      const rowId = box.closest(".tablify__row")?.dataset.rowId;
+      if (rowId)
+        this.opts.onToggleRow?.(rowId, box.checked);
+    });
+    this.content.addEventListener("keydown", stopCheckboxKeys);
+    this.header.addEventListener("keydown", stopCheckboxKeys);
+    if (opts.onRowMove) {
+      this.content.addEventListener("pointerdown", (e) => {
+        const lead = e.target?.closest?.(".tablify__lead--num");
+        const rowId = lead?.closest(".tablify__row")?.dataset.rowId;
+        if (lead && rowId)
+          this.startRowDrag(e, rowId);
+      });
+    }
     if (opts.onInsertRow)
       this.buildInsertRow(opts.onInsertRow);
     this.pool = new RowPool(() => {
@@ -12700,6 +12808,13 @@ var GridView = class {
   /** SAD-79: live width while a resize handle is dragged (not yet committed). */
   resizePreview = null;
   resizeObserver = null;
+  /** SAD-80: selected row ids (UI state owned by the table view). */
+  rowSelection = /* @__PURE__ */ new Set();
+  /** SAD-80: the row being dragged by its `#` cell, re-applied on every render. */
+  draggingRowId = null;
+  rowDropIndicator = null;
+  /** SAD-80: ends an in-progress row drag without committing (destroy, model swap). */
+  cancelRowDrag = null;
   /** Replace rows, fields, and view settings, then re-render. Scroll position is kept. */
   setModel(rows, fields, view) {
     this.rows = rows;
@@ -12712,13 +12827,37 @@ var GridView = class {
     this.readAvailableWidth();
     this.measure(view);
     this.root.setAttribute("aria-rowcount", String(this.totalRows + 1));
-    this.root.setAttribute("aria-colcount", String(this.fields.length));
+    this.root.setAttribute("aria-colcount", String(this.fields.length + this.ariaColBase()));
     this.viewport.style.height = `${this.bodyHeight()}px`;
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
       this.selected = null;
     }
     this.renderHeader();
     this.render();
+  }
+  /**
+   * SAD-80: the selected row ids. Updates the checkboxes in place — no re-render — so a
+   * toggle never moves the scroll position or rebuilds rows under the pointer.
+   */
+  setRowSelection(selection) {
+    this.rowSelection = selection;
+    for (const rowEl of Array.from(this.content.children)) {
+      const box = rowEl.querySelector(".tablify__row-check");
+      if (box && rowEl.dataset.rowId)
+        box.checked = selection.has(rowEl.dataset.rowId);
+    }
+    this.syncSelectAll();
+  }
+  /** The header checkbox is checked when every row in view is selected (see selection.ts). */
+  syncSelectAll() {
+    const box = this.header.querySelector(".tablify__select-all");
+    if (!box)
+      return;
+    box.checked = this.rows.length > 0 && this.rows.every((r) => this.rowSelection.has(r.id));
+  }
+  /** SAD-80: with row checkboxes the checkbox slot is ARIA column 1 and fields start at 2. */
+  ariaColBase() {
+    return this.opts.onToggleRow ? 1 : 0;
   }
   /** Current selection, or null. */
   getSelection() {
@@ -12904,7 +13043,21 @@ var GridView = class {
     this.header.innerHTML = "";
     this.header.style.minWidth = "100%";
     this.header.style.width = `${this.totalWidth}px`;
-    this.header.appendChild(this.createLead("check", "2", 0));
+    const checkLead = this.createLead("check", "2", 0);
+    if (this.opts.onToggleRow && this.opts.onToggleAllRows) {
+      const onToggleAll = this.opts.onToggleAllRows;
+      checkLead.removeAttribute("aria-hidden");
+      checkLead.setAttribute("role", "columnheader");
+      checkLead.setAttribute("aria-colindex", "1");
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.className = "tablify__select-all";
+      box.setAttribute("aria-label", "Select all rows");
+      box.checked = this.rows.length > 0 && this.rows.every((r) => this.rowSelection.has(r.id));
+      box.addEventListener("change", () => onToggleAll(box.checked));
+      checkLead.appendChild(box);
+    }
+    this.header.appendChild(checkLead);
     const hash = this.createLead("num", "2", 1);
     hash.textContent = "#";
     this.header.appendChild(hash);
@@ -12914,7 +13067,7 @@ var GridView = class {
       this.styleCell(cell2, colIndex, "2");
       cell2.classList.add("tablify__header-cell");
       cell2.setAttribute("role", "columnheader");
-      cell2.setAttribute("aria-colindex", String(colIndex + 1));
+      cell2.setAttribute("aria-colindex", String(colIndex + 1 + this.ariaColBase()));
       cell2.setAttribute("aria-label", field.name);
       cell2.setAttribute("data-field-type", field.type);
       if (primarySort && primarySort.fieldId === field.id) {
@@ -13097,6 +13250,130 @@ var GridView = class {
     grip.addEventListener("pointerup", end);
     grip.addEventListener("pointercancel", end);
   }
+  // ---- row drag (SAD-80) ----
+  /**
+   * `#`-cell row drag (prototype `rowDragStart` / `rowDragMove` / `rowDragEnd`). Pointer
+   * events, so mouse, pen and touch all work. Listeners sit on the document, as in the
+   * prototype: the row under the pointer can be recycled by virtual scrolling mid-drag.
+   * The press is not prevented, so focus still leaves an open cell editor and commits it.
+   */
+  startRowDrag(e, rowId) {
+    if (e.button !== void 0 && e.button !== 0)
+      return;
+    this.cancelRowDrag?.();
+    const doc = this.root.ownerDocument;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let active = false;
+    let before;
+    const blockMenu = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
+    const cleanup = () => {
+      doc.removeEventListener("pointermove", move);
+      doc.removeEventListener("pointerup", up);
+      doc.removeEventListener("pointercancel", cleanup);
+      doc.removeEventListener("contextmenu", blockMenu, true);
+      this.root.classList.remove("tablify--row-dragging");
+      if (this.rowDropIndicator)
+        this.rowDropIndicator.style.display = "none";
+      this.draggingRowId = null;
+      this.content.querySelectorAll(".tablify__row--dragging").forEach((el2) => el2.classList.remove("tablify__row--dragging"));
+      this.cancelRowDrag = null;
+    };
+    const move = (ev) => {
+      if (!active) {
+        if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < ROW_DRAG_THRESHOLD_PX)
+          return;
+        const reason = this.opts.rowMoveBlocked?.() ?? null;
+        if (reason) {
+          cleanup();
+          this.opts.onRowMoveBlocked?.(reason);
+          return;
+        }
+        active = true;
+        this.draggingRowId = rowId;
+        this.root.classList.add("tablify--row-dragging");
+        this.content.querySelector(`.tablify__row[data-row-id="${cssEscape(rowId)}"]`)?.classList.add("tablify__row--dragging");
+      }
+      if (ev.cancelable)
+        ev.preventDefault();
+      before = this.dropSlotAt(ev.clientY);
+      this.autoScrollRowDrag(ev.clientY);
+    };
+    const up = () => {
+      const commit = active && before !== void 0;
+      const target = before;
+      cleanup();
+      if (commit && target !== void 0)
+        this.opts.onRowMove?.(rowId, target);
+    };
+    doc.addEventListener("pointermove", move);
+    doc.addEventListener("pointerup", up);
+    doc.addEventListener("pointercancel", cleanup);
+    doc.addEventListener("contextmenu", blockMenu, true);
+    this.cancelRowDrag = cleanup;
+  }
+  /**
+   * The insertion point under the pointer: the first rendered row whose midpoint is below it
+   * (prototype), and the drop line drawn in the gap above that row — or under the last row.
+   */
+  dropSlotAt(clientY) {
+    const rowsEls = Array.from(this.content.children).filter((el2) => el2.dataset.rowId);
+    let beforeEl = null;
+    for (const el2 of rowsEls) {
+      const r = el2.getBoundingClientRect();
+      const slotTop = r.top + ROW_GAP;
+      if (clientY < slotTop + (r.bottom - slotTop) / 2) {
+        beforeEl = el2;
+        break;
+      }
+    }
+    let before;
+    if (beforeEl) {
+      before = beforeEl.dataset.rowId ?? null;
+    } else {
+      const last = rowsEls[rowsEls.length - 1];
+      const lastIdx = last ? Number(last.dataset.rowIndex) : -1;
+      before = this.rows[lastIdx + 1]?.id ?? null;
+    }
+    const ind = this.ensureRowDropIndicator();
+    const vpRect = this.viewport.getBoundingClientRect();
+    const rootRect = this.root.getBoundingClientRect();
+    let y;
+    if (beforeEl)
+      y = beforeEl.getBoundingClientRect().top + ROW_GAP - 5;
+    else if (rowsEls.length)
+      y = rowsEls[rowsEls.length - 1].getBoundingClientRect().bottom + 2;
+    else
+      y = vpRect.top;
+    ind.style.top = `${y - vpRect.top}px`;
+    ind.style.left = `${rootRect.left + this.root.clientLeft + ROW_DROP_INSET_PX - vpRect.left}px`;
+    ind.style.width = `${Math.max(0, this.root.clientWidth - 2 * ROW_DROP_INSET_PX)}px`;
+    ind.style.display = "block";
+    return before;
+  }
+  ensureRowDropIndicator() {
+    if (!this.rowDropIndicator) {
+      const ind = document.createElement("div");
+      ind.className = "tablify__row-drop";
+      ind.setAttribute("aria-hidden", "true");
+      this.viewport.appendChild(ind);
+      this.rowDropIndicator = ind;
+    }
+    return this.rowDropIndicator;
+  }
+  /** Edge auto-scroll so a long table can be crossed mid-drag (prototype: window edges). */
+  autoScrollRowDrag(clientY) {
+    const r = this.root.getBoundingClientRect();
+    const top = r.top + this.header.offsetHeight;
+    if (clientY < top + ROW_DRAG_EDGE_PX && this.root.scrollTop > 0) {
+      this.root.scrollTop = Math.max(0, this.root.scrollTop - ROW_DRAG_SCROLL_STEP);
+    } else if (clientY > r.bottom - ROW_DRAG_EDGE_PX) {
+      this.root.scrollTop += ROW_DRAG_SCROLL_STEP;
+    }
+  }
   // ---- insert row ----
   buildInsertRow(onInsert) {
     const wrap = document.createElement("div");
@@ -13144,13 +13421,33 @@ var GridView = class {
       rowEl.setAttribute("aria-rowindex", String(rowIdx + 2));
       rowEl.innerHTML = "";
       const row = this.rows[rowIdx];
+      if (!row)
+        delete rowEl.dataset.rowId;
       if (row) {
         if (rowIdx % 2 === 1)
           rowEl.classList.add("tablify__row--stripe");
         else
           rowEl.classList.remove("tablify__row--stripe");
-        rowEl.appendChild(this.createLead("check", "1", 0));
+        rowEl.dataset.rowId = row.id;
+        rowEl.classList.toggle("tablify__row--dragging", row.id === this.draggingRowId);
+        const checkLead = this.createLead("check", "1", 0);
+        if (this.opts.onToggleRow) {
+          checkLead.removeAttribute("aria-hidden");
+          checkLead.setAttribute("role", "gridcell");
+          checkLead.setAttribute("aria-colindex", "1");
+          const box = document.createElement("input");
+          box.type = "checkbox";
+          box.className = "tablify__row-check";
+          box.checked = this.rowSelection.has(row.id);
+          box.setAttribute("aria-label", `Select row ${rowIdx + 1}`);
+          checkLead.appendChild(box);
+        }
+        rowEl.appendChild(checkLead);
         const num = this.createLead("num", "1", 1);
+        if (this.opts.onRowMove) {
+          num.classList.add("tablify__lead--drag");
+          num.title = "Drag to reorder row";
+        }
         num.appendChild(this.rowGrip().cloneNode(true));
         num.appendChild(document.createTextNode(String(rowIdx + 1)));
         rowEl.appendChild(num);
@@ -13193,7 +13490,7 @@ var GridView = class {
           cell2.setAttribute("data-field-id", field.id);
           cell2.dataset.colIndex = String(colIndex);
           cell2.setAttribute("role", "gridcell");
-          cell2.setAttribute("aria-colindex", String(colIndex + 1));
+          cell2.setAttribute("aria-colindex", String(colIndex + 1 + this.ariaColBase()));
           cell2.setAttribute("aria-description", `Row ${rowIdx + 1}, column ${field.name}`);
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
             cell2.classList.add("tablify__cell--selected");
@@ -13208,6 +13505,7 @@ var GridView = class {
     }
   }
   destroy() {
+    this.cancelRowDrag?.();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     this.root.remove();
@@ -13225,6 +13523,15 @@ function capturePointer(el2, pointerId) {
     el2.setPointerCapture?.(pointerId);
   } catch {
   }
+}
+function stopCheckboxKeys(e) {
+  const t = e.target;
+  if (t && t.tagName === "INPUT" && t.type === "checkbox" && (e.key === "Enter" || e.key === " ")) {
+    e.stopPropagation();
+  }
+}
+function cssEscape(value) {
+  return typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(value) : value.replace(/["\\]/g, "\\$&");
 }
 function stopButtonKeys(e) {
   const t = e.target;
@@ -13494,6 +13801,45 @@ function moveColumnOnto(view, fieldId, targetId, fields) {
   return res.ok ? res.view : view;
 }
 
+// src/views/grid/selection.ts
+function toggleRow(selection, rowId, checked) {
+  const next = new Set(selection);
+  const on = checked ?? !next.has(rowId);
+  if (on)
+    next.add(rowId);
+  else
+    next.delete(rowId);
+  return next;
+}
+function setVisibleRows(selection, visibleRowIds, checked) {
+  const next = new Set(selection);
+  for (const id of visibleRowIds) {
+    if (checked)
+      next.add(id);
+    else
+      next.delete(id);
+  }
+  return next;
+}
+function pruneSelection(selection, existingRowIds) {
+  if (selection.size === 0)
+    return selection;
+  const existing = new Set(existingRowIds);
+  let stale = false;
+  for (const id of selection) {
+    if (!existing.has(id)) {
+      stale = true;
+      break;
+    }
+  }
+  if (!stale)
+    return selection;
+  return new Set([...selection].filter((id) => existing.has(id)));
+}
+function selectionLabel(count) {
+  return `${count} selected`;
+}
+
 // src/query/combined.ts
 var isWS2 = (c) => c === " " || c === "	" || c === "\n" || c === "\r";
 var isBlank = (c) => c === " " || c === "	";
@@ -13625,7 +13971,8 @@ var ACTIONS = {
   options: "options",
   undo: "undo",
   redo: "redo",
-  clearFilters: "clear-filters"
+  clearFilters: "clear-filters",
+  deleteSelected: "delete-selected"
 };
 var Toolbar = class {
   root;
@@ -13635,6 +13982,8 @@ var Toolbar = class {
   optionsPanel;
   optionsButton;
   rowCount;
+  selectionSummary;
+  selectedCount;
   hiddenList;
   searchTimer = null;
   constructor(options) {
@@ -13697,6 +14046,24 @@ var Toolbar = class {
     selection.className = "tablify__selection-summary";
     selection.dataset.testid = "tablify-selection-summary";
     selection.hidden = true;
+    this.selectedCount = document.createElement("span");
+    this.selectedCount.className = "tablify__selected-count";
+    this.selectedCount.setAttribute("aria-live", "polite");
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "tablify__delete-selected";
+    del.dataset.action = ACTIONS.deleteSelected;
+    const delIcon = document.createElement("span");
+    delIcon.className = "tablify__delete-selected-icon";
+    delIcon.setAttribute("aria-hidden", "true");
+    delIcon.innerHTML = faIcon("trash-can");
+    del.appendChild(delIcon);
+    del.appendChild(document.createTextNode("Delete"));
+    del.title = "Delete the selected rows";
+    del.addEventListener("click", () => this.opts.callbacks.onDeleteSelected?.());
+    selection.appendChild(this.selectedCount);
+    selection.appendChild(del);
+    this.selectionSummary = selection;
     const badges = document.createElement("div");
     badges.className = "tablify__badges";
     this.rowCount = document.createElement("span");
@@ -13810,6 +14177,8 @@ var Toolbar = class {
     this.opts.search = state.search;
     this.opts.query = state.query;
     this.opts.queryError = state.queryError;
+    this.opts.selectedCount = state.selectedCount;
+    this.renderSelection();
     if (state.theme !== this.opts.theme) {
       this.opts.theme = state.theme;
       applyTheme(this.root, state.theme);
@@ -13879,6 +14248,14 @@ var Toolbar = class {
     this.queryError.textContent = message ?? "";
     this.queryError.hidden = message === null;
     this.searchInput.classList.toggle("tablify__search-input--invalid", message !== null);
+  }
+  /** SAD-80: prototype `#selectionSummary` — shown only while rows are selected. */
+  renderSelection() {
+    const count = this.opts.selectedCount ?? 0;
+    this.selectionSummary.hidden = count === 0;
+    const text = selectionLabel(count);
+    if (this.selectedCount.textContent !== text)
+      this.selectedCount.textContent = text;
   }
   renderRowCount() {
     const { visibleRowCount, totalRowCount } = this.opts;
@@ -14758,6 +15135,8 @@ var TableView = class extends import_obsidian9.TextFileView {
   grid = null;
   rawData = "";
   editing = null;
+  /** SAD-80: selected row ids — UI state only, never saved and never undoable. */
+  rowSelection = /* @__PURE__ */ new Set();
   toolbar = null;
   body = null;
   menuTarget = null;
@@ -14815,6 +15194,7 @@ var TableView = class extends import_obsidian9.TextFileView {
       return;
     }
     this.session = createSession(parsed.data);
+    this.rowSelection = /* @__PURE__ */ new Set();
     this.titleRow?.update(this.titleState());
     this.publishLive();
     this.renderGrid();
@@ -14835,6 +15215,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     this.session = null;
     this.editing = null;
     this.menuTarget = null;
+    this.rowSelection = /* @__PURE__ */ new Set();
     if (this.body)
       this.body.empty();
     this.syncToolbar();
@@ -14882,6 +15263,8 @@ var TableView = class extends import_obsidian9.TextFileView {
       view,
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
+      // SAD-80: only rows that still exist count (prototype selectedCount).
+      selectedCount: [...this.rowSelection].filter((id) => s.store.getRow(id) !== void 0).length,
       search: view.search ?? "",
       query: view.query ?? "",
       queryError: s.getFilterError(),
@@ -14990,8 +15373,38 @@ var TableView = class extends import_obsidian9.TextFileView {
       }),
       onClearFilters: () => this.applyFilter({ search: "", query: "" }),
       onUndo: () => this.mutate((s) => s.undo()),
-      onRedo: () => this.mutate((s) => s.redo())
+      onRedo: () => this.mutate((s) => s.redo()),
+      onDeleteSelected: () => this.deleteSelectedRows()
     };
+  }
+  // ---- row selection and reorder (SAD-80) ----
+  /** Meta-row Delete (prototype `deleteSelectedRows`): one undo step, then the selection clears. */
+  deleteSelectedRows() {
+    const s = this.session;
+    if (!s || this.rowSelection.size === 0)
+      return;
+    const deleted = s.deleteRows([...this.rowSelection]);
+    this.rowSelection = /* @__PURE__ */ new Set();
+    if (deleted > 0)
+      new import_obsidian9.Notice(`Deleted ${deleted} ${deleted === 1 ? "row" : "rows"}`);
+    this.afterChange();
+  }
+  /** Re-show the selection without touching the model: no save, no undo entry, no re-render. */
+  showRowSelection(next) {
+    this.rowSelection = next;
+    this.grid?.setRowSelection(next);
+    this.syncToolbar();
+  }
+  /** Why rows cannot be dragged now — the prototype's two toasts — or null. */
+  rowMoveBlocked() {
+    const view = this.session?.getView();
+    if (!view)
+      return null;
+    if (view.sort.length > 0)
+      return "Clear sorting to reorder rows manually";
+    if (view.groupBy)
+      return "Disable grouping to reorder rows manually";
+    return null;
   }
   /** Toolbar Sync: the plugin's sync entry point, same as the command. */
   openSync() {
@@ -15086,6 +15499,9 @@ var TableView = class extends import_obsidian9.TextFileView {
     this.afterChange();
   }
   renderGrid() {
+    if (this.session) {
+      this.rowSelection = pruneSelection(this.rowSelection, this.session.store.getDisplayOrder());
+    }
     this.syncToolbar();
     if (!this.session || !this.body)
       return;
@@ -15119,8 +15535,23 @@ var TableView = class extends import_obsidian9.TextFileView {
         onColumnMove: (fieldId, targetId) => this.applyViewChange((view, all) => moveColumnOnto(view, fieldId, targetId, all)),
         // SAD-79 (S-6): the Insert Row pill lives inside the shell (prototype #insertRowWrap)
         // and the grid shrinks to its content, so the empty-state hint is retired.
-        onInsertRow: () => this.mutate((st) => st.addRow())
+        onInsertRow: () => this.mutate((st) => st.addRow()),
+        // SAD-80: row checkboxes and select-all (UI state), and `#`-cell drag to reorder.
+        onToggleRow: (rowId, checked) => this.showRowSelection(toggleRow(this.rowSelection, rowId, checked)),
+        onToggleAllRows: (checked) => {
+          const visible = this.session?.getDisplayRows().map((r) => r.id) ?? [];
+          this.showRowSelection(setVisibleRows(this.rowSelection, visible, checked));
+        },
+        onRowMove: (rowId, beforeRowId) => {
+          if (this.session?.moveRowBefore(rowId, beforeRowId)) {
+            new import_obsidian9.Notice("Row moved");
+            this.afterChange();
+          }
+        },
+        rowMoveBlocked: () => this.rowMoveBlocked(),
+        onRowMoveBlocked: (reason) => new import_obsidian9.Notice(reason)
       });
+      this.grid.setRowSelection(this.rowSelection);
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
       this.grid.root.addEventListener("keydown", (e) => this.onKeyDown(e));
@@ -15129,6 +15560,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     } else {
       this.grid.setTheme(theme);
       this.grid.setModel(rows, fields, s.getView());
+      this.grid.setRowSelection(this.rowSelection);
     }
   }
   // ---- keyboard ----

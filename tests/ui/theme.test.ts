@@ -40,6 +40,10 @@ describe('P3-09 — Design tokens', () => {
       gripLight: '#B7B2AE',
       placeholderDark: '#4B5563',
       placeholderLight: '#C5C1BE',
+      // SAD-80: AA shades of the prototype's selection-summary terracotta and Delete red-500.
+      terracottaTextLight: '#B5573A',
+      dangerLight: '#DC2626',
+      dangerDark: '#F87171',
     };
     expect(palette).toEqual(expected);
   });

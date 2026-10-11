@@ -509,6 +509,68 @@
   gap: 12px;
 }
 
+/* SAD-80: prototype #selectionSummary — flex gap-2, text-[11px] font-medium, terracotta;
+   Delete is a bare red text button (hover:underline) with a trash glyph and mr-1. */
+.tablify__selection-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Lora', Georgia, serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--tablify-text-selected);
+}
+
+.tablify__selection-summary[hidden] {
+  display: none;
+}
+
+.tablify button.tablify__delete-selected {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  line-height: inherit;
+  color: var(--tablify-text-danger);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tablify button.tablify__delete-selected:hover {
+  background: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+}
+
+.tablify button.tablify__delete-selected:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.tablify__delete-selected-icon {
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.tablify__delete-selected-icon svg.tablify__fa {
+  display: inline-block;
+  height: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
+}
+
 /* Prototype row-count badge: text-[11px] font-medium tracking-wider font-mono, clay/gray-400. */
 .tablify__rowcount {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -1426,6 +1488,81 @@
   font-size: 8px;
   margin-right: 4px;
   color: var(--tablify-text-placeholder);
+}
+
+/* ---- Row selection and reorder (SAD-80) -------------------------------------------
+   Prototype: native 13px checkboxes tinted `accent-tablify-terracotta` (no dark variant),
+   centred in the leading slot. They sit on the prototype's text baseline, which puts the top
+   edge 12.5px into the 42px/45px slot — 2px above flex-centre. Obsidian restyles every
+   input[type=checkbox] (appearance none, its own size, border, ::after tick); the element +
+   class selectors below outrank that and restore the native control. */
+.tablify input[type='checkbox'].tablify__row-check,
+.tablify input[type='checkbox'].tablify__select-all {
+  -webkit-appearance: auto;
+  appearance: auto;
+  box-sizing: border-box;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  padding: 0;
+  border: initial;
+  border-radius: initial;
+  background: initial;
+  box-shadow: none;
+  filter: none;
+  accent-color: var(--tablify-accent-check);
+  cursor: pointer;
+  position: relative;
+  top: -2px;
+  transition: none;
+}
+
+.tablify input[type='checkbox'].tablify__row-check::after,
+.tablify input[type='checkbox'].tablify__select-all::after,
+.tablify input[type='checkbox'].tablify__row-check::before,
+.tablify input[type='checkbox'].tablify__select-all::before {
+  content: none;
+  display: none;
+}
+
+/* `#` cell is the row drag handle (prototype `.row-drag-handle`). touch-action none so a
+   touch drag moves the row instead of scrolling the shell. */
+.tablify__lead--drag {
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tablify__lead--drag:active {
+  cursor: grabbing;
+}
+
+/* Prototype `body.row-dragging-active` / `tr.row-dragging td`. */
+.tablify--row-dragging,
+.tablify--row-dragging * {
+  cursor: grabbing;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.tablify__row--dragging > .tablify__lead,
+.tablify__row--dragging > .tablify__cell {
+  opacity: 0.45;
+}
+
+/* Prototype `#rowDropIndicator`: 3px accent line with a faint accent halo. Top, left and
+   width are set inline from the drag geometry. */
+.tablify__row-drop {
+  display: none;
+  position: absolute;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tablify-accent-primary) 28%, transparent);
+  z-index: 4;
+  pointer-events: none;
 }
 
 /* Frozen block (SAD-69 C, SAD-79): position and offset are inline (they depend on the

@@ -2,7 +2,7 @@
 //
 // Usage:
 //   npx tsx tests/visual/capture-compare.ts [--theme dark|light|all] [--viewport owner|desktop|mobile|all]
-//       [--fixture new|empty|populated|all] [--state default|options|all] [--out dir]
+//       [--fixture new|empty|populated|all] [--state default|options|selected|all] [--out dir]
 //
 // For every combination it renders the plugin (real TableView under hostile host CSS) and the
 // prototype (same data, prototype-only chrome hidden), then per region (lib/regions.ts):
@@ -16,12 +16,12 @@ import { PNG } from 'pngjs';
 import type { Page } from 'playwright';
 import { startStaticServer } from './lib/server';
 import { REPO, HARNESS_VIEWPORTS, buildHarness, openPlugin, openPrototype, type HarnessViewport } from './lib/harness';
-import { REGIONS, OPTIONS_REGION, type Region } from './lib/regions';
+import { REGIONS, OPTIONS_REGION, SELECTION_REGION, type Region } from './lib/regions';
 import type { Theme } from './lib/capture';
 import { newTableText } from '../../src/menus/fileMenuModel';
 
 type FixtureName = 'new' | 'empty' | 'populated';
-type StateName = 'default' | 'options';
+type StateName = 'default' | 'options' | 'selected';
 
 function arg(name: string, def: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -145,11 +145,28 @@ async function openOptions(pp: Page, rp: Page): Promise<void> {
   await rp.waitForTimeout(150);
 }
 
+/**
+ * SAD-80: tick rows 1 and 3 (or the last row) with real clicks on both pages, then park the
+ * mouse so no hover state is captured. The prototype re-renders on every toggle, so each
+ * click re-resolves its selector.
+ */
+async function selectRows(pp: Page, rp: Page): Promise<void> {
+  const n = await pp.locator('.tablify__row-check').count();
+  for (const i of n > 2 ? [0, 2] : n > 0 ? [0] : []) {
+    await pp.click(`.tablify__row[data-row-index="${i}"] .tablify__row-check`);
+    await rp.click(`#tableBody tr:nth-child(${i + 1}) td:first-child input`);
+  }
+  await pp.mouse.move(0, 0);
+  await rp.mouse.move(0, 0);
+  await pp.waitForTimeout(150);
+  await rp.waitForTimeout(150);
+}
+
 async function main(): Promise<void> {
   const themes = expand<Theme>(arg('theme', 'dark'), ['dark', 'light']);
   const viewports = expand<HarnessViewport>(arg('viewport', 'owner'), Object.keys(HARNESS_VIEWPORTS) as HarnessViewport[]);
   const fixtures = expand<FixtureName>(arg('fixture', 'new'), ['new', 'empty', 'populated']);
-  const states = expand<StateName>(arg('state', 'default'), ['default', 'options']);
+  const states = expand<StateName>(arg('state', 'default'), ['default', 'options', 'selected']);
   const outRoot = path.resolve(arg('out', path.join(REPO, 'docs/evidence/visual-parity/latest')));
   fs.mkdirSync(outRoot, { recursive: true });
 
@@ -172,6 +189,10 @@ async function main(): Promise<void> {
         if (state === 'options') {
           await openOptions(plugin.page, proto.page);
           regions.push(OPTIONS_REGION);
+        }
+        if (state === 'selected') {
+          await selectRows(plugin.page, proto.page);
+          regions.push(SELECTION_REGION);
         }
         await plugin.page.screenshot({ path: path.join(dir, 'plugin.png') });
         await proto.page.screenshot({ path: path.join(dir, 'prototype.png') });

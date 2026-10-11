@@ -425,7 +425,7 @@ describe('TableView — new table defaults (SAD-84)', () => {
     const root = need(el(view, '.tablify--grid'), 'grid root');
     root.focus();
     root.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    const editor = need(root.querySelector<HTMLInputElement>('input'), 'inline editor');
+    const editor = need(root.querySelector<HTMLInputElement>('input.tablify__editor'), 'inline editor');
     editor.value = 'First task';
     editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     const saved = JSON.parse(view.getViewData());

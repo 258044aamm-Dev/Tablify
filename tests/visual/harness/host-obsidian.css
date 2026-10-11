@@ -94,6 +94,24 @@ input[type='checkbox'] {
   border: 1px solid var(--background-modifier-border);
   border-radius: 4px;
   background: var(--background-modifier-form-field);
+  position: relative;
+  margin-inline-end: 6px;
+  cursor: pointer;
+}
+
+/* SAD-80: Obsidian's checked state paints the box with its accent and draws the tick as an
+   ::after mask — both must be neutralised on the grid's native checkboxes. */
+input[type='checkbox']:checked {
+  background-color: #7f6df2;
+  border-color: #7f6df2;
+}
+
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background-color: #ffffff;
+  border-radius: 2px;
 }
 
 input:focus,

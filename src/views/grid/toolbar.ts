@@ -21,6 +21,7 @@ import { parseQuery } from '../../query/parse.js';
 import type { QueryError } from '../../query/parse.js';
 import { joinSearchQuery, splitSearchQuery, toInputPosition } from '../../query/combined.js';
 import { faIcon, type FaGlyph } from '../../ui/faIcons.js';
+import { selectionLabel } from './selection.js';
 import type { FieldDefinition, ViewDefinition } from '../../model/types.js';
 
 /**
@@ -64,6 +65,8 @@ export interface ToolbarCallbacks {
   onClearFilters(): void;
   onUndo(): void;
   onRedo(): void;
+  /** SAD-80: the meta row's Delete — delete every selected row in one undo step. */
+  onDeleteSelected?(): void;
 }
 
 export interface ToolbarState {
@@ -80,6 +83,8 @@ export interface ToolbarState {
   /** Error from the persisted query, or null. */
   queryError: QueryError | null;
   theme: 'light' | 'dark';
+  /** SAD-80: selected rows that still exist (0 or absent hides the summary). */
+  selectedCount?: number;
 }
 
 export interface ToolbarOptions extends ToolbarState {
@@ -120,6 +125,7 @@ const ACTIONS = {
   undo: 'undo',
   redo: 'redo',
   clearFilters: 'clear-filters',
+  deleteSelected: 'delete-selected',
 } as const;
 
 export class Toolbar {
@@ -131,6 +137,8 @@ export class Toolbar {
   private readonly optionsPanel: HTMLElement;
   private readonly optionsButton: HTMLElement;
   private readonly rowCount: HTMLElement;
+  private readonly selectionSummary: HTMLElement;
+  private readonly selectedCount: HTMLElement;
   private readonly hiddenList: HTMLElement;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -205,12 +213,30 @@ export class Toolbar {
     // ---- meta row (SAD-77): prototype #metaRow — selection summary left, badges right ----
     const metaRow = document.createElement('div');
     metaRow.className = 'tablify__meta-row';
-    // Left slot for the prototype's "N selected · Delete" summary (filled by the row-selection
-    // step, SAD-80). Empty and hidden until then.
+    // Left slot: the prototype's #selectionSummary — "N selected" and a red Delete (SAD-80).
+    // Hidden while nothing is selected.
     const selection = document.createElement('div');
     selection.className = 'tablify__selection-summary';
     selection.dataset.testid = 'tablify-selection-summary';
     selection.hidden = true;
+    this.selectedCount = document.createElement('span');
+    this.selectedCount.className = 'tablify__selected-count';
+    this.selectedCount.setAttribute('aria-live', 'polite');
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'tablify__delete-selected';
+    del.dataset.action = ACTIONS.deleteSelected;
+    const delIcon = document.createElement('span');
+    delIcon.className = 'tablify__delete-selected-icon';
+    delIcon.setAttribute('aria-hidden', 'true');
+    delIcon.innerHTML = faIcon('trash-can');
+    del.appendChild(delIcon);
+    del.appendChild(document.createTextNode('Delete'));
+    del.title = 'Delete the selected rows';
+    del.addEventListener('click', () => this.opts.callbacks.onDeleteSelected?.());
+    selection.appendChild(this.selectedCount);
+    selection.appendChild(del);
+    this.selectionSummary = selection;
     const badges = document.createElement('div');
     badges.className = 'tablify__badges';
     this.rowCount = document.createElement('span');
@@ -331,6 +357,8 @@ export class Toolbar {
     this.opts.search = state.search;
     this.opts.query = state.query;
     this.opts.queryError = state.queryError;
+    this.opts.selectedCount = state.selectedCount;
+    this.renderSelection();
 
     if (state.theme !== this.opts.theme) {
       this.opts.theme = state.theme;
@@ -417,6 +445,14 @@ export class Toolbar {
     this.queryError.textContent = message ?? '';
     this.queryError.hidden = message === null;
     this.searchInput.classList.toggle('tablify__search-input--invalid', message !== null);
+  }
+
+  /** SAD-80: prototype `#selectionSummary` — shown only while rows are selected. */
+  private renderSelection(): void {
+    const count = this.opts.selectedCount ?? 0;
+    this.selectionSummary.hidden = count === 0;
+    const text = selectionLabel(count);
+    if (this.selectedCount.textContent !== text) this.selectedCount.textContent = text;
   }
 
   private renderRowCount(): void {

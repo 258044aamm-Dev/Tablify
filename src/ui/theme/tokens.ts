@@ -74,6 +74,16 @@ export const palette = {
   placeholderDark: '#4B5563',
   /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
   placeholderLight: '#C5C1BE',
+  /**
+   * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
+   * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
+   * rule as mutedLight (SAD-80).
+   */
+  terracottaTextLight: '#B5573A',
+  /** #DC2626 — light Delete ink (Tailwind red-600, 4.83:1). Prototype red-500 is 3.76:1 (SAD-80). */
+  dangerLight: '#DC2626',
+  /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
+  dangerDark: '#F87171',
 } as const;
 
 // Keep palette values as the only literals — tests enforce no hex outside this file.
@@ -119,6 +129,15 @@ export interface Theme {
    * dark:text-gray-600`). A placeholder glyph, not content.
    */
   textPlaceholder: string;
+  /** SAD-80: prototype `#selectionSummary` ink (`text-tablify-terracotta`), AA-adjusted on light. */
+  textSelected: string;
+  /** SAD-80: prototype Delete ink (`text-red-500`), AA-adjusted in both themes. */
+  textDanger: string;
+  /**
+   * SAD-80: row checkbox tint (prototype `accent-tablify-terracotta`, no dark variant). A UI
+   * control, so the 3:1 non-text bar applies — met by #CC785C in both themes.
+   */
+  accentCheck: string;
 }
 
 export const lightTheme: Theme = {
@@ -146,6 +165,9 @@ export const lightTheme: Theme = {
   textStrong: palette.textOnLight,
   textFaint: palette.gripLight,
   textPlaceholder: palette.placeholderLight,
+  textSelected: palette.terracottaTextLight,
+  textDanger: palette.dangerLight,
+  accentCheck: palette.terracotta,
 };
 
 export const darkTheme: Theme = {
@@ -173,6 +195,9 @@ export const darkTheme: Theme = {
   textStrong: palette.cardLight,
   textFaint: palette.gripDark,
   textPlaceholder: palette.placeholderDark,
+  textSelected: palette.terracotta,
+  textDanger: palette.dangerDark,
+  accentCheck: palette.terracotta,
 };
 
 export const themes = {
@@ -210,6 +235,9 @@ export const cssVars = {
   textStrong: '--tablify-text-strong',
   textFaint: '--tablify-text-faint',
   textPlaceholder: '--tablify-text-placeholder',
+  textSelected: '--tablify-text-selected',
+  textDanger: '--tablify-text-danger',
+  accentCheck: '--tablify-accent-check',
 } as const;
 
 /**
@@ -245,6 +273,9 @@ export function applyTheme(root: HTMLElement, theme: ThemeName): void {
   root.style.setProperty(cssVars.textStrong, t.textStrong);
   root.style.setProperty(cssVars.textFaint, t.textFaint);
   root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
+  root.style.setProperty(cssVars.textSelected, t.textSelected);
+  root.style.setProperty(cssVars.textDanger, t.textDanger);
+  root.style.setProperty(cssVars.accentCheck, t.accentCheck);
 }
 
 /**

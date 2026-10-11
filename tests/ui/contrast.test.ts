@@ -113,4 +113,31 @@ describe('P3-11 — Contrast and visual verification', () => {
     expect(contrastRatio(lightTheme.onAccent, lightTheme.accentPrimary)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(darkTheme.onAccent, darkTheme.accentPrimary)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it('SAD-80: selection summary and Delete ink pass AA 4.5:1 on the card in both themes', () => {
+    // The prototype's terracotta (#CC785C) and red-500 (#EF4444) are 3.28:1 and 3.76:1 on the
+    // white card, and red-500 is 4.32:1 on the dark card — too low for 11px text — so the
+    // nearest AA shades ship where needed (same rule as mutedLight).
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      for (const key of ['textSelected', 'textDanger'] as const) {
+        const ratio = contrastRatio(t[key], t.bgCard);
+        expect(ratio, `${name}: ${key} ${t[key]} on bgCard ${t.bgCard} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(darkTheme.textSelected).toBe(palette.terracotta); // prototype value kept where it passes
+  });
+
+  it('SAD-80: the row checkbox tint is the prototype terracotta, as the light accent already is', () => {
+    // A native checkbox: Chrome draws an auto-contrast tick on the fill and a grey border when
+    // unchecked, so state never rests on the tint alone. The tint is #CC785C in both themes
+    // (prototype `accent-tablify-terracotta`) — 2.86:1 on the light inner surface, the same
+    // value the light focus/selection accent already uses (docs/accessibility/audit.md).
+    expect(lightTheme.accentCheck).toBe(palette.terracotta);
+    expect(darkTheme.accentCheck).toBe(palette.terracotta);
+    expect(lightTheme.accentCheck).toBe(lightTheme.focus);
+    expect(contrastRatio(darkTheme.accentCheck, darkTheme.bgInner)).toBeGreaterThanOrEqual(3);
+  });
 });

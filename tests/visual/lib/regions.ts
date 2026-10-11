@@ -40,7 +40,15 @@ export const REGIONS: Region[] = [
   { id: 'body-cell', plugin: ['.tablify__row .tablify__cell[data-field-id] .tablify__capsule', '.tablify__row .tablify__cell[data-field-id]', '.tablify__row .tablify__cell'], prototype: ['.cell-capsule'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
   { id: 'row-number', plugin: ['.tablify__row .tablify__lead--num'], prototype: ['#tableBody tr:first-child td:nth-child(2)'], styles: [...TEXT], pixels: true },
   { id: 'insert-row', plugin: ['.tablify__insert-row'], prototype: ['#insertRowBtn'], styles: [...BOX, ...TEXT], pixels: true },
+  // SAD-80: native checkboxes (header + first row) and the meta row's "N selected · Delete".
+  { id: 'header-check', plugin: ['.tablify__select-all'], prototype: ['#tableHeaderHead th:first-child input'], styles: ['accent-color', 'appearance'], pixels: true },
+  { id: 'row-check', plugin: ['.tablify__row[data-row-index="0"] .tablify__row-check'], prototype: ['#tableBody tr:first-child td:first-child input'], styles: ['accent-color', 'appearance'], pixels: true },
 ];
+
+/** Meta-row selection summary (SAD-80), captured only in the selected state. */
+export const SELECTION_REGION: Region = {
+  id: 'selection-summary', plugin: ['.tablify__selection-summary'], prototype: ['#selectionSummary'], styles: [...TEXT, 'column-gap'], pixels: true,
+};
 
 /** Prototype float panel (Options) region, captured only in the options-open state. */
 export const OPTIONS_REGION: Region = {

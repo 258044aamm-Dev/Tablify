@@ -100,5 +100,16 @@ New automated guards: `tests/ui/ariaGrid.test.ts` (5 tests), `tests/ui/keyboardC
 | F-2 | Focus ring on light theme 2.96:1 vs 3:1 (WCAG 1.4.11) — marginal fail; dark theme passes | S4 (cosmetic-marginal; selection adds a second indicator) | Backlog / defer with owner sign-off (palette change is P3-11 scope) |
 | F-3 | Column resize has no keyboard path (drag only) | S4 (workaround: none for resize specifically; hide/sort/freeze are keyboard-reachable) | Backlog with owner sign-off |
 | F-4 | Folder context menu keyboard access depends on the Obsidian host (file-explorer Menu-key behavior) | S4 (host capability, not plugin defect) | Owner T-I check records the actual behavior |
+| F-5 | SAD-80: row checkbox tint #CC785C (prototype `accent-tablify-terracotta`) is 2.86:1 on the light inner surface (#F4EFE6) vs 3:1 (WCAG 1.4.11) — the same value as the light focus/selection accent (F-2); dark passes. The control is native: Chrome draws an auto-contrast tick on the fill and a grey border when unchecked, so state is not conveyed by the tint alone | S4 (cosmetic-marginal; native tick and border carry the state) | Kept for prototype fidelity; decide together with F-2 |
+| F-6 | SAD-80: row reorder is drag-only (`#` handle), as in the prototype; there is no keyboard path to move a row | S4 (same class as F-3; row order is also changeable by sorting, which is keyboard-reachable through the header menu) | Backlog with owner sign-off |
 
 Per P6-03 acceptance: open findings are S3 or lower; F-1 (S3) and F-2/F-3/F-4 (S4) require owner sign-off in the decision log.
+
+## 7. SAD-80 additions (row selection, bulk delete, row drag)
+
+- **Checkboxes:** native `<input type="checkbox">` with `aria-label` "Select row N" / "Select all rows". With the column on (full table view only), `aria-colcount` and every `aria-colindex` shift by one, and the checkbox slots are `gridcell` / `columnheader` at index 1. Embeds are unchanged.
+- **Keyboard:** Space toggles a focused checkbox natively; Enter and Space on a checkbox are kept from the grid's key handler, so they never open the cell editor. Undo, redo and arrows still reach the grid.
+- **Delete:** "N selected" is `aria-live="polite"`. **Delete** is a real `<button>` with a visible focus ring (2px focus colour).
+- **Drag:** the drop line is `aria-hidden`; the move is announced through the "Row moved" notice.
+- **Contrast:** "N selected" #B5573A light (4.78:1) / #CC785C dark (4.96:1); Delete #DC2626 light (4.83:1) / #F87171 dark (5.87:1) on the card. The prototype's terracotta and red-500 fail AA for this 11px text, so the nearest AA shades ship, as for `mutedLight`. The checkbox tint is F-5.
+- **axe:** `tests/views/grid/rowSelection.test.ts` runs axe on the grid with the checkbox column on and a row selected: 0 critical, 0 serious.

@@ -6,6 +6,15 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Row selection, bulk delete and row reorder (SAD-80, prototype)**: each row now has a
+  checkbox, and the header checkbox selects every row the search or filter shows (or clears
+  them). While rows are selected, the meta row shows the prototype's **"N selected · Delete"**;
+  **Delete** removes them in one undoable step with a notice. Drag a row by its number (`#`) to
+  reorder it, with the prototype's drop line and edge auto-scroll; mouse, pen and touch all work.
+  A move is saved and undoable; while the view is sorted or grouped, the drag is refused with
+  the prototype's message. Selection is UI state only: not saved and not undoable. Embedded
+  tables are unchanged.
+
 - **Prototype grid: header capsules, row numbers, Insert Row (SAD-79, prototype)**: the grid
   now uses the prototype's capsule layout. Each column header is a capsule with a drag grip, a
   key on the primary field, the name, the sort arrow (with its position in a multi-column sort),

@@ -225,6 +225,69 @@ export function createDeleteRowCommand(data: DeleteRowData): Command {
   };
 }
 
+// Unique keys so these commands never coalesce with each other (see execute() above).
+let uniqueSeq = 0;
+const uniqueKey = (prefix: string) => `${prefix}:${++uniqueSeq}`;
+
+export interface DeleteRowsData {
+  rowIds: string[];
+}
+
+/**
+ * Delete several rows as ONE undo step (SAD-80, prototype `deleteSelectedRows`). Undo puts
+ * every row back with its original id, revision and stored position, like the single-row
+ * command; rows are restored in ascending position so each index is valid when it is used.
+ */
+export function createDeleteRowsCommand(data: DeleteRowsData): Command {
+  let deleted: { row: Row; index: number }[] = [];
+  return {
+    type: 'deleteRows',
+    targetKey: uniqueKey('deleteRows'),
+    do(store: TableStore): void {
+      const order = store.getAllRows();
+      const ids = new Set(data.rowIds);
+      deleted = [];
+      order.forEach((row, index) => {
+        if (ids.has(row.id)) deleted.push({ row, index });
+      });
+      for (const d of deleted) store.deleteRow(d.row.id);
+    },
+    undo(store: TableStore): void {
+      for (const d of deleted) store.restoreRow(d.row, d.index);
+    },
+  };
+}
+
+export interface MoveRowData {
+  rowId: string;
+  /** Row the moved row ends up directly above, in stored order; null = the end. */
+  beforeRowId: string | null;
+}
+
+/**
+ * Move one row in the stored (manual) order (SAD-80, prototype `moveRowBefore`). A pure order
+ * change: row ids, values and revisions are untouched. Undo returns the row to its old index;
+ * redo repeats the same move.
+ */
+export function createMoveRowCommand(data: MoveRowData): Command {
+  let fromIndex = -1;
+  return {
+    type: 'moveRow',
+    targetKey: uniqueKey('moveRow'),
+    do(store: TableStore): void {
+      const order = store.getDisplayOrder();
+      fromIndex = order.indexOf(data.rowId);
+      if (fromIndex < 0) return;
+      const rest = order.filter((id) => id !== data.rowId);
+      const at = data.beforeRowId === null ? rest.length : rest.indexOf(data.beforeRowId);
+      store.moveRow(data.rowId, at < 0 ? rest.length : at);
+    },
+    undo(store: TableStore): void {
+      if (fromIndex >= 0) store.moveRow(data.rowId, fromIndex);
+    },
+  };
+}
+
 // ---- P5-02 commands: row insert at a position, view change, field type change ----
 
 export interface InsertRowData {
@@ -237,9 +300,6 @@ export interface InsertRowData {
  * Insert a row at a position. The first do() creates the row; redo restores the same row id,
  * so later commands that refer to it still work. Undo deletes it.
  */
-// Unique keys so these commands never coalesce with each other (see execute() above).
-let uniqueSeq = 0;
-const uniqueKey = (prefix: string) => `${prefix}:${++uniqueSeq}`;
 
 export function createInsertRowCommand(data: InsertRowData): Command {
   let created: Row | undefined;

@@ -19,6 +19,7 @@ import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
 import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
 import { createDefaultView } from '../model/view.js';
 import { cycleHeaderSort, moveColumnOnto, resizeColumn, setFrozenColumns, setRowHeight } from './grid/columns.js';
+import { pruneSelection, setVisibleRows, toggleRow } from './grid/selection.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
 import { LinkPickerModal } from './grid/LinkPickerModal.js';
@@ -54,6 +55,8 @@ export class TableView extends TextFileView {
   private grid: GridView | null = null;
   private rawData = '';
   private editing: HTMLElement | null = null;
+  /** SAD-80: selected row ids — UI state only, never saved and never undoable. */
+  private rowSelection: ReadonlySet<string> = new Set();
   private toolbar: HTMLElement | null = null;
   private body: HTMLElement | null = null;
   private menuTarget: MenuTarget | null = null;
@@ -129,6 +132,8 @@ export class TableView extends TextFileView {
       return;
     }
     this.session = createSession(parsed.data);
+    // A (re)loaded file starts with nothing selected, like the prototype's switchTable().
+    this.rowSelection = new Set();
     this.titleRow?.update(this.titleState());
     this.publishLive();
     this.renderGrid();
@@ -152,6 +157,7 @@ export class TableView extends TextFileView {
     this.session = null;
     this.editing = null;
     this.menuTarget = null;
+    this.rowSelection = new Set();
     if (this.body) this.body.empty();
     this.syncToolbar();
   }
@@ -202,6 +208,8 @@ export class TableView extends TextFileView {
       view,
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
+      // SAD-80: only rows that still exist count (prototype selectedCount).
+      selectedCount: [...this.rowSelection].filter((id) => s.store.getRow(id) !== undefined).length,
       search: view.search ?? '',
       query: view.query ?? '',
       queryError: s.getFilterError(),
@@ -316,7 +324,36 @@ export class TableView extends TextFileView {
       onClearFilters: () => this.applyFilter({ search: '', query: '' }),
       onUndo: () => this.mutate((s) => s.undo()),
       onRedo: () => this.mutate((s) => s.redo()),
+      onDeleteSelected: () => this.deleteSelectedRows(),
     };
+  }
+
+  // ---- row selection and reorder (SAD-80) ----
+
+  /** Meta-row Delete (prototype `deleteSelectedRows`): one undo step, then the selection clears. */
+  private deleteSelectedRows(): void {
+    const s = this.session;
+    if (!s || this.rowSelection.size === 0) return;
+    const deleted = s.deleteRows([...this.rowSelection]);
+    this.rowSelection = new Set();
+    if (deleted > 0) new Notice(`Deleted ${deleted} ${deleted === 1 ? 'row' : 'rows'}`);
+    this.afterChange();
+  }
+
+  /** Re-show the selection without touching the model: no save, no undo entry, no re-render. */
+  private showRowSelection(next: ReadonlySet<string>): void {
+    this.rowSelection = next;
+    this.grid?.setRowSelection(next);
+    this.syncToolbar();
+  }
+
+  /** Why rows cannot be dragged now — the prototype's two toasts — or null. */
+  private rowMoveBlocked(): string | null {
+    const view = this.session?.getView();
+    if (!view) return null;
+    if (view.sort.length > 0) return 'Clear sorting to reorder rows manually';
+    if (view.groupBy) return 'Disable grouping to reorder rows manually';
+    return null;
   }
 
   /** Toolbar Sync: the plugin's sync entry point, same as the command. */
@@ -417,6 +454,10 @@ export class TableView extends TextFileView {
   }
 
   private renderGrid(): void {
+    // SAD-80: a deleted (or undone) row leaves the selection before anything shows it.
+    if (this.session) {
+      this.rowSelection = pruneSelection(this.rowSelection, this.session.store.getDisplayOrder());
+    }
     // Refresh the toolbar on every render: row counts, hidden fields, row height, theme and
     // the persisted search/query all feed it. Runs before the guard so it also resets when
     // the session goes away.
@@ -456,7 +497,22 @@ export class TableView extends TextFileView {
         // SAD-79 (S-6): the Insert Row pill lives inside the shell (prototype #insertRowWrap)
         // and the grid shrinks to its content, so the empty-state hint is retired.
         onInsertRow: () => this.mutate((st) => st.addRow()),
+        // SAD-80: row checkboxes and select-all (UI state), and `#`-cell drag to reorder.
+        onToggleRow: (rowId, checked) => this.showRowSelection(toggleRow(this.rowSelection, rowId, checked)),
+        onToggleAllRows: (checked) => {
+          const visible = this.session?.getDisplayRows().map((r) => r.id) ?? [];
+          this.showRowSelection(setVisibleRows(this.rowSelection, visible, checked));
+        },
+        onRowMove: (rowId, beforeRowId) => {
+          if (this.session?.moveRowBefore(rowId, beforeRowId)) {
+            new Notice('Row moved');
+            this.afterChange();
+          }
+        },
+        rowMoveBlocked: () => this.rowMoveBlocked(),
+        onRowMoveBlocked: (reason) => new Notice(reason),
       });
+      this.grid.setRowSelection(this.rowSelection);
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
       this.grid.root.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -465,6 +521,7 @@ export class TableView extends TextFileView {
     } else {
       this.grid.setTheme(theme);
       this.grid.setModel(rows, fields, s.getView());
+      this.grid.setRowSelection(this.rowSelection);
     }
   }
 
