@@ -119,12 +119,28 @@ const ICONS = {
   sliders: 'sliders',
 } as const satisfies Record<string, FaGlyph>;
 
+/**
+ * The font-size each glyph renders at, mirroring `.tablify__btn-icon` in styles.css (10px, and
+ * 11px for the Sync / undo / redo / Options pills). `faIcon` needs it to reproduce Font Awesome's
+ * rounded icon boxes (SAD-92); `tests/ui/faIconBox.test.ts` fails if these drift from the CSS.
+ */
+export const ICON_PX: Record<keyof typeof ICONS, number> = {
+  search: 12,
+  sync: 11,
+  undo: 11,
+  redo: 11,
+  filter: 10,
+  plus: 10,
+  columns: 10,
+  sliders: 11,
+};
+
 /** Wrap a glyph in the icon span the styles colour with the accent token. */
 function iconSpan(glyph: keyof typeof ICONS): HTMLElement {
   const span = document.createElement('span');
   span.className = 'tablify__btn-icon';
   span.setAttribute('aria-hidden', 'true');
-  span.innerHTML = faIcon(ICONS[glyph]);
+  span.innerHTML = faIcon(ICONS[glyph], ICON_PX[glyph]);
   return span;
 }
 
@@ -173,7 +189,7 @@ export class Toolbar {
     const searchIcon = document.createElement('span');
     searchIcon.className = 'tablify__search-icon';
     searchIcon.setAttribute('aria-hidden', 'true');
-    searchIcon.innerHTML = faIcon(ICONS.search); // inline svg glyph, no external asset
+    searchIcon.innerHTML = faIcon(ICONS.search, ICON_PX.search); // inline svg glyph, no external asset
     this.searchInput = document.createElement('input');
     this.searchInput.type = 'search';
     this.searchInput.className = 'tablify__search-input';

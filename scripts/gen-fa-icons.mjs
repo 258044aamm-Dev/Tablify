@@ -96,11 +96,22 @@ export type FaGlyph = keyof typeof GLYPHS;
  * Inline SVG markup for a glyph, sized like Font Awesome's own inline SVGs (svg-inline--fa):
  * 1em tall, width from the viewBox, \`currentColor\` fill. The \`tablify__fa\` class carries the
  * shared metrics in styles.css; size it with font-size on the container.
+ *
+ * Pass \`sizePx\` (the font-size the container renders this glyph at) to take Font Awesome's own
+ * box width: the webfont rounds an icon's advance to the nearest whole pixel — measured
+ * \`cloud-arrow-up\` 640/512 × 11px = 13.75 → 14, \`plus\` 448/512 × 10px = 8.75 → 9, \`grip-vertical\`
+ * 320/512 × 12px = 7.5 → 8. An SVG keeps the exact fraction (SAD-86's \`hc-grip\` needed a manual
+ * 0.725px nudge for the same reason), and a quarter-pixel is enough to shift every glyph after an
+ * icon-only pill and turn the whole toolbar row fuzzy against the prototype (SAD-92).
  */
-export function faIcon(name: FaGlyph): string {
+export function faIcon(name: FaGlyph, sizePx?: number): string {
   const g = GLYPHS[name];
-  const width = +(g.w / 512).toFixed(4);
-  return \`<svg class="tablify__fa" viewBox="0 0 \${g.w} 512" width="\${width}em" height="1em" fill="currentColor" aria-hidden="true" focusable="false"><path d="\${g.d}"></path></svg>\`;
+  // With a size, emit whole pixels: an \`em\` width that lands a hair under the target (14/11em × 11px
+  // = 13.9997) is snapped down to the next 1/64px by layout and the quarter-pixel comes back.
+  const box = sizePx
+    ? { width: \`\${Math.round((g.w / 512) * sizePx)}\`, height: \`\${sizePx}\` }
+    : { width: \`\${(g.w / 512).toFixed(4)}em\`, height: '1em' };
+  return \`<svg class="tablify__fa" viewBox="0 0 \${g.w} 512" width="\${box.width}" height="\${box.height}" fill="currentColor" aria-hidden="true" focusable="false"><path d="\${g.d}"></path></svg>\`;
 }
 `;
 }

@@ -122,9 +122,23 @@ interface RegionResult {
   pixelMismatch: number | null;
 }
 
-/** Colors are compared after normalizing whitespace; 'rgba(0, 0, 0, 0)' and 'transparent' are equal. */
-function norm(v: string): string {
-  return v.replace(/\s+/g, ' ').replace(/rgba\(0, 0, 0, 0\)/g, 'transparent').trim();
+/**
+ * Colors are compared after normalizing whitespace; 'rgba(0, 0, 0, 0)' and 'transparent' are equal.
+ * SAD-92: a `box-shadow` is compared as its visible layers only — Tailwind's ring variables append
+ * fully transparent `rgba(0, 0, 0, 0) 0px 0px 0px 0px` layers, which every combo used to report as a
+ * difference although the rendered shadow is identical (capture-modals.ts has the same rule).
+ */
+function normShadow(value: string): string {
+  return value
+    .split(/,\s*(?![^()]*\))/)
+    .map((layer) => layer.trim())
+    .filter((layer) => !/^rgba\(0, 0, 0, 0\) 0px 0px 0px 0px$/.test(layer))
+    .join(', ');
+}
+
+function norm(v: string, prop?: string): string {
+  const base = prop === 'box-shadow' ? normShadow(v) : v;
+  return base.replace(/\s+/g, ' ').replace(/rgba\(0, 0, 0, 0\)/g, 'transparent').trim();
 }
 
 async function compareRegion(pp: Page, rp: Page, region: Region, dir: string): Promise<RegionResult> {
@@ -136,7 +150,7 @@ async function compareRegion(pp: Page, rp: Page, region: Region, dir: string): P
     if (Math.abs(a.w - b.w) > 1) styleDiffs.push({ prop: 'width', plugin: `${a.w}px`, prototype: `${b.w}px` });
     if (Math.abs(a.h - b.h) > 1) styleDiffs.push({ prop: 'height', plugin: `${a.h}px`, prototype: `${b.h}px` });
     for (const p of props) {
-      if (norm(a.styles[p] ?? '') !== norm(b.styles[p] ?? '')) {
+      if (norm(a.styles[p] ?? '', p) !== norm(b.styles[p] ?? '', p)) {
         styleDiffs.push({ prop: p, plugin: a.styles[p] ?? '', prototype: b.styles[p] ?? '' });
       }
     }
@@ -161,11 +175,34 @@ async function compareRegion(pp: Page, rp: Page, region: Region, dir: string): P
   return { id: region.id, plugin: a, prototype: b, styleDiffs, pixelMismatch };
 }
 
+/**
+ * SAD-92: park both pages at their resting scroll position. Clicking a pill Playwright has to
+ * reach makes the plugin scroll its toolbar row (`overflow-x: auto`, kept so Add Field / Options
+ * stay reachable on a phone) and makes the prototype pan its whole page — a page scroll moves the
+ * grid and the title row too, so the two pages stop being comparable. Zeroing every scroll offset
+ * on both pages puts them back in the same visual state; the float panel is `position: fixed`, so
+ * it stays where it opened. `closeOptions` has always done this after Escape.
+ */
+async function neutraliseScroll(pp: Page, rp: Page): Promise<void> {
+  const reset = `(() => {
+    const a = document.activeElement; if (a && a.blur) a.blur();
+    window.scrollTo(0, 0);
+    document.querySelectorAll('*').forEach((e) => { if (e.scrollLeft) e.scrollLeft = 0; if (e.scrollTop) e.scrollTop = 0; });
+  })()`;
+  await pp.evaluate(reset);
+  await rp.evaluate(reset);
+  await pp.mouse.move(0, 0);
+  await rp.mouse.move(0, 0);
+  await pp.waitForTimeout(150);
+  await rp.waitForTimeout(150);
+}
+
 async function openOptions(pp: Page, rp: Page): Promise<void> {
   await pp.click('button[data-action="options"]');
   await rp.click('#optionsBtn');
   await pp.waitForTimeout(150);
   await rp.waitForTimeout(150);
+  await neutraliseScroll(pp, rp);
 }
 
 /**
@@ -173,13 +210,23 @@ async function openOptions(pp: Page, rp: Page): Promise<void> {
  * select field, sort by the primary field, add a second sort and flip it, hide the second field.
  * Both panels stay open afterwards (each re-renders in place).
  */
-async function groupAndSort(pp: Page, rp: Page): Promise<void> {
+/** How far the grouped state got: `ok` = grouped + sorted + hidden, `note` = sorted/hidden only, `skip` = impossible in this fixture. */
+type GroupOutcome = { kind: 'ok' | 'note' | 'skip'; reason?: string };
+
+async function groupAndSort(pp: Page, rp: Page): Promise<GroupOutcome> {
   await openOptions(pp, rp);
   const pick = async (page: Page, sel: string, label: string) => {
     await page.selectOption(sel, { label });
     await page.waitForTimeout(120);
   };
-  const groupLabel = (await pp.locator('select[data-option="group-by"] option').allTextContents()).find((t) => t === 'Status');
+  // SAD-92: the grouped state needs a field to group by and a hideable column. A fixture without
+  // them used to hang here on a 30s locator timeout, so `--state all` could never complete.
+  const groupByOptions = await pp.locator('select[data-option="group-by"] option').allTextContents();
+  if (groupByOptions.filter((t) => t.trim() !== '' && !/^—|^none/i.test(t)).length === 0) {
+    await neutraliseScroll(pp, rp);
+    return { kind: 'skip', reason: 'no field to group by in this fixture' };
+  }
+  const groupLabel = groupByOptions.find((t) => t === 'Status');
   if (groupLabel) {
     await pick(pp, 'select[data-option="group-by"]', groupLabel);
     await pick(rp, '#floatPanel select >> nth=0', groupLabel);
@@ -196,8 +243,8 @@ async function groupAndSort(pp: Page, rp: Page): Promise<void> {
     await pp.click('button[data-sort-dir="1"]');
     await rp.click('#floatPanel button:has-text("A→Z") >> nth=1');
   }
-  const hideable = await pp.locator('button[data-hide-field]:not([disabled])').first().getAttribute('aria-label');
-  const fieldName = hideable?.replace(/^Hide field /, '');
+  const hideBtns = pp.locator('button[data-hide-field]:not([disabled])');
+  const fieldName = (await hideBtns.count()) > 0 ? (await hideBtns.first().getAttribute('aria-label'))?.replace(/^Hide field /, '') : undefined;
   if (fieldName) {
     await pp.click(`button[aria-label="Hide field ${fieldName}"]`);
     await rp.click(`#floatPanel div.flex.items-center.justify-between:has(> span:text-is("${fieldName}")) button`);
@@ -206,6 +253,9 @@ async function groupAndSort(pp: Page, rp: Page): Promise<void> {
   await rp.mouse.move(0, 0);
   await pp.waitForTimeout(150);
   await rp.waitForTimeout(150);
+  // No Status (or whatever select field the fixture has): the grid is sorted and hidden but not
+  // grouped, so the run still compares something real — say so rather than implying group rows.
+  return groupLabel ? { kind: 'ok' } : { kind: 'note', reason: 'no Status field — sorted and hidden, not grouped' };
 }
 
 /** Close both float panels (Escape on the plugin toolbar, the prototype's document handler). */
@@ -255,7 +305,7 @@ async function main(): Promise<void> {
 
   await buildHarness();
   const server = await startStaticServer(REPO);
-  const report: Array<{ combo: string; regions: RegionResult[] }> = [];
+  const report: Array<{ combo: string; regions: RegionResult[]; skipped?: string | null; notes?: string[] }> = [];
   try {
     for (const theme of themes) for (const viewport of viewports) for (const fixture of fixtures) for (const state of states) {
       const combo = `${theme}-${viewport}-${fixture}-${state}`;
@@ -270,15 +320,23 @@ async function main(): Promise<void> {
       try {
         const regions = [...REGIONS];
         const results: RegionResult[] = [];
+        let skipped: string | null = null;
+        const notes: string[] = [];
         if (state === 'grouped') {
           // The panel is compared while open (sort rows, struck field, Show pill); the grid after
           // it closes. Row-index regions address the prototype's first <tr>, a group header now.
-          await groupAndSort(plugin.page, proto.page);
-          await plugin.page.screenshot({ path: path.join(dir, 'plugin-panel.png') });
-          await proto.page.screenshot({ path: path.join(dir, 'prototype-panel.png') });
-          results.push(await compareRegion(plugin.page, proto.page, OPTIONS_REGION, dir));
-          await closeOptions(plugin.page, proto.page);
-          regions.splice(0, regions.length, ...REGIONS.filter((r) => r.id !== 'row-number' && r.id !== 'row-check'), ...GROUP_REGIONS);
+          const outcome = await groupAndSort(plugin.page, proto.page);
+          if (outcome.kind === 'skip') {
+            // No grouping precondition: still compare the resting grid, and say so in the report.
+            skipped = `grouped state skipped — ${outcome.reason}`;
+          } else {
+            if (outcome.kind === 'note' && outcome.reason) notes.push(`grouped state: ${outcome.reason}`);
+            await plugin.page.screenshot({ path: path.join(dir, 'plugin-panel.png') });
+            await proto.page.screenshot({ path: path.join(dir, 'prototype-panel.png') });
+            results.push(await compareRegion(plugin.page, proto.page, OPTIONS_REGION, dir));
+            await closeOptions(plugin.page, proto.page);
+            regions.splice(0, regions.length, ...REGIONS.filter((r) => r.id !== 'row-number' && r.id !== 'row-check'), ...GROUP_REGIONS);
+          }
         }
         if (state === 'options') {
           await openOptions(plugin.page, proto.page);
@@ -291,7 +349,7 @@ async function main(): Promise<void> {
         await plugin.page.screenshot({ path: path.join(dir, 'plugin.png') });
         await proto.page.screenshot({ path: path.join(dir, 'prototype.png') });
         for (const r of regions) results.push(await compareRegion(plugin.page, proto.page, r, dir));
-        report.push({ combo, regions: results });
+        report.push({ combo, regions: results, skipped, notes });
       } finally {
         await plugin.close();
         await proto.close();
@@ -303,8 +361,11 @@ async function main(): Promise<void> {
 
   fs.writeFileSync(path.join(outRoot, 'report.json'), JSON.stringify(report, null, 2));
   const md: string[] = ['# Visual parity report', '', `Generated by tests/visual/capture-compare.ts.`, ''];
-  for (const { combo, regions } of report) {
-    md.push(`## ${combo}`, '', '| Region | Plugin | Prototype | Pixel diff | Style differences |', '|---|---|---|---|---|');
+  for (const { combo, regions, skipped, notes } of report) {
+    md.push(`## ${combo}`, '');
+    if (skipped) md.push(`**SKIPPED:** ${skipped}`, '');
+    for (const note of notes ?? []) md.push(`**NOTE:** ${note}`, '');
+    md.push('| Region | Plugin | Prototype | Pixel diff | Style differences |', '|---|---|---|---|---|');
     for (const r of regions) {
       const px = r.pixelMismatch === null ? '—' : `${(r.pixelMismatch * 100).toFixed(2)} %`;
       const dims = (s: StyleSnap) => (s.found ? `${s.w}×${s.h}` : 'missing');

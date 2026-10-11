@@ -349,6 +349,15 @@
   /* The prototype's ↶ ↷ are not flex boxes: the glyph sits in the 16px text line (38px pill),
      unlike the flex buttons whose icon-only state is 33px (Sync below xl). */
   height: 16px;
+  /* SAD-92: centring the 11px glyph in that 16px line puts it on a half pixel (2.5px), where the
+     prototype's webfont lands on the whole one (2px on its 122px row). A half-pixel glyph is also
+     rasterised with a gentler antialias, which is why undo/redo carried the largest icon deltas. */
+  align-items: flex-start;
+}
+
+.tablify button.tablify__toolbar-button[data-action='undo'] .tablify__btn-icon > svg.tablify__fa,
+.tablify button.tablify__toolbar-button[data-action='redo'] .tablify__btn-icon > svg.tablify__fa {
+  margin-top: 2px;
 }
 
 .tablify button.tablify__toolbar-button[data-action='options'] .tablify__btn-icon {
@@ -367,11 +376,24 @@
   }
 }
 
-/* Phones: the box takes its own row; the buttons scroll beneath it. */
+/* Phones: the box takes its own row; the buttons shrink and wrap their labels beneath it. */
 @media (max-width: 639px) {
   .tablify__search {
     flex: 1 1 100%;
     min-width: 0;
+  }
+
+  /* SAD-92 (owner D-1, 2026-10-11) — phone toolbar parity with the prototype. Its buttons are
+     plain flex items, so they shrink and their labels wrap: "Add Row" becomes a two-line 74×54
+     pill, the row is 102px tall and the card 588px. The desktop rules above pin every pill with
+     `flex: 0 0 auto` + `white-space: nowrap`, which kept them one line tall (38px) and left the
+     whole grid 16px high — twelve mobile regions measured 26–61 % off.
+     The actions row keeps `overflow-x: auto` from its base rule: the prototype's 481px row is
+     clipped at the card edge, which would hide Add Field and Options on a phone, so scrolling is
+     kept to leave every control reachable — the resting render is identical. */
+  .tablify button.tablify__toolbar-button {
+    white-space: normal;
+    flex: 0 1 auto;
   }
 }
 

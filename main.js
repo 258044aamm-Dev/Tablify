@@ -10079,10 +10079,10 @@ var GLYPHS = {
   "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
   "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" }
 };
-function faIcon(name) {
+function faIcon(name, sizePx) {
   const g = GLYPHS[name];
-  const width = +(g.w / 512).toFixed(4);
-  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${width}em" height="1em" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
+  const box = sizePx ? { width: `${Math.round(g.w / 512 * sizePx)}`, height: `${sizePx}` } : { width: `${(g.w / 512).toFixed(4)}em`, height: "1em" };
+  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${box.width}" height="${box.height}" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
 }
 
 // src/ui/protoModal.ts
@@ -14468,11 +14468,21 @@ var ICONS = {
   columns: "table-columns",
   sliders: "sliders"
 };
+var ICON_PX = {
+  search: 12,
+  sync: 11,
+  undo: 11,
+  redo: 11,
+  filter: 10,
+  plus: 10,
+  columns: 10,
+  sliders: 11
+};
 function iconSpan(glyph) {
   const span = document.createElement("span");
   span.className = "tablify__btn-icon";
   span.setAttribute("aria-hidden", "true");
-  span.innerHTML = faIcon(ICONS[glyph]);
+  span.innerHTML = faIcon(ICONS[glyph], ICON_PX[glyph]);
   return span;
 }
 var ACTIONS = {
@@ -14510,7 +14520,7 @@ var Toolbar = class _Toolbar {
     const searchIcon = document.createElement("span");
     searchIcon.className = "tablify__search-icon";
     searchIcon.setAttribute("aria-hidden", "true");
-    searchIcon.innerHTML = faIcon(ICONS.search);
+    searchIcon.innerHTML = faIcon(ICONS.search, ICON_PX.search);
     this.searchInput = document.createElement("input");
     this.searchInput.type = "search";
     this.searchInput.className = "tablify__search-input";
