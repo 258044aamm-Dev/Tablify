@@ -62,3 +62,46 @@ export function setRowHeight(view: ViewDefinition, h: 'small' | 'medium' | 'larg
   const res = validateView(next, fields);
   return res.ok ? res.view : view;
 }
+
+/**
+ * Header-name sort click (SAD-79, prototype `headerSortClick`).
+ *
+ * Plain click: a column that is not the only sort key becomes the single ascending key;
+ * the only key cycles asc → desc → off. Shift-click edits that column inside a multi-key
+ * sort: absent → appended ascending, ascending → descending, descending → removed.
+ */
+export function cycleHeaderSort(view: ViewDefinition, fieldId: string, additive: boolean, fields: FieldDefinition[]): ViewDefinition {
+  const sort = [...(view.sort ?? [])];
+  const i = sort.findIndex((s) => s.fieldId === fieldId);
+  let nextSort: ViewDefinition['sort'];
+  if (additive) {
+    if (i < 0) nextSort = [...sort, { fieldId, direction: 'asc' }];
+    else if (sort[i].direction === 'asc') nextSort = sort.map((s, j) => (j === i ? { ...s, direction: 'desc' as const } : s));
+    else nextSort = sort.filter((_, j) => j !== i);
+  } else if (i < 0 || sort.length > 1) {
+    nextSort = [{ fieldId, direction: 'asc' }];
+  } else if (sort[i].direction === 'asc') {
+    nextSort = [{ fieldId, direction: 'desc' }];
+  } else {
+    nextSort = [];
+  }
+  const res = validateView({ ...view, sort: nextSort }, fields);
+  return res.ok ? res.view : view;
+}
+
+/**
+ * Header-grip drop (SAD-79, prototype `colDrop`): move `fieldId` onto `targetId`. Dragging
+ * right lands after the target, dragging left lands before it. Works on the full column order,
+ * so hidden columns keep their place.
+ */
+export function moveColumnOnto(view: ViewDefinition, fieldId: string, targetId: string, fields: FieldDefinition[]): ViewDefinition {
+  if (fieldId === targetId) return view;
+  const order = [...(view.columnOrder ?? fields.map((f) => f.id))];
+  const from = order.indexOf(fieldId);
+  const to = order.indexOf(targetId);
+  if (from < 0 || to < 0) return view;
+  order.splice(from, 1);
+  order.splice(order.indexOf(targetId) + (from < to ? 1 : 0), 0, fieldId);
+  const res = validateView({ ...view, columnOrder: order }, fields);
+  return res.ok ? res.view : view;
+}

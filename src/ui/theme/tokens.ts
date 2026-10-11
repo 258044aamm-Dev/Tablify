@@ -66,6 +66,14 @@ export const palette = {
   accentBlue: '#6a9bcc',
   /** #788c5d — success and tertiary accent */
   accentGreen: '#788c5d',
+  /** #6B7280 — dark header grip glyph (prototype dark `gray-500`) */
+  gripDark: '#6B7280',
+  /** #B7B2AE — light header grip glyph: prototype `clay/50` composited on the white capsule */
+  gripLight: '#B7B2AE',
+  /** #4B5563 — dark empty-cell dash and row-number grip (prototype dark `gray-600`) */
+  placeholderDark: '#4B5563',
+  /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
+  placeholderLight: '#C5C1BE',
 } as const;
 
 // Keep palette values as the only literals — tests enforce no hex outside this file.
@@ -101,6 +109,16 @@ export interface Theme {
   textTitle: string;
   /** SAD-77: prototype title-link hover ink (`hover:text-tablify-charcoal dark:hover:text-white`). */
   textStrong: string;
+  /**
+   * SAD-79: decorative header grip glyph (prototype `text-tablify-clay/50 dark:text-gray-500`).
+   * Decoration only — never carries text, so it is outside the AA text-contrast checks.
+   */
+  textFaint: string;
+  /**
+   * SAD-79: empty-cell em dash and row-number grip (prototype `text-tablify-clay/40
+   * dark:text-gray-600`). A placeholder glyph, not content.
+   */
+  textPlaceholder: string;
 }
 
 export const lightTheme: Theme = {
@@ -126,6 +144,8 @@ export const lightTheme: Theme = {
   borderCapsule: palette.borderLight,
   textTitle: palette.textOnLight,
   textStrong: palette.textOnLight,
+  textFaint: palette.gripLight,
+  textPlaceholder: palette.placeholderLight,
 };
 
 export const darkTheme: Theme = {
@@ -151,6 +171,8 @@ export const darkTheme: Theme = {
   borderCapsule: palette.capsuleBorderDark,
   textTitle: palette.light,
   textStrong: palette.cardLight,
+  textFaint: palette.gripDark,
+  textPlaceholder: palette.placeholderDark,
 };
 
 export const themes = {
@@ -186,6 +208,8 @@ export const cssVars = {
   borderCapsule: '--tablify-border-capsule',
   textTitle: '--tablify-text-title',
   textStrong: '--tablify-text-strong',
+  textFaint: '--tablify-text-faint',
+  textPlaceholder: '--tablify-text-placeholder',
 } as const;
 
 /**
@@ -219,6 +243,8 @@ export function applyTheme(root: HTMLElement, theme: ThemeName): void {
   root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
   root.style.setProperty(cssVars.textTitle, t.textTitle);
   root.style.setProperty(cssVars.textStrong, t.textStrong);
+  root.style.setProperty(cssVars.textFaint, t.textFaint);
+  root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
 }
 
 /**

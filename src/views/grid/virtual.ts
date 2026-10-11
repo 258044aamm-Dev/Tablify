@@ -6,18 +6,44 @@
 
 export const OVERSCAN = 5;
 
+/**
+ * Row pitch in px: the distance from one row's top to the next.
+ *
+ * SAD-79: the prototype's grid is a `border-separate` table with 8px vertical spacing, `py-1`
+ * (4px) cells and fixed-height capsules — 34px for Short and Medium, 40px for Tall (`CAPH` in
+ * Prototype/script.js). Pitch = capsule + 2×4 cell padding + 8 spacing: 50 / 50 / 56.
+ * Short and Medium therefore share a pitch (the prototype changes only the capsule's inner
+ * padding between them); `compact` / `tall` are the legacy model aliases of small / large.
+ */
 export function rowHeightPx(rowHeight: string): number {
+  return capsuleHeightPx(rowHeight) + ROW_CHROME_PX;
+}
+
+/** Vertical px around a capsule inside one row pitch: 8px spacing + 2×4px cell padding. */
+export const ROW_CHROME_PX = 16;
+
+/** Capsule height in px per row-height setting (prototype `CAPH`). */
+export function capsuleHeightPx(rowHeight: string): number {
+  switch (rowHeight) {
+    case 'tall':
+    case 'large':
+      return 40;
+    default:
+      return 34;
+  }
+}
+
+/** Normalised row-height key for CSS hooks (`data-row-height`). */
+export function rowHeightKey(rowHeight: string): 'small' | 'medium' | 'large' {
   switch (rowHeight) {
     case 'compact':
     case 'small':
-      return 28;
-    case 'medium':
-      return 36;
+      return 'small';
     case 'tall':
     case 'large':
-      return 48;
+      return 'large';
     default:
-      return 36;
+      return 'medium';
   }
 }
 

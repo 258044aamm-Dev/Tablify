@@ -36,6 +36,10 @@ describe('P3-09 — Design tokens', () => {
       terracotta: '#CC785C',
       accentBlue: '#6a9bcc',
       accentGreen: '#788c5d',
+      gripDark: '#6B7280',
+      gripLight: '#B7B2AE',
+      placeholderDark: '#4B5563',
+      placeholderLight: '#C5C1BE',
     };
     expect(palette).toEqual(expected);
   });

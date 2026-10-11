@@ -10,7 +10,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { GridView, columnWidths, DEFAULT_COLUMN_WIDTH } from '../../../src/views/grid/GridView.js';
+import {
+  GridView,
+  columnWidths,
+  DEFAULT_COLUMN_WIDTH,
+  LEAD_CHECK_WIDTH,
+  LEAD_NUM_WIDTH,
+  COLUMN_GAP,
+} from '../../../src/views/grid/GridView.js';
 import { createDefaultView } from '../../../src/model/view.js';
 import type { FieldDefinition, Row, ViewDefinition } from '../../../src/model/types.js';
 
@@ -40,8 +47,16 @@ function mount(f: FieldDefinition[], r: Row[], view: ViewDefinition): GridView {
   return grid;
 }
 
+// SAD-79: field cells only — every line also starts with the checkbox and `#` lead slots.
 const headerCells = (grid: GridView) =>
-  Array.from(grid.header.children) as HTMLElement[];
+  Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__header-cell'));
+const headerLeads = (grid: GridView) =>
+  Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__lead'));
+/** Sticky left of the first field: the checkbox and `#` slots plus their spacing. */
+const LEAD_BLOCK = LEAD_CHECK_WIDTH + COLUMN_GAP + LEAD_NUM_WIDTH + COLUMN_GAP;
+/** Row/header box width for field widths `w` (6px edge spacing + 6px after every slot). */
+const lineWidth = (w: number[]) =>
+  COLUMN_GAP + [LEAD_CHECK_WIDTH, LEAD_NUM_WIDTH, ...w].reduce((a, b) => a + b + COLUMN_GAP, 0);
 const firstRow = (grid: GridView): HTMLElement => {
   const row = grid.content.querySelector<HTMLElement>('.tablify__row');
   expect(row, 'first body row').not.toBeNull();
@@ -49,7 +64,8 @@ const firstRow = (grid: GridView): HTMLElement => {
   return row;
 };
 
-const bodyCells = (grid: GridView) => Array.from(firstRow(grid).children) as HTMLElement[];
+const bodyCells = (grid: GridView) => Array.from(firstRow(grid).querySelectorAll<HTMLElement>('.tablify__cell'));
+const bodyLeads = (grid: GridView) => Array.from(firstRow(grid).querySelectorAll<HTMLElement>('.tablify__lead'));
 
 describe('columnWidths', () => {
   it('defaults every column to the same width when the view records none', () => {
@@ -109,10 +125,13 @@ describe('GridView — header and body agree on column geometry', () => {
   });
 
   it('spans rows and header across the full column width, not just the viewport', () => {
-    const f = fields(12); // 12 * 160 = 1920px, well past the 800px viewport
+    const f = fields(12); // 12 * 160 = 1920px of fields, well past the 800px viewport
     const grid = mount(f, rows(2, f), createDefaultView(f));
-    expect(grid.header.style.width).toBe('1920px');
-    expect(firstRow(grid).style.width).toBe('1920px');
+    // SAD-79: + the 32px checkbox and 40px `#` slots and the 6px prototype column spacing.
+    const total = lineWidth(Array(12).fill(DEFAULT_COLUMN_WIDTH));
+    expect(total).toBe(2082);
+    expect(grid.header.style.width).toBe(`${total}px`);
+    expect(firstRow(grid).style.width).toBe(`${total}px`);
     // min-width keeps them filling the grid when the columns are narrower than the viewport.
     expect(grid.header.style.minWidth).toBe('100%');
     grid.destroy();
@@ -153,7 +172,7 @@ describe('GridView — frozen columns', () => {
     const view = { ...createDefaultView(f), frozenColumns: 3 };
     const grid = mount(f, rows(2, f), view);
 
-    const offset = (n: number) => String(n * DEFAULT_COLUMN_WIDTH);
+    const offset = (n: number) => String(LEAD_BLOCK + n * (DEFAULT_COLUMN_WIDTH + COLUMN_GAP));
     expect(headerCells(grid).map((c) => c.style.left)).toEqual([
       `${offset(0)}px`,
       `${offset(1)}px`,
@@ -171,7 +190,11 @@ describe('GridView — frozen columns', () => {
     const view = { ...createDefaultView(f), frozenColumns: 2, columnWidths: { fld_0: 250 } };
     const grid = mount(f, rows(2, f), view);
 
-    expect(bodyCells(grid).map((c) => c.style.left)).toEqual(['0px', '250px', '']);
+    expect(bodyCells(grid).map((c) => c.style.left)).toEqual([
+      `${LEAD_BLOCK}px`,
+      `${LEAD_BLOCK + 250 + COLUMN_GAP}px`,
+      '',
+    ]);
     grid.destroy();
   });
 
@@ -232,35 +255,69 @@ describe('GridView — frozen columns', () => {
     const visible = [f[0], f[2]];
     const view = { ...createDefaultView(visible), frozenColumns: 2 };
     const grid = mount(visible, rows(2, visible), view);
-    expect(bodyCells(grid).map((c) => c.style.left)).toEqual(['0px', `${DEFAULT_COLUMN_WIDTH}px`]);
+    expect(bodyCells(grid).map((c) => c.style.left)).toEqual([
+      `${LEAD_BLOCK}px`,
+      `${LEAD_BLOCK + DEFAULT_COLUMN_WIDTH + COLUMN_GAP}px`,
+    ]);
+    grid.destroy();
+  });
+
+  // SAD-79 (S-5): freeze pins the prototype's whole frozen block — checkbox, `#`, then fields.
+  it('pins the checkbox and # slots with the frozen fields, flush to the shell edge', () => {
+    const f = fields(3);
+    const grid = mount(f, rows(2, f), { ...createDefaultView(f), frozenColumns: 1 });
+    for (const leads of [headerLeads(grid), bodyLeads(grid)]) {
+      expect(leads).toHaveLength(2);
+      expect(leads.map((c) => c.style.position)).toEqual(['sticky', 'sticky']);
+      expect(leads.map((c) => c.style.left)).toEqual(['0px', `${LEAD_CHECK_WIDTH + COLUMN_GAP}px`]);
+      expect(leads.every((c) => c.classList.contains('tablify__lead--frozen'))).toBe(true);
+    }
+    expect(headerLeads(grid).map((c) => c.style.zIndex)).toEqual(['2', '2']);
+    expect(bodyLeads(grid).map((c) => c.style.zIndex)).toEqual(['1', '1']);
+    grid.destroy();
+  });
+
+  it('leaves the lead slots in the flow when freeze is off', () => {
+    const f = fields(3);
+    const grid = mount(f, rows(2, f), { ...createDefaultView(f), frozenColumns: 0 });
+    for (const c of [...headerLeads(grid), ...bodyLeads(grid)]) {
+      expect(c.style.position).toBe('');
+      expect(c.classList.contains('tablify__lead--frozen')).toBe(false);
+    }
+    grid.destroy();
+  });
+
+  it('gives the lead slots the prototype widths in header and body alike', () => {
+    const f = fields(2);
+    const grid = mount(f, rows(1, f), createDefaultView(f));
+    const want = [`${LEAD_CHECK_WIDTH}px`, `${LEAD_NUM_WIDTH}px`];
+    expect(headerLeads(grid).map((c) => c.style.width)).toEqual(want);
+    expect(bodyLeads(grid).map((c) => c.style.width)).toEqual(want);
     grid.destroy();
   });
 });
 
+// SAD-79: the root is the single scroll container for both axes, so the sticky header
+// scrolls horizontally with the body by itself and frozen cells pin against the same box.
+// (SAD-69 C mirrored the viewport's scrollLeft onto an `overflow: hidden` header instead.)
 describe('GridView — horizontal scroll keeps the header aligned', () => {
-  it('mirrors the viewport scroll offset onto the header', () => {
+  it('scrolls both axes on the root, with no nested horizontal scroller', () => {
     const f = fields(12);
-    const view = { ...createDefaultView(f), frozenColumns: 1 };
-    const grid = mount(f, rows(2, f), view);
-
-    // The header is the viewport's sibling, not its child, so it does not scroll with it.
-    // Without the mirror the header drifts away from its columns.
-    grid.viewport.scrollLeft = 320;
-    grid.viewport.dispatchEvent(new Event('scroll'));
-    expect(grid.header.scrollLeft).toBe(320);
-
-    grid.viewport.scrollLeft = 0;
-    grid.viewport.dispatchEvent(new Event('scroll'));
-    expect(grid.header.scrollLeft).toBe(0);
+    const grid = mount(f, rows(2, f), { ...createDefaultView(f), frozenColumns: 1 });
+    expect(grid.root.style.overflow).toBe('auto');
+    expect(grid.viewport.style.overflowX).toBe('');
+    expect(grid.header.style.overflow).toBe('');
+    // Header and rows are the same width, so one scrollLeft moves both together.
+    expect(grid.header.style.width).toBe(firstRow(grid).style.width);
+    expect(grid.header.style.position).toBe('sticky');
     grid.destroy();
   });
 
-  it('makes the header its own scroll container so the mirror has somewhere to write', () => {
-    const f = fields(3);
-    const grid = mount(f, rows(2, f), createDefaultView(f));
-    // `hidden`, not `auto`: the header must be scrollable programmatically without
-    // growing a second horizontal scrollbar under the body's.
-    expect(grid.header.style.overflow).toBe('hidden');
+  it('sizes the viewport to every row plus the closing row spacing', () => {
+    const f = fields(2);
+    const grid = mount(f, rows(3, f), createDefaultView(f));
+    // 3 rows × 50px pitch + 8px closing spacing (prototype border-spacing-y).
+    expect(grid.viewport.style.height).toBe('158px');
     grid.destroy();
   });
 });

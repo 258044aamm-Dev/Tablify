@@ -31,11 +31,14 @@ export const REGIONS: Region[] = [
   { id: 'btn-redo', plugin: ['button[data-action="redo"]'], prototype: ['#toolbarRow button[onclick="redo()"]'], styles: [...BOX, ...PAD], pixels: true },
   { id: 'btn-undo', plugin: ['button[data-action="undo"]'], prototype: ['#toolbarRow button[onclick="undo()"]'], styles: [...BOX, ...PAD], pixels: true },
   { id: 'row-count', plugin: ['.tablify__rowcount'], prototype: ['#rowCountBadge'], styles: [...TEXT] },
-  { id: 'grid-shell', plugin: ['.tablify--grid'], prototype: ['#tableInnerContainer'], styles: [...BOX, ...PAD] },
-  { id: 'header-capsule', plugin: ['.tablify__header-cell[data-field-id]', '.tablify__header-cell'], prototype: ['.header-capsule'], styles: [...BOX, ...PAD], pixels: true },
-  { id: 'header-name', plugin: ['.tablify__header-name', '.tablify__header-cell'], prototype: ['.header-capsule button'], styles: [...TEXT] },
-  { id: 'type-badge', plugin: ['.tablify__type-badge'], prototype: ['.header-capsule span.font-mono'], styles: [...BOX, ...TEXT, ...PAD] },
-  { id: 'body-cell', plugin: ['.tablify__row .tablify__cell[data-field-id]', '.tablify__row .tablify__cell'], prototype: ['.cell-capsule'], styles: [...BOX, ...TEXT, ...PAD] },
+  // SAD-79: the shell is size-identical now, so the whole grid is pixel-compared.
+  { id: 'grid-shell', plugin: ['.tablify--grid'], prototype: ['#tableInnerContainer'], styles: [...BOX, ...PAD], pixels: true },
+  { id: 'header-capsule', plugin: ['.tablify__header-cell[data-field-id] .tablify__header-capsule', '.tablify__header-cell[data-field-id]', '.tablify__header-cell'], prototype: ['.header-capsule'], styles: [...BOX, ...PAD], pixels: true },
+  { id: 'header-name', plugin: ['.tablify__hc-name', '.tablify__hc-name--static', '.tablify__header-name', '.tablify__header-cell'], prototype: ['.header-capsule button'], styles: [...TEXT] },
+  { id: 'type-badge', plugin: ['.tablify__hc-badge', '.tablify__type-badge'], prototype: ['.header-capsule span.font-mono'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
+  { id: 'header-num', plugin: ['.tablify__header .tablify__lead--num'], prototype: ['#tableHeaderHead th:nth-child(2)'], styles: [...TEXT], pixels: true },
+  { id: 'body-cell', plugin: ['.tablify__row .tablify__cell[data-field-id] .tablify__capsule', '.tablify__row .tablify__cell[data-field-id]', '.tablify__row .tablify__cell'], prototype: ['.cell-capsule'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
+  { id: 'row-number', plugin: ['.tablify__row .tablify__lead--num'], prototype: ['#tableBody tr:first-child td:nth-child(2)'], styles: [...TEXT], pixels: true },
   { id: 'insert-row', plugin: ['.tablify__insert-row'], prototype: ['#insertRowBtn'], styles: [...BOX, ...TEXT], pixels: true },
 ];
 

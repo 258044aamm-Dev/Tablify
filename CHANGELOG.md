@@ -6,6 +6,17 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Prototype grid: header capsules, row numbers, Insert Row (SAD-79, prototype)**: the grid
+  now uses the prototype's capsule layout. Each column header is a capsule with a drag grip, a
+  key on the primary field, the name, the sort arrow (with its position in a multi-column sort),
+  a type badge and a **⋮** button. **Click a header name** to sort ascending, descending, then
+  off; **Shift-click** adds it as another sort key. **⋮** opens the column menu, the column edge
+  resizes (120–520 px) and the grip drags a column to a new place. All of these are saved
+  and undoable. Each row starts with a checkbox slot and its row number. Values sit in
+  capsules and empty cells show a dash. **Insert Row** is inside the grid, under the last row.
+  When the columns are narrower than the pane they stretch to fill it; the grid and card are
+  only as tall as their content, up to the pane. Embedded tables keep a read-only header.
+
 - **One "Search or query" box, Sync and Filter in the toolbar (SAD-78, prototype)**: the
   separate Search and Query inputs are merged into the prototype's single mono box. Free words
   search; `field:value` terms query; both combine (`ship Status:Done`). The two halves are still
@@ -68,6 +79,10 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Smoother scrolling (SAD-79)**: scrolling within the rows already on screen no longer
+  rebuilds them, so ordinary scrolling of large tables does about a third of the work it did.
+- **Row height (SAD-79)**: rows follow the prototype's spacing (50 / 50 / 56 px for
+  small / medium / large); small and medium look the same, as in the prototype.
 - **Prototype refactored into three files** (`ce7870c`) — `Prototype/Anthropic Table Workspace.html`
   split into `Prototype/index.html` (markup + inline Tailwind CDN config), `Prototype/style.css`
   (all custom rules) and `Prototype/script.js` (entire app). No functional changes; UI, behavior
@@ -88,6 +103,11 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   `left` offsets were hardcoded while table layout is auto. Fixed with exact-offset gap-filling
   shadows on `.sticky-col` and `syncFrozenOffsets()`, which measures rendered header widths +
   computed border-spacing after every render and aligns all sticky header/body cells.
+
+### Removed
+
+- **Empty-table hint (SAD-79)**: the sentence under an empty grid is gone; the Insert Row pill
+  under the header is the way in, as in the prototype.
 
 ### Added
 

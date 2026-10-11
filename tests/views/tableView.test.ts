@@ -375,7 +375,7 @@ describe('TableView — view settings (Options)', () => {
 
   it('changing row height re-renders and persists', async () => {
     const view = await openView(sampleFile());
-    expect(gridRows(view)[0].style.height).toBe('36px'); // medium
+    expect(gridRows(view)[0].style.height).toBe('50px'); // medium — SAD-79 prototype pitch
 
     need(action(view, 'options'), 'options button').click();
     need(
@@ -383,7 +383,7 @@ describe('TableView — view settings (Options)', () => {
       'large row height',
     ).click();
 
-    expect(gridRows(view)[0].style.height).toBe('48px');
+    expect(gridRows(view)[0].style.height).toBe('56px'); // large — 40px capsule pitch
     expect(savedView(view).rowHeight).toBe('large');
   });
 

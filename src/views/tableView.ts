@@ -18,7 +18,7 @@ import { LongPressDetector } from './longPress.js';
 import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
 import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
 import { createDefaultView } from '../model/view.js';
-import { setFrozenColumns, setRowHeight } from './grid/columns.js';
+import { cycleHeaderSort, moveColumnOnto, resizeColumn, setFrozenColumns, setRowHeight } from './grid/columns.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
 import { LinkPickerModal } from './grid/LinkPickerModal.js';
@@ -57,10 +57,6 @@ export class TableView extends TextFileView {
   private toolbar: HTMLElement | null = null;
   private body: HTMLElement | null = null;
   private menuTarget: MenuTarget | null = null;
-  /** Bottom-of-shell "Insert Row" pill (SAD-71 Step 1, prototype parity). */
-  private insertBtn: HTMLButtonElement | null = null;
-  /** Empty-table hint shown above the Insert Row pill (SAD-71 Step 1). */
-  private emptyHint: HTMLElement | null = null;
   /** Workspace card wrapping toolbar + grid (SAD-71 Step 6). */
   private card: HTMLElement | null = null;
   /** Prototype title row: editable name, file chip, Import/Export/Copy links (SAD-77). */
@@ -156,8 +152,6 @@ export class TableView extends TextFileView {
     this.session = null;
     this.editing = null;
     this.menuTarget = null;
-    this.insertBtn = null;
-    this.emptyHint = null;
     if (this.body) this.body.empty();
     this.syncToolbar();
   }
@@ -448,32 +442,30 @@ export class TableView extends TextFileView {
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
         linkSummary: (value) => summarizeLinks(value, linkIndexFor(this.app).index),
+        // SAD-79: prototype header capsule controls. Every one writes through setView(), so
+        // each sort, resize and reorder is a single undo step, like the header menu's.
+        onSortClick: (col, additive) => {
+          const field = this.session?.getVisibleFields()[col];
+          if (field) this.applyViewChange((view, all) => cycleHeaderSort(view, field.id, additive, all));
+        },
+        onHeaderMenu: (col, pos) => this.openHeaderMenu(col, pos),
+        onColumnResize: (fieldId, width) =>
+          this.applyViewChange((view, all) => resizeColumn(view, fieldId, width, all)),
+        onColumnMove: (fieldId, targetId) =>
+          this.applyViewChange((view, all) => moveColumnOnto(view, fieldId, targetId, all)),
+        // SAD-79 (S-6): the Insert Row pill lives inside the shell (prototype #insertRowWrap)
+        // and the grid shrinks to its content, so the empty-state hint is retired.
+        onInsertRow: () => this.mutate((st) => st.addRow()),
       });
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
       this.grid.root.addEventListener('keydown', (e) => this.onKeyDown(e));
       this.grid.root.addEventListener('contextmenu', (e) => this.onContextMenu(e));
       this.wirePressEvents(this.grid.root);
-      // SAD-71 Step 1: the prototype keeps an "Insert Row" pill at the bottom of the table
-      // container, and an empty table gets a hint instead of a black void. Plain DOM (not
-      // createEl) so the jsdom mock and the browser agree, exactly like toolbar/GridView.
-      this.emptyHint = document.createElement('div');
-      this.emptyHint.className = 'tablify__empty-hint';
-      this.emptyHint.textContent = 'This table is empty. Insert a row to get started.';
-      this.emptyHint.dataset.testid = 'tablify-empty-hint';
-      this.body.appendChild(this.emptyHint);
-      this.insertBtn = document.createElement('button');
-      this.insertBtn.type = 'button';
-      this.insertBtn.className = 'tablify__insert-row';
-      this.insertBtn.textContent = 'Insert Row';
-      this.insertBtn.dataset.testid = 'tablify-insert-row';
-      this.insertBtn.addEventListener('click', () => this.mutate((st) => st.addRow()));
-      this.body.appendChild(this.insertBtn);
     } else {
       this.grid.setTheme(theme);
       this.grid.setModel(rows, fields, s.getView());
     }
-    if (this.emptyHint) this.emptyHint.hidden = rows.length !== 0;
   }
 
   // ---- keyboard ----
@@ -816,7 +808,8 @@ export class TableView extends TextFileView {
     this.editing = editor;
     editor.style.position = 'absolute';
     const rootRect = grid.root.getBoundingClientRect();
-    const cellRect = cell.getBoundingClientRect();
+    // SAD-79: the visible cell is the capsule inside the slot; edit over it.
+    const cellRect = (cell.querySelector<HTMLElement>('.tablify__capsule') ?? cell).getBoundingClientRect();
     editor.style.left = `${cellRect.left - rootRect.left + grid.root.scrollLeft}px`;
     editor.style.top = `${cellRect.top - rootRect.top + grid.root.scrollTop}px`;
     editor.style.width = `${cellRect.width}px`;

@@ -10,6 +10,12 @@
  * inside each capsule (border-box), so outer sizes never move.
  *
  * These tests fail on the pre-Step-4 code.
+ *
+ * SAD-79 update: the prototype geometry replaced the 3px-border trick — `.tablify__cell` is
+ * now the 4px-padded slot (the prototype's `<td>`) and the visible capsule is its
+ * `.tablify__capsule` child; header capsules carry a real type badge whose text is CSS
+ * `attr()` content. The contracts below (value span, textContent, no inline separators)
+ * still hold.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -85,8 +91,11 @@ describe('SAD-71 Step 4 — capsule cells', () => {
 
   it('carries the field type as an attribute for the header capsule badge', () => {
     const grid = mount();
-    const header = Array.from(grid.header.children) as HTMLElement[];
+    const header = Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__header-cell'));
     expect(header[0].getAttribute('data-field-type')).toBe('text');
+    const badge = header[0].querySelector<HTMLElement>('.tablify__hc-badge');
+    expect(badge?.getAttribute('data-type')).toBe('text');
+    expect(badge?.getAttribute('aria-hidden')).toBe('true');
     // textContent stays exactly the field name (existing contract).
     expect(header[0].textContent).toBe('Col 0');
     grid.destroy();
@@ -102,7 +111,7 @@ describe('SAD-71 Step 4 — capsule language in styles.css', () => {
   };
 
   it('cells are rounded capsules on the capsule surface', () => {
-    const r = rule('.tablify__cell {');
+    const r = rule('\n.tablify__capsule {'); // line start: not the selected-capsule rule
     expect(r).toContain('border-radius');
     expect(r).toContain('var(--tablify-bg-capsule)');
   });
@@ -123,7 +132,8 @@ describe('SAD-71 Step 4 — capsule language in styles.css', () => {
   });
 
   it('header capsules label the type via attr() so textContent stays clean', () => {
-    expect(css).toContain('.tablify__header-cell::after');
-    expect(css).toContain('attr(data-field-type)');
+    expect(css).toContain('.tablify__hc-badge::after');
+    expect(css).toContain('attr(data-type)');
+    expect(css).toContain('attr(data-sort)');
   });
 });

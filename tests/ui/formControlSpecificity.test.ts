@@ -81,6 +81,9 @@ describe('SAD-71 — form-control selectors outrank Obsidian element rules', () 
       'tablify__fb-apply',
       'tablify__fb-cancel',
       'tablify__fb-clear',
+      // SAD-79 header capsule
+      'tablify__hc-name',
+      'tablify__hc-menu',
     ];
     const offenders: string[] = [];
     for (const group of ruleSelectors(css)) {

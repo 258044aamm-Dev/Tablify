@@ -94,19 +94,22 @@ describe('SAD-71 — the last column has no trailing divider', () => {
       viewportWidth: 800,
     });
     document.body.appendChild(grid.root);
-    const header = Array.from(grid.header.children) as HTMLElement[];
+    // SAD-79: field header cells (the checkbox and `#` lead slots precede them).
+    const header = Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__header-cell'));
     expect(header).toHaveLength(3);
     // SAD-71 Step 4: separation is the capsule gap now; no inline separators anywhere.
     for (const c of header) {
       expect(c.style.borderRight).not.toContain('solid');
     }
     const row = grid.content.querySelector<HTMLElement>('.tablify__row');
-    const cells = Array.from(row?.children ?? []) as HTMLElement[];
+    const cells = Array.from(row?.querySelectorAll<HTMLElement>('.tablify__cell') ?? []);
     expect(cells[2].style.borderRight).not.toContain('solid');
     grid.destroy();
   });
 });
 
+// SAD-79 (S-6): the pill moved inside the grid shell (prototype #insertRowWrap) and the
+// grid shrinks to its content, so the SAD-71 empty-state hint is retired.
 describe('SAD-71 — empty and short tables keep an Insert Row affordance', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -154,13 +157,14 @@ describe('SAD-71 — empty and short tables keep an Insert Row affordance', () =
     return view;
   }
 
-  it('shows an Insert Row pill and an empty hint when the table has no rows', async () => {
+  it('shows an Insert Row pill inside the grid shell, and no empty-state text, when the table has no rows', async () => {
     const view = await openView(sampleFile(0));
     const insert = view.contentEl.querySelector<HTMLElement>('[data-testid="tablify-insert-row"]');
     expect(insert, 'Insert Row affordance').not.toBeNull();
-    const hint = view.contentEl.querySelector<HTMLElement>('[data-testid="tablify-empty-hint"]');
-    expect(hint, 'empty hint').not.toBeNull();
-    expect(hint?.hidden).toBe(false);
+    expect(insert?.closest('.tablify--grid'), 'pill lives inside the grid shell').not.toBeNull();
+    expect(insert?.textContent).toBe('Insert Row');
+    expect(view.contentEl.querySelector('[data-testid="tablify-empty-hint"]')).toBeNull();
+    expect(view.contentEl.querySelector('.tablify__empty-hint')).toBeNull();
   });
 
   it('inserts a row from the Insert Row pill', async () => {
@@ -169,14 +173,18 @@ describe('SAD-71 — empty and short tables keep an Insert Row affordance', () =
     expect(insert).not.toBeNull();
     insert?.click();
     expect(view.contentEl.querySelectorAll('.tablify__row')).toHaveLength(1);
-    const hint = view.contentEl.querySelector<HTMLElement>('[data-testid="tablify-empty-hint"]');
-    expect(hint?.hidden).toBe(true);
+    // The grid is kept, so the same pill keeps working.
+    view.contentEl.querySelector<HTMLElement>('[data-testid="tablify-insert-row"]')?.click();
+    expect(view.contentEl.querySelectorAll('.tablify__row')).toHaveLength(2);
   });
 
-  it('keeps the Insert Row pill visible for short tables, hidden hint', async () => {
+  it('keeps the Insert Row pill after the rows, inside the shell, for short tables', async () => {
     const view = await openView(sampleFile(2));
-    expect(view.contentEl.querySelector('[data-testid="tablify-insert-row"]')).not.toBeNull();
-    const hint = view.contentEl.querySelector<HTMLElement>('[data-testid="tablify-empty-hint"]');
-    expect(hint?.hidden).toBe(true);
+    const insert = view.contentEl.querySelector<HTMLElement>('[data-testid="tablify-insert-row"]');
+    expect(insert).not.toBeNull();
+    const grid = view.contentEl.querySelector<HTMLElement>('.tablify--grid');
+    const wrap = insert?.parentElement;
+    expect(wrap?.classList.contains('tablify__insert-wrap')).toBe(true);
+    expect(grid?.lastElementChild).toBe(wrap);
   });
 });

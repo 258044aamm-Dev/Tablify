@@ -2,13 +2,26 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect } from 'vitest';
-import { getVisibleRange, rowHeightPx, totalHeight, OVERSCAN } from '../../../src/views/grid/virtual.js';
+import { getVisibleRange, rowHeightPx, capsuleHeightPx, rowHeightKey, totalHeight, OVERSCAN } from '../../../src/views/grid/virtual.js';
 
 describe('P3-01 — Virtual rows', () => {
-  it('rowHeightPx maps compact/medium/tall', () => {
-    expect(rowHeightPx('compact')).toBe(28);
-    expect(rowHeightPx('medium')).toBe(36);
-    expect(rowHeightPx('tall')).toBe(48);
+  // SAD-79: prototype pitch — 34/34/40 capsule + 2×4 cell padding + 8 row spacing.
+  it('rowHeightPx maps small/medium/large (and the compact/tall aliases) to the prototype pitch', () => {
+    expect(rowHeightPx('small')).toBe(50);
+    expect(rowHeightPx('compact')).toBe(50);
+    expect(rowHeightPx('medium')).toBe(50);
+    expect(rowHeightPx('large')).toBe(56);
+    expect(rowHeightPx('tall')).toBe(56);
+    expect(rowHeightPx('unknown')).toBe(50);
+  });
+
+  it('capsule heights follow the prototype CAPH table', () => {
+    expect(capsuleHeightPx('small')).toBe(34);
+    expect(capsuleHeightPx('medium')).toBe(34);
+    expect(capsuleHeightPx('large')).toBe(40);
+    expect(rowHeightKey('compact')).toBe('small');
+    expect(rowHeightKey('tall')).toBe('large');
+    expect(rowHeightKey('weird')).toBe('medium');
   });
 
   it('totalHeight is rows * height', () => {

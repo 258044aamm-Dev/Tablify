@@ -88,7 +88,10 @@ describe('SAD-69 D — grid is themed by Tablify tokens, not Obsidian variables'
     expect(selected, 'a selected cell should be rendered').not.toBeNull();
 
     if (!selected) return;
-    const outline = selected.style.outline;
+    // SAD-79: the selection ring is drawn on the visible capsule inside the slot.
+    const capsule = selected.querySelector<HTMLElement>('.tablify__capsule');
+    expect(capsule, 'selected cell capsule').not.toBeNull();
+    const outline = capsule?.style.outline ?? '';
     expect(outline).toContain('--tablify-selection');
     expect(outline).not.toContain('--interactive-accent');
 

@@ -12106,17 +12106,28 @@ function createEditor(field, row, store, stack, onDone) {
 // src/views/grid/virtual.ts
 var OVERSCAN = 5;
 function rowHeightPx(rowHeight) {
+  return capsuleHeightPx(rowHeight) + ROW_CHROME_PX;
+}
+var ROW_CHROME_PX = 16;
+function capsuleHeightPx(rowHeight) {
+  switch (rowHeight) {
+    case "tall":
+    case "large":
+      return 40;
+    default:
+      return 34;
+  }
+}
+function rowHeightKey(rowHeight) {
   switch (rowHeight) {
     case "compact":
     case "small":
-      return 28;
-    case "medium":
-      return 36;
+      return "small";
     case "tall":
     case "large":
-      return 48;
+      return "large";
     default:
-      return 36;
+      return "medium";
   }
 }
 function getVisibleRange(scrollTop, viewportHeight, rowHeight, totalRows, overscan = OVERSCAN) {
@@ -12235,7 +12246,15 @@ var palette = {
   /** #6a9bcc — secondary accent (links, info) */
   accentBlue: "#6a9bcc",
   /** #788c5d — success and tertiary accent */
-  accentGreen: "#788c5d"
+  accentGreen: "#788c5d",
+  /** #6B7280 — dark header grip glyph (prototype dark `gray-500`) */
+  gripDark: "#6B7280",
+  /** #B7B2AE — light header grip glyph: prototype `clay/50` composited on the white capsule */
+  gripLight: "#B7B2AE",
+  /** #4B5563 — dark empty-cell dash and row-number grip (prototype dark `gray-600`) */
+  placeholderDark: "#4B5563",
+  /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
+  placeholderLight: "#C5C1BE"
 };
 var lightTheme = {
   bg: palette.light,
@@ -12259,7 +12278,9 @@ var lightTheme = {
   borderPillHover: palette.pillBorderHoverLight,
   borderCapsule: palette.borderLight,
   textTitle: palette.textOnLight,
-  textStrong: palette.textOnLight
+  textStrong: palette.textOnLight,
+  textFaint: palette.gripLight,
+  textPlaceholder: palette.placeholderLight
 };
 var darkTheme = {
   bg: palette.dark,
@@ -12283,7 +12304,9 @@ var darkTheme = {
   borderPillHover: palette.pillBorderHoverDark,
   borderCapsule: palette.capsuleBorderDark,
   textTitle: palette.light,
-  textStrong: palette.cardLight
+  textStrong: palette.cardLight,
+  textFaint: palette.gripDark,
+  textPlaceholder: palette.placeholderDark
 };
 var themes = {
   light: lightTheme,
@@ -12311,7 +12334,9 @@ var cssVars = {
   borderPillHover: "--tablify-border-pill-hover",
   borderCapsule: "--tablify-border-capsule",
   textTitle: "--tablify-text-title",
-  textStrong: "--tablify-text-strong"
+  textStrong: "--tablify-text-strong",
+  textFaint: "--tablify-text-faint",
+  textPlaceholder: "--tablify-text-placeholder"
 };
 function applyTheme(root, theme) {
   root.classList.remove("tablify--light", "tablify--dark");
@@ -12339,10 +12364,221 @@ function applyTheme(root, theme) {
   root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
   root.style.setProperty(cssVars.textTitle, t.textTitle);
   root.style.setProperty(cssVars.textStrong, t.textStrong);
+  root.style.setProperty(cssVars.textFaint, t.textFaint);
+  root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
+}
+
+// src/ui/faIcons.ts
+var GLYPHS = {
+  "file-import": { w: 512, d: "M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z" },
+  "file-export": { w: 576, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z" },
+  "file-csv": { w: 512, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z" },
+  "copy": { w: 512, d: "M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" },
+  "magnifying-glass": { w: 512, d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" },
+  "cloud-arrow-up": { w: 640, d: "M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" },
+  "rotate-left": { w: 512, d: "M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" },
+  "rotate-right": { w: 512, d: "M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z" },
+  "filter": { w: 512, d: "M3.9 54.9C10.5 40.9 24.5 32 40 32H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L320 320.9V448c0 12.1-6.8 23.2-17.7 28.6s-23.8 4.3-33.5-3l-64-48c-8.1-6-12.8-15.5-12.8-25.6V320.9L9 97.3C-.7 85.4-2.8 68.8 3.9 54.9z" },
+  "plus": { w: 448, d: "M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" },
+  "table-columns": { w: 512, d: "M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z" },
+  "sliders": { w: 512, d: "M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" },
+  "xmark": { w: 384, d: "M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" },
+  "trash-can": { w: 448, d: "M135.2 17.7C140.6 6.8 151.7 0 163.8 0H284.2c12.1 0 23.2 6.8 28.6 17.7L320 32h96c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32h96l7.2-14.3zM32 128H416V448c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V128zm96 64c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16z" },
+  "grip-vertical": { w: 320, d: "M40 352l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zm192 0l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 320c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 192l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 160c-22.1 0-40-17.9-40-40L0 72C0 49.9 17.9 32 40 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40z" },
+  "key": { w: 512, d: "M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z" },
+  "ellipsis-vertical": { w: 128, d: "M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z" },
+  "font": { w: 448, d: "M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z" },
+  "align-left": { w: 448, d: "M288 64c0 17.7-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H256c17.7 0 32 14.3 32 32zm0 256c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H256c17.7 0 32 14.3 32 32zM0 192c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 448c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z" },
+  "hashtag": { w: 448, d: "M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H347.1L325.8 320H384c17.7 0 32 14.3 32 32s-14.3 32-32 32H315.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7H155.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8L90.2 384H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192L165.8 320h95.1l21.3-128H187.1z" },
+  "dollar-sign": { w: 320, d: "M160 0c17.7 0 32 14.3 32 32V67.7c1.6 .2 3.1 .4 4.7 .7c.4 .1 .7 .1 1.1 .2l48 8.8c17.4 3.2 28.9 19.9 25.7 37.2s-19.9 28.9-37.2 25.7l-47.5-8.7c-31.3-4.6-58.9-1.5-78.3 6.2s-27.2 18.3-29 28.1c-2 10.7-.5 16.7 1.2 20.4c1.8 3.9 5.5 8.3 12.8 13.2c16.3 10.7 41.3 17.7 73.7 26.3l2.9 .8c28.6 7.6 63.6 16.8 89.6 33.8c14.2 9.3 27.6 21.9 35.9 39.5c8.5 17.9 10.3 37.9 6.4 59.2c-6.9 38-33.1 63.4-65.6 76.7c-13.7 5.6-28.6 9.2-44.4 11V480c0 17.7-14.3 32-32 32s-32-14.3-32-32V445.1c-.4-.1-.9-.1-1.3-.2l-.2 0 0 0c-24.4-3.8-64.5-14.3-91.5-26.3c-16.1-7.2-23.4-26.1-16.2-42.2s26.1-23.4 42.2-16.2c20.9 9.3 55.3 18.5 75.2 21.6c31.9 4.7 58.2 2 76-5.3c16.9-6.9 24.6-16.9 26.8-28.9c1.9-10.6 .4-16.7-1.3-20.4c-1.9-4-5.6-8.4-13-13.3c-16.4-10.7-41.5-17.7-74-26.3l-2.8-.7 0 0C119.4 279.3 84.4 270 58.4 253c-14.2-9.3-27.5-22-35.8-39.6c-8.4-17.9-10.1-37.9-6.1-59.2C23.7 116 52.3 91.2 84.8 78.3c13.3-5.3 27.9-8.9 43.2-11V32c0-17.7 14.3-32 32-32z" },
+  "percent": { w: 384, d: "M374.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-320 320c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l320-320zM128 128A64 64 0 1 0 0 128a64 64 0 1 0 128 0zM384 384a64 64 0 1 0 -128 0 64 64 0 1 0 128 0z" },
+  "stopwatch": { w: 448, d: "M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-41.8-12.3-80.7-33.5-113.2l24.1-24.1c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L355.7 143c-28.1-23-62.2-38.8-99.7-44.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H224 176zm72 192V320c0 13.3-10.7 24-24 24s-24-10.7-24-24V192c0-13.3 10.7-24 24-24s24 10.7 24 24z" },
+  "star": { w: 576, d: "M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z" },
+  "square-check": { w: 448, d: "M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM337 209L209 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L303 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z" },
+  "calendar": { w: 448, d: "M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z" },
+  "clock": { w: 512, d: "M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z" },
+  "link": { w: 640, d: "M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z" },
+  "envelope": { w: 512, d: "M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z" },
+  "phone": { w: 512, d: "M164.9 24.6c-7.7-18.6-28-28.5-47.4-23.2l-88 24C12.1 30.2 0 46 0 64C0 311.4 200.6 512 448 512c18 0 33.8-12.1 38.6-29.5l24-88c5.3-19.4-4.6-39.7-23.2-47.4l-96-40c-16.3-6.8-35.2-2.1-46.3 11.6L304.7 368C234.3 334.7 177.3 277.7 144 207.3L193.3 167c13.7-11.2 18.4-30 11.6-46.3l-40-96z" },
+  "circle-dot": { w: 512, d: "M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-352a96 96 0 1 1 0 192 96 96 0 1 1 0-192z" },
+  "list-check": { w: 512, d: "M152.1 38.2c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 113C-2.3 103.6-2.3 88.4 7 79s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zm0 160c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zM224 96c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H192c-17.7 0-32-14.3-32-32zM48 368a48 48 0 1 1 0 96 48 48 0 1 1 0-96z" },
+  "paperclip": { w: 448, d: "M364.2 83.8c-24.4-24.4-64-24.4-88.4 0l-184 184c-42.1 42.1-42.1 110.3 0 152.4s110.3 42.1 152.4 0l152-152c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-152 152c-64 64-167.6 64-231.6 0s-64-167.6 0-231.6l184-184c46.3-46.3 121.3-46.3 167.6 0s46.3 121.3 0 167.6l-176 176c-28.6 28.6-75 28.6-103.6 0s-28.6-75 0-103.6l144-144c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-144 144c-6.7 6.7-6.7 17.7 0 24.4s17.7 6.7 24.4 0l176-176c24.4-24.4 24.4-64 0-88.4z" },
+  "square-root-variable": { w: 576, d: "M282.6 78.1c8-27.3 33-46.1 61.4-46.1H544c17.7 0 32 14.3 32 32s-14.3 32-32 32H344L238.7 457c-3.6 12.3-14.1 21.2-26.8 22.8s-25.1-4.6-31.5-15.6L77.6 288H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H77.6c22.8 0 43.8 12.1 55.3 31.8l65.2 111.8L282.6 78.1zM393.4 233.4c12.5-12.5 32.8-12.5 45.3 0L480 274.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3L525.3 320l41.4 41.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L480 365.3l-41.4 41.4c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L434.7 320l-41.4-41.4c-12.5-12.5-12.5-32.8 0-45.3z" },
+  "diagram-project": { w: 576, d: "M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z" },
+  "arrow-down-1-9": { w: 576, d: "M450.7 38c-8.3-6-19.1-7.7-28.8-4.4l-48 16c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l5.9-2V160H384c-17.7 0-32 14.3-32 32s14.3 32 32 32h48 48c17.7 0 32-14.3 32-32s-14.3-32-32-32H464V64c0-10.3-4.9-19.9-13.3-26zM160 480c9 0 17.5-3.8 23.6-10.4l88-96c11.9-13 11.1-33.3-2-45.2s-33.3-11.1-45.2 2L192 365.7V64c0-17.7-14.3-32-32-32s-32 14.3-32 32V365.7L95.6 330.4c-11.9-13-32.2-13.9-45.2-2s-13.9 32.2-2 45.2l88 96C142.5 476.2 151 480 160 480zM418.3 307a32 32 0 1 1 27.4 57.9A32 32 0 1 1 418.3 307zM405.1 419.8l-6.8 9.2c-10.5 14.2-7.5 34.2 6.7 44.8s34.2 7.5 44.8-6.7l48.8-65.8c14-18.9 21.5-41.7 21.5-65.2c0-48.6-39.4-88-88-88s-88 39.4-88 88c0 39.2 25.6 72.4 61.1 83.8z" },
+  "calendar-plus": { w: 512, d: "M128 32V64H80c-26.5 0-48 21.5-48 48v48H480V112c0-26.5-21.5-48-48-48H384V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H192V32c0-17.7-14.3-32-32-32s-32 14.3-32 32zM480 192H32V464c0 26.5 21.5 48 48 48H432c26.5 0 48-21.5 48-48V192zM256 248c13.3 0 24 10.7 24 24v56h56c13.3 0 24 10.7 24 24s-10.7 24-24 24H280v56c0 13.3-10.7 24-24 24s-24-10.7-24-24V376H176c-13.3 0-24-10.7-24-24s10.7-24 24-24h56V272c0-13.3 10.7-24 24-24z" },
+  "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" }
+};
+function faIcon(name) {
+  const g = GLYPHS[name];
+  const width = +(g.w / 512).toFixed(4);
+  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${width}em" height="1em" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
+}
+
+// src/menus/tableMenuModel.ts
+var SEPARATOR = { id: "sep", label: "", enabled: false, separator: true };
+var TYPE_LABELS = {
+  text: "Text",
+  long_text: "Long text",
+  number: "Number",
+  currency: "Currency",
+  percent: "Percent",
+  duration: "Duration",
+  rating: "Rating",
+  checkbox: "Checkbox",
+  date: "Date",
+  date_time: "Date and time",
+  url: "URL",
+  email: "Email",
+  phone: "Phone",
+  single_select: "Single select",
+  multi_select: "Multi select",
+  attachment: "Attachment",
+  formula: "Formula",
+  link: "Link"
+};
+var CHANGE_TARGET_TYPES = [
+  "text",
+  "long_text",
+  "number",
+  "currency",
+  "percent",
+  "duration",
+  "rating",
+  "checkbox",
+  "date",
+  "date_time",
+  "url",
+  "email",
+  "phone",
+  "single_select",
+  "multi_select",
+  "attachment",
+  "formula",
+  "link"
+];
+function cellEntries(ctx) {
+  const entries = [{ id: "cell.copy", label: "Copy", enabled: true }];
+  if (ctx.isLink) {
+    entries.push({ id: "cell.links", label: "Choose linked rows\u2026", enabled: !ctx.readOnly });
+    if ((ctx.foreignLinks ?? 0) > 0) {
+      entries.push({ id: "cell.removeForeign", label: "Remove links to other tables", enabled: !ctx.readOnly });
+    }
+  }
+  return [
+    ...entries,
+    {
+      id: "cell.paste",
+      label: "Paste",
+      enabled: !ctx.readOnly && ctx.hasClipboard && !ctx.isLink,
+      reason: ctx.readOnly ? "Read-only field" : ctx.isLink ? "Use Choose linked rows instead" : "Nothing copied yet"
+    },
+    {
+      id: "cell.clear",
+      label: "Clear",
+      enabled: !ctx.readOnly && !ctx.cellEmpty,
+      reason: ctx.readOnly ? "Read-only field" : "Cell is already empty"
+    }
+  ];
+}
+function rowEntries() {
+  return [
+    { id: "row.insertAbove", label: "Insert row above", enabled: true },
+    { id: "row.insertBelow", label: "Insert row below", enabled: true },
+    { id: "row.duplicate", label: "Duplicate row", enabled: true },
+    { id: "row.copy", label: "Copy row", enabled: true },
+    { id: "row.delete", label: "Delete row", enabled: true }
+  ];
+}
+function headerEntries(ctx) {
+  const sort = ctx.view.sort;
+  const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
+  const frozenThrough = ctx.colIndex + 1;
+  return [
+    // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
+    { id: "header.type", label: "Change field type\u2026", enabled: true },
+    // P8-03: only formula fields have an expression to edit.
+    ...ctx.fieldType === "formula" ? [{ id: "header.formula", label: "Edit formula\u2026", enabled: true }] : [],
+    {
+      id: "header.hide",
+      label: "Hide field",
+      enabled: !ctx.isPrimary,
+      reason: "Primary field cannot be hidden"
+    },
+    {
+      id: "header.sortAsc",
+      label: "Sort ascending",
+      enabled: sortedThis !== "asc",
+      reason: "Already sorted ascending"
+    },
+    {
+      id: "header.sortDesc",
+      label: "Sort descending",
+      enabled: sortedThis !== "desc",
+      reason: "Already sorted descending"
+    },
+    {
+      id: "header.freeze",
+      label: "Freeze column",
+      enabled: ctx.view.frozenColumns !== frozenThrough,
+      reason: "Already frozen through this column"
+    }
+  ];
+}
+function cellMenu(cell2) {
+  return [...cellEntries(cell2), SEPARATOR, ...rowEntries()];
+}
+function displayTitle(entry) {
+  return entry.enabled || !entry.reason ? entry.label : `${entry.label} (${entry.reason})`;
+}
+
+// src/views/grid/fieldTypeBadge.ts
+var TYPE_ICONS = {
+  text: "font",
+  long_text: "align-left",
+  number: "hashtag",
+  currency: "dollar-sign",
+  percent: "percent",
+  duration: "stopwatch",
+  rating: "star",
+  checkbox: "square-check",
+  date: "calendar",
+  date_time: "clock",
+  url: "link",
+  email: "envelope",
+  phone: "phone",
+  single_select: "circle-dot",
+  multi_select: "list-check",
+  attachment: "paperclip",
+  formula: "square-root-variable",
+  link: "diagram-project",
+  auto_number: "arrow-down-1-9",
+  created_time: "calendar-plus",
+  modified_time: "calendar-check"
+};
+var SYSTEM_LABELS = {
+  auto_number: "Auto number",
+  created_time: "Created time",
+  modified_time: "Last modified"
+};
+function typeIcon(type) {
+  return TYPE_ICONS[type] ?? "font";
+}
+function typeLabel(type) {
+  const t = type;
+  return TYPE_LABELS[t] ?? SYSTEM_LABELS[t] ?? type;
 }
 
 // src/views/grid/GridView.ts
 var DEFAULT_COLUMN_WIDTH = 160;
+var LEAD_CHECK_WIDTH = 32;
+var LEAD_NUM_WIDTH = 40;
+var COLUMN_GAP = 6;
+var ROW_GAP = 8;
+var RESIZE_MIN_WIDTH = 120;
+var RESIZE_MAX_WIDTH = 520;
+var DRAG_THRESHOLD_PX = 4;
+var LEAD_SLOTS = 2;
 function columnWidths(fields, view) {
   const widths = view.columnWidths ?? {};
   return fields.map((f) => {
@@ -12350,11 +12586,20 @@ function columnWidths(fields, view) {
     return typeof w === "number" && Number.isFinite(w) && w > 0 ? Math.round(w) : DEFAULT_COLUMN_WIDTH;
   });
 }
+function fillWidths(natural, available) {
+  const gaps = COLUMN_GAP * (natural.length + 1);
+  const sum = natural.reduce((a, b) => a + b, 0);
+  if (!(available > 0) || sum <= 0 || available <= sum + gaps)
+    return natural.slice();
+  const scale = (available - gaps) / sum;
+  return natural.map((w) => Math.floor(w * scale * 100) / 100);
+}
 var GridView = class {
   constructor(opts) {
     this.opts = opts;
     this.fields = opts.fields;
     this.rows = opts.rows;
+    this.view = opts.view;
     this.totalRows = opts.rows.length;
     this.rowHeight = rowHeightPx(opts.view.rowHeight);
     this.root = document.createElement("div");
@@ -12363,6 +12608,7 @@ var GridView = class {
     this.root.setAttribute("aria-rowcount", String(this.totalRows + 1));
     this.root.setAttribute("aria-colcount", String(this.fields.length));
     this.sortState = Array.isArray(opts.view.sort) ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) : [];
+    this.applyRowHeightClass(opts.view.rowHeight);
     this.measure(opts.view);
     this.root.style.overflow = "auto";
     this.root.style.webkitOverflowScrolling = "touch";
@@ -12372,17 +12618,15 @@ var GridView = class {
     this.header.className = "tablify__header";
     this.header.setAttribute("role", "row");
     this.header.style.position = "sticky";
-    this.header.style.top = "0";
     this.header.style.zIndex = "3";
     this.header.style.display = "flex";
-    this.header.style.overflow = "hidden";
     this.root.appendChild(this.header);
+    this.header.addEventListener("keydown", stopButtonKeys);
     this.viewport = document.createElement("div");
     this.viewport.className = "tablify__viewport";
     this.viewport.setAttribute("role", "presentation");
     this.viewport.style.position = "relative";
-    this.viewport.style.height = `${totalHeight(this.totalRows, this.rowHeight)}px`;
-    this.viewport.style.overflowX = "auto";
+    this.viewport.style.height = `${this.bodyHeight()}px`;
     this.content = document.createElement("div");
     this.content.className = "tablify__content";
     this.content.setAttribute("role", "presentation");
@@ -12392,6 +12636,8 @@ var GridView = class {
     this.content.style.right = "0";
     this.viewport.appendChild(this.content);
     this.root.appendChild(this.viewport);
+    if (opts.onInsertRow)
+      this.buildInsertRow(opts.onInsertRow);
     this.pool = new RowPool(() => {
       const el2 = document.createElement("div");
       el2.className = "tablify__row";
@@ -12401,10 +12647,9 @@ var GridView = class {
     });
     this.root.addEventListener("scroll", () => {
       this.scrollTop = this.root.scrollTop;
+      if (this.renderedRange && this.rangeFor(this.scrollTop) === this.renderedRange)
+        return;
       this.render();
-    });
-    this.viewport.addEventListener("scroll", () => {
-      this.header.scrollLeft = this.viewport.scrollLeft;
     });
     this.root.addEventListener("click", (e) => {
       const target = e.target;
@@ -12419,6 +12664,10 @@ var GridView = class {
       this.setSelection({ row, col });
       this.opts.onCellClick?.(row, col);
     });
+    if (typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(() => this.refreshGeometry());
+      this.resizeObserver.observe(this.root);
+    }
     this.renderHeader();
     this.render();
   }
@@ -12426,30 +12675,45 @@ var GridView = class {
   header;
   viewport;
   content;
+  /** SAD-79: Insert Row wrapper inside the shell; null when no onInsertRow was given. */
+  insertWrap = null;
   pool;
   scrollTop = 0;
   rowHeight;
   totalRows;
   fields;
   rows;
+  view;
   selected = null;
   sortState = [];
   /** Column geometry, recomputed by measure(). Header and body share it. */
   widths = [];
+  /** Sticky `left` of each field column when frozen. */
   offsets = [];
+  /** SAD-79: displayed widths and sticky lefts of every slot (checkbox, #, fields…). */
+  slotWidths = [];
+  slotLefts = [];
   frozenColumns = 0;
   totalWidth = 0;
+  /** SAD-79: shell content width for fill mode; 0 until laid out. */
+  availableWidth = 0;
+  /** SAD-79: live width while a resize handle is dragged (not yet committed). */
+  resizePreview = null;
+  resizeObserver = null;
   /** Replace rows, fields, and view settings, then re-render. Scroll position is kept. */
   setModel(rows, fields, view) {
     this.rows = rows;
     this.fields = fields;
+    this.view = view;
     this.totalRows = rows.length;
     this.rowHeight = rowHeightPx(view.rowHeight);
     this.sortState = Array.isArray(view.sort) ? view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) : [];
+    this.applyRowHeightClass(view.rowHeight);
+    this.readAvailableWidth();
     this.measure(view);
     this.root.setAttribute("aria-rowcount", String(this.totalRows + 1));
     this.root.setAttribute("aria-colcount", String(this.fields.length));
-    this.viewport.style.height = `${totalHeight(this.totalRows, this.rowHeight)}px`;
+    this.viewport.style.height = `${this.bodyHeight()}px`;
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
       this.selected = null;
     }
@@ -12490,10 +12754,12 @@ var GridView = class {
   }
   /**
    * Pane resize hook (SAD-71 Step 1). Sizing is CSS-driven, so a resize reflows the root
-   * by itself; what needs redoing is the virtual-row math, which reads clientHeight.
+   * by itself; what needs redoing is the virtual-row math, which reads clientHeight, and
+   * (SAD-79) the fill-mode column widths, which read clientWidth.
    */
   handleResize() {
-    this.render();
+    if (!this.refreshGeometry())
+      this.render();
   }
   /** Number of DOM row elements currently mounted (active) */
   getRenderedRowCount() {
@@ -12509,55 +12775,147 @@ var GridView = class {
   }
   /** Header labels in column order (for tests and accessibility checks). */
   getHeaderLabels() {
-    return Array.from(this.header.children).map((c) => c.textContent ?? "");
+    return Array.from(this.header.querySelectorAll(".tablify__header-cell")).map((c) => c.textContent ?? "");
+  }
+  /** SAD-79: displayed width of every slot (checkbox, #, fields…) — for tests and harnesses. */
+  getSlotWidths() {
+    return this.slotWidths.slice();
+  }
+  // ---- geometry ----
+  /** Viewport height: every row's pitch plus the table's closing 8px spacing. */
+  bodyHeight() {
+    return totalHeight(this.totalRows, this.rowHeight) + ROW_GAP;
+  }
+  applyRowHeightClass(rowHeight) {
+    const key = rowHeightKey(rowHeight);
+    this.root.classList.remove("tablify--rh-small", "tablify--rh-medium", "tablify--rh-large");
+    this.root.classList.add(`tablify--rh-${key}`);
+  }
+  /** Read the shell's content-box width. Returns true when it changed. */
+  readAvailableWidth() {
+    let w = 0;
+    const cw = this.root.clientWidth;
+    if (cw > 0) {
+      const cs = typeof getComputedStyle === "function" ? getComputedStyle(this.root) : null;
+      const pad2 = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+      w = Math.max(0, cw - pad2);
+    }
+    if (Math.abs(w - this.availableWidth) < 0.5)
+      return false;
+    this.availableWidth = w;
+    return true;
+  }
+  /** Re-measure after a size change. Returns true when it re-rendered. */
+  refreshGeometry() {
+    if (!this.readAvailableWidth())
+      return false;
+    this.measure(this.view);
+    this.renderHeader();
+    this.render();
+    return true;
   }
   /**
    * Recompute column geometry from the view. Called from the constructor and setModel(),
    * so a frozen-columns or column-width change takes effect on the next render.
    */
   measure(view) {
-    this.widths = columnWidths(this.fields, view);
+    const base = columnWidths(this.fields, view);
+    const preview = this.resizePreview;
+    if (preview) {
+      const i = this.fields.findIndex((f) => f.id === preview.fieldId);
+      if (i >= 0)
+        base[i] = preview.width;
+    }
+    this.slotWidths = fillWidths([LEAD_CHECK_WIDTH, LEAD_NUM_WIDTH, ...base], this.availableWidth);
+    this.slotLefts = [];
+    let x = 0;
+    for (const w of this.slotWidths) {
+      this.slotLefts.push(round2(x));
+      x += w + COLUMN_GAP;
+    }
+    this.totalWidth = round2(COLUMN_GAP + x);
+    this.widths = this.slotWidths.slice(LEAD_SLOTS);
+    this.offsets = this.slotLefts.slice(LEAD_SLOTS);
     this.frozenColumns = Math.max(
       0,
       Math.min(this.fields.length, Math.round(view.frozenColumns ?? 0))
     );
-    this.offsets = [];
-    let x = 0;
-    for (const w of this.widths) {
-      this.offsets.push(x);
-      x += w;
-    }
-    this.totalWidth = x;
   }
   /**
+   * Width, and the sticky pin when frozen, for one slot. Slot 0 is the checkbox, slot 1 the
+   * `#`, slot 2+ the fields. With freeze on (SAD-79, S-5), the checkbox and `#` slots pin with
+   * the first N fields, as in the prototype's frozen block.
+   *
    * @param frozenZIndex stacking order for a frozen cell. Body cells pass '1', header cells
    *   '2' — the header is its own stacking context, so this only has to outrank the other
    *   header cells, while the header element itself outranks the whole body.
    */
+  placeSlot(el2, slot, frozenZIndex) {
+    el2.style.flex = "0 0 auto";
+    el2.style.boxSizing = "border-box";
+    el2.style.width = `${this.slotWidths[slot] ?? DEFAULT_COLUMN_WIDTH}px`;
+    const frozen = this.frozenColumns > 0 && slot < LEAD_SLOTS + this.frozenColumns;
+    if (frozen) {
+      el2.classList.add(slot < LEAD_SLOTS ? "tablify__lead--frozen" : "tablify__cell--frozen");
+      el2.style.position = "sticky";
+      el2.style.left = `${this.slotLefts[slot]}px`;
+      el2.style.zIndex = frozenZIndex;
+    } else if (el2.style.position) {
+      el2.classList.remove("tablify__lead--frozen", "tablify__cell--frozen");
+      el2.style.position = "";
+      el2.style.left = "";
+      el2.style.zIndex = "";
+    }
+  }
   styleCell(cell2, colIndex, frozenZIndex) {
     cell2.className = "tablify__cell";
-    cell2.style.flex = "0 0 auto";
-    cell2.style.boxSizing = "border-box";
-    cell2.style.width = `${this.widths[colIndex] ?? DEFAULT_COLUMN_WIDTH}px`;
-    if (colIndex < this.frozenColumns) {
-      cell2.classList.add("tablify__cell--frozen");
-      cell2.style.position = "sticky";
-      cell2.style.left = `${this.offsets[colIndex]}px`;
-      cell2.style.zIndex = frozenZIndex;
+    this.placeSlot(cell2, colIndex + LEAD_SLOTS, frozenZIndex);
+  }
+  /** Re-apply widths and pins in place (live resize preview keeps its DOM and pointer capture). */
+  restyleGeometry() {
+    const apply = (container, z) => {
+      container.style.width = `${this.totalWidth}px`;
+      Array.from(container.children).forEach((el2, i) => this.placeSlot(el2, i, z));
+    };
+    apply(this.header, "2");
+    for (const rowEl of Array.from(this.content.children))
+      apply(rowEl, "1");
+  }
+  // ---- header ----
+  rowGripTemplate = null;
+  /** The row-number grip, parsed once and cloned per row (the scroll render runs per frame). */
+  rowGrip() {
+    if (!this.rowGripTemplate) {
+      const grip = document.createElement("span");
+      grip.className = "tablify__lead-grip";
+      grip.innerHTML = faIcon("grip-vertical");
+      this.rowGripTemplate = grip;
     }
+    return this.rowGripTemplate;
+  }
+  createLead(kind, frozenZIndex, slot) {
+    const el2 = document.createElement("div");
+    el2.className = `tablify__lead tablify__lead--${kind}`;
+    el2.setAttribute("aria-hidden", "true");
+    this.placeSlot(el2, slot, frozenZIndex);
+    return el2;
   }
   renderHeader() {
     this.header.innerHTML = "";
     this.header.style.minWidth = "100%";
     this.header.style.width = `${this.totalWidth}px`;
+    this.header.appendChild(this.createLead("check", "2", 0));
+    const hash = this.createLead("num", "2", 1);
+    hash.textContent = "#";
+    this.header.appendChild(hash);
     const primarySort = this.sortState[0];
     this.fields.forEach((field, colIndex) => {
       const cell2 = document.createElement("div");
       this.styleCell(cell2, colIndex, "2");
       cell2.classList.add("tablify__header-cell");
-      cell2.style.fontWeight = "600";
       cell2.setAttribute("role", "columnheader");
       cell2.setAttribute("aria-colindex", String(colIndex + 1));
+      cell2.setAttribute("aria-label", field.name);
       cell2.setAttribute("data-field-type", field.type);
       if (primarySort && primarySort.fieldId === field.id) {
         cell2.setAttribute("aria-sort", primarySort.direction === "desc" ? "descending" : "ascending");
@@ -12566,13 +12924,212 @@ var GridView = class {
       }
       cell2.dataset.colIndex = String(colIndex);
       cell2.setAttribute("data-field-id", field.id);
-      cell2.textContent = field.name;
+      cell2.appendChild(this.buildHeaderCapsule(field, colIndex));
+      if (this.opts.onColumnResize)
+        cell2.appendChild(this.buildResizeHandle(field, colIndex));
       this.header.appendChild(cell2);
     });
+  }
+  /**
+   * Prototype `headCellHtml` capsule. textContent stays exactly the field name (every
+   * consumer and test reads it): glyphs are text-free SVGs, and the sort arrow and badge
+   * type text are CSS `attr()` content.
+   */
+  buildHeaderCapsule(field, colIndex) {
+    const capsule = document.createElement("div");
+    capsule.className = "tablify__header-capsule";
+    const main = document.createElement("div");
+    main.className = "tablify__hc-main";
+    capsule.appendChild(main);
+    if (this.opts.onColumnMove) {
+      const grip = document.createElement("span");
+      grip.className = "tablify__hc-grip";
+      grip.title = "Drag to reorder";
+      grip.setAttribute("aria-hidden", "true");
+      grip.innerHTML = faIcon("grip-vertical");
+      grip.addEventListener("pointerdown", (e) => this.startColumnDrag(e, field.id));
+      main.appendChild(grip);
+    }
+    if (field.primary) {
+      const key = document.createElement("span");
+      key.className = "tablify__hc-key";
+      key.title = "Primary field";
+      key.setAttribute("aria-hidden", "true");
+      key.innerHTML = faIcon("key");
+      main.appendChild(key);
+    }
+    let name;
+    if (this.opts.onSortClick) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.title = "Click: sort \xB7 Shift-click: add sort";
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.opts.onSortClick?.(colIndex, e.shiftKey);
+      });
+      btn.className = "tablify__hc-name";
+      name = btn;
+    } else {
+      name = document.createElement("span");
+      name.className = "tablify__hc-name--static";
+    }
+    name.textContent = field.name;
+    main.appendChild(name);
+    const sortIdx = this.sortState.findIndex((s) => s.fieldId === field.id);
+    if (sortIdx >= 0) {
+      const sort = document.createElement("span");
+      sort.className = "tablify__hc-sort";
+      sort.setAttribute("aria-hidden", "true");
+      const arrow = this.sortState[sortIdx].direction === "desc" ? "\u25BC" : "\u25B2";
+      sort.setAttribute("data-sort", arrow + (this.sortState.length > 1 ? String(sortIdx + 1) : ""));
+      main.appendChild(sort);
+    }
+    const badge = document.createElement("span");
+    badge.className = "tablify__hc-badge";
+    badge.title = typeLabel(field.type);
+    badge.setAttribute("aria-hidden", "true");
+    badge.setAttribute("data-type", field.type);
+    badge.innerHTML = faIcon(typeIcon(field.type));
+    main.appendChild(badge);
+    if (this.opts.onHeaderMenu) {
+      const menu = document.createElement("button");
+      menu.type = "button";
+      menu.className = "tablify__hc-menu";
+      menu.title = "Field menu";
+      menu.setAttribute("aria-label", `Field menu: ${field.name}`);
+      menu.innerHTML = faIcon("ellipsis-vertical");
+      menu.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const r = menu.getBoundingClientRect();
+        this.opts.onHeaderMenu?.(colIndex, { x: r.left, y: r.bottom });
+      });
+      capsule.appendChild(menu);
+    }
+    return capsule;
+  }
+  buildResizeHandle(field, colIndex) {
+    const handle = document.createElement("div");
+    handle.className = "tablify__hc-resize";
+    handle.title = "Drag to resize";
+    handle.setAttribute("aria-hidden", "true");
+    handle.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0)
+        return;
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startW = this.widths[colIndex] ?? DEFAULT_COLUMN_WIDTH;
+      let current = null;
+      capturePointer(handle, e.pointerId);
+      this.root.classList.add("tablify--col-resizing");
+      const move = (ev) => {
+        current = clampWidth(startW + (ev.clientX - startX));
+        this.resizePreview = { fieldId: field.id, width: current };
+        this.measure(this.view);
+        this.restyleGeometry();
+      };
+      const end = (ev) => {
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", end);
+        handle.removeEventListener("pointercancel", end);
+        this.root.classList.remove("tablify--col-resizing");
+        this.resizePreview = null;
+        if (current !== null && ev.type === "pointerup") {
+          this.opts.onColumnResize?.(field.id, Math.round(current));
+        } else {
+          this.measure(this.view);
+          this.restyleGeometry();
+        }
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", end);
+      handle.addEventListener("pointercancel", end);
+    });
+    handle.addEventListener("click", (e) => e.stopPropagation());
+    return handle;
+  }
+  /** Header-grip drag (prototype colDragStart/colDrop), pointer-based so it also works on touch. */
+  startColumnDrag(e, fieldId) {
+    if (e.button !== 0)
+      return;
+    e.preventDefault();
+    e.stopPropagation();
+    const grip = e.currentTarget;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+    let target = null;
+    capturePointer(grip, e.pointerId);
+    const source = grip.closest(".tablify__header-cell");
+    const setTarget = (next) => {
+      if (next === target)
+        return;
+      target?.classList.remove("tablify__header-cell--drop-target");
+      target = next;
+      target?.classList.add("tablify__header-cell--drop-target");
+    };
+    const move = (ev) => {
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD_PX)
+          return;
+        dragging = true;
+        source?.classList.add("tablify__header-cell--dragging");
+        this.root.classList.add("tablify--col-dragging");
+      }
+      const doc = this.root.ownerDocument;
+      const hit = typeof doc.elementFromPoint === "function" ? doc.elementFromPoint(ev.clientX, ev.clientY) : null;
+      const cell2 = hit?.closest?.(".tablify__header-cell");
+      setTarget(cell2 && this.header.contains(cell2) && cell2 !== source ? cell2 : null);
+    };
+    const end = (ev) => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", end);
+      grip.removeEventListener("pointercancel", end);
+      source?.classList.remove("tablify__header-cell--dragging");
+      this.root.classList.remove("tablify--col-dragging");
+      const targetId = target?.getAttribute("data-field-id") ?? null;
+      setTarget(null);
+      if (dragging && ev.type === "pointerup" && targetId && targetId !== fieldId) {
+        this.opts.onColumnMove?.(fieldId, targetId);
+      }
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+  }
+  // ---- insert row ----
+  buildInsertRow(onInsert) {
+    const wrap = document.createElement("div");
+    wrap.className = "tablify__insert-wrap";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tablify__insert-row";
+    btn.dataset.testid = "tablify-insert-row";
+    btn.innerHTML = `<span class="tablify__insert-row-icon">${faIcon("plus")}</span>`;
+    const label = document.createElement("span");
+    label.textContent = "Insert Row";
+    btn.appendChild(label);
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onInsert();
+    });
+    wrap.addEventListener("keydown", stopButtonKeys);
+    wrap.appendChild(btn);
+    this.root.appendChild(wrap);
+    this.insertWrap = wrap;
+  }
+  // ---- body ----
+  /** Rows rendered by the last render(), as a comparable key (see the scroll listener). */
+  renderedRange = null;
+  rangeFor(scrollTop) {
+    const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
+    const { start, end } = getVisibleRange(scrollTop, viewportH, this.rowHeight, this.totalRows, OVERSCAN);
+    return `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
   }
   render() {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
     const { start, end } = getVisibleRange(this.scrollTop, viewportH, this.rowHeight, this.totalRows, OVERSCAN);
+    this.renderedRange = `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
     const rows = this.pool.update(start, end);
     this.content.innerHTML = "";
     this.content.style.transform = `translateY(${start * this.rowHeight}px)`;
@@ -12592,9 +13149,16 @@ var GridView = class {
           rowEl.classList.add("tablify__row--stripe");
         else
           rowEl.classList.remove("tablify__row--stripe");
+        rowEl.appendChild(this.createLead("check", "1", 0));
+        const num = this.createLead("num", "1", 1);
+        num.appendChild(this.rowGrip().cloneNode(true));
+        num.appendChild(document.createTextNode(String(rowIdx + 1)));
+        rowEl.appendChild(num);
         this.fields.forEach((field, colIndex) => {
           const cell2 = document.createElement("div");
           this.styleCell(cell2, colIndex, "1");
+          const capsule = document.createElement("div");
+          capsule.className = "tablify__capsule";
           const val = row.values[field.id];
           const formulaErr = field.type === "formula" && this.opts.formulaError ? this.opts.formulaError(row.id, field.id) : null;
           const text = document.createElement("span");
@@ -12624,7 +13188,8 @@ var GridView = class {
           } else {
             text.textContent = val === void 0 || val === null ? "" : String(Array.isArray(val) ? val.join(", ") : val);
           }
-          cell2.appendChild(text);
+          capsule.appendChild(text);
+          cell2.appendChild(capsule);
           cell2.setAttribute("data-field-id", field.id);
           cell2.dataset.colIndex = String(colIndex);
           cell2.setAttribute("role", "gridcell");
@@ -12633,8 +13198,8 @@ var GridView = class {
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
             cell2.classList.add("tablify__cell--selected");
             cell2.setAttribute("aria-selected", "true");
-            cell2.style.outline = "2px solid var(--tablify-selection)";
-            cell2.style.outlineOffset = "-2px";
+            capsule.style.outline = "2px solid var(--tablify-selection)";
+            capsule.style.outlineOffset = "-1px";
           }
           rowEl.appendChild(cell2);
         });
@@ -12643,10 +13208,29 @@ var GridView = class {
     }
   }
   destroy() {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
     this.root.remove();
     this.pool.clear();
   }
 };
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}
+function clampWidth(w) {
+  return Math.max(RESIZE_MIN_WIDTH, Math.min(RESIZE_MAX_WIDTH, w));
+}
+function capturePointer(el2, pointerId) {
+  try {
+    el2.setPointerCapture?.(pointerId);
+  } catch {
+  }
+}
+function stopButtonKeys(e) {
+  const t = e.target;
+  if (t && t.tagName === "BUTTON")
+    e.stopPropagation();
+}
 
 // src/views/grid/keyboard.ts
 function getGridAction(e) {
@@ -12809,125 +13393,6 @@ var LongPressDetector = class {
 
 // src/menus/tableMenu.ts
 var import_obsidian4 = require("obsidian");
-
-// src/menus/tableMenuModel.ts
-var SEPARATOR = { id: "sep", label: "", enabled: false, separator: true };
-var TYPE_LABELS = {
-  text: "Text",
-  long_text: "Long text",
-  number: "Number",
-  currency: "Currency",
-  percent: "Percent",
-  duration: "Duration",
-  rating: "Rating",
-  checkbox: "Checkbox",
-  date: "Date",
-  date_time: "Date and time",
-  url: "URL",
-  email: "Email",
-  phone: "Phone",
-  single_select: "Single select",
-  multi_select: "Multi select",
-  attachment: "Attachment",
-  formula: "Formula",
-  link: "Link"
-};
-var CHANGE_TARGET_TYPES = [
-  "text",
-  "long_text",
-  "number",
-  "currency",
-  "percent",
-  "duration",
-  "rating",
-  "checkbox",
-  "date",
-  "date_time",
-  "url",
-  "email",
-  "phone",
-  "single_select",
-  "multi_select",
-  "attachment",
-  "formula",
-  "link"
-];
-function cellEntries(ctx) {
-  const entries = [{ id: "cell.copy", label: "Copy", enabled: true }];
-  if (ctx.isLink) {
-    entries.push({ id: "cell.links", label: "Choose linked rows\u2026", enabled: !ctx.readOnly });
-    if ((ctx.foreignLinks ?? 0) > 0) {
-      entries.push({ id: "cell.removeForeign", label: "Remove links to other tables", enabled: !ctx.readOnly });
-    }
-  }
-  return [
-    ...entries,
-    {
-      id: "cell.paste",
-      label: "Paste",
-      enabled: !ctx.readOnly && ctx.hasClipboard && !ctx.isLink,
-      reason: ctx.readOnly ? "Read-only field" : ctx.isLink ? "Use Choose linked rows instead" : "Nothing copied yet"
-    },
-    {
-      id: "cell.clear",
-      label: "Clear",
-      enabled: !ctx.readOnly && !ctx.cellEmpty,
-      reason: ctx.readOnly ? "Read-only field" : "Cell is already empty"
-    }
-  ];
-}
-function rowEntries() {
-  return [
-    { id: "row.insertAbove", label: "Insert row above", enabled: true },
-    { id: "row.insertBelow", label: "Insert row below", enabled: true },
-    { id: "row.duplicate", label: "Duplicate row", enabled: true },
-    { id: "row.copy", label: "Copy row", enabled: true },
-    { id: "row.delete", label: "Delete row", enabled: true }
-  ];
-}
-function headerEntries(ctx) {
-  const sort = ctx.view.sort;
-  const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
-  const frozenThrough = ctx.colIndex + 1;
-  return [
-    // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
-    { id: "header.type", label: "Change field type\u2026", enabled: true },
-    // P8-03: only formula fields have an expression to edit.
-    ...ctx.fieldType === "formula" ? [{ id: "header.formula", label: "Edit formula\u2026", enabled: true }] : [],
-    {
-      id: "header.hide",
-      label: "Hide field",
-      enabled: !ctx.isPrimary,
-      reason: "Primary field cannot be hidden"
-    },
-    {
-      id: "header.sortAsc",
-      label: "Sort ascending",
-      enabled: sortedThis !== "asc",
-      reason: "Already sorted ascending"
-    },
-    {
-      id: "header.sortDesc",
-      label: "Sort descending",
-      enabled: sortedThis !== "desc",
-      reason: "Already sorted descending"
-    },
-    {
-      id: "header.freeze",
-      label: "Freeze column",
-      enabled: ctx.view.frozenColumns !== frozenThrough,
-      reason: "Already frozen through this column"
-    }
-  ];
-}
-function cellMenu(cell2) {
-  return [...cellEntries(cell2), SEPARATOR, ...rowEntries()];
-}
-function displayTitle(entry) {
-  return entry.enabled || !entry.reason ? entry.label : `${entry.label} (${entry.reason})`;
-}
-
-// src/menus/tableMenu.ts
 function buildTableMenu(entries, run2) {
   const menu = new import_obsidian4.Menu();
   for (const entry of entries) {
@@ -12971,6 +13436,18 @@ var TypePickerModal = class extends import_obsidian4.FuzzySuggestModal {
 };
 
 // src/views/grid/columns.ts
+var MIN_WIDTH = 60;
+function resizeColumn(view, fieldId, newWidth, fields) {
+  const w = Math.max(MIN_WIDTH, Math.round(newWidth));
+  const next = {
+    ...view,
+    columnWidths: { ...view.columnWidths ?? {}, [fieldId]: w }
+  };
+  const res = validateView(next, fields);
+  if (!res.ok)
+    return view;
+  return res.view;
+}
 function setFrozenColumns(view, n, fields) {
   const clamped = Math.max(0, Math.min(fields.length, Math.round(n)));
   const next = { ...view, frozenColumns: clamped };
@@ -12980,6 +13457,40 @@ function setFrozenColumns(view, n, fields) {
 function setRowHeight(view, h, fields) {
   const next = { ...view, rowHeight: h };
   const res = validateView(next, fields);
+  return res.ok ? res.view : view;
+}
+function cycleHeaderSort(view, fieldId, additive, fields) {
+  const sort = [...view.sort ?? []];
+  const i = sort.findIndex((s) => s.fieldId === fieldId);
+  let nextSort;
+  if (additive) {
+    if (i < 0)
+      nextSort = [...sort, { fieldId, direction: "asc" }];
+    else if (sort[i].direction === "asc")
+      nextSort = sort.map((s, j) => j === i ? { ...s, direction: "desc" } : s);
+    else
+      nextSort = sort.filter((_, j) => j !== i);
+  } else if (i < 0 || sort.length > 1) {
+    nextSort = [{ fieldId, direction: "asc" }];
+  } else if (sort[i].direction === "asc") {
+    nextSort = [{ fieldId, direction: "desc" }];
+  } else {
+    nextSort = [];
+  }
+  const res = validateView({ ...view, sort: nextSort }, fields);
+  return res.ok ? res.view : view;
+}
+function moveColumnOnto(view, fieldId, targetId, fields) {
+  if (fieldId === targetId)
+    return view;
+  const order = [...view.columnOrder ?? fields.map((f) => f.id)];
+  const from = order.indexOf(fieldId);
+  const to = order.indexOf(targetId);
+  if (from < 0 || to < 0)
+    return view;
+  order.splice(from, 1);
+  order.splice(order.indexOf(targetId) + (from < to ? 1 : 0), 0, fieldId);
+  const res = validateView({ ...view, columnOrder: order }, fields);
   return res.ok ? res.view : view;
 }
 
@@ -13078,29 +13589,6 @@ function joinSearchQuery(search, query) {
 function toInputPosition(split, queryPosition) {
   const p = Math.max(0, Math.min(queryPosition, split.map.length - 1));
   return split.map[p] ?? 0;
-}
-
-// src/ui/faIcons.ts
-var GLYPHS = {
-  "file-import": { w: 512, d: "M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z" },
-  "file-export": { w: 576, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z" },
-  "file-csv": { w: 512, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z" },
-  "copy": { w: 512, d: "M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" },
-  "magnifying-glass": { w: 512, d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" },
-  "cloud-arrow-up": { w: 640, d: "M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" },
-  "rotate-left": { w: 512, d: "M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" },
-  "rotate-right": { w: 512, d: "M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z" },
-  "filter": { w: 512, d: "M3.9 54.9C10.5 40.9 24.5 32 40 32H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L320 320.9V448c0 12.1-6.8 23.2-17.7 28.6s-23.8 4.3-33.5-3l-64-48c-8.1-6-12.8-15.5-12.8-25.6V320.9L9 97.3C-.7 85.4-2.8 68.8 3.9 54.9z" },
-  "plus": { w: 448, d: "M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" },
-  "table-columns": { w: 512, d: "M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z" },
-  "sliders": { w: 512, d: "M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" },
-  "xmark": { w: 384, d: "M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" },
-  "trash-can": { w: 448, d: "M135.2 17.7C140.6 6.8 151.7 0 163.8 0H284.2c12.1 0 23.2 6.8 28.6 17.7L320 32h96c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32h96l7.2-14.3zM32 128H416V448c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V128zm96 64c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16z" }
-};
-function faIcon(name) {
-  const g = GLYPHS[name];
-  const width = +(g.w / 512).toFixed(4);
-  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${width}em" height="1em" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
 }
 
 // src/views/grid/toolbar.ts
@@ -14273,10 +14761,6 @@ var TableView = class extends import_obsidian9.TextFileView {
   toolbar = null;
   body = null;
   menuTarget = null;
-  /** Bottom-of-shell "Insert Row" pill (SAD-71 Step 1, prototype parity). */
-  insertBtn = null;
-  /** Empty-table hint shown above the Insert Row pill (SAD-71 Step 1). */
-  emptyHint = null;
   /** Workspace card wrapping toolbar + grid (SAD-71 Step 6). */
   card = null;
   /** Prototype title row: editable name, file chip, Import/Export/Copy links (SAD-77). */
@@ -14351,8 +14835,6 @@ var TableView = class extends import_obsidian9.TextFileView {
     this.session = null;
     this.editing = null;
     this.menuTarget = null;
-    this.insertBtn = null;
-    this.emptyHint = null;
     if (this.body)
       this.body.empty();
     this.syncToolbar();
@@ -14624,31 +15106,30 @@ var TableView = class extends import_obsidian9.TextFileView {
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
-        linkSummary: (value) => summarizeLinks(value, linkIndexFor(this.app).index)
+        linkSummary: (value) => summarizeLinks(value, linkIndexFor(this.app).index),
+        // SAD-79: prototype header capsule controls. Every one writes through setView(), so
+        // each sort, resize and reorder is a single undo step, like the header menu's.
+        onSortClick: (col, additive) => {
+          const field = this.session?.getVisibleFields()[col];
+          if (field)
+            this.applyViewChange((view, all) => cycleHeaderSort(view, field.id, additive, all));
+        },
+        onHeaderMenu: (col, pos) => this.openHeaderMenu(col, pos),
+        onColumnResize: (fieldId, width) => this.applyViewChange((view, all) => resizeColumn(view, fieldId, width, all)),
+        onColumnMove: (fieldId, targetId) => this.applyViewChange((view, all) => moveColumnOnto(view, fieldId, targetId, all)),
+        // SAD-79 (S-6): the Insert Row pill lives inside the shell (prototype #insertRowWrap)
+        // and the grid shrinks to its content, so the empty-state hint is retired.
+        onInsertRow: () => this.mutate((st) => st.addRow())
       });
       this.body.appendChild(this.grid.root);
       this.grid.root.tabIndex = 0;
       this.grid.root.addEventListener("keydown", (e) => this.onKeyDown(e));
       this.grid.root.addEventListener("contextmenu", (e) => this.onContextMenu(e));
       this.wirePressEvents(this.grid.root);
-      this.emptyHint = document.createElement("div");
-      this.emptyHint.className = "tablify__empty-hint";
-      this.emptyHint.textContent = "This table is empty. Insert a row to get started.";
-      this.emptyHint.dataset.testid = "tablify-empty-hint";
-      this.body.appendChild(this.emptyHint);
-      this.insertBtn = document.createElement("button");
-      this.insertBtn.type = "button";
-      this.insertBtn.className = "tablify__insert-row";
-      this.insertBtn.textContent = "Insert Row";
-      this.insertBtn.dataset.testid = "tablify-insert-row";
-      this.insertBtn.addEventListener("click", () => this.mutate((st) => st.addRow()));
-      this.body.appendChild(this.insertBtn);
     } else {
       this.grid.setTheme(theme);
       this.grid.setModel(rows, fields, s.getView());
     }
-    if (this.emptyHint)
-      this.emptyHint.hidden = rows.length !== 0;
   }
   // ---- keyboard ----
   onKeyDown(e) {
@@ -14986,7 +15467,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     this.editing = editor;
     editor.style.position = "absolute";
     const rootRect = grid.root.getBoundingClientRect();
-    const cellRect = cell2.getBoundingClientRect();
+    const cellRect = (cell2.querySelector(".tablify__capsule") ?? cell2).getBoundingClientRect();
     editor.style.left = `${cellRect.left - rootRect.left + grid.root.scrollLeft}px`;
     editor.style.top = `${cellRect.top - rootRect.top + grid.root.scrollTop}px`;
     editor.style.width = `${cellRect.width}px`;
@@ -17033,7 +17514,7 @@ function unlinkTable(session) {
   session.setSyncLink(null);
   session.stack.clear();
 }
-function typeLabel(type) {
+function typeLabel2(type) {
   return type.replace(/_/g, " ");
 }
 
@@ -17317,7 +17798,7 @@ var SyncModal = class extends import_obsidian15.Modal {
       return;
     const list = el(box, "ul", { cls: "tablify-sync__plan" });
     for (const item of plan.items) {
-      el(list, "li", { text: `${item.name} (${typeLabel(item.tablifyType)} \u2192 ${item.airtableType})` });
+      el(list, "li", { text: `${item.name} (${typeLabel2(item.tablifyType)} \u2192 ${item.airtableType})` });
     }
     for (const skip of plan.skipped) {
       el(list, "li", { cls: "tablify-sync__skipped", text: `${skip.name}: not created (${skip.reason})` });

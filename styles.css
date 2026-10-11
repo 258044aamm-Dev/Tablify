@@ -107,8 +107,10 @@
   background: transparent;
 }
 
-.tablify__cell--selected {
+/* SAD-79: selection is drawn on the capsule (prototype `.cell-focus`), not the slot. */
+.tablify__cell--selected > .tablify__capsule {
   outline: 2px solid var(--tablify-selection);
+  outline-offset: -1px;
 }
 
 .tablify__cell:focus {
@@ -655,7 +657,9 @@
 /* SAD-77: prototype outer container — rounded-[24px] sm:rounded-[32px], p-4 sm:p-7, shadow-xl.
    Sections space themselves with the prototype's margins (title mb-5, meta mb-2), so no gap. */
 .tablify__card {
-  flex: 1 1 auto;
+  /* SAD-79 (S-6): the prototype card wraps its content; with the grid shrinking to its rows
+     the card follows, still capped at the pane (min-height 0 lets the grid scroll inside). */
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -697,33 +701,41 @@
 }
 
 .tablify--grid {
-  flex: 1 1 auto;
-  min-height: 160px;
+  /* SAD-79 (S-6): shrink to content, capped at the pane — the shell is as tall as its rows
+     and scrolls (both axes) only once the pane runs out. */
+  flex: 0 1 auto;
+  min-height: 0;
   width: 100%;
   box-sizing: border-box;
-  /* SAD-71 Step 4: the shell is the prototype's tinted inner container — rounded,
-     subtly bordered, and the surface the header/body capsules float on. */
+  /* SAD-79: prototype #tableInnerContainer — p-3 (p-2 on phones), rounded-2xl, inner
+     surface, subtle border, shadow-inner; the table inside is text-xs. */
   background: var(--tablify-bg-inner);
   border: 1px solid var(--tablify-border-subtle);
   border-radius: 16px;
-  padding: 10px;
+  --tablify-grid-pad: 12px;
+  padding: var(--tablify-grid-pad);
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  font-size: 12px;
+  line-height: 16px;
 }
 
-/* Empty-state hint + bottom Insert Row pill (prototype parity, SAD-71 Step 1). */
-.tablify__empty-hint {
-  font-size: 12px;
-  color: var(--tablify-text);
-  opacity: 0.7;
-  text-align: center;
-  padding-top: 10px;
+/* SAD-79: Insert Row pill inside the shell (prototype #insertRowWrap mt-3 + .insert-row-btn).
+   A block child of the scroll container is exactly the visible content width, and sticky at
+   the shell padding keeps the whole pill in view at any horizontal scroll. */
+.tablify__insert-wrap {
+  position: sticky;
+  /* Chrome resolves sticky insets against the padding-deflated scrollport, so 0 is the
+     shell's content edge — exactly where the pill sits at rest. */
+  left: 0;
+  margin-top: 12px;
 }
 
 .tablify button.tablify__insert-row {
   background: var(--tablify-bg-pill);
   color: var(--tablify-text);
-  border: 1px solid var(--tablify-border);
-  border-radius: 12px;
-  padding: 8px 12px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 16px;
+  padding: 10px 16px;
   margin: 0;
   height: auto;
   line-height: 16px;
@@ -735,7 +747,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  gap: 8px;
+  box-shadow: var(--tablify-pill-shadow, 0 1px 2px rgba(0, 0, 0, 0.2));
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   appearance: none;
 }
 
@@ -747,6 +761,18 @@
 .tablify button.tablify__insert-row:focus-visible {
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
+}
+
+.tablify__insert-row-icon {
+  display: inline-flex;
+  font-size: 11px;
+  color: var(--tablify-accent-primary);
+}
+
+@media (max-width: 639px) {
+  .tablify--grid {
+    --tablify-grid-pad: 8px;
+  }
 }
 
 /* Prototype scrollbars: thin, themed, scoped to the plugin surface. */
@@ -1073,25 +1099,76 @@
   }
 }
 
-/* ---- Capsule grid (SAD-71 Step 4) ----------------------------------------------
-   Every header and body cell is a detached rounded capsule floating on the shell,
-   per Prototype/Anthropic Table Workspace.html (border-separate + spacing). The gap
-   is a transparent 3px border inside each border-box capsule, so outer geometry —
-   column widths, frozen offsets, row pitch — is bit-identical to SAD-69 C. */
+/* ---- Grid geometry (SAD-79) -------------------------------------------------------
+   Prototype `#mainTable`: border-separate with 6px column / 8px row spacing. Header and
+   rows are flex lines with the same 6px gap and edge spacing; every slot gets an inline
+   width from GridView, so header and body agree to the pixel. Row pitch (inline height) =
+   8px spacing + 4px cell padding + capsule + 4px. */
+.tablify__header,
+.tablify__row {
+  box-sizing: border-box;
+  gap: 6px;
+  padding: 8px 6px 0;
+}
+
+/* The header keeps an opaque inner-surface paint so capsules scrolling underneath stay
+   masked; its old flat band + separator are gone. */
+.tablify__header {
+  background: var(--tablify-bg-inner);
+  border-bottom: none;
+  /* Sticky insets resolve against the padding-deflated scrollport, so `top: 0` would pin
+     the header one shell-padding below the edge and rows would scroll visibly through that
+     band. Pin at -padding instead, and pull the header up into the band (margin) while
+     padding it back down — identical at rest, fully masking once stuck. */
+  top: calc(-1 * var(--tablify-grid-pad, 0px));
+  margin: calc(-1 * var(--tablify-grid-pad, 0px)) 0 0;
+  padding-top: calc(8px + var(--tablify-grid-pad, 0px));
+  align-items: flex-start;
+  /* prototype thead tr: text-[11px] uppercase tracking-wider, muted. Its `font-semibold`
+     loses to the UA `th { font-weight: bold }` on every cell, so header text (#, badge,
+     sort arrow) renders at 700; the name button sets its own 600. */
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.55px;
+  color: var(--tablify-text-muted);
+  user-select: none;
+}
+
+/* Body slot = the prototype's `td.py-1.px-1`; the visible capsule is its child. */
 .tablify__cell {
+  min-width: 0;
+  padding: 4px;
+}
+
+/* Prototype `.cell-capsule`: fixed height (CAPH 34/34/40), px-3.5 + ROWPAD, rounded-2xl,
+   shadow-sm, text-xs Lora; content clips with an ellipsis. */
+.tablify__capsule {
   display: flex;
   align-items: center;
-  border: 3px solid transparent;
+  box-sizing: border-box;
+  height: 34px;
+  padding: 8px 14px;
   border-radius: 16px;
   background: var(--tablify-bg-capsule);
-  background-clip: padding-box;
-  /* SAD-76 (RC-D): ring in the prototype capsule border colour; the drop shadow is pulled in
-     by the 3px gap (spread -3px) so it hugs the visible capsule, not the transparent gutter. */
-  box-shadow:
-    inset 0 0 0 1px var(--tablify-border-capsule),
-    0 4px 2px -3px rgba(0, 0, 0, 0.05);
-  padding: 0 10px;
-  min-width: 0;
+  border: 1px solid var(--tablify-border-capsule);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  color: var(--tablify-text);
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  line-height: 16px;
+  overflow: hidden;
+}
+
+.tablify--rh-small .tablify__capsule {
+  padding: 4px 14px;
+}
+
+.tablify--rh-large .tablify__capsule {
+  height: 40px;
+  padding: 12px 14px;
 }
 
 .tablify__cell-text {
@@ -1103,66 +1180,270 @@
   font-size: 12px;
 }
 
-/* Header capsules: grip dots + name + type badge (::after reads data-field-type, so
-   the badge never enters textContent). Muted uppercase label, prototype language. */
+/* Prototype empty cell: a muted em dash. CSS content, so textContent stays ''. */
+.tablify__capsule > .tablify__cell-text:empty::before {
+  content: '\2014';
+  color: var(--tablify-text-placeholder);
+  user-select: none;
+}
+
+/* Header slot = prototype `th.pb-1` (UA 1px cell padding, 4px bottom). */
 .tablify__header-cell {
-  gap: 6px;
-  padding: 6px 10px;
-  font-family: 'Poppins', Arial, sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--tablify-text-muted);
+  position: relative;
+  padding: 1px 1px 4px;
 }
 
-.tablify__header-cell::before {
-  content: '';
+/* Prototype `.header-capsule`: 40px, px-3.5 py-2, rounded-2xl, shadow-sm. */
+.tablify__header-capsule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  height: 40px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--tablify-bg-capsule);
+  border: 1px solid var(--tablify-border-capsule);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.tablify__hc-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tablify__hc-grip {
+  display: inline-flex;
   flex: 0 0 auto;
-  width: 5px;
-  height: 14px;
-  background-image: radial-gradient(currentColor 1px, transparent 1.3px);
-  background-size: 3px 4px;
-  opacity: 0.45;
+  font-size: 11px;
+  color: var(--tablify-text-faint);
+  cursor: grab;
+  touch-action: none;
 }
 
-.tablify__header-cell::after {
-  content: attr(data-field-type);
-  margin-left: auto;
+/* The prototype's grip and key are webfont characters: their advance is the glyph plus the
+   header's 0.55px tracking plus font metrics rounding (measured 7.6px / 9.6px against the SVGs'
+   6.875px / 9px). The inline SVGs reproduce the measured advance. */
+.tablify__hc-grip > .tablify__fa {
+  margin-right: 0.725px;
+}
+
+.tablify__hc-key > .tablify__fa {
+  margin-right: 0.6px;
+}
+
+.tablify__hc-key {
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 9px;
+  color: var(--tablify-accent-primary);
+}
+
+/* Field name: prototype `text-xs font-semibold tracking-wide font-serif truncate`
+   (`font-serif` is Poppins in the prototype's Tailwind config). */
+.tablify button.tablify__hc-name {
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+  height: auto;
+  min-width: 0;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  color: var(--tablify-text);
+  /* buttons centre their label (Obsidian even makes them inline-flex, which never
+     ellipsizes); a truncated name must keep its start, prototype "N…" */
+  display: block;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  appearance: none;
+}
+
+.tablify button.tablify__hc-name:hover {
+  background: none;
+  color: var(--tablify-accent-primary);
+}
+
+.tablify button.tablify__hc-name:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* Read-only grids (embeds) render the name as text. */
+.tablify .tablify__hc-name--static {
+  min-width: 0;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.3px;
+  text-transform: none;
+  color: var(--tablify-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tablify__hc-sort::before {
+  content: attr(data-sort);
+}
+
+.tablify__hc-sort {
+  flex: 0 0 auto;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 9px;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
+  color: var(--tablify-accent-primary);
+}
+
+/* Type badge: icon + raw type name (attr content keeps it out of textContent). */
+.tablify__hc-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 9px;
+  line-height: 16px;
   color: var(--tablify-text-muted);
   background: var(--tablify-bg-inner);
   border: 1px solid var(--tablify-border-subtle);
-  border-radius: 5px;
-  padding: 1px 5px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
 }
 
-/* The header keeps an opaque inner-surface paint so capsules scrolling underneath
-   stay masked through the capsule gaps; its old flat band + separator are gone. */
-.tablify__header {
+.tablify__hc-badge::after {
+  content: attr(data-type);
+}
+
+.tablify__hc-badge > .tablify__fa {
+  /* mr-1, plus the advance the prototype's webfont glyph carries as a character (measured
+     8.56px against the SVG's 7.875px) */
+  margin-right: 4.685px;
+}
+
+.tablify button.tablify__hc-menu {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--tablify-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  appearance: none;
+}
+
+.tablify button.tablify__hc-menu:hover {
   background: var(--tablify-bg-inner);
-  border-bottom: none;
-  margin-bottom: 6px;
+  color: var(--tablify-text-muted);
 }
 
-/* Frozen columns (SAD-69 C). The position and offset are set inline, because they depend on
-   the resolved column geometry; only the opaque background belongs here. A frozen cell has
-   to hide the columns that scroll underneath it, and it has to do that with the right
-   colour, or a pinned cell sits on a striped row looking like a different row. */
-/* SAD-76 (RC-D): the `background` shorthand resets background-clip to border-box, so frozen
-   capsules used to paint their 3px gap in capsule colour — the visible box grew by 3px around
-   the inset ring and read as a double ring. Two layers keep the capsule on the padding box and
-   paint the gap in the shell colour, which still masks columns scrolling underneath. */
+.tablify button.tablify__hc-menu:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* Prototype `.col-resize-handle`: 12px hit strip on the column edge (centred on the gap). */
+.tablify__hc-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -9px;
+  width: 12px;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.tablify--col-resizing,
+.tablify--col-resizing * {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.tablify--col-dragging,
+.tablify--col-dragging * {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.tablify__header-cell--dragging > .tablify__header-capsule {
+  opacity: 0.45;
+}
+
+.tablify__header-cell--drop-target > .tablify__header-capsule {
+  border-color: var(--tablify-accent-primary);
+}
+
+/* Leading slots: checkbox (`w-8`) and `#` (`w-10 font-mono`), centred. */
+.tablify__lead {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 4px 1px;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--tablify-text-muted);
+  user-select: none;
+}
+
+.tablify__header .tablify__lead {
+  padding: 1px 1px 4px;
+  height: 45px;
+  font-weight: 700;
+}
+
+.tablify__row .tablify__lead {
+  height: 100%;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.tablify__lead-grip {
+  display: inline-flex;
+  font-size: 8px;
+  margin-right: 4px;
+  color: var(--tablify-text-placeholder);
+}
+
+/* Frozen block (SAD-69 C, SAD-79): position and offset are inline (they depend on the
+   resolved geometry). The slot paints the shell colour and solid shadows fill the 6px/8px
+   spacing on every side and corner, so scrolling capsules never show through the gaps —
+   prototype `.sticky-col`. */
 .tablify__cell--frozen,
-.tablify__row--stripe .tablify__cell--frozen,
-.tablify__header .tablify__cell--frozen {
-  background:
-    linear-gradient(var(--tablify-bg-capsule), var(--tablify-bg-capsule)) padding-box,
-    var(--tablify-bg-inner) border-box;
+.tablify__lead--frozen {
+  background-color: var(--tablify-bg-inner);
+  box-shadow:
+    6px 0 0 var(--tablify-bg-inner),
+    -6px 0 0 var(--tablify-bg-inner),
+    0 8px 0 var(--tablify-bg-inner),
+    0 -8px 0 var(--tablify-bg-inner),
+    6px 8px 0 var(--tablify-bg-inner),
+    6px -8px 0 var(--tablify-bg-inner),
+    -6px 8px 0 var(--tablify-bg-inner),
+    -6px -8px 0 var(--tablify-bg-inner);
 }
 
 /* P7-01: embedded table in a note (```tablify fence). Height-limited; the full view is unchanged. */

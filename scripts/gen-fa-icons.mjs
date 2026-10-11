@@ -36,6 +36,32 @@ const GLYPHS = [
   // filter builder (SAD-78)
   'xmark',
   'trash-can',
+  // grid header capsule (SAD-79)
+  'grip-vertical',
+  'key',
+  'ellipsis-vertical',
+  // field-type badges (SAD-79), prototype FT[type].icon
+  'font',
+  'align-left',
+  'hashtag',
+  'dollar-sign',
+  'percent',
+  'stopwatch',
+  'star',
+  'square-check',
+  'calendar',
+  'clock',
+  'link',
+  'envelope',
+  'phone',
+  'circle-dot',
+  'list-check',
+  'paperclip',
+  'square-root-variable',
+  'diagram-project',
+  'arrow-down-1-9',
+  'calendar-plus',
+  'calendar-check',
 ];
 
 function build() {

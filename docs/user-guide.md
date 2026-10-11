@@ -177,12 +177,27 @@ Formula and link fields cannot be filtered and are not listed.
 
 **Options** in the toolbar opens the view-settings panel: row height, frozen columns, hidden fields, and **Clear filters**. Column width and order, hide and sort also live on the header menu and the table menu.
 
-- **Column width** — drag the column edge (stored per field); columns without a stored width are 160 px.
-- **Column order** — drag, or use the menu to move left/right.
+- **Column width** — drag the column edge (120–520 px, stored per field); columns without a stored width are 160 px. When the columns are narrower than the pane, they stretch proportionally to fill it.
+- **Column order** — drag a header by its grip, or use the menu to move left/right.
 - **Hide field** — from the header menu; the primary field cannot be hidden. Hidden fields are listed in **Options** with a **Show** button each, so a hidden column can always be brought back.
 - **Freeze** — freeze the first N columns; they stay pinned on the left while the rest scroll horizontally. A new table starts with its primary column frozen.
-- **Sort** — ascending/descending on any column; the sorted column is announced to screen readers (`aria-sort`).
+- **Sort** — click a header name, or use the menu; the sorted column is announced to screen readers (`aria-sort`).
 - **Row height** — small / medium / large.
+
+### Column headers
+
+Each column header is a capsule:
+
+- **Grip** (⠿) — drag it onto another header to move the column there.
+- **Key** — marks the primary field.
+- **Name** — click to sort by the column: ascending, then descending, then off. **Shift-click** adds the column as another sort key (or flips or removes it) without dropping the others; the arrow then shows the column's position in the sort (↑2). A plain click on a multi-column sort replaces it with that column alone, ascending.
+- **Type badge** — the field type, with its icon.
+- **⋮** — opens the header menu, the same menu as right-clicking the header.
+- **Right edge** — drag to resize.
+
+Sorting, moving and resizing from the header are saved and undoable, like the same actions in the menu. Embedded tables show the header read-only.
+
+Each row starts with a selection slot and its row number. The **Insert Row** pill under the last row adds a row, the same as **Add Row** in the toolbar. The grid is only as tall as its rows, up to the height of the pane, and scrolls inside past that, with the header pinned.
 
 Row height, freeze and unhide are undoable; search and query are not (see §9).
 

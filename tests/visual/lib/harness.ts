@@ -152,6 +152,12 @@ export async function openPrototype(
     if (tabs && tabs.parentElement) tabs.parentElement.style.display = 'none';
   })()`);
   await page.addStyleTag({ content: PROTOTYPE_PRODUCTION_CSS + STABLE_CSS });
+  // SAD-79: the prototype sizes its Insert Row pill (syncInsertRowWidth) and frozen offsets
+  // at render time, i.e. before the chrome above was hidden — with the sidebar still taking
+  // width. Its own resize listener re-renders the grid (150ms debounce); fire it once so the
+  // reference reflects the production layout instead of the sidebar-era measurement.
+  await page.evaluate("window.dispatchEvent(new Event('resize'))");
+  await page.waitForTimeout(250);
   await page.evaluate('document.fonts.ready');
   await page.waitForTimeout(150);
   return { browser, page, close: () => browser.close() };
