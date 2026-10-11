@@ -180,7 +180,7 @@ describe('TableView — search and query are wired to the session', () => {
     expect(need(el(view, '[data-testid="tablify-rowcount"]'), 'row count').textContent).toBe('3 rows');
     typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
     vi.advanceTimersByTime(DEBOUNCE_MS);
-    expect(need(el(view, '[data-testid="tablify-rowcount"]'), 'row count').textContent).toBe('1 of 3 rows');
+    expect(need(el(view, '[data-testid="tablify-rowcount"]'), 'row count').textContent).toBe('1 row (of 3)');
   });
 
   it('Clear filters empties both search and query', async () => {

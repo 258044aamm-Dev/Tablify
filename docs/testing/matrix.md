@@ -40,7 +40,8 @@ The scenario *logic* is covered by the automated suite (558 tests at creation, a
 - **A5** undo/redo semantics: `tests/model/commands.test.ts`, `tests/model/tableCommands.test.ts`, `tests/model/tableSession.test.ts`.
 - **A6** duplicate row (new row ID, `rev: 1`, same values): `tests/model/tableCommands.test.ts`, `tests/menus/tableMenuModel.test.ts`.
 - **A7** long-press state machine: `tests/views/longPress.test.ts` (500 ms threshold, 10 px cancel, scroll/pointercancel cancel, touch-only).
-- **A8** export of current view vs full table: `tests/io/export.view.test.ts`, `tests/io/export.csv.test.ts`, `tests/io/export.markdown.test.ts`, `tests/io/export.e2e.test.ts`.
+- **A8** export of current view vs full table: `tests/io/export.view.test.ts`, `tests/io/export.csv.test.ts`, `tests/io/export.markdown.test.ts`, `tests/io/export.e2e.test.ts`; title-row **Export CSV** / **Copy Markdown** write the current view (SAD-77): `tests/views/tableViewTitleRow.test.ts`.
+- **Title row** (SAD-77) rename / name validation / collision / links: `tests/views/titleRow.test.ts`, `tests/views/tableViewTitleRow.test.ts`.
 - **A9** `.tabula` guard: `tests/guard.test.ts` + `scripts/check-tabula-guard.sh` (source-level); extension registration only for `.tablify` (`tests/manifest.test.ts`).
 - **A10** broken JSON handling: `tests/format/format.test.ts` (parser failure cases), `tests/schema.test.ts`; error surface in view: `tests/views/tableController.test.ts`.
 - **A11** view settings normalize/persist: `tests/model/view.test.ts` (sort/freeze/widths/rowHeight survive normalize + round-trip in `tests/format/format.test.ts`).
@@ -53,6 +54,7 @@ Fixtures live in `samples/fixtures/` (deterministic; SHA-256 in `samples/fixture
 1. Right-click a folder in the file explorer → **New table**.
 2. Expected: a new `.tablify` file is created and opens in the grid with default name `Untitled table`, five fields (`Name` primary, `Notes`, `Status` with Todo / In progress / Done, `Due date`, `Attachments`) and three empty rows; the first cell can be edited at once (SAD-84).
 3. Evidence: screenshot of the new grid + the file visible in the explorer.
+4. Title row (SAD-77): the title reads `Untitled table` with chip `<folder>/Untitled table.tablify`. Click the title, type `Q3 budget`, press Enter: the file is renamed in place and the chip updates. Click **Export CSV**: `Q3 budget.csv` appears next to the table. Click **Copy Markdown** and paste into a note: a Markdown table of the visible columns.
 
 ### T-M-DEV-P6-A2 — Import 500-row CSV (all platforms)
 1. Right-click a folder → **Import CSV/Excel as table** → choose `samples/fixtures/import-a2.csv` (SHA-256 `970cc466c99104277f7f82bcdfee9dbb209e7d35aa55d749f0de686f19a2e55c`).

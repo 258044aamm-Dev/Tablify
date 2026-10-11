@@ -60,7 +60,7 @@ describe('SAD-71 — form-control selectors outrank Obsidian element rules', () 
   // SAD-76 (RC-B): Obsidian's `button:not(.clickable-icon)` is 0,1,1 (hover 0,2,1) and repainted
   // every pill with the host theme (#313244 fill, blue bold text in the owner screenshot).
   it('SAD-76: every Tablify button class is element-qualified inside the .tablify scope', () => {
-    const buttonClasses = ['tablify__toolbar-button', 'tablify__option-button', 'tablify__insert-row'];
+    const buttonClasses = ['tablify__toolbar-button', 'tablify__option-button', 'tablify__insert-row', 'tablify__title-link'];
     const offenders: string[] = [];
     for (const group of ruleSelectors(css)) {
       for (const sel of group.split(',')) {

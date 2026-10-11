@@ -162,7 +162,10 @@ async function main(): Promise<void> {
       const dir = path.join(outRoot, combo);
       fs.mkdirSync(dir, { recursive: true });
       const text = fixtureText(fixture);
-      const plugin = await openPlugin(server.origin, theme, viewport, text);
+      // The prototype titles itself from the document name and shows `Tables/<name>.tablify`;
+      // give the plugin the same file so the title row compares like for like (SAD-77).
+      const docName = (JSON.parse(text) as { name?: string }).name ?? 'Untitled table';
+      const plugin = await openPlugin(server.origin, theme, viewport, text, `Tables/${docName}.tablify`);
       const proto = await openPrototype(server.origin, theme, viewport, text);
       try {
         const regions = [...REGIONS];

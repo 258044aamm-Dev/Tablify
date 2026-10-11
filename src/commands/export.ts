@@ -4,7 +4,7 @@
 
 import { App, Modal, Notice, Plugin, Setting, TFile } from 'obsidian';
 import { parse } from '../format/parse.js';
-import { exportTable, type ExportFormat } from '../io/export/exporter.js';
+import { exportTable, type ExportAdapter, type ExportFormat } from '../io/export/exporter.js';
 
 export const EXPORT_COMMAND_ID = 'export-table';
 export const EXPORT_COMMAND_NAME = 'Export table (CSV, Excel, Markdown)';
@@ -27,6 +27,24 @@ export function registerExportCommand(plugin: Plugin): void {
 /** Open the export modal for a given table file (used by the file explorer menu, P5-01). */
 export function openExportModal(app: App, file: TFile): void {
   new ExportModal(app, file).open();
+}
+
+/** Folder an export of `source` is written to: next to the table ("" = vault root). */
+export function exportFolderOf(source: TFile): string {
+  return source.parent && !source.parent.isRoot() ? source.parent.path : '';
+}
+
+/** Vault-backed writer for exports. `create`/`createBinary` fail if the path exists (never overwrite). */
+export function vaultExportAdapter(app: App): ExportAdapter {
+  return {
+    exists: (path) => app.vault.getAbstractFileByPath(path) !== null,
+    create: async (path, data) => {
+      await app.vault.create(path, data);
+    },
+    createBinary: async (path, data) => {
+      await app.vault.createBinary(path, data);
+    },
+  };
 }
 
 class ExportModal extends Modal {
@@ -75,22 +93,13 @@ class ExportModal extends Modal {
       new Notice(`Export failed. The table file could not be read: ${parsed.error}`);
       return;
     }
-    const folder = this.source.parent && !this.source.parent.isRoot() ? this.source.parent.path : '';
     const outcome = await exportTable({
       file: parsed.data,
       format: this.format,
       scope: { fullTable: this.fullTable },
-      folder,
+      folder: exportFolderOf(this.source),
       baseName: this.source.basename,
-      adapter: {
-        exists: (path) => app.vault.getAbstractFileByPath(path) !== null,
-        create: async (path, data) => {
-          await app.vault.create(path, data);
-        },
-        createBinary: async (path, data) => {
-          await app.vault.createBinary(path, data);
-        },
-      },
+      adapter: vaultExportAdapter(app),
     });
     if (!outcome.ok) {
       new Notice(`Export failed. No file was written. ${outcome.error}`);

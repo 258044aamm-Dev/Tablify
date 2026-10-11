@@ -64,7 +64,7 @@ Tables are plain JSON files in your vault. Tablify makes **no network requests**
 
 ## License
 
-[MIT](LICENSE) © MD Limon Islam. Bundled fonts (Poppins, Lora) are under the SIL Open Font License — see [LICENSE-FONTS](LICENSE-FONTS).
+[MIT](LICENSE) © MD Limon Islam. Bundled fonts (Poppins, Lora) are under the SIL Open Font License — see [LICENSE-FONTS](LICENSE-FONTS). The title-row link icons are [Font Awesome Free](https://fontawesome.com) 6.4.0 glyphs (© Fonticons, Inc.), licensed [CC BY 4.0](https://fontawesome.com/license/free).
 
 ## Formulas and linked records (format version 2)
 

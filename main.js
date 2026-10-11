@@ -9296,28 +9296,30 @@ async function exportTable(input) {
   const resolved = resolveExportTable(input.file, input.scope);
   if (!resolved.ok)
     return { ok: false, error: resolved.error };
-  const table = resolved.table;
-  const ext = EXTENSION[input.format];
+  return writeExport(resolved.table, input.format, input.folder, input.baseName, input.adapter);
+}
+async function writeExport(table, format, folder, baseName2, adapter) {
+  const ext = EXTENSION[format];
   let text = null;
   let binary2 = null;
   try {
-    if (input.format === "csv")
+    if (format === "csv")
       text = toCsv(table);
-    else if (input.format === "md")
+    else if (format === "md")
       text = toMarkdown(table);
     else
       binary2 = await toXlsx(table);
   } catch (e) {
     return { ok: false, error: `Export failed, no file was written: ${e instanceof Error ? e.message : String(e)}` };
   }
-  const path = pickFreePath(input.folder, input.baseName || "Export", input.adapter.exists, ext);
+  const path = pickFreePath(folder, baseName2 || "Export", adapter.exists, ext);
   if (path === null)
     return { ok: false, error: "No free file name found." };
   try {
     if (text !== null)
-      await input.adapter.create(path, text);
+      await adapter.create(path, text);
     else if (binary2 !== null)
-      await input.adapter.createBinary(path, binary2);
+      await adapter.createBinary(path, binary2);
   } catch (e) {
     return { ok: false, error: `Could not write the file: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -9343,6 +9345,20 @@ function registerExportCommand(plugin) {
 }
 function openExportModal(app, file) {
   new ExportModal(app, file).open();
+}
+function exportFolderOf(source) {
+  return source.parent && !source.parent.isRoot() ? source.parent.path : "";
+}
+function vaultExportAdapter(app) {
+  return {
+    exists: (path) => app.vault.getAbstractFileByPath(path) !== null,
+    create: async (path, data) => {
+      await app.vault.create(path, data);
+    },
+    createBinary: async (path, data) => {
+      await app.vault.createBinary(path, data);
+    }
+  };
 }
 var ExportModal = class extends import_obsidian2.Modal {
   constructor(app, source) {
@@ -9375,22 +9391,13 @@ var ExportModal = class extends import_obsidian2.Modal {
       new import_obsidian2.Notice(`Export failed. The table file could not be read: ${parsed.error}`);
       return;
     }
-    const folder = this.source.parent && !this.source.parent.isRoot() ? this.source.parent.path : "";
     const outcome = await exportTable({
       file: parsed.data,
       format: this.format,
       scope: { fullTable: this.fullTable },
-      folder,
+      folder: exportFolderOf(this.source),
       baseName: this.source.basename,
-      adapter: {
-        exists: (path) => app.vault.getAbstractFileByPath(path) !== null,
-        create: async (path, data) => {
-          await app.vault.create(path, data);
-        },
-        createBinary: async (path, data) => {
-          await app.vault.createBinary(path, data);
-        }
-      }
+      adapter: vaultExportAdapter(app)
     });
     if (!outcome.ok) {
       new import_obsidian2.Notice(`Export failed. No file was written. ${outcome.error}`);
@@ -12193,7 +12200,9 @@ var lightTheme = {
   bgPill: palette.cardLight,
   bgPillHover: palette.pillHoverLight,
   borderPillHover: palette.pillBorderHoverLight,
-  borderCapsule: palette.borderLight
+  borderCapsule: palette.borderLight,
+  textTitle: palette.textOnLight,
+  textStrong: palette.textOnLight
 };
 var darkTheme = {
   bg: palette.dark,
@@ -12215,7 +12224,9 @@ var darkTheme = {
   bgPill: palette.pillDark,
   bgPillHover: palette.pillHoverDark,
   borderPillHover: palette.pillBorderHoverDark,
-  borderCapsule: palette.capsuleBorderDark
+  borderCapsule: palette.capsuleBorderDark,
+  textTitle: palette.light,
+  textStrong: palette.cardLight
 };
 var themes = {
   light: lightTheme,
@@ -12241,7 +12252,9 @@ var cssVars = {
   bgPill: "--tablify-bg-pill",
   bgPillHover: "--tablify-bg-pill-hover",
   borderPillHover: "--tablify-border-pill-hover",
-  borderCapsule: "--tablify-border-capsule"
+  borderCapsule: "--tablify-border-capsule",
+  textTitle: "--tablify-text-title",
+  textStrong: "--tablify-text-strong"
 };
 function applyTheme(root, theme) {
   root.classList.remove("tablify--light", "tablify--dark");
@@ -12267,6 +12280,8 @@ function applyTheme(root, theme) {
   root.style.setProperty(cssVars.bgPillHover, t.bgPillHover);
   root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
   root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
+  root.style.setProperty(cssVars.textTitle, t.textTitle);
+  root.style.setProperty(cssVars.textStrong, t.textStrong);
 }
 
 // src/views/grid/GridView.ts
@@ -13012,11 +13027,22 @@ var Toolbar = class {
     this.hiddenList.dataset.testid = "tablify-hidden-fields";
     this.optionsPanel.appendChild(this.hiddenList);
     this.root.appendChild(this.optionsPanel);
-    this.rowCount = document.createElement("div");
+    const metaRow = document.createElement("div");
+    metaRow.className = "tablify__meta-row";
+    const selection = document.createElement("div");
+    selection.className = "tablify__selection-summary";
+    selection.dataset.testid = "tablify-selection-summary";
+    selection.hidden = true;
+    const badges = document.createElement("div");
+    badges.className = "tablify__badges";
+    this.rowCount = document.createElement("span");
     this.rowCount.className = "tablify__rowcount";
     this.rowCount.dataset.testid = "tablify-rowcount";
     this.rowCount.setAttribute("aria-live", "polite");
-    this.root.appendChild(this.rowCount);
+    badges.appendChild(this.rowCount);
+    metaRow.appendChild(selection);
+    metaRow.appendChild(badges);
+    this.root.appendChild(metaRow);
     this.wireEvents();
     this.update(options);
   }
@@ -13181,7 +13207,8 @@ var Toolbar = class {
   renderRowCount() {
     const { visibleRowCount, totalRowCount } = this.opts;
     const filtered = visibleRowCount !== totalRowCount;
-    this.rowCount.textContent = filtered ? `${visibleRowCount} of ${totalRowCount} rows` : `${totalRowCount} ${totalRowCount === 1 ? "row" : "rows"}`;
+    const shown = `${visibleRowCount} ${visibleRowCount === 1 ? "row" : "rows"}`;
+    this.rowCount.textContent = filtered ? `${shown} (of ${totalRowCount})` : shown;
   }
   setOptionsOpen(open2) {
     this.optionsPanel.hidden = !open2;
@@ -13513,6 +13540,162 @@ var FormulaEditModal = class extends import_obsidian7.Modal {
   }
 };
 
+// src/views/titleRow.ts
+var FORBIDDEN = /[\\/:*?"<>|#^[\]]/;
+function validateTableName(name) {
+  if (name.length === 0)
+    return "A table name cannot be empty.";
+  if (FORBIDDEN.test(name))
+    return 'A table name cannot contain any of these characters: \\ / : * ? " < > | # ^ [ ]';
+  if (name.startsWith("."))
+    return "A table name cannot start with a dot.";
+  return null;
+}
+var ICONS2 = {
+  import: '<svg class="tablify__fa" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z"></path></svg>',
+  export: '<svg class="tablify__fa" viewBox="0 0 576 512" width="1.125em" height="1em" fill="currentColor" aria-hidden="true"><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z"></path></svg>',
+  "export-csv": '<svg class="tablify__fa" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z"></path></svg>',
+  "copy-markdown": '<svg class="tablify__fa" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z"></path></svg>'
+};
+var LINKS = [
+  { action: "import", label: "Import\u2026", title: "Import CSV / Excel as table" },
+  { action: "export", label: "Export\u2026", title: "Export CSV / Excel / Markdown" },
+  { action: "export-csv", label: "Export CSV", title: "Export the current view as CSV next to this table" },
+  { action: "copy-markdown", label: "Copy Markdown", title: "Copy the current view as a Markdown table" }
+];
+var TitleRow = class {
+  root;
+  titleEl;
+  chip;
+  callbacks;
+  state;
+  /** True while a rename is in flight, so a second blur cannot start another. */
+  renaming = false;
+  constructor(state, callbacks) {
+    this.state = state;
+    this.callbacks = callbacks;
+    this.root = document.createElement("div");
+    this.root.className = "tablify__title-row";
+    const left = document.createElement("div");
+    left.className = "tablify__title-group";
+    this.titleEl = document.createElement("h2");
+    this.titleEl.className = "tablify__title";
+    this.titleEl.contentEditable = "true";
+    this.titleEl.tabIndex = 0;
+    this.titleEl.spellcheck = false;
+    this.titleEl.setAttribute("role", "textbox");
+    this.titleEl.setAttribute("aria-label", "Table name");
+    this.titleEl.dataset.testid = "tablify-title";
+    left.appendChild(this.titleEl);
+    this.chip = document.createElement("span");
+    this.chip.className = "tablify__file-chip";
+    this.chip.dataset.testid = "tablify-file-chip";
+    left.appendChild(this.chip);
+    const right = document.createElement("div");
+    right.className = "tablify__title-actions";
+    for (const link of LINKS)
+      right.appendChild(this.makeLink(link.action, link.label, link.title));
+    this.root.appendChild(left);
+    this.root.appendChild(right);
+    this.wire();
+    this.render();
+  }
+  /** Refresh title and chip (file opened or renamed). Never clobbers an edit in progress. */
+  update(state) {
+    this.state = state;
+    if (document.activeElement === this.titleEl) {
+      this.renderChip();
+      return;
+    }
+    this.render();
+  }
+  makeLink(action, label, title) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tablify__title-link";
+    btn.dataset.action = action;
+    btn.title = title;
+    const icon = document.createElement("span");
+    icon.className = "tablify__title-link-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = ICONS2[action];
+    btn.appendChild(icon);
+    btn.appendChild(document.createTextNode(` ${label}`));
+    return btn;
+  }
+  wire() {
+    this.titleEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.titleEl.blur();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        this.renderTitle();
+        this.titleEl.blur();
+      }
+    });
+    this.titleEl.addEventListener("blur", () => void this.commit());
+    this.titleEl.addEventListener("paste", (e) => {
+      const text = e.clipboardData?.getData("text/plain");
+      if (text === void 0)
+        return;
+      e.preventDefault();
+      document.execCommand?.("insertText", false, text.replace(/\s+/g, " "));
+    });
+    this.root.addEventListener("click", (e) => {
+      const btn = e.target.closest(".tablify__title-link");
+      if (!btn)
+        return;
+      const action = btn.dataset.action;
+      if (action === "import")
+        this.callbacks.onImport();
+      else if (action === "export")
+        this.callbacks.onExport();
+      else if (action === "export-csv")
+        this.callbacks.onExportCsv();
+      else if (action === "copy-markdown")
+        this.callbacks.onCopyMarkdown();
+    });
+  }
+  async commit() {
+    if (this.renaming)
+      return;
+    const name = (this.titleEl.textContent ?? "").replace(/\s+/g, " ").trim();
+    if (name === this.state.title) {
+      this.renderTitle();
+      return;
+    }
+    const problem = validateTableName(name);
+    if (problem !== null) {
+      if (name.length > 0)
+        this.callbacks.onInvalidName(problem);
+      this.renderTitle();
+      return;
+    }
+    this.renaming = true;
+    try {
+      const ok = await this.callbacks.onRename(name);
+      if (ok)
+        this.state = { ...this.state, title: name };
+    } catch {
+    } finally {
+      this.renaming = false;
+      this.renderTitle();
+    }
+  }
+  render() {
+    this.renderTitle();
+    this.renderChip();
+  }
+  renderTitle() {
+    this.titleEl.textContent = this.state.title;
+  }
+  renderChip() {
+    this.chip.textContent = this.state.path;
+    this.chip.hidden = this.state.path.length === 0;
+  }
+};
+
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
 var TableView = class extends import_obsidian8.TextFileView {
@@ -13529,6 +13712,8 @@ var TableView = class extends import_obsidian8.TextFileView {
   emptyHint = null;
   /** Workspace card wrapping toolbar + grid (SAD-71 Step 6). */
   card = null;
+  /** Prototype title row: editable name, file chip, Import/Export/Copy links (SAD-77). */
+  titleRow = null;
   /** Text copied from a cell or row (system clipboard is also written when available). */
   clipboardText = null;
   /** Long-press state for touch (P5-03). */
@@ -13559,6 +13744,8 @@ var TableView = class extends import_obsidian8.TextFileView {
     this.card = document.createElement("div");
     this.card.className = "tablify__card";
     this.contentEl.appendChild(this.card);
+    this.titleRow = new TitleRow(this.titleState(), this.titleCallbacks());
+    this.card.appendChild(this.titleRow.root);
     this.toolbarView = new Toolbar({ ...this.toolbarState(), callbacks: this.toolbarCallbacks() });
     this.card.appendChild(this.toolbarView.root);
     this.body = document.createElement("div");
@@ -13580,8 +13767,14 @@ var TableView = class extends import_obsidian8.TextFileView {
       return;
     }
     this.session = createSession(parsed.data);
+    this.titleRow?.update(this.titleState());
     this.publishLive();
     this.renderGrid();
+  }
+  /** Obsidian calls this after the file is renamed or moved; keep the title and chip in step. */
+  async onRename(file) {
+    await super.onRename(file);
+    this.titleRow?.update(this.titleState());
   }
   getViewData() {
     if (!this.session)
@@ -13650,6 +13843,86 @@ var TableView = class extends import_obsidian8.TextFileView {
     };
   }
   /** Push the current model state into the toolbar without rebuilding it. */
+  // ---- title row (SAD-77) ----
+  titleState() {
+    return { title: this.file?.basename ?? "", path: this.file?.path ?? "" };
+  }
+  titleCallbacks() {
+    return {
+      onRename: (name) => this.renameTable(name),
+      onInvalidName: (message) => new import_obsidian8.Notice(message),
+      // Same flow as the "Import CSV / Excel as table" command (file picker → folder picker).
+      onImport: () => startImport(this.app),
+      onExport: () => void this.openExport(),
+      onExportCsv: () => void this.exportCurrentViewCsv(),
+      onCopyMarkdown: () => void this.copyCurrentViewMarkdown()
+    };
+  }
+  /** Rename the table file in place (same folder, same extension) through Obsidian's file manager. */
+  async renameTable(name) {
+    const file = this.file;
+    if (!file)
+      return false;
+    const folder = file.path.slice(0, file.path.length - file.name.length);
+    const newPath = `${folder}${name}.${file.extension}`;
+    if (newPath === file.path)
+      return true;
+    if (this.app.vault.getAbstractFileByPath(newPath)) {
+      new import_obsidian8.Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
+      return false;
+    }
+    try {
+      await this.app.fileManager.renameFile(file, newPath);
+      return true;
+    } catch (e) {
+      new import_obsidian8.Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
+      return false;
+    }
+  }
+  /** The rows and fields exactly as shown: view sort, live search and query, visible columns. */
+  currentViewTable() {
+    const s = this.session;
+    if (!s)
+      return null;
+    return { name: this.file?.basename ?? s.toFile().name, fields: s.getVisibleFields(), rows: s.getDisplayRows() };
+  }
+  /** Export… opens the existing Export modal. It reads the file, so pending edits are saved first. */
+  async openExport() {
+    const file = this.file;
+    if (!file)
+      return;
+    if (this.session)
+      await this.save();
+    openExportModal(this.app, file);
+  }
+  /** Export CSV: the current view, written next to the table through the Export modal's writer. */
+  async exportCurrentViewCsv() {
+    const file = this.file;
+    const table = this.currentViewTable();
+    if (!file || !table)
+      return;
+    const outcome = await writeExport(table, "csv", exportFolderOf(file), file.basename, vaultExportAdapter(this.app));
+    if (!outcome.ok) {
+      new import_obsidian8.Notice(`Export failed. No file was written. ${outcome.error}`);
+      return;
+    }
+    new import_obsidian8.Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
+  }
+  /** Copy Markdown: the current view as a Markdown table on the system clipboard. */
+  async copyCurrentViewMarkdown() {
+    const table = this.currentViewTable();
+    if (!table)
+      return;
+    const markdown = toMarkdown(table);
+    try {
+      if (!navigator.clipboard)
+        throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(markdown);
+      new import_obsidian8.Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"} as a Markdown table.`);
+    } catch {
+      new import_obsidian8.Notice("Could not copy to the clipboard.");
+    }
+  }
   syncToolbar() {
     this.toolbarView?.update(this.toolbarState());
   }

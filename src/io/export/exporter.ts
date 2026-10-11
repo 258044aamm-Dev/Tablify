@@ -1,5 +1,5 @@
 // Export orchestration (P4-05): resolve view → build content in memory → write once, never overwrite.
-import { resolveExportTable, type ExportScope } from './view.js';
+import { resolveExportTable, type ExportScope, type ExportTable } from './view.js';
 import { toCsv } from './csv.js';
 import { toMarkdown } from './markdown.js';
 import { toXlsx } from './xlsx.js';
@@ -34,25 +34,39 @@ export const EXTENSION: Record<ExportFormat, string> = { csv: 'csv', xlsx: 'xlsx
 export async function exportTable(input: ExportInput): Promise<ExportOutcome> {
   const resolved = resolveExportTable(input.file, input.scope);
   if (!resolved.ok) return { ok: false, error: resolved.error };
-  const table = resolved.table;
-  const ext = EXTENSION[input.format];
+  return writeExport(resolved.table, input.format, input.folder, input.baseName, input.adapter);
+}
+
+/**
+ * Build one export file from an already-resolved table and write it once, never overwriting.
+ * Split out of exportTable() (SAD-77) so the table view's "Export CSV" can export exactly the rows
+ * it shows (live search and query applied) through the same write path as the Export modal.
+ */
+export async function writeExport(
+  table: ExportTable,
+  format: ExportFormat,
+  folder: string,
+  baseName: string,
+  adapter: ExportAdapter,
+): Promise<ExportOutcome> {
+  const ext = EXTENSION[format];
 
   // Build the full content before anything is written.
   let text: string | null = null;
   let binary: ArrayBuffer | null = null;
   try {
-    if (input.format === 'csv') text = toCsv(table);
-    else if (input.format === 'md') text = toMarkdown(table);
+    if (format === 'csv') text = toCsv(table);
+    else if (format === 'md') text = toMarkdown(table);
     else binary = await toXlsx(table);
   } catch (e) {
     return { ok: false, error: `Export failed, no file was written: ${e instanceof Error ? e.message : String(e)}` };
   }
 
-  const path = pickFreePath(input.folder, input.baseName || 'Export', input.adapter.exists, ext);
+  const path = pickFreePath(folder, baseName || 'Export', adapter.exists, ext);
   if (path === null) return { ok: false, error: 'No free file name found.' };
   try {
-    if (text !== null) await input.adapter.create(path, text);
-    else if (binary !== null) await input.adapter.createBinary(path, binary);
+    if (text !== null) await adapter.create(path, text);
+    else if (binary !== null) await adapter.createBinary(path, binary);
   } catch (e) {
     return { ok: false, error: `Could not write the file: ${e instanceof Error ? e.message : String(e)}` };
   }

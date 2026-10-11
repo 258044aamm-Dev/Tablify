@@ -134,11 +134,12 @@
 .tablify__toolbar {
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--tablify-border-subtle);
   font-family: 'Lora', Georgia, serif;
   font-size: 13px;
   color: var(--tablify-text);
-  padding: 0 0 8px;
+  /* SAD-77: the prototype has no rule under the toolbar; the meta row's mb-2 (8px) is the
+     only space before the grid. */
+  padding: 0;
   margin-bottom: 8px;
   display: flex;
   flex-direction: column;
@@ -424,13 +425,142 @@
   color: var(--tablify-text);
 }
 
-/* Prototype row-count badge: mono, muted, letter-spaced. */
+/* Meta row (SAD-77): prototype #metaRow — "N selected · Delete" on the left (SAD-80),
+   badges on the right (gap-3), px-1. The extra 8px top margin makes the toolbar row → meta row
+   step the prototype's mb-4 (16px) once the query input merges into search (SAD-78). */
+.tablify__meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  margin-top: 8px;
+}
+
+.tablify__badges {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Prototype row-count badge: text-[11px] font-medium tracking-wider font-mono, clay/gray-400. */
 .tablify__rowcount {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
   color: var(--tablify-text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-align: right;
+}
+
+/* ---- Title row (SAD-77, owner decisions S-1 / S-7) --------------------------------
+   Prototype #titleRow: mb-5 flex items-baseline justify-between flex-wrap gap-2. */
+.tablify__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tablify__title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* #editableTableTitle: text-3xl (sm) / text-2xl, font-serif (= Poppins in the prototype's
+   Tailwind config), rounded, px-1 -ml-1, focus ring-1 terracotta/40. Element-qualified so it
+   beats the generic `.tablify h2` panel rule and any host heading styles. */
+.tablify h2.tablify__title {
+  margin: 0 0 0 -4px;
+  padding: 0 4px;
+  display: inline-block;
+  min-width: 1ch;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 36px;
+  letter-spacing: normal;
+  color: var(--tablify-text-title);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  outline: none;
+  transition: box-shadow 0.15s ease;
+}
+
+.tablify h2.tablify__title:focus {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tablify-accent-primary) 40%, transparent);
+}
+
+/* #fileChip: text-xs font-mono, clay/gray-400, inner surface, px-2 py-0.5, rounded, border. */
+.tablify__file-chip {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--tablify-text-muted);
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 4px;
+  padding: 2px 8px;
+  /* Like the prototype, a long path wraps (break-word never changes the flex min-content). */
+  overflow-wrap: break-word;
+}
+
+/* Prototype: `flex items-center gap-2`, no wrap — on a phone each label wraps inside its button. */
+.tablify__title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Title links: text-xs, clay/gray-400, hover charcoal/white on the inner surface, px-2 py-1,
+   rounded. Element-qualified inside .tablify and fully reset (SAD-76 rule) so the host button
+   style cannot repaint them. */
+.tablify button.tablify__title-link {
+  /* Inline flow like the prototype's <button><i class="fa-solid …"></i> label</button>. */
+  display: inline-block;
+  margin: 0;
+  height: auto;
+  padding: 4px 8px;
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  color: var(--tablify-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: center;
+  appearance: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tablify button.tablify__title-link:hover {
+  color: var(--tablify-text-strong);
+  background: var(--tablify-bg-inner);
+}
+
+.tablify button.tablify__title-link:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+.tablify__title-link-icon {
+  margin-right: 4px;
+}
+
+/* Font Awesome inline-SVG metrics (svg-inline--fa): 1em tall, nudged below the baseline. */
+.tablify__title-link-icon svg.tablify__fa {
+  display: inline-block;
+  height: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
 }
 
 /* ---- View layout (SAD-71 Step 1) ------------------------------------------------
@@ -444,25 +574,54 @@
   /* SAD-71 Step 6: the view is the app background the card sits on. applyTheme() puts
      the .tablify class on contentEl for the tokens; the base .tablify box styling
      (surface + border) must not double-frame the view, so it is overridden here. */
-  padding: 16px;
+  /* SAD-77: prototype body p-3 sm:p-6 on the paper/dark background behind the card. */
+  padding: 24px;
   box-sizing: border-box;
-  background: transparent;
+  background: var(--tablify-bg);
   border: none;
 }
 
+/* Obsidian zeroes `.workspace-leaf-content .view-content` padding (0,2,0); the view needs the
+   prototype's gutter regardless of rule order. contentEl always carries .view-content. */
+.view-content.tablify-view.tablify {
+  padding: 24px;
+}
+
 /* The prototype's outer container: one rounded card around toolbar + grid. */
+/* SAD-77: prototype outer container — rounded-[24px] sm:rounded-[32px], p-4 sm:p-7, shadow-xl.
+   Sections space themselves with the prototype's margins (title mb-5, meta mb-2), so no gap. */
 .tablify__card {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
   background: var(--tablify-bg-card);
   border: 1px solid var(--tablify-border-subtle);
-  border-radius: 24px;
-  padding: 20px;
+  border-radius: 32px;
+  padding: 28px;
   box-sizing: border-box;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+/* Prototype `sm:` breakpoint (640px): phones get the compact card, gutter and title. */
+@media (max-width: 639px) {
+  .tablify-view,
+  .view-content.tablify-view.tablify {
+    padding: 12px;
+  }
+
+  .tablify__card {
+    border-radius: 24px;
+    padding: 16px;
+  }
+
+  .tablify h2.tablify__title {
+    font-size: 24px;
+    line-height: 32px;
+  }
 }
 
 .tablify__body {

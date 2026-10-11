@@ -55,6 +55,8 @@ are **retired**; `src/ui/theme/tokens.ts` and `tests/ui/theme.test.ts` carry the
 | bg-pill-hover | #F6F2EA | #2D2A25 | pill hover surface |
 | border-pill-hover | #D3CAB9 | #4A453E | pill hover border |
 | border-capsule | #E6E0D5 | #3A3630 | header + cell capsule border (prototype `.header-capsule`) |
+| text-title | #1E1B18 | #FAF7F2 | table title in the title row (prototype `#editableTableTitle`; SAD-77) |
+| text-strong | #1E1B18 | #FFFFFF | title-link hover ink (prototype `hover:text-white`) |
 | text | #1E1B18 | #ECE7E1 | body text |
 | text-muted | #6E655C | #9CA3AF | 11px labels, row count, badges |
 | accent | #CC785C | #d97757 | focus, selection, active pills, CTA |

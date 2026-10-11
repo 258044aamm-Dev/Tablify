@@ -199,12 +199,25 @@ export class Toolbar {
     this.optionsPanel.appendChild(this.hiddenList);
     this.root.appendChild(this.optionsPanel);
 
-    // ---- row count badge ----
-    this.rowCount = document.createElement('div');
+    // ---- meta row (SAD-77): prototype #metaRow — selection summary left, badges right ----
+    const metaRow = document.createElement('div');
+    metaRow.className = 'tablify__meta-row';
+    // Left slot for the prototype's "N selected · Delete" summary (filled by the row-selection
+    // step, SAD-80). Empty and hidden until then.
+    const selection = document.createElement('div');
+    selection.className = 'tablify__selection-summary';
+    selection.dataset.testid = 'tablify-selection-summary';
+    selection.hidden = true;
+    const badges = document.createElement('div');
+    badges.className = 'tablify__badges';
+    this.rowCount = document.createElement('span');
     this.rowCount.className = 'tablify__rowcount';
     this.rowCount.dataset.testid = 'tablify-rowcount';
     this.rowCount.setAttribute('aria-live', 'polite');
-    this.root.appendChild(this.rowCount);
+    badges.appendChild(this.rowCount);
+    metaRow.appendChild(selection);
+    metaRow.appendChild(badges);
+    this.root.appendChild(metaRow);
 
     this.wireEvents();
     this.update(options);
@@ -387,9 +400,9 @@ export class Toolbar {
   private renderRowCount(): void {
     const { visibleRowCount, totalRowCount } = this.opts;
     const filtered = visibleRowCount !== totalRowCount;
-    this.rowCount.textContent = filtered
-      ? `${visibleRowCount} of ${totalRowCount} rows`
-      : `${totalRowCount} ${totalRowCount === 1 ? 'row' : 'rows'}`;
+    // Prototype wording (SAD-77): "12 rows", "1 row", "3 rows (of 40)" when filtered.
+    const shown = `${visibleRowCount} ${visibleRowCount === 1 ? 'row' : 'rows'}`;
+    this.rowCount.textContent = filtered ? `${shown} (of ${totalRowCount})` : shown;
   }
 
   private setOptionsOpen(open: boolean): void {

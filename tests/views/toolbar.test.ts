@@ -344,7 +344,7 @@ describe('Toolbar — action buttons and row count', () => {
 
   it('shows "N of M rows" when a filter is active', () => {
     const { toolbar } = mount({ visibleRowCount: 12, totalRowCount: 40 });
-    expect(q(toolbar.root, '[data-testid="tablify-rowcount"]')?.textContent).toBe('12 of 40 rows');
+    expect(q(toolbar.root, '[data-testid="tablify-rowcount"]')?.textContent).toBe('12 rows (of 40)');
   });
 
   it('uses the singular for exactly one row', () => {

@@ -2,7 +2,7 @@
 // Thin layer: load/save via TextFileView, DOM via GridView, logic via tableSession, tableController,
 // and the menu models. Every change goes through the command stack (undoable). Save follows each change.
 
-import { Notice, TextFileView, WorkspaceLeaf } from 'obsidian';
+import { Notice, TextFileView, TFile, WorkspaceLeaf } from 'obsidian';
 import { parse } from '../format/parse.js';
 import { serialize } from '../format/serialize.js';
 import { countForeignRefs, removeForeignRefs } from '../model/link.js';
@@ -26,6 +26,12 @@ import { linkIndexFor } from '../links/vaultLinkIndex.js';
 import { snapshotTable, summarizeLinks } from '../model/link.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
+import { TitleRow, type TitleRowCallbacks, type TitleRowState } from './titleRow.js';
+import { startImport } from '../commands/import.js';
+import { exportFolderOf, openExportModal, vaultExportAdapter } from '../commands/export.js';
+import { writeExport } from '../io/export/exporter.js';
+import { toMarkdown } from '../io/export/markdown.js';
+import type { ExportTable } from '../io/export/view.js';
 
 export const TABLIFY_VIEW_TYPE = 'tablify';
 
@@ -50,6 +56,8 @@ export class TableView extends TextFileView {
   private emptyHint: HTMLElement | null = null;
   /** Workspace card wrapping toolbar + grid (SAD-71 Step 6). */
   private card: HTMLElement | null = null;
+  /** Prototype title row: editable name, file chip, Import/Export/Copy links (SAD-77). */
+  private titleRow: TitleRow | null = null;
   /** Text copied from a cell or row (system clipboard is also written when available). */
   private clipboardText: string | null = null;
   /** Long-press state for touch (P5-03). */
@@ -89,6 +97,9 @@ export class TableView extends TextFileView {
     this.card = document.createElement('div');
     this.card.className = 'tablify__card';
     this.contentEl.appendChild(this.card);
+    // SAD-77: the prototype's title row sits above the toolbar inside the card.
+    this.titleRow = new TitleRow(this.titleState(), this.titleCallbacks());
+    this.card.appendChild(this.titleRow.root);
     // SAD-69: the toolbar P3-08 specified and that never existed. Built once here and
     // refreshed through update() on every render — rebuilding would drop focus and caret.
     this.toolbarView = new Toolbar({ ...this.toolbarState(), callbacks: this.toolbarCallbacks() });
@@ -112,8 +123,15 @@ export class TableView extends TextFileView {
       return;
     }
     this.session = createSession(parsed.data);
+    this.titleRow?.update(this.titleState());
     this.publishLive();
     this.renderGrid();
+  }
+
+  /** Obsidian calls this after the file is renamed or moved; keep the title and chip in step. */
+  async onRename(file: TFile): Promise<void> {
+    await super.onRename(file);
+    this.titleRow?.update(this.titleState());
   }
 
   getViewData(): string {
@@ -188,6 +206,86 @@ export class TableView extends TextFileView {
   }
 
   /** Push the current model state into the toolbar without rebuilding it. */
+  // ---- title row (SAD-77) ----
+
+  private titleState(): TitleRowState {
+    return { title: this.file?.basename ?? '', path: this.file?.path ?? '' };
+  }
+
+  private titleCallbacks(): TitleRowCallbacks {
+    return {
+      onRename: (name) => this.renameTable(name),
+      onInvalidName: (message) => new Notice(message),
+      // Same flow as the "Import CSV / Excel as table" command (file picker → folder picker).
+      onImport: () => startImport(this.app),
+      onExport: () => void this.openExport(),
+      onExportCsv: () => void this.exportCurrentViewCsv(),
+      onCopyMarkdown: () => void this.copyCurrentViewMarkdown(),
+    };
+  }
+
+  /** Rename the table file in place (same folder, same extension) through Obsidian's file manager. */
+  private async renameTable(name: string): Promise<boolean> {
+    const file = this.file;
+    if (!file) return false;
+    const folder = file.path.slice(0, file.path.length - file.name.length);
+    const newPath = `${folder}${name}.${file.extension}`;
+    if (newPath === file.path) return true;
+    if (this.app.vault.getAbstractFileByPath(newPath)) {
+      new Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
+      return false;
+    }
+    try {
+      await this.app.fileManager.renameFile(file, newPath);
+      return true;
+    } catch (e) {
+      new Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
+      return false;
+    }
+  }
+
+  /** The rows and fields exactly as shown: view sort, live search and query, visible columns. */
+  private currentViewTable(): ExportTable | null {
+    const s = this.session;
+    if (!s) return null;
+    return { name: this.file?.basename ?? s.toFile().name, fields: s.getVisibleFields(), rows: s.getDisplayRows() };
+  }
+
+  /** Export… opens the existing Export modal. It reads the file, so pending edits are saved first. */
+  private async openExport(): Promise<void> {
+    const file = this.file;
+    if (!file) return;
+    if (this.session) await this.save();
+    openExportModal(this.app, file);
+  }
+
+  /** Export CSV: the current view, written next to the table through the Export modal's writer. */
+  private async exportCurrentViewCsv(): Promise<void> {
+    const file = this.file;
+    const table = this.currentViewTable();
+    if (!file || !table) return;
+    const outcome = await writeExport(table, 'csv', exportFolderOf(file), file.basename, vaultExportAdapter(this.app));
+    if (!outcome.ok) {
+      new Notice(`Export failed. No file was written. ${outcome.error}`);
+      return;
+    }
+    new Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
+  }
+
+  /** Copy Markdown: the current view as a Markdown table on the system clipboard. */
+  private async copyCurrentViewMarkdown(): Promise<void> {
+    const table = this.currentViewTable();
+    if (!table) return;
+    const markdown = toMarkdown(table);
+    try {
+      if (!navigator.clipboard) throw new Error('clipboard unavailable');
+      await navigator.clipboard.writeText(markdown);
+      new Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? 'row' : 'rows'} as a Markdown table.`);
+    } catch {
+      new Notice('Could not copy to the clipboard.');
+    }
+  }
+
   private syncToolbar(): void {
     this.toolbarView?.update(this.toolbarState());
   }

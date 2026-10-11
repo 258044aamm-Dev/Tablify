@@ -162,6 +162,10 @@ export class App {
   };
   fileManager = {
     generateMarkdownLink: (): string => '',
+    /** SAD-77: the title row renames the table file through this. Tests replace it with a spy. */
+    renameFile: async (_file: TAbstractFile, _newPath: string): Promise<void> => {
+      /* no-op */
+    },
   };
 }
 
@@ -527,6 +531,18 @@ export class TextFileView {
 
   requestSave(): void {
     this.saveRequests += 1;
+  }
+
+  /** Number of times save() was called (SAD-77: Export… flushes pending edits first). */
+  saves = 0;
+
+  async save(_clear?: boolean): Promise<void> {
+    this.saves += 1;
+  }
+
+  /** Obsidian's FileView hook after a rename or move (SAD-77). */
+  async onRename(_file: TFile): Promise<void> {
+    /* subclass hook */
   }
 
   getViewType(): string {

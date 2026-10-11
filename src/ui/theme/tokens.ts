@@ -97,6 +97,10 @@ export interface Theme {
   borderPillHover: string;
   /** SAD-76: prototype `.header-capsule` / `.cell-capsule` border. */
   borderCapsule: string;
+  /** SAD-77: prototype title ink (`text-tablify-charcoal dark:text-tablify-paper`). */
+  textTitle: string;
+  /** SAD-77: prototype title-link hover ink (`hover:text-tablify-charcoal dark:hover:text-white`). */
+  textStrong: string;
 }
 
 export const lightTheme: Theme = {
@@ -120,6 +124,8 @@ export const lightTheme: Theme = {
   bgPillHover: palette.pillHoverLight,
   borderPillHover: palette.pillBorderHoverLight,
   borderCapsule: palette.borderLight,
+  textTitle: palette.textOnLight,
+  textStrong: palette.textOnLight,
 };
 
 export const darkTheme: Theme = {
@@ -143,6 +149,8 @@ export const darkTheme: Theme = {
   bgPillHover: palette.pillHoverDark,
   borderPillHover: palette.pillBorderHoverDark,
   borderCapsule: palette.capsuleBorderDark,
+  textTitle: palette.light,
+  textStrong: palette.cardLight,
 };
 
 export const themes = {
@@ -176,6 +184,8 @@ export const cssVars = {
   bgPillHover: '--tablify-bg-pill-hover',
   borderPillHover: '--tablify-border-pill-hover',
   borderCapsule: '--tablify-border-capsule',
+  textTitle: '--tablify-text-title',
+  textStrong: '--tablify-text-strong',
 } as const;
 
 /**
@@ -207,6 +217,8 @@ export function applyTheme(root: HTMLElement, theme: ThemeName): void {
   root.style.setProperty(cssVars.bgPillHover, t.bgPillHover);
   root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
   root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
+  root.style.setProperty(cssVars.textTitle, t.textTitle);
+  root.style.setProperty(cssVars.textStrong, t.textStrong);
 }
 
 /**

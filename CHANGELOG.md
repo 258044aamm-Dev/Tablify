@@ -6,6 +6,16 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Title row (SAD-77, prototype)**: every table now opens with the prototype's title row above
+  the toolbar. It shows the table name (click to rename the file in place; Enter commits, Esc
+  cancels, invalid or colliding names are refused with a notice), the vault-path chip, and
+  **Import…**, **Export…**, **Export CSV** and **Copy Markdown**. Export CSV and Copy Markdown use
+  the current view (visible fields, sort, search and query); Export CSV never overwrites.
+  The card, title and links use the prototype's measurements (card radius 32 / 24 px and padding
+  28 / 16 px; title Poppins 30 / 24 px), verified against the prototype in dark and light, desktop and
+  mobile. The row count moves to the prototype's meta row and reads `12 rows (of 40)` when filtered
+  (was `12 of 40 rows`). Icons: Font Awesome Free 6.4.0 (CC BY 4.0).
+
 - **New tables start ready to use (SAD-84)** — **New table** now creates five fields (`Name`
   primary text, `Notes` long text, `Status` single select with Todo / In progress / Done,
   `Due date`, `Attachments`) and three empty rows, so the first cell can be edited at once.
