@@ -18,7 +18,8 @@ import { LongPressDetector } from './longPress.js';
 import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
 import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
 import { createDefaultView } from '../model/view.js';
-import { cycleHeaderSort, moveColumnOnto, resizeColumn, setFrozenColumns, setRowHeight } from './grid/columns.js';
+import { cycleHeaderSort, hideField, moveColumnOnto, resizeColumn, setFrozenColumns, setGroupBy, setRowHeight, setSort } from './grid/columns.js';
+import { groupRows, toggleCollapsed, type GroupedRows } from './grid/grouping.js';
 import { pruneSelection, setVisibleRows, toggleRow } from './grid/selection.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
@@ -321,7 +322,16 @@ export class TableView extends TextFileView {
           const view = s.getView();
           s.setView({ ...view, hidden: view.hidden.filter((id) => id !== fieldId) });
         }),
-      onClearFilters: () => this.applyFilter({ search: '', query: '' }),
+      // SAD-81: Options → Fields → Hide; the primary field is refused (R-D13), as in the header menu.
+      onHideField: (fieldId) => this.applyViewChange((view, fields) => hideField(view, fieldId, fields)),
+      // SAD-81: Group by and the multi-sort list are layout changes — undoable, like the header's.
+      onGroupBy: (fieldId) => this.applyViewChange((view, fields) => setGroupBy(view, fieldId, fields)),
+      onSortChange: (sort) => this.applyViewChange((view, fields) => setSort(view, sort, fields)),
+      onClearFilters: () => {
+        this.applyFilter({ search: '', query: '' });
+        // SAD-81: prototype `optClearFilters` toast.
+        new Notice('Search & filters cleared');
+      },
       onUndo: () => this.mutate((s) => s.undo()),
       onRedo: () => this.mutate((s) => s.redo()),
       onDeleteSelected: () => this.deleteSelectedRows(),
@@ -464,7 +474,9 @@ export class TableView extends TextFileView {
     this.syncToolbar();
     if (!this.session || !this.body) return;
     const s = this.session;
-    const rows = s.getDisplayRows();
+    const grouped = this.groupedRows();
+    const rows = grouped.rows;
+    const groups = grouped.groups;
     const fields = s.getVisibleFields();
     const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
     // SAD-71 Step 6: keep the view surface (card tokens) and the grid on the active theme
@@ -500,7 +512,8 @@ export class TableView extends TextFileView {
         // SAD-80: row checkboxes and select-all (UI state), and `#`-cell drag to reorder.
         onToggleRow: (rowId, checked) => this.showRowSelection(toggleRow(this.rowSelection, rowId, checked)),
         onToggleAllRows: (checked) => {
-          const visible = this.session?.getDisplayRows().map((r) => r.id) ?? [];
+          // SAD-81: rows in collapsed groups are out of view, so select-all skips them (prototype).
+          const visible = this.displayRows().map((r) => r.id);
           this.showRowSelection(setVisibleRows(this.rowSelection, visible, checked));
         },
         onRowMove: (rowId, beforeRowId) => {
@@ -511,6 +524,9 @@ export class TableView extends TextFileView {
         },
         rowMoveBlocked: () => this.rowMoveBlocked(),
         onRowMoveBlocked: (reason) => new Notice(reason),
+        // SAD-81: Options → Group by headers; a click collapses or expands one group.
+        groups,
+        onToggleGroup: (key) => this.toggleGroup(key),
       });
       this.grid.setRowSelection(this.rowSelection);
       this.body.appendChild(this.grid.root);
@@ -520,9 +536,46 @@ export class TableView extends TextFileView {
       this.wirePressEvents(this.grid.root);
     } else {
       this.grid.setTheme(theme);
-      this.grid.setModel(rows, fields, s.getView());
+      this.grid.setModel(rows, fields, s.getView(), groups);
       this.grid.setRowSelection(this.rowSelection);
     }
+  }
+
+  // ---- group by (SAD-81) ----
+
+  /**
+   * The display rows grouped by `view.groupBy`, collapsed groups left out. Without a groupBy
+   * (or with a field that no longer exists) this is exactly session.getDisplayRows() with no
+   * groups, so every flat-grid path is unchanged.
+   */
+  private groupedRows(): { rows: Row[]; groups: GroupedRows['groups'] | null } {
+    const s = this.session;
+    if (!s) return { rows: [], groups: null };
+    const rows = s.getDisplayRows();
+    const view = s.getView();
+    const field = view.groupBy ? s.getField(view.groupBy) : undefined;
+    if (!field) return { rows, groups: null };
+    return groupRows(rows, field, view.collapsedGroups ?? []);
+  }
+
+  /** Rows by grid row index — the grid, keyboard, menus and editors all address these. */
+  private displayRows(): Row[] {
+    return this.groupedRows().rows;
+  }
+
+  /**
+   * Group header click (prototype `toggleGroup`). Persisted with the view but not undoable —
+   * like search, it is a reading aid, not an edit. An empty list drops the key.
+   */
+  private toggleGroup(key: string): void {
+    const s = this.session;
+    if (!s) return;
+    const next = toggleCollapsed(s.getView().collapsedGroups, key);
+    // undefined, not [], so the key leaves the file once every group is open again.
+    s.patchView({ collapsedGroups: next.length > 0 ? next : undefined });
+    // The selected cell's row index may now point at another row.
+    this.grid?.setSelection(null);
+    this.afterChange();
   }
 
   // ---- keyboard ----
@@ -553,7 +606,7 @@ export class TableView extends TextFileView {
         this.startEdit(sel);
         return;
       }
-      const rowCount = this.session.getDisplayRows().length;
+      const rowCount = this.displayRows().length;
       const colCount = this.session.getVisibleFields().length;
       const next = moveSelection(sel, action, rowCount, colCount);
       this.grid.setSelection(next);
@@ -651,7 +704,7 @@ export class TableView extends TextFileView {
 
   private openCellMenu(row: number, col: number, pos: MouseEvent | { x: number; y: number }): void {
     if (!this.session) return;
-    const rowData = this.session.getDisplayRows()[row];
+    const rowData = this.displayRows()[row];
     const field = this.session.getVisibleFields()[col];
     if (!rowData || !field) return;
     const value = rowData.values[field.id];
@@ -691,7 +744,7 @@ export class TableView extends TextFileView {
     const s = this.session;
     const t = this.menuTarget;
     if (!s || !t) return;
-    const rows = s.getDisplayRows();
+    const rows = this.displayRows();
     const fields = s.getVisibleFields();
 
     if (id.startsWith('cell.') || id.startsWith('row.')) {
@@ -838,7 +891,7 @@ export class TableView extends TextFileView {
     const s = this.session;
     const grid = this.grid;
     if (!s || !grid) return;
-    const rows = s.getDisplayRows();
+    const rows = this.displayRows();
     const fields = s.getVisibleFields();
     const row = rows[sel.row];
     const field = fields[sel.col];

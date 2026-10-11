@@ -22,7 +22,8 @@ import type { QueryError } from '../../query/parse.js';
 import { joinSearchQuery, splitSearchQuery, toInputPosition } from '../../query/combined.js';
 import { faIcon, type FaGlyph } from '../../ui/faIcons.js';
 import { selectionLabel } from './selection.js';
-import type { FieldDefinition, ViewDefinition } from '../../model/types.js';
+import { isGroupable } from './grouping.js';
+import type { FieldDefinition, SortEntry, ViewDefinition } from '../../model/types.js';
 
 /**
  * Row heights offered in the Options menu.
@@ -34,11 +35,16 @@ export type ToolbarRowHeight = 'small' | 'medium' | 'large';
 
 export const ROW_HEIGHTS: ToolbarRowHeight[] = ['small', 'medium', 'large'];
 
+/** SAD-81: the prototype's Options labels (Short / Medium / Tall) for the schema's three values. */
 export const ROW_HEIGHT_LABELS: Record<string, string> = {
-  small: 'Small',
+  small: 'Short',
   medium: 'Medium',
-  large: 'Large',
+  large: 'Tall',
 };
+
+/** SAD-81: prototype `openPanel` geometry — panel width cap, viewport margins, anchor gap. */
+const PANEL_MAX_WIDTH = 320;
+const PANEL_GAP = 6;
 
 /** Search-or-query debounce in ms. P3-08 specifies 200 ms (proposed). */
 export const DEBOUNCE_MS = 200;
@@ -59,9 +65,16 @@ export interface ToolbarCallbacks {
   onAddRow(): void;
   onAddField(): void;
   onRowHeight(height: ToolbarRowHeight): void;
+  /** SAD-81: the Options switch sends 1 (freeze the primary column) or 0. */
   onFreezeColumns(count: number): void;
   /** Show a previously hidden field again — SAD-69 plan item B. */
   onShowField(fieldId: string): void;
+  /** SAD-81: Options → Fields → Hide. Never offered for the primary field (R-D13). */
+  onHideField?(fieldId: string): void;
+  /** SAD-81: Options → Group by; null = None. */
+  onGroupBy?(fieldId: string | null): void;
+  /** SAD-81: Options → Sort — the full next sort list (add, flip direction, remove). */
+  onSortChange?(sort: SortEntry[]): void;
   onClearFilters(): void;
   onUndo(): void;
   onRedo(): void;
@@ -126,6 +139,7 @@ const ACTIONS = {
   redo: 'redo',
   clearFilters: 'clear-filters',
   deleteSelected: 'delete-selected',
+  toggleFreeze: 'toggle-freeze',
 } as const;
 
 export class Toolbar {
@@ -139,7 +153,6 @@ export class Toolbar {
   private readonly rowCount: HTMLElement;
   private readonly selectionSummary: HTMLElement;
   private readonly selectedCount: HTMLElement;
-  private readonly hiddenList: HTMLElement;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: ToolbarOptions) {
@@ -200,14 +213,14 @@ export class Toolbar {
     this.root.appendChild(this.queryError);
 
     // ---- options popover (view settings) ----
+    // SAD-81: the prototype's `#floatPanel` — fixed, anchored under the Options button by
+    // positionOptions(). It stays inside the toolbar root so the outside-press check holds.
     this.optionsPanel = document.createElement('div');
     this.optionsPanel.className = 'tablify__options';
     this.optionsPanel.hidden = true;
     this.optionsPanel.dataset.testid = 'tablify-options';
-    this.hiddenList = document.createElement('div');
-    this.hiddenList.className = 'tablify__hidden-fields';
-    this.hiddenList.dataset.testid = 'tablify-hidden-fields';
-    this.optionsPanel.appendChild(this.hiddenList);
+    this.optionsPanel.setAttribute('role', 'dialog');
+    this.optionsPanel.setAttribute('aria-label', 'View settings');
     this.root.appendChild(this.optionsPanel);
 
     // ---- meta row (SAD-77): prototype #metaRow — selection summary left, badges right ----
@@ -293,6 +306,7 @@ export class Toolbar {
     this.root.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+      if (this.handleOptionsClick(target)) return;
       const showBtn = target.closest<HTMLElement>('[data-show-field]');
       const fieldId = showBtn?.dataset.showField;
       if (fieldId) {
@@ -313,6 +327,51 @@ export class Toolbar {
     this.root.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && !this.optionsPanel.hidden) this.setOptionsOpen(false);
     });
+
+    // SAD-81: the panel's two selects (Group by, + Add sort…).
+    this.optionsPanel.addEventListener('change', (event) => {
+      const select = event.target as HTMLSelectElement | null;
+      const kind = select?.dataset?.option;
+      if (!select || !kind) return;
+      if (kind === 'group-by') {
+        this.opts.callbacks.onGroupBy?.(select.value || null);
+      } else if (kind === 'add-sort' && select.value) {
+        const fieldId = select.value;
+        select.value = '';
+        this.opts.callbacks.onSortChange?.([...this.currentSort(), { fieldId, direction: 'asc' }]);
+      }
+    });
+  }
+
+  /** SAD-81: sort entries whose field still exists (prototype skips the rest). */
+  private currentSort(): SortEntry[] {
+    const ids = new Set(this.opts.fields.map((f) => f.id));
+    return (this.opts.view.sort ?? []).filter((s) => ids.has(s.fieldId));
+  }
+
+  /** SAD-81: Options panel buttons that are not plain actions. True when handled. */
+  private handleOptionsClick(target: HTMLElement): boolean {
+    const hide = target.closest<HTMLElement>('[data-hide-field]');
+    if (hide?.dataset.hideField) {
+      if (!(hide as HTMLButtonElement).disabled) this.opts.callbacks.onHideField?.(hide.dataset.hideField);
+      return true;
+    }
+    const dir = target.closest<HTMLElement>('[data-sort-dir]');
+    if (dir?.dataset.sortDir !== undefined) {
+      const i = Number(dir.dataset.sortDir);
+      const sort = this.currentSort().map((s, j) =>
+        j === i ? { ...s, direction: s.direction === 'asc' ? ('desc' as const) : ('asc' as const) } : s,
+      );
+      this.opts.callbacks.onSortChange?.(sort);
+      return true;
+    }
+    const remove = target.closest<HTMLElement>('[data-sort-remove]');
+    if (remove?.dataset.sortRemove !== undefined) {
+      const i = Number(remove.dataset.sortRemove);
+      this.opts.callbacks.onSortChange?.(this.currentSort().filter((_, j) => j !== i));
+      return true;
+    }
+    return false;
   }
 
   private handleAction(action: string): void {
@@ -334,6 +393,10 @@ export class Toolbar {
         break;
       case ACTIONS.clearFilters:
         this.opts.callbacks.onClearFilters();
+        break;
+      case ACTIONS.toggleFreeze:
+        // S-5: an on/off switch for the primary column. Any count ≥ 1 reads as on.
+        this.opts.callbacks.onFreezeColumns((this.opts.view.frozenColumns ?? 0) >= 1 ? 0 : 1);
         break;
       case ACTIONS.undo:
         this.opts.callbacks.onUndo();
@@ -414,6 +477,7 @@ export class Toolbar {
     if (this.searchTimer !== null) clearTimeout(this.searchTimer);
     this.searchTimer = null;
     document.removeEventListener('pointerdown', this.outsideClose);
+    window.removeEventListener('resize', this.reposition);
     this.root.remove();
   }
 
@@ -470,99 +534,251 @@ export class Toolbar {
     // already does (wireEvents). Listening only while open keeps the cost at zero.
     if (open) document.addEventListener('pointerdown', this.outsideClose);
     else document.removeEventListener('pointerdown', this.outsideClose);
+    if (open) window.addEventListener('resize', this.reposition);
+    else window.removeEventListener('resize', this.reposition);
     if (open) this.renderOptions();
   }
 
+  private readonly reposition = (): void => this.positionOptions();
+
+  /**
+   * SAD-81: prototype `openPanel` — left-aligned under the button, kept 12px inside the right
+   * edge (8px on the left), and flipped above the button when it would run off the bottom.
+   * Coordinates are viewport-based; if an ancestor makes `position: fixed` resolve against
+   * itself (a transform, e.g. Obsidian's mobile drawers), the measured offset is subtracted.
+   */
+  private positionOptions(): void {
+    const panel = this.optionsPanel;
+    if (panel.hidden) return;
+    const win = panel.ownerDocument.defaultView ?? window;
+    const anchor = this.optionsButton.getBoundingClientRect();
+    const pw = Math.min(PANEL_MAX_WIDTH, win.innerWidth - 24);
+    const left = Math.max(8, Math.min(anchor.left, win.innerWidth - pw - 12));
+    let top = anchor.bottom + PANEL_GAP;
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    const box = panel.getBoundingClientRect();
+    // Not laid out (jsdom, detached): nothing to correct.
+    if (box.width === 0 && box.height === 0) return;
+    const dx = box.left - left;
+    const dy = box.top - top;
+    if (top + box.height > win.innerHeight - 8) top = Math.max(8, anchor.top - box.height - PANEL_GAP);
+    panel.style.left = `${left - dx}px`;
+    panel.style.top = `${top - dy}px`;
+  }
+
+  /**
+   * SAD-81: the prototype's View settings panel (`renderOptionsPanel`): row height, freeze
+   * switch, Group by, multi-sort list, field visibility, and Clear search & filters. Rebuilt on
+   * every update like the prototype's; keyboard focus is carried over to the same control.
+   */
   private renderOptions(): void {
     const { view, fields } = this.opts;
-    this.optionsPanel.textContent = '';
+    const panel = this.optionsPanel;
+    const active = document.activeElement as HTMLElement | null;
+    const focusKey = active && panel.contains(active) ? active.dataset.focusKey : undefined;
+    panel.textContent = '';
+    const inner = document.createElement('div');
+    inner.className = 'tablify__options-inner';
+    panel.appendChild(inner);
+
+    const title = document.createElement('div');
+    title.className = 'tablify__options-title';
+    title.textContent = 'View settings';
+    inner.appendChild(title);
 
     // ---- row height ----
-    const heightGroup = document.createElement('div');
-    heightGroup.className = 'tablify__option-group';
-    heightGroup.dataset.testid = 'option-rowheight';
-    const heightLabel = document.createElement('span');
-    heightLabel.className = 'tablify__option-label';
-    heightLabel.textContent = 'Row height';
-    heightGroup.appendChild(heightLabel);
+    const heightGroup = this.optionGroup(inner, 'option-rowheight', 'Row height');
+    const pills = document.createElement('div');
+    pills.className = 'tablify__option-pills';
     for (const h of ROW_HEIGHTS) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'tablify__option-button';
+      btn.className = 'tablify__option-button tablify__option-pill';
       btn.textContent = ROW_HEIGHT_LABELS[h] ?? h;
       btn.dataset.rowHeight = h;
+      btn.dataset.focusKey = `rh-${h}`;
       if (view.rowHeight === h) btn.classList.add('is-active');
       btn.setAttribute('aria-pressed', String(view.rowHeight === h));
-      heightGroup.appendChild(btn);
+      pills.appendChild(btn);
     }
-    this.optionsPanel.appendChild(heightGroup);
+    heightGroup.appendChild(pills);
 
-    // ---- frozen columns ----
+    // ---- freeze primary column (S-5: on/off) ----
+    const freezeOn = (view.frozenColumns ?? 0) >= 1;
     const freezeGroup = document.createElement('div');
-    freezeGroup.className = 'tablify__option-group';
+    freezeGroup.className = 'tablify__option-group tablify__option-group--inline';
     freezeGroup.dataset.testid = 'option-freeze';
-    const freezeLabel = document.createElement('label');
+    const freezeLabel = document.createElement('span');
     freezeLabel.className = 'tablify__option-label';
-    freezeLabel.textContent = 'Freeze columns';
-    const select = document.createElement('select');
-    select.className = 'tablify__option-select';
-    select.setAttribute('aria-label', 'Number of frozen columns');
-    for (let n = 0; n <= fields.length; n++) {
-      const option = document.createElement('option');
-      option.value = String(n);
-      option.textContent = String(n);
-      if (view.frozenColumns === n) option.selected = true;
-      select.appendChild(option);
-    }
-    select.addEventListener('change', () => {
-      this.opts.callbacks.onFreezeColumns(Number(select.value));
-    });
+    freezeLabel.id = this.uid('freeze');
+    freezeLabel.textContent = 'Freeze primary column';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'tablify__switch';
+    toggle.classList.toggle('is-on', freezeOn);
+    toggle.setAttribute('role', 'switch');
+    toggle.setAttribute('aria-checked', String(freezeOn));
+    toggle.setAttribute('aria-labelledby', freezeLabel.id);
+    toggle.dataset.action = ACTIONS.toggleFreeze;
+    toggle.dataset.focusKey = 'freeze';
+    const knob = document.createElement('span');
+    knob.className = 'tablify__switch-knob';
+    knob.setAttribute('aria-hidden', 'true');
+    toggle.appendChild(knob);
     freezeGroup.appendChild(freezeLabel);
-    freezeGroup.appendChild(select);
-    this.optionsPanel.appendChild(freezeGroup);
+    freezeGroup.appendChild(toggle);
+    inner.appendChild(freezeGroup);
 
-    // ---- hidden fields, with a Show button for each (plan item B) ----
-    const hiddenGroup = document.createElement('div');
-    hiddenGroup.className = 'tablify__option-group';
-    hiddenGroup.dataset.testid = 'tablify-hidden-fields';
-    const hiddenLabel = document.createElement('span');
-    hiddenLabel.className = 'tablify__option-label';
-    hiddenLabel.textContent = 'Hidden fields';
-    hiddenGroup.appendChild(hiddenLabel);
-
-    const hidden = new Set(view.hidden ?? []);
-    const hiddenFields = fields.filter((f) => hidden.has(f.id));
-    if (hiddenFields.length === 0) {
-      const none = document.createElement('span');
-      none.className = 'tablify__option-empty';
-      none.textContent = 'None';
-      hiddenGroup.appendChild(none);
-    } else {
-      for (const field of hiddenFields) {
-        const row = document.createElement('div');
-        row.className = 'tablify__hidden-field';
-        const name = document.createElement('span');
-        name.className = 'tablify__hidden-field-name';
-        name.textContent = field.name;
-        const show = document.createElement('button');
-        show.type = 'button';
-        show.className = 'tablify__option-button';
-        show.textContent = 'Show';
-        show.dataset.showField = field.id;
-        show.setAttribute('aria-label', `Show field ${field.name}`);
-        row.appendChild(name);
-        row.appendChild(show);
-        hiddenGroup.appendChild(row);
-      }
+    // ---- group by ----
+    const groupGroup = this.optionGroup(inner, 'option-groupby', 'Group by');
+    const groupSelect = this.optionSelect('group-by', 'Group by');
+    groupSelect.appendChild(new Option('None', ''));
+    for (const f of fields) {
+      // A non-groupable field set by hand stays listed, so the select shows the real state.
+      if (!isGroupable(f) && f.id !== view.groupBy) continue;
+      groupSelect.appendChild(new Option(f.name, f.id, false, f.id === view.groupBy));
     }
-    this.optionsPanel.appendChild(hiddenGroup);
+    groupSelect.value = view.groupBy ?? '';
+    groupGroup.appendChild(groupSelect);
 
-    // ---- clear filters ----
+    // ---- sort (multi — top first) ----
+    const sortGroup = this.optionGroup(inner, 'option-sort', 'Sort', '(multi — top first)');
+    const sort = this.currentSort();
+    sort.forEach((entry, i) => {
+      const field = fields.find((f) => f.id === entry.fieldId);
+      if (!field) return;
+      const row = document.createElement('div');
+      row.className = 'tablify__sort-row';
+      const name = document.createElement('span');
+      name.className = 'tablify__sort-name';
+      name.textContent = field.name;
+      const dir = document.createElement('button');
+      dir.type = 'button';
+      dir.className = 'tablify__sort-dir';
+      dir.textContent = entry.direction === 'asc' ? 'A→Z' : 'Z→A';
+      dir.dataset.sortDir = String(i);
+      dir.dataset.focusKey = `sort-dir-${i}`;
+      dir.setAttribute('aria-label', `${field.name}: ${entry.direction === 'asc' ? 'ascending' : 'descending'} — reverse`);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'tablify__sort-remove';
+      remove.innerHTML = faIcon('xmark');
+      remove.dataset.sortRemove = String(i);
+      remove.dataset.focusKey = `sort-remove-${i}`;
+      remove.setAttribute('aria-label', `Remove sort by ${field.name}`);
+      row.appendChild(name);
+      row.appendChild(dir);
+      row.appendChild(remove);
+      sortGroup.appendChild(row);
+    });
+    const addSort = this.optionSelect('add-sort', 'Add sort');
+    addSort.appendChild(new Option('+ Add sort…', ''));
+    const sorted = new Set(sort.map((s) => s.fieldId));
+    for (const f of fields) if (!sorted.has(f.id)) addSort.appendChild(new Option(f.name, f.id));
+    addSort.value = '';
+    sortGroup.appendChild(addSort);
+
+    // ---- fields: every field in column order, Hide / Show (plan item B lives on here) ----
+    const hidden = new Set(view.hidden ?? []);
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const order = (view.columnOrder ?? []).filter((id) => byId.has(id));
+    for (const f of fields) if (!order.includes(f.id)) order.push(f.id);
+    const hiddenCount = order.filter((id) => hidden.has(id)).length;
+    const fieldGroup = this.optionGroup(inner, 'tablify-hidden-fields', 'Fields', `(${hiddenCount} hidden)`);
+    const list = document.createElement('div');
+    list.className = 'tablify__field-list';
+    for (const id of order) {
+      const field = byId.get(id);
+      if (!field) continue;
+      const isHidden = hidden.has(id);
+      const row = document.createElement('div');
+      row.className = 'tablify__field-row';
+      row.classList.toggle('is-hidden', isHidden);
+      const name = document.createElement('span');
+      name.className = 'tablify__field-name';
+      name.textContent = field.name;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tablify__option-button tablify__field-toggle';
+      btn.dataset.focusKey = `field-${id}`;
+      if (isHidden) {
+        // A hidden primary field (corrupt file) can still be shown — the recovery path.
+        btn.classList.add('is-active');
+        btn.textContent = 'Show';
+        btn.dataset.showField = id;
+        btn.setAttribute('aria-label', `Show field ${field.name}`);
+      } else {
+        btn.textContent = 'Hide';
+        btn.dataset.hideField = id;
+        btn.setAttribute('aria-label', `Hide field ${field.name}`);
+        if (field.primary) {
+          btn.disabled = true;
+          btn.title = 'Primary field cannot be hidden';
+        }
+      }
+      row.appendChild(name);
+      row.appendChild(btn);
+      list.appendChild(row);
+    }
+    fieldGroup.appendChild(list);
+
+    // ---- clear search & filters ----
     const clear = document.createElement('button');
     clear.type = 'button';
-    clear.className = 'tablify__option-button tablify__option-button--wide';
-    clear.textContent = 'Clear filters';
+    clear.className = 'tablify__option-clear';
     clear.dataset.action = ACTIONS.clearFilters;
-    this.optionsPanel.appendChild(clear);
+    clear.dataset.focusKey = 'clear';
+    const clearIcon = document.createElement('span');
+    clearIcon.className = 'tablify__option-clear-icon';
+    clearIcon.setAttribute('aria-hidden', 'true');
+    clearIcon.innerHTML = faIcon('filter-circle-xmark');
+    clear.appendChild(clearIcon);
+    clear.appendChild(document.createTextNode('Clear search & filters'));
+    inner.appendChild(clear);
+
+    if (focusKey) {
+      const again = Array.from(panel.querySelectorAll<HTMLElement>('[data-focus-key]')).find(
+        (el) => el.dataset.focusKey === focusKey,
+      );
+      again?.focus();
+    }
+    this.positionOptions();
+  }
+
+  /** A labelled panel section (`mb-3` block with a `font-medium` label and optional hint). */
+  private optionGroup(parent: HTMLElement, testid: string, label: string, hint?: string): HTMLElement {
+    const group = document.createElement('div');
+    group.className = 'tablify__option-group';
+    group.dataset.testid = testid;
+    const head = document.createElement('div');
+    head.className = 'tablify__option-label';
+    head.textContent = label;
+    if (hint) {
+      head.appendChild(document.createTextNode(' '));
+      const span = document.createElement('span');
+      span.className = 'tablify__option-hint';
+      span.textContent = hint;
+      head.appendChild(span);
+    }
+    group.appendChild(head);
+    parent.appendChild(group);
+    return group;
+  }
+
+  private optionSelect(kind: string, label: string): HTMLSelectElement {
+    const select = document.createElement('select');
+    select.className = 'tablify__option-select';
+    select.dataset.option = kind;
+    select.dataset.focusKey = kind;
+    select.setAttribute('aria-label', label);
+    return select;
+  }
+
+  private static nextUid = 0;
+  private readonly uidBase = `tablify-opt-${++Toolbar.nextUid}`;
+
+  private uid(name: string): string {
+    return `${this.uidBase}-${name}`;
   }
 }

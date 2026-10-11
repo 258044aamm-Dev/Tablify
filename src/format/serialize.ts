@@ -33,7 +33,8 @@ const ROW_KEYS = ['id', 'rev', 'createdAt', 'updatedAt', 'values', 'sync'] as co
 
 /** View key order per FORMAT_SPEC.md §5. */
 /** SAD-69: `search` and `query` are appended last so existing files keep their key order. */
-const VIEW_KEYS = ['id', 'name', 'sort', 'groupBy', 'hidden', 'frozenColumns', 'rowHeight', 'columnWidths', 'columnOrder', 'warnings', 'search', 'query'] as const;
+/** SAD-81: `collapsedGroups` follows them, for the same reason. */
+const VIEW_KEYS = ['id', 'name', 'sort', 'groupBy', 'hidden', 'frozenColumns', 'rowHeight', 'columnWidths', 'columnOrder', 'warnings', 'search', 'query', 'collapsedGroups'] as const;
 
 /** Row sync key order per FORMAT_SPEC.md §4.1 (P7-04). */
 const ROW_SYNC_KEYS = ['airtableId', 'syncedRev', 'syncedAt', 'remoteHash', 'remoteDeleted', 'conflict'] as const;

@@ -27,12 +27,13 @@
 
 import { getVisibleRange, rowHeightPx, rowHeightKey, totalHeight, OVERSCAN } from './virtual.js';
 import { RowPool } from './rowPool.js';
-import { applyTheme } from '../../ui/theme/tokens.js';
+import { applyTheme, optionChipColors } from '../../ui/theme/tokens.js';
 import { faIcon } from '../../ui/faIcons.js';
 import { typeIcon, typeLabel } from './fieldTypeBadge.js';
 import type { Row, FieldDefinition, CellValue } from '../../model/types.js';
 import type { ViewDefinition } from '../../model/types.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
+import type { GridGroup } from './grouping.js';
 
 export interface GridOptions {
   rows: Row[];
@@ -83,6 +84,31 @@ export interface GridOptions {
   rowMoveBlocked?: () => string | null;
   /** SAD-80: a row drag was refused for `reason` (the prototype shows it as a toast). */
   onRowMoveBlocked?: (reason: string) => void;
+  /**
+   * SAD-81: group headers (Options → Group by). `rows` must then be the grouped rows with
+   * collapsed groups left out (see grouping.ts). Null or absent = the flat grid, unchanged.
+   */
+  groups?: GridGroup[] | null;
+  /** SAD-81: a group header was clicked — collapse or expand the group with this key. */
+  onToggleGroup?: (key: string) => void;
+}
+
+/**
+ * SAD-81: group header pitch — the row's 8px gap plus the prototype's `pt-2 pb-0.5` cell around
+ * the header button: 22px when the label is an option chip, 16px (one text line) otherwise.
+ */
+export const GROUP_HEADER_CHIP_PX = 40;
+export const GROUP_HEADER_TEXT_PX = 34;
+
+/** One virtual item of the grouped layout: a group header or a data row. */
+type GroupedItem = { kind: 'group'; group: GridGroup } | { kind: 'row'; rowIdx: number; number: number };
+
+interface GroupedLayout {
+  items: GroupedItem[];
+  /** Top offset of each item; tops[items.length] is the total height. */
+  tops: number[];
+  /** Item index of each data row (by row index). */
+  rowItem: number[];
 }
 
 export interface GridSelection {
@@ -191,6 +217,10 @@ export class GridView {
   private rowDropIndicator: HTMLElement | null = null;
   /** SAD-80: ends an in-progress row drag without committing (destroy, model swap). */
   private cancelRowDrag: (() => void) | null = null;
+  /** SAD-81: group headers, or null for the flat grid. */
+  private groups: GridGroup[] | null = null;
+  /** SAD-81: virtual layout of the grouped grid (headers + rows), null when flat. */
+  private layout: GroupedLayout | null = null;
 
   constructor(private opts: GridOptions) {
     this.fields = opts.fields;
@@ -198,12 +228,14 @@ export class GridView {
     this.view = opts.view;
     this.totalRows = opts.rows.length;
     this.rowHeight = rowHeightPx(opts.view.rowHeight);
+    this.groups = opts.groups ?? null;
+    this.layout = this.buildLayout();
 
     this.root = document.createElement('div');
     this.root.className = 'tablify tablify--grid';
     // P6-03 (a11y): grid semantics. Attribute-only; no behavior change.
     this.root.setAttribute('role', 'grid');
-    this.root.setAttribute('aria-rowcount', String(this.totalRows + 1)); // +1 header row
+    this.root.setAttribute('aria-rowcount', String(this.ariaRowCount())); // +1 header row
     this.root.setAttribute('aria-colcount', String(this.fields.length + this.ariaColBase()));
     this.sortState = Array.isArray(opts.view.sort)
       ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction }))
@@ -320,20 +352,26 @@ export class GridView {
     this.render();
   }
 
-  /** Replace rows, fields, and view settings, then re-render. Scroll position is kept. */
-  setModel(rows: Row[], fields: FieldDefinition[], view: ViewDefinition): void {
+  /**
+   * Replace rows, fields, and view settings, then re-render. Scroll position is kept.
+   * SAD-81: `groups` switches the grouped layout on (rows are then the grouped rows); omitted or
+   * null keeps the flat grid.
+   */
+  setModel(rows: Row[], fields: FieldDefinition[], view: ViewDefinition, groups: GridGroup[] | null = null): void {
     this.rows = rows;
     this.fields = fields;
     this.view = view;
     this.totalRows = rows.length;
     this.rowHeight = rowHeightPx(view.rowHeight);
+    this.groups = groups;
+    this.layout = this.buildLayout();
     this.sortState = Array.isArray(view.sort)
       ? view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction }))
       : [];
     this.applyRowHeightClass(view.rowHeight);
     this.readAvailableWidth();
     this.measure(view);
-    this.root.setAttribute('aria-rowcount', String(this.totalRows + 1)); // keep counts in sync (P6-03)
+    this.root.setAttribute('aria-rowcount', String(this.ariaRowCount())); // keep counts in sync (P6-03)
     this.root.setAttribute('aria-colcount', String(this.fields.length + this.ariaColBase()));
     this.viewport.style.height = `${this.bodyHeight()}px`;
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
@@ -383,7 +421,7 @@ export class GridView {
   /** Scroll so that the given row is inside the viewport. */
   scrollToRow(rowIndex: number): void {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
-    const top = rowIndex * this.rowHeight;
+    const top = this.layout ? this.layout.tops[this.layout.rowItem[rowIndex] ?? 0] ?? 0 : rowIndex * this.rowHeight;
     const bodyTop = this.header.offsetHeight;
     if (top < this.scrollTop) this.setScrollTop(top);
     else if (top + this.rowHeight > this.scrollTop + viewportH - bodyTop) {
@@ -441,7 +479,55 @@ export class GridView {
 
   /** Viewport height: every row's pitch plus the table's closing 8px spacing. */
   private bodyHeight(): number {
+    if (this.layout) return this.layout.tops[this.layout.items.length] + ROW_GAP;
     return totalHeight(this.totalRows, this.rowHeight) + ROW_GAP;
+  }
+
+  /** ARIA rows: the header, every data row and (SAD-81) every group header. */
+  private ariaRowCount(): number {
+    return (this.layout ? this.layout.items.length : this.totalRows) + 1;
+  }
+
+  /** SAD-81: lay out group headers and the rows of expanded groups, or null when flat. */
+  private buildLayout(): GroupedLayout | null {
+    if (!this.groups) return null;
+    const items: GroupedItem[] = [];
+    const tops: number[] = [];
+    const rowItem: number[] = [];
+    let y = 0;
+    for (const group of this.groups) {
+      tops.push(y);
+      items.push({ kind: 'group', group });
+      y += group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX;
+      if (group.collapsed) continue;
+      for (let i = 0; i < group.count; i++) {
+        const rowIdx = group.rowStart + i;
+        if (rowIdx >= this.rows.length) break;
+        rowItem[rowIdx] = items.length;
+        tops.push(y);
+        items.push({ kind: 'row', rowIdx, number: group.firstNumber + i });
+        y += this.rowHeight;
+      }
+    }
+    tops.push(y);
+    return { items, tops, rowItem };
+  }
+
+  /** SAD-81: item window [start, end) for the grouped layout, with the usual overscan. */
+  private groupedRange(layout: GroupedLayout, scrollTop: number, viewportH: number): { start: number; end: number } {
+    const n = layout.items.length;
+    if (n === 0 || viewportH <= 0) return { start: 0, end: 0 };
+    // First item whose bottom edge is below scrollTop (binary search on the tops).
+    let lo = 0;
+    let hi = n - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (layout.tops[mid + 1] <= scrollTop) lo = mid + 1;
+      else hi = mid;
+    }
+    let last = lo;
+    while (last < n - 1 && layout.tops[last + 1] < scrollTop + viewportH) last++;
+    return { start: Math.max(0, lo - OVERSCAN), end: Math.min(n, last + 1 + OVERSCAN) };
   }
 
   private applyRowHeightClass(rowHeight: string): void {
@@ -958,11 +1044,19 @@ export class GridView {
 
   private rangeFor(scrollTop: number): string {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
+    if (this.layout) {
+      const g = this.groupedRange(this.layout, scrollTop, viewportH);
+      return `g${g.start}:${g.end}:${this.rowHeight}:${this.layout.items.length}`;
+    }
     const { start, end } = getVisibleRange(scrollTop, viewportH, this.rowHeight, this.totalRows, OVERSCAN);
     return `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
   }
 
   private render(): void {
+    if (this.layout) {
+      this.renderGrouped(this.layout);
+      return;
+    }
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
     const { start, end } = getVisibleRange(this.scrollTop, viewportH, this.rowHeight, this.totalRows, OVERSCAN);
     this.renderedRange = `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
@@ -974,6 +1068,114 @@ export class GridView {
     for (let i = 0; i < rows.length; i++) {
       const rowEl = rows[i];
       const rowIdx = start + i;
+      this.fillRow(rowEl, rowIdx, rowIdx + 1, rowIdx + 2);
+      this.content.appendChild(rowEl);
+    }
+  }
+
+  /**
+   * SAD-81: grouped render — the same pooled data rows, interleaved with group headers. Data
+   * rows keep contiguous `data-row-index` values (indices into the grouped rows), so selection,
+   * editors and menus address them exactly as in the flat grid.
+   */
+  private renderGrouped(layout: GroupedLayout): void {
+    const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
+    const { start, end } = this.groupedRange(layout, this.scrollTop, viewportH);
+    this.renderedRange = `g${start}:${end}:${this.rowHeight}:${layout.items.length}`;
+    let rStart = -1;
+    let rEnd = -1;
+    for (let i = start; i < end; i++) {
+      const item = layout.items[i];
+      if (item.kind !== 'row') continue;
+      if (rStart < 0) rStart = item.rowIdx;
+      rEnd = item.rowIdx + 1;
+    }
+    const pooled = rStart < 0 ? this.pool.update(0, 0) : this.pool.update(rStart, rEnd);
+    this.content.innerHTML = '';
+    this.content.style.transform = `translateY(${layout.tops[start] ?? 0}px)`;
+    let next = 0;
+    for (let i = start; i < end; i++) {
+      const item = layout.items[i];
+      if (item.kind === 'group') {
+        this.content.appendChild(this.buildGroupHeader(item.group, i + 2));
+        continue;
+      }
+      const rowEl = pooled[next++];
+      if (!rowEl) continue;
+      this.fillRow(rowEl, item.rowIdx, item.number, i + 2);
+      this.content.appendChild(rowEl);
+    }
+  }
+
+  /**
+   * SAD-81: prototype group header row — chevron, label (an option chip for selects) and the
+   * mono row count, in a button that collapses or expands the group.
+   */
+  private buildGroupHeader(group: GridGroup, ariaRowIndex: number): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'tablify__group-row';
+    el.setAttribute('role', 'row');
+    el.setAttribute('aria-rowindex', String(ariaRowIndex));
+    el.dataset.groupKey = group.key;
+    el.style.height = `${group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX}px`;
+    el.style.minWidth = '100%';
+    el.style.width = `${this.totalWidth}px`;
+    const cell = document.createElement('div');
+    cell.className = 'tablify__group-cell';
+    cell.setAttribute('role', 'gridcell');
+    cell.setAttribute('aria-colindex', '1');
+    cell.setAttribute('aria-colspan', String(this.fields.length + this.ariaColBase()));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tablify__group-toggle';
+    btn.setAttribute('aria-expanded', String(!group.collapsed));
+    const chevron = document.createElement('span');
+    chevron.className = 'tablify__group-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.innerHTML = faIcon(group.collapsed ? 'chevron-right' : 'chevron-down');
+    btn.appendChild(chevron);
+    if (group.color) {
+      const colors = optionChipColors(group.color, this.root.classList.contains('tablify--dark') ? 'dark' : 'light');
+      const chip = document.createElement('span');
+      chip.className = 'tablify__group-chip';
+      chip.style.background = colors.background;
+      chip.style.borderColor = colors.border;
+      chip.style.color = colors.text;
+      const dot = document.createElement('span');
+      dot.className = 'tablify__group-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      dot.style.background = colors.dot;
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode(group.label));
+      btn.appendChild(chip);
+    } else {
+      const label = document.createElement('span');
+      label.className = 'tablify__group-label';
+      label.textContent = group.label;
+      btn.appendChild(label);
+    }
+    const count = document.createElement('span');
+    count.className = 'tablify__group-count';
+    count.textContent = String(group.count);
+    btn.appendChild(count);
+    btn.title = group.collapsed ? 'Expand group' : 'Collapse group';
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.opts.onToggleGroup?.(group.key);
+    });
+    // Enter/Space press the button; they must not reach the grid's editor shortcut.
+    btn.addEventListener('keydown', stopButtonKeys);
+    cell.appendChild(btn);
+    el.appendChild(cell);
+    return el;
+  }
+
+  /**
+   * Fill one pooled row element. `number` is the row's displayed number (`#`, labels) and
+   * `ariaRowIndex` its ARIA row; in the flat grid they are rowIdx + 1 and rowIdx + 2.
+   */
+  private fillRow(rowEl: HTMLElement, rowIdx: number, number: number, ariaRowIndex: number): void {
+    {
       rowEl.dataset.rowIndex = String(rowIdx);
       rowEl.setAttribute('role', 'row');
       // The pool reuses row elements, so the height has to be reapplied on every render.
@@ -985,7 +1187,7 @@ export class GridView {
       rowEl.style.minWidth = '100%';
       rowEl.style.width = `${this.totalWidth}px`;
       // P6-03 (a11y): 1-based row index; the header is row 1 (attribute-only).
-      rowEl.setAttribute('aria-rowindex', String(rowIdx + 2));
+      rowEl.setAttribute('aria-rowindex', String(ariaRowIndex));
       // Render cells for all fields (no column virtualization)
       // Clear previous cells
       rowEl.innerHTML = '';
@@ -1008,7 +1210,7 @@ export class GridView {
           box.type = 'checkbox';
           box.className = 'tablify__row-check';
           box.checked = this.rowSelection.has(row.id);
-          box.setAttribute('aria-label', `Select row ${rowIdx + 1}`);
+          box.setAttribute('aria-label', `Select row ${number}`);
           checkLead.appendChild(box);
         }
         rowEl.appendChild(checkLead);
@@ -1018,7 +1220,7 @@ export class GridView {
           num.title = 'Drag to reorder row';
         }
         num.appendChild(this.rowGrip().cloneNode(true));
-        num.appendChild(document.createTextNode(String(rowIdx + 1)));
+        num.appendChild(document.createTextNode(String(number)));
         rowEl.appendChild(num);
         this.fields.forEach((field, colIndex) => {
           const cell = document.createElement('div');
@@ -1071,7 +1273,7 @@ export class GridView {
           cell.setAttribute('aria-colindex', String(colIndex + 1 + this.ariaColBase()));
           // P6-03 (a11y): give screen readers a stable name for each cell
           // ("RowIndex, ColumnName, value") without changing any behavior.
-          cell.setAttribute('aria-description', `Row ${rowIdx + 1}, column ${field.name}`);
+          cell.setAttribute('aria-description', `Row ${number}, column ${field.name}`);
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
             cell.classList.add('tablify__cell--selected');
             cell.setAttribute('aria-selected', 'true');
@@ -1083,7 +1285,6 @@ export class GridView {
           rowEl.appendChild(cell);
         });
       }
-      this.content.appendChild(rowEl);
     }
   }
 

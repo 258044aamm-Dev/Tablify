@@ -5292,7 +5292,10 @@ function cloneView(view) {
     // an unconditional `search: view.search` would give every view written before this
     // change two extra keys on its next save and break byte-identical round-trips.
     ...view.search !== void 0 ? { search: view.search } : {},
-    ...view.query !== void 0 && view.query !== null ? { query: view.query } : {}
+    ...view.query !== void 0 && view.query !== null ? { query: view.query } : {},
+    // SAD-81: same conditional-copy rule as search/query.
+    // A non-array (hand-edited file) is passed through as-is; validateView drops it with a warning.
+    ...view.collapsedGroups !== void 0 ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups } : {}
   };
 }
 function createDefaultView(fields, name = "Default") {
@@ -5347,6 +5350,18 @@ function validateView(view, fields) {
     }
   } else {
     normalized.groupBy = null;
+  }
+  if (normalized.collapsedGroups !== void 0) {
+    const raw = normalized.collapsedGroups;
+    if (!Array.isArray(raw)) {
+      warnings.push("collapsedGroups is not an array \u2014 ignored");
+      delete normalized.collapsedGroups;
+    } else {
+      const keys = raw.filter((k) => typeof k === "string");
+      if (keys.length !== raw.length)
+        warnings.push("collapsedGroups entries that are not strings \u2014 ignored");
+      normalized.collapsedGroups = keys;
+    }
   }
   const origHidden = Array.isArray(view.hidden) ? view.hidden : [];
   const cleanHidden = [];
@@ -5699,7 +5714,10 @@ function parse(input) {
         // downstream reader sees them as first-class view state. Non-strings are left out;
         // the loop below still preserves the raw value so nothing is lost on round-trip.
         ...typeof v.search === "string" ? { search: v.search } : {},
-        ...typeof v.query === "string" ? { query: v.query } : {}
+        ...typeof v.query === "string" ? { query: v.query } : {},
+        // SAD-81: collapsed group keys, first-class like search/query. A non-array is left to
+        // the unknown-key loop below, so it still round-trips untouched.
+        ...Array.isArray(v.collapsedGroups) ? { collapsedGroups: v.collapsedGroups } : {}
       };
       const result = validateView(viewWithDefaults, fieldsForView);
       if (!result.ok && result.errors.length > 0) {
@@ -5758,7 +5776,7 @@ function formatVersionFor(file) {
 }
 var FIELD_KEYS = ["id", "name", "type", "primary", "options", "required", "unique", "min", "max", "regex", "formula", "linkTableId", "airtable"];
 var ROW_KEYS = ["id", "rev", "createdAt", "updatedAt", "values", "sync"];
-var VIEW_KEYS = ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths", "columnOrder", "warnings", "search", "query"];
+var VIEW_KEYS = ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths", "columnOrder", "warnings", "search", "query", "collapsedGroups"];
 var ROW_SYNC_KEYS = ["airtableId", "syncedRev", "syncedAt", "remoteHash", "remoteDeleted", "conflict"];
 var SYNC_LINK_KEYS = ["baseId", "tableId", "tableName", "linkedAt", "lastSync", "records"];
 var OPTION_KEYS = ["id", "name", "color"];
@@ -12328,8 +12346,45 @@ var palette = {
   /** #DC2626 — light Delete ink (Tailwind red-600, 4.83:1). Prototype red-500 is 3.76:1 (SAD-80). */
   dangerLight: "#DC2626",
   /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
-  dangerDark: "#F87171"
+  dangerDark: "#F87171",
+  /** #D1D5DB — light switch track when off (prototype Options `bg-gray-300`, SAD-81) */
+  switchOffLight: "#D1D5DB"
 };
+var chipHues = {
+  gray: ["#6B7280", "#4B5563", "#D1D5DB"],
+  sky: ["#0EA5E9", "#0369A1", "#7DD3FC"],
+  emerald: ["#10B981", "#065F46", "#6EE7B7"],
+  rose: ["#F43F5E", "#BE123C", "#FDA4AF"],
+  amber: ["#F59E0B", "#92400E", "#FCD34D"],
+  purple: ["#A855F7", "#7E22CE", "#D8B4FE"],
+  pink: ["#EC4899", "#9D174D", "#F9A8D4"]
+};
+var chipGrayDot = "#9CA3AF";
+var chipHueFor = {
+  gray: "gray",
+  brown: "amber",
+  orange: "amber",
+  yellow: "amber",
+  green: "emerald",
+  blue: "sky",
+  purple: "purple",
+  pink: "pink",
+  red: "rose"
+};
+function withAlpha(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
+}
+function optionChipColors(color, theme) {
+  const hue = chipHueFor[color ?? ""] ?? "gray";
+  const [base, inkLight, inkDark] = chipHues[hue];
+  return {
+    background: withAlpha(base, 0.15),
+    border: withAlpha(base, 0.3),
+    text: theme === "dark" ? inkDark : inkLight,
+    dot: hue === "gray" ? chipGrayDot : base
+  };
+}
 var lightTheme = {
   bg: palette.light,
   bgCard: palette.cardLight,
@@ -12357,7 +12412,10 @@ var lightTheme = {
   textPlaceholder: palette.placeholderLight,
   textSelected: palette.terracottaTextLight,
   textDanger: palette.dangerLight,
-  accentCheck: palette.terracotta
+  accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.switchOffLight,
+  switchKnob: palette.cardLight
 };
 var darkTheme = {
   bg: palette.dark,
@@ -12386,7 +12444,10 @@ var darkTheme = {
   textPlaceholder: palette.placeholderDark,
   textSelected: palette.terracotta,
   textDanger: palette.dangerDark,
-  accentCheck: palette.terracotta
+  accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.placeholderDark,
+  switchKnob: palette.cardLight
 };
 var themes = {
   light: lightTheme,
@@ -12419,7 +12480,10 @@ var cssVars = {
   textPlaceholder: "--tablify-text-placeholder",
   textSelected: "--tablify-text-selected",
   textDanger: "--tablify-text-danger",
-  accentCheck: "--tablify-accent-check"
+  accentCheck: "--tablify-accent-check",
+  accentFill: "--tablify-accent-fill",
+  switchOff: "--tablify-switch-off",
+  switchKnob: "--tablify-switch-knob"
 };
 function applyTheme(root, theme) {
   root.classList.remove("tablify--light", "tablify--dark");
@@ -12452,6 +12516,9 @@ function applyTheme(root, theme) {
   root.style.setProperty(cssVars.textSelected, t.textSelected);
   root.style.setProperty(cssVars.textDanger, t.textDanger);
   root.style.setProperty(cssVars.accentCheck, t.accentCheck);
+  root.style.setProperty(cssVars.accentFill, t.accentFill);
+  root.style.setProperty(cssVars.switchOff, t.switchOff);
+  root.style.setProperty(cssVars.switchKnob, t.switchKnob);
 }
 
 // src/ui/faIcons.ts
@@ -12493,7 +12560,10 @@ var GLYPHS = {
   "diagram-project": { w: 576, d: "M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z" },
   "arrow-down-1-9": { w: 576, d: "M450.7 38c-8.3-6-19.1-7.7-28.8-4.4l-48 16c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l5.9-2V160H384c-17.7 0-32 14.3-32 32s14.3 32 32 32h48 48c17.7 0 32-14.3 32-32s-14.3-32-32-32H464V64c0-10.3-4.9-19.9-13.3-26zM160 480c9 0 17.5-3.8 23.6-10.4l88-96c11.9-13 11.1-33.3-2-45.2s-33.3-11.1-45.2 2L192 365.7V64c0-17.7-14.3-32-32-32s-32 14.3-32 32V365.7L95.6 330.4c-11.9-13-32.2-13.9-45.2-2s-13.9 32.2-2 45.2l88 96C142.5 476.2 151 480 160 480zM418.3 307a32 32 0 1 1 27.4 57.9A32 32 0 1 1 418.3 307zM405.1 419.8l-6.8 9.2c-10.5 14.2-7.5 34.2 6.7 44.8s34.2 7.5 44.8-6.7l48.8-65.8c14-18.9 21.5-41.7 21.5-65.2c0-48.6-39.4-88-88-88s-88 39.4-88 88c0 39.2 25.6 72.4 61.1 83.8z" },
   "calendar-plus": { w: 512, d: "M128 32V64H80c-26.5 0-48 21.5-48 48v48H480V112c0-26.5-21.5-48-48-48H384V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H192V32c0-17.7-14.3-32-32-32s-32 14.3-32 32zM480 192H32V464c0 26.5 21.5 48 48 48H432c26.5 0 48-21.5 48-48V192zM256 248c13.3 0 24 10.7 24 24v56h56c13.3 0 24 10.7 24 24s-10.7 24-24 24H280v56c0 13.3-10.7 24-24 24s-24-10.7-24-24V376H176c-13.3 0-24-10.7-24-24s10.7-24 24-24h56V272c0-13.3 10.7-24 24-24z" },
-  "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" }
+  "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" },
+  "filter-circle-xmark": { w: 576, d: "M3.9 22.9C10.5 8.9 24.5 0 40 0H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L396.4 195.6C316.2 212.1 256 283 256 368c0 27.4 6.3 53.4 17.5 76.5c-1.6-.8-3.2-1.8-4.7-2.9l-64-48c-8.1-6-12.8-15.5-12.8-25.6V288.9L9 65.3C-.7 53.4-2.8 36.8 3.9 22.9zM432 224a144 144 0 1 1 0 288 144 144 0 1 1 0-288zm59.3 107.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L432 345.4l-36.7-36.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6L409.4 368l-36.7 36.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L432 390.6l36.7 36.7c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L454.6 368l36.7-36.7z" },
+  "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
+  "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" }
 };
 function faIcon(name) {
   const g = GLYPHS[name];
@@ -12656,6 +12726,8 @@ function typeLabel(type) {
 }
 
 // src/views/grid/GridView.ts
+var GROUP_HEADER_CHIP_PX = 40;
+var GROUP_HEADER_TEXT_PX = 34;
 var DEFAULT_COLUMN_WIDTH = 160;
 var LEAD_CHECK_WIDTH = 32;
 var LEAD_NUM_WIDTH = 40;
@@ -12692,10 +12764,12 @@ var GridView = class {
     this.view = opts.view;
     this.totalRows = opts.rows.length;
     this.rowHeight = rowHeightPx(opts.view.rowHeight);
+    this.groups = opts.groups ?? null;
+    this.layout = this.buildLayout();
     this.root = document.createElement("div");
     this.root.className = "tablify tablify--grid";
     this.root.setAttribute("role", "grid");
-    this.root.setAttribute("aria-rowcount", String(this.totalRows + 1));
+    this.root.setAttribute("aria-rowcount", String(this.ariaRowCount()));
     this.root.setAttribute("aria-colcount", String(this.fields.length + this.ariaColBase()));
     this.sortState = Array.isArray(opts.view.sort) ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) : [];
     this.applyRowHeightClass(opts.view.rowHeight);
@@ -12815,18 +12889,28 @@ var GridView = class {
   rowDropIndicator = null;
   /** SAD-80: ends an in-progress row drag without committing (destroy, model swap). */
   cancelRowDrag = null;
-  /** Replace rows, fields, and view settings, then re-render. Scroll position is kept. */
-  setModel(rows, fields, view) {
+  /** SAD-81: group headers, or null for the flat grid. */
+  groups = null;
+  /** SAD-81: virtual layout of the grouped grid (headers + rows), null when flat. */
+  layout = null;
+  /**
+   * Replace rows, fields, and view settings, then re-render. Scroll position is kept.
+   * SAD-81: `groups` switches the grouped layout on (rows are then the grouped rows); omitted or
+   * null keeps the flat grid.
+   */
+  setModel(rows, fields, view, groups = null) {
     this.rows = rows;
     this.fields = fields;
     this.view = view;
     this.totalRows = rows.length;
     this.rowHeight = rowHeightPx(view.rowHeight);
+    this.groups = groups;
+    this.layout = this.buildLayout();
     this.sortState = Array.isArray(view.sort) ? view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) : [];
     this.applyRowHeightClass(view.rowHeight);
     this.readAvailableWidth();
     this.measure(view);
-    this.root.setAttribute("aria-rowcount", String(this.totalRows + 1));
+    this.root.setAttribute("aria-rowcount", String(this.ariaRowCount()));
     this.root.setAttribute("aria-colcount", String(this.fields.length + this.ariaColBase()));
     this.viewport.style.height = `${this.bodyHeight()}px`;
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
@@ -12873,7 +12957,7 @@ var GridView = class {
   /** Scroll so that the given row is inside the viewport. */
   scrollToRow(rowIndex) {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
-    const top = rowIndex * this.rowHeight;
+    const top = this.layout ? this.layout.tops[this.layout.rowItem[rowIndex] ?? 0] ?? 0 : rowIndex * this.rowHeight;
     const bodyTop = this.header.offsetHeight;
     if (top < this.scrollTop)
       this.setScrollTop(top);
@@ -12923,7 +13007,59 @@ var GridView = class {
   // ---- geometry ----
   /** Viewport height: every row's pitch plus the table's closing 8px spacing. */
   bodyHeight() {
+    if (this.layout)
+      return this.layout.tops[this.layout.items.length] + ROW_GAP;
     return totalHeight(this.totalRows, this.rowHeight) + ROW_GAP;
+  }
+  /** ARIA rows: the header, every data row and (SAD-81) every group header. */
+  ariaRowCount() {
+    return (this.layout ? this.layout.items.length : this.totalRows) + 1;
+  }
+  /** SAD-81: lay out group headers and the rows of expanded groups, or null when flat. */
+  buildLayout() {
+    if (!this.groups)
+      return null;
+    const items = [];
+    const tops = [];
+    const rowItem = [];
+    let y = 0;
+    for (const group of this.groups) {
+      tops.push(y);
+      items.push({ kind: "group", group });
+      y += group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX;
+      if (group.collapsed)
+        continue;
+      for (let i = 0; i < group.count; i++) {
+        const rowIdx = group.rowStart + i;
+        if (rowIdx >= this.rows.length)
+          break;
+        rowItem[rowIdx] = items.length;
+        tops.push(y);
+        items.push({ kind: "row", rowIdx, number: group.firstNumber + i });
+        y += this.rowHeight;
+      }
+    }
+    tops.push(y);
+    return { items, tops, rowItem };
+  }
+  /** SAD-81: item window [start, end) for the grouped layout, with the usual overscan. */
+  groupedRange(layout, scrollTop, viewportH) {
+    const n = layout.items.length;
+    if (n === 0 || viewportH <= 0)
+      return { start: 0, end: 0 };
+    let lo = 0;
+    let hi = n - 1;
+    while (lo < hi) {
+      const mid = lo + hi >> 1;
+      if (layout.tops[mid + 1] <= scrollTop)
+        lo = mid + 1;
+      else
+        hi = mid;
+    }
+    let last = lo;
+    while (last < n - 1 && layout.tops[last + 1] < scrollTop + viewportH)
+      last++;
+    return { start: Math.max(0, lo - OVERSCAN), end: Math.min(n, last + 1 + OVERSCAN) };
   }
   applyRowHeightClass(rowHeight) {
     const key = rowHeightKey(rowHeight);
@@ -13400,10 +13536,18 @@ var GridView = class {
   renderedRange = null;
   rangeFor(scrollTop) {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
+    if (this.layout) {
+      const g = this.groupedRange(this.layout, scrollTop, viewportH);
+      return `g${g.start}:${g.end}:${this.rowHeight}:${this.layout.items.length}`;
+    }
     const { start, end } = getVisibleRange(scrollTop, viewportH, this.rowHeight, this.totalRows, OVERSCAN);
     return `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
   }
   render() {
+    if (this.layout) {
+      this.renderGrouped(this.layout);
+      return;
+    }
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
     const { start, end } = getVisibleRange(this.scrollTop, viewportH, this.rowHeight, this.totalRows, OVERSCAN);
     this.renderedRange = `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
@@ -13413,12 +13557,119 @@ var GridView = class {
     for (let i = 0; i < rows.length; i++) {
       const rowEl = rows[i];
       const rowIdx = start + i;
+      this.fillRow(rowEl, rowIdx, rowIdx + 1, rowIdx + 2);
+      this.content.appendChild(rowEl);
+    }
+  }
+  /**
+   * SAD-81: grouped render — the same pooled data rows, interleaved with group headers. Data
+   * rows keep contiguous `data-row-index` values (indices into the grouped rows), so selection,
+   * editors and menus address them exactly as in the flat grid.
+   */
+  renderGrouped(layout) {
+    const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
+    const { start, end } = this.groupedRange(layout, this.scrollTop, viewportH);
+    this.renderedRange = `g${start}:${end}:${this.rowHeight}:${layout.items.length}`;
+    let rStart = -1;
+    let rEnd = -1;
+    for (let i = start; i < end; i++) {
+      const item = layout.items[i];
+      if (item.kind !== "row")
+        continue;
+      if (rStart < 0)
+        rStart = item.rowIdx;
+      rEnd = item.rowIdx + 1;
+    }
+    const pooled = rStart < 0 ? this.pool.update(0, 0) : this.pool.update(rStart, rEnd);
+    this.content.innerHTML = "";
+    this.content.style.transform = `translateY(${layout.tops[start] ?? 0}px)`;
+    let next = 0;
+    for (let i = start; i < end; i++) {
+      const item = layout.items[i];
+      if (item.kind === "group") {
+        this.content.appendChild(this.buildGroupHeader(item.group, i + 2));
+        continue;
+      }
+      const rowEl = pooled[next++];
+      if (!rowEl)
+        continue;
+      this.fillRow(rowEl, item.rowIdx, item.number, i + 2);
+      this.content.appendChild(rowEl);
+    }
+  }
+  /**
+   * SAD-81: prototype group header row — chevron, label (an option chip for selects) and the
+   * mono row count, in a button that collapses or expands the group.
+   */
+  buildGroupHeader(group, ariaRowIndex) {
+    const el2 = document.createElement("div");
+    el2.className = "tablify__group-row";
+    el2.setAttribute("role", "row");
+    el2.setAttribute("aria-rowindex", String(ariaRowIndex));
+    el2.dataset.groupKey = group.key;
+    el2.style.height = `${group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX}px`;
+    el2.style.minWidth = "100%";
+    el2.style.width = `${this.totalWidth}px`;
+    const cell2 = document.createElement("div");
+    cell2.className = "tablify__group-cell";
+    cell2.setAttribute("role", "gridcell");
+    cell2.setAttribute("aria-colindex", "1");
+    cell2.setAttribute("aria-colspan", String(this.fields.length + this.ariaColBase()));
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tablify__group-toggle";
+    btn.setAttribute("aria-expanded", String(!group.collapsed));
+    const chevron = document.createElement("span");
+    chevron.className = "tablify__group-chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    chevron.innerHTML = faIcon(group.collapsed ? "chevron-right" : "chevron-down");
+    btn.appendChild(chevron);
+    if (group.color) {
+      const colors = optionChipColors(group.color, this.root.classList.contains("tablify--dark") ? "dark" : "light");
+      const chip = document.createElement("span");
+      chip.className = "tablify__group-chip";
+      chip.style.background = colors.background;
+      chip.style.borderColor = colors.border;
+      chip.style.color = colors.text;
+      const dot = document.createElement("span");
+      dot.className = "tablify__group-dot";
+      dot.setAttribute("aria-hidden", "true");
+      dot.style.background = colors.dot;
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode(group.label));
+      btn.appendChild(chip);
+    } else {
+      const label = document.createElement("span");
+      label.className = "tablify__group-label";
+      label.textContent = group.label;
+      btn.appendChild(label);
+    }
+    const count = document.createElement("span");
+    count.className = "tablify__group-count";
+    count.textContent = String(group.count);
+    btn.appendChild(count);
+    btn.title = group.collapsed ? "Expand group" : "Collapse group";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.opts.onToggleGroup?.(group.key);
+    });
+    btn.addEventListener("keydown", stopButtonKeys);
+    cell2.appendChild(btn);
+    el2.appendChild(cell2);
+    return el2;
+  }
+  /**
+   * Fill one pooled row element. `number` is the row's displayed number (`#`, labels) and
+   * `ariaRowIndex` its ARIA row; in the flat grid they are rowIdx + 1 and rowIdx + 2.
+   */
+  fillRow(rowEl, rowIdx, number, ariaRowIndex) {
+    {
       rowEl.dataset.rowIndex = String(rowIdx);
       rowEl.setAttribute("role", "row");
       rowEl.style.height = `${this.rowHeight}px`;
       rowEl.style.minWidth = "100%";
       rowEl.style.width = `${this.totalWidth}px`;
-      rowEl.setAttribute("aria-rowindex", String(rowIdx + 2));
+      rowEl.setAttribute("aria-rowindex", String(ariaRowIndex));
       rowEl.innerHTML = "";
       const row = this.rows[rowIdx];
       if (!row)
@@ -13439,7 +13690,7 @@ var GridView = class {
           box.type = "checkbox";
           box.className = "tablify__row-check";
           box.checked = this.rowSelection.has(row.id);
-          box.setAttribute("aria-label", `Select row ${rowIdx + 1}`);
+          box.setAttribute("aria-label", `Select row ${number}`);
           checkLead.appendChild(box);
         }
         rowEl.appendChild(checkLead);
@@ -13449,7 +13700,7 @@ var GridView = class {
           num.title = "Drag to reorder row";
         }
         num.appendChild(this.rowGrip().cloneNode(true));
-        num.appendChild(document.createTextNode(String(rowIdx + 1)));
+        num.appendChild(document.createTextNode(String(number)));
         rowEl.appendChild(num);
         this.fields.forEach((field, colIndex) => {
           const cell2 = document.createElement("div");
@@ -13491,7 +13742,7 @@ var GridView = class {
           cell2.dataset.colIndex = String(colIndex);
           cell2.setAttribute("role", "gridcell");
           cell2.setAttribute("aria-colindex", String(colIndex + 1 + this.ariaColBase()));
-          cell2.setAttribute("aria-description", `Row ${rowIdx + 1}, column ${field.name}`);
+          cell2.setAttribute("aria-description", `Row ${number}, column ${field.name}`);
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
             cell2.classList.add("tablify__cell--selected");
             cell2.setAttribute("aria-selected", "true");
@@ -13501,7 +13752,6 @@ var GridView = class {
           rowEl.appendChild(cell2);
         });
       }
-      this.content.appendChild(rowEl);
     }
   }
   destroy() {
@@ -13742,6 +13992,86 @@ var TypePickerModal = class extends import_obsidian4.FuzzySuggestModal {
   }
 };
 
+// src/views/grid/grouping.ts
+var GROUPABLE_TYPES = ["single_select", "checkbox", "rating", "text", "date"];
+var EMPTY_GROUP_LABEL = "(empty)";
+function isGroupable(field) {
+  return GROUPABLE_TYPES.includes(field.type);
+}
+function groupKeyOf(value, field) {
+  if (field.type === "checkbox")
+    return value === true ? "true" : "false";
+  if (value === null || value === void 0)
+    return "";
+  if (Array.isArray(value))
+    return value.map((v) => typeof v === "object" ? JSON.stringify(v) : String(v)).join(", ");
+  return String(value);
+}
+function labelOf(key, value, field) {
+  if (field.type === "checkbox")
+    return { label: key, color: null };
+  if (key === "")
+    return { label: EMPTY_GROUP_LABEL, color: null };
+  if (field.type === "single_select") {
+    const option = (field.options ?? []).find((o) => o.id === key);
+    return option ? { label: option.name, color: option.color } : { label: key, color: null };
+  }
+  if (field.type === "rating") {
+    const max2 = typeof field.max === "number" ? field.max : 5;
+    return { label: `${key}/${max2}`, color: null };
+  }
+  const text = getFieldType(field.type).format(value ?? null, field);
+  return { label: text || EMPTY_GROUP_LABEL, color: null };
+}
+function groupRows(rows, field, collapsed = []) {
+  const order = [];
+  const buckets = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const value = row.values[field.id];
+    const key = groupKeyOf(value, field);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { value, rows: [] };
+      buckets.set(key, bucket);
+      order.push(key);
+    }
+    bucket.rows.push(row);
+  }
+  const closed = new Set(collapsed);
+  const visible = [];
+  const groups = [];
+  let number = 1;
+  for (const key of order) {
+    const bucket = buckets.get(key);
+    if (!bucket)
+      continue;
+    const isCollapsed = closed.has(key);
+    const { label, color } = labelOf(key, bucket.value, field);
+    groups.push({
+      key,
+      label,
+      color,
+      count: bucket.rows.length,
+      collapsed: isCollapsed,
+      firstNumber: number,
+      rowStart: visible.length
+    });
+    if (!isCollapsed)
+      visible.push(...bucket.rows);
+    number += bucket.rows.length;
+  }
+  return { rows: visible, groups };
+}
+function toggleCollapsed(collapsed, key) {
+  const list = [...collapsed ?? []];
+  const i = list.indexOf(key);
+  if (i >= 0)
+    list.splice(i, 1);
+  else
+    list.push(key);
+  return list;
+}
+
 // src/views/grid/columns.ts
 var MIN_WIDTH = 60;
 function resizeColumn(view, fieldId, newWidth, fields) {
@@ -13798,6 +14128,28 @@ function moveColumnOnto(view, fieldId, targetId, fields) {
   order.splice(from, 1);
   order.splice(order.indexOf(targetId) + (from < to ? 1 : 0), 0, fieldId);
   const res = validateView({ ...view, columnOrder: order }, fields);
+  return res.ok ? res.view : view;
+}
+function setGroupBy(view, fieldId, fields) {
+  if ((view.groupBy ?? null) === fieldId)
+    return view;
+  if (fieldId !== null && !fields.some((f) => f.id === fieldId && isGroupable(f)))
+    return view;
+  const { collapsedGroups: _collapsed, ...rest } = view;
+  const res = validateView({ ...rest, groupBy: fieldId }, fields);
+  return res.ok ? res.view : view;
+}
+function setSort(view, sort, fields) {
+  const ids = new Set(fields.map((f) => f.id));
+  if (sort.some((s) => !ids.has(s.fieldId) || s.direction !== "asc" && s.direction !== "desc"))
+    return view;
+  const res = validateView({ ...view, sort: sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) }, fields);
+  return res.ok ? res.view : view;
+}
+function hideField(view, fieldId, fields) {
+  if ((view.hidden ?? []).includes(fieldId))
+    return view;
+  const res = validateView({ ...view, hidden: [...view.hidden ?? [], fieldId] }, fields);
   return res.ok ? res.view : view;
 }
 
@@ -13940,10 +14292,12 @@ function toInputPosition(split, queryPosition) {
 // src/views/grid/toolbar.ts
 var ROW_HEIGHTS = ["small", "medium", "large"];
 var ROW_HEIGHT_LABELS = {
-  small: "Small",
+  small: "Short",
   medium: "Medium",
-  large: "Large"
+  large: "Tall"
 };
+var PANEL_MAX_WIDTH = 320;
+var PANEL_GAP = 6;
 var DEBOUNCE_MS2 = 200;
 var SEARCH_PLACEHOLDER = "Search or query \u2014 e.g. Status:Done Amount:>10";
 var ICONS = {
@@ -13972,9 +14326,10 @@ var ACTIONS = {
   undo: "undo",
   redo: "redo",
   clearFilters: "clear-filters",
-  deleteSelected: "delete-selected"
+  deleteSelected: "delete-selected",
+  toggleFreeze: "toggle-freeze"
 };
-var Toolbar = class {
+var Toolbar = class _Toolbar {
   root;
   opts;
   searchInput;
@@ -13984,7 +14339,6 @@ var Toolbar = class {
   rowCount;
   selectionSummary;
   selectedCount;
-  hiddenList;
   searchTimer = null;
   constructor(options) {
     this.opts = options;
@@ -14035,10 +14389,8 @@ var Toolbar = class {
     this.optionsPanel.className = "tablify__options";
     this.optionsPanel.hidden = true;
     this.optionsPanel.dataset.testid = "tablify-options";
-    this.hiddenList = document.createElement("div");
-    this.hiddenList.className = "tablify__hidden-fields";
-    this.hiddenList.dataset.testid = "tablify-hidden-fields";
-    this.optionsPanel.appendChild(this.hiddenList);
+    this.optionsPanel.setAttribute("role", "dialog");
+    this.optionsPanel.setAttribute("aria-label", "View settings");
     this.root.appendChild(this.optionsPanel);
     const metaRow = document.createElement("div");
     metaRow.className = "tablify__meta-row";
@@ -14115,6 +14467,8 @@ var Toolbar = class {
       const target = event.target;
       if (!target)
         return;
+      if (this.handleOptionsClick(target))
+        return;
       const showBtn = target.closest("[data-show-field]");
       const fieldId = showBtn?.dataset.showField;
       if (fieldId) {
@@ -14136,6 +14490,49 @@ var Toolbar = class {
       if (event.key === "Escape" && !this.optionsPanel.hidden)
         this.setOptionsOpen(false);
     });
+    this.optionsPanel.addEventListener("change", (event) => {
+      const select = event.target;
+      const kind = select?.dataset?.option;
+      if (!select || !kind)
+        return;
+      if (kind === "group-by") {
+        this.opts.callbacks.onGroupBy?.(select.value || null);
+      } else if (kind === "add-sort" && select.value) {
+        const fieldId = select.value;
+        select.value = "";
+        this.opts.callbacks.onSortChange?.([...this.currentSort(), { fieldId, direction: "asc" }]);
+      }
+    });
+  }
+  /** SAD-81: sort entries whose field still exists (prototype skips the rest). */
+  currentSort() {
+    const ids = new Set(this.opts.fields.map((f) => f.id));
+    return (this.opts.view.sort ?? []).filter((s) => ids.has(s.fieldId));
+  }
+  /** SAD-81: Options panel buttons that are not plain actions. True when handled. */
+  handleOptionsClick(target) {
+    const hide = target.closest("[data-hide-field]");
+    if (hide?.dataset.hideField) {
+      if (!hide.disabled)
+        this.opts.callbacks.onHideField?.(hide.dataset.hideField);
+      return true;
+    }
+    const dir = target.closest("[data-sort-dir]");
+    if (dir?.dataset.sortDir !== void 0) {
+      const i = Number(dir.dataset.sortDir);
+      const sort = this.currentSort().map(
+        (s, j) => j === i ? { ...s, direction: s.direction === "asc" ? "desc" : "asc" } : s
+      );
+      this.opts.callbacks.onSortChange?.(sort);
+      return true;
+    }
+    const remove = target.closest("[data-sort-remove]");
+    if (remove?.dataset.sortRemove !== void 0) {
+      const i = Number(remove.dataset.sortRemove);
+      this.opts.callbacks.onSortChange?.(this.currentSort().filter((_, j) => j !== i));
+      return true;
+    }
+    return false;
   }
   handleAction(action) {
     switch (action) {
@@ -14156,6 +14553,9 @@ var Toolbar = class {
         break;
       case ACTIONS.clearFilters:
         this.opts.callbacks.onClearFilters();
+        break;
+      case ACTIONS.toggleFreeze:
+        this.opts.callbacks.onFreezeColumns((this.opts.view.frozenColumns ?? 0) >= 1 ? 0 : 1);
         break;
       case ACTIONS.undo:
         this.opts.callbacks.onUndo();
@@ -14222,6 +14622,7 @@ var Toolbar = class {
       clearTimeout(this.searchTimer);
     this.searchTimer = null;
     document.removeEventListener("pointerdown", this.outsideClose);
+    window.removeEventListener("resize", this.reposition);
     this.root.remove();
   }
   // ---- rendering ----
@@ -14271,92 +14672,241 @@ var Toolbar = class {
     else
       document.removeEventListener("pointerdown", this.outsideClose);
     if (open2)
+      window.addEventListener("resize", this.reposition);
+    else
+      window.removeEventListener("resize", this.reposition);
+    if (open2)
       this.renderOptions();
   }
+  reposition = () => this.positionOptions();
+  /**
+   * SAD-81: prototype `openPanel` — left-aligned under the button, kept 12px inside the right
+   * edge (8px on the left), and flipped above the button when it would run off the bottom.
+   * Coordinates are viewport-based; if an ancestor makes `position: fixed` resolve against
+   * itself (a transform, e.g. Obsidian's mobile drawers), the measured offset is subtracted.
+   */
+  positionOptions() {
+    const panel = this.optionsPanel;
+    if (panel.hidden)
+      return;
+    const win = panel.ownerDocument.defaultView ?? window;
+    const anchor = this.optionsButton.getBoundingClientRect();
+    const pw = Math.min(PANEL_MAX_WIDTH, win.innerWidth - 24);
+    const left = Math.max(8, Math.min(anchor.left, win.innerWidth - pw - 12));
+    let top = anchor.bottom + PANEL_GAP;
+    panel.style.left = `${left}px`;
+    panel.style.top = `${top}px`;
+    const box = panel.getBoundingClientRect();
+    if (box.width === 0 && box.height === 0)
+      return;
+    const dx = box.left - left;
+    const dy = box.top - top;
+    if (top + box.height > win.innerHeight - 8)
+      top = Math.max(8, anchor.top - box.height - PANEL_GAP);
+    panel.style.left = `${left - dx}px`;
+    panel.style.top = `${top - dy}px`;
+  }
+  /**
+   * SAD-81: the prototype's View settings panel (`renderOptionsPanel`): row height, freeze
+   * switch, Group by, multi-sort list, field visibility, and Clear search & filters. Rebuilt on
+   * every update like the prototype's; keyboard focus is carried over to the same control.
+   */
   renderOptions() {
     const { view, fields } = this.opts;
-    this.optionsPanel.textContent = "";
-    const heightGroup = document.createElement("div");
-    heightGroup.className = "tablify__option-group";
-    heightGroup.dataset.testid = "option-rowheight";
-    const heightLabel = document.createElement("span");
-    heightLabel.className = "tablify__option-label";
-    heightLabel.textContent = "Row height";
-    heightGroup.appendChild(heightLabel);
+    const panel = this.optionsPanel;
+    const active = document.activeElement;
+    const focusKey = active && panel.contains(active) ? active.dataset.focusKey : void 0;
+    panel.textContent = "";
+    const inner = document.createElement("div");
+    inner.className = "tablify__options-inner";
+    panel.appendChild(inner);
+    const title = document.createElement("div");
+    title.className = "tablify__options-title";
+    title.textContent = "View settings";
+    inner.appendChild(title);
+    const heightGroup = this.optionGroup(inner, "option-rowheight", "Row height");
+    const pills = document.createElement("div");
+    pills.className = "tablify__option-pills";
     for (const h of ROW_HEIGHTS) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "tablify__option-button";
+      btn.className = "tablify__option-button tablify__option-pill";
       btn.textContent = ROW_HEIGHT_LABELS[h] ?? h;
       btn.dataset.rowHeight = h;
+      btn.dataset.focusKey = `rh-${h}`;
       if (view.rowHeight === h)
         btn.classList.add("is-active");
       btn.setAttribute("aria-pressed", String(view.rowHeight === h));
-      heightGroup.appendChild(btn);
+      pills.appendChild(btn);
     }
-    this.optionsPanel.appendChild(heightGroup);
+    heightGroup.appendChild(pills);
+    const freezeOn = (view.frozenColumns ?? 0) >= 1;
     const freezeGroup = document.createElement("div");
-    freezeGroup.className = "tablify__option-group";
+    freezeGroup.className = "tablify__option-group tablify__option-group--inline";
     freezeGroup.dataset.testid = "option-freeze";
-    const freezeLabel = document.createElement("label");
+    const freezeLabel = document.createElement("span");
     freezeLabel.className = "tablify__option-label";
-    freezeLabel.textContent = "Freeze columns";
-    const select = document.createElement("select");
-    select.className = "tablify__option-select";
-    select.setAttribute("aria-label", "Number of frozen columns");
-    for (let n = 0; n <= fields.length; n++) {
-      const option = document.createElement("option");
-      option.value = String(n);
-      option.textContent = String(n);
-      if (view.frozenColumns === n)
-        option.selected = true;
-      select.appendChild(option);
-    }
-    select.addEventListener("change", () => {
-      this.opts.callbacks.onFreezeColumns(Number(select.value));
-    });
+    freezeLabel.id = this.uid("freeze");
+    freezeLabel.textContent = "Freeze primary column";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "tablify__switch";
+    toggle.classList.toggle("is-on", freezeOn);
+    toggle.setAttribute("role", "switch");
+    toggle.setAttribute("aria-checked", String(freezeOn));
+    toggle.setAttribute("aria-labelledby", freezeLabel.id);
+    toggle.dataset.action = ACTIONS.toggleFreeze;
+    toggle.dataset.focusKey = "freeze";
+    const knob = document.createElement("span");
+    knob.className = "tablify__switch-knob";
+    knob.setAttribute("aria-hidden", "true");
+    toggle.appendChild(knob);
     freezeGroup.appendChild(freezeLabel);
-    freezeGroup.appendChild(select);
-    this.optionsPanel.appendChild(freezeGroup);
-    const hiddenGroup = document.createElement("div");
-    hiddenGroup.className = "tablify__option-group";
-    hiddenGroup.dataset.testid = "tablify-hidden-fields";
-    const hiddenLabel = document.createElement("span");
-    hiddenLabel.className = "tablify__option-label";
-    hiddenLabel.textContent = "Hidden fields";
-    hiddenGroup.appendChild(hiddenLabel);
-    const hidden = new Set(view.hidden ?? []);
-    const hiddenFields = fields.filter((f) => hidden.has(f.id));
-    if (hiddenFields.length === 0) {
-      const none = document.createElement("span");
-      none.className = "tablify__option-empty";
-      none.textContent = "None";
-      hiddenGroup.appendChild(none);
-    } else {
-      for (const field of hiddenFields) {
-        const row = document.createElement("div");
-        row.className = "tablify__hidden-field";
-        const name = document.createElement("span");
-        name.className = "tablify__hidden-field-name";
-        name.textContent = field.name;
-        const show = document.createElement("button");
-        show.type = "button";
-        show.className = "tablify__option-button";
-        show.textContent = "Show";
-        show.dataset.showField = field.id;
-        show.setAttribute("aria-label", `Show field ${field.name}`);
-        row.appendChild(name);
-        row.appendChild(show);
-        hiddenGroup.appendChild(row);
-      }
+    freezeGroup.appendChild(toggle);
+    inner.appendChild(freezeGroup);
+    const groupGroup = this.optionGroup(inner, "option-groupby", "Group by");
+    const groupSelect = this.optionSelect("group-by", "Group by");
+    groupSelect.appendChild(new Option("None", ""));
+    for (const f of fields) {
+      if (!isGroupable(f) && f.id !== view.groupBy)
+        continue;
+      groupSelect.appendChild(new Option(f.name, f.id, false, f.id === view.groupBy));
     }
-    this.optionsPanel.appendChild(hiddenGroup);
+    groupSelect.value = view.groupBy ?? "";
+    groupGroup.appendChild(groupSelect);
+    const sortGroup = this.optionGroup(inner, "option-sort", "Sort", "(multi \u2014 top first)");
+    const sort = this.currentSort();
+    sort.forEach((entry, i) => {
+      const field = fields.find((f) => f.id === entry.fieldId);
+      if (!field)
+        return;
+      const row = document.createElement("div");
+      row.className = "tablify__sort-row";
+      const name = document.createElement("span");
+      name.className = "tablify__sort-name";
+      name.textContent = field.name;
+      const dir = document.createElement("button");
+      dir.type = "button";
+      dir.className = "tablify__sort-dir";
+      dir.textContent = entry.direction === "asc" ? "A\u2192Z" : "Z\u2192A";
+      dir.dataset.sortDir = String(i);
+      dir.dataset.focusKey = `sort-dir-${i}`;
+      dir.setAttribute("aria-label", `${field.name}: ${entry.direction === "asc" ? "ascending" : "descending"} \u2014 reverse`);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "tablify__sort-remove";
+      remove.innerHTML = faIcon("xmark");
+      remove.dataset.sortRemove = String(i);
+      remove.dataset.focusKey = `sort-remove-${i}`;
+      remove.setAttribute("aria-label", `Remove sort by ${field.name}`);
+      row.appendChild(name);
+      row.appendChild(dir);
+      row.appendChild(remove);
+      sortGroup.appendChild(row);
+    });
+    const addSort = this.optionSelect("add-sort", "Add sort");
+    addSort.appendChild(new Option("+ Add sort\u2026", ""));
+    const sorted = new Set(sort.map((s) => s.fieldId));
+    for (const f of fields)
+      if (!sorted.has(f.id))
+        addSort.appendChild(new Option(f.name, f.id));
+    addSort.value = "";
+    sortGroup.appendChild(addSort);
+    const hidden = new Set(view.hidden ?? []);
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    const order = (view.columnOrder ?? []).filter((id) => byId.has(id));
+    for (const f of fields)
+      if (!order.includes(f.id))
+        order.push(f.id);
+    const hiddenCount = order.filter((id) => hidden.has(id)).length;
+    const fieldGroup = this.optionGroup(inner, "tablify-hidden-fields", "Fields", `(${hiddenCount} hidden)`);
+    const list = document.createElement("div");
+    list.className = "tablify__field-list";
+    for (const id of order) {
+      const field = byId.get(id);
+      if (!field)
+        continue;
+      const isHidden = hidden.has(id);
+      const row = document.createElement("div");
+      row.className = "tablify__field-row";
+      row.classList.toggle("is-hidden", isHidden);
+      const name = document.createElement("span");
+      name.className = "tablify__field-name";
+      name.textContent = field.name;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "tablify__option-button tablify__field-toggle";
+      btn.dataset.focusKey = `field-${id}`;
+      if (isHidden) {
+        btn.classList.add("is-active");
+        btn.textContent = "Show";
+        btn.dataset.showField = id;
+        btn.setAttribute("aria-label", `Show field ${field.name}`);
+      } else {
+        btn.textContent = "Hide";
+        btn.dataset.hideField = id;
+        btn.setAttribute("aria-label", `Hide field ${field.name}`);
+        if (field.primary) {
+          btn.disabled = true;
+          btn.title = "Primary field cannot be hidden";
+        }
+      }
+      row.appendChild(name);
+      row.appendChild(btn);
+      list.appendChild(row);
+    }
+    fieldGroup.appendChild(list);
     const clear = document.createElement("button");
     clear.type = "button";
-    clear.className = "tablify__option-button tablify__option-button--wide";
-    clear.textContent = "Clear filters";
+    clear.className = "tablify__option-clear";
     clear.dataset.action = ACTIONS.clearFilters;
-    this.optionsPanel.appendChild(clear);
+    clear.dataset.focusKey = "clear";
+    const clearIcon = document.createElement("span");
+    clearIcon.className = "tablify__option-clear-icon";
+    clearIcon.setAttribute("aria-hidden", "true");
+    clearIcon.innerHTML = faIcon("filter-circle-xmark");
+    clear.appendChild(clearIcon);
+    clear.appendChild(document.createTextNode("Clear search & filters"));
+    inner.appendChild(clear);
+    if (focusKey) {
+      const again = Array.from(panel.querySelectorAll("[data-focus-key]")).find(
+        (el2) => el2.dataset.focusKey === focusKey
+      );
+      again?.focus();
+    }
+    this.positionOptions();
+  }
+  /** A labelled panel section (`mb-3` block with a `font-medium` label and optional hint). */
+  optionGroup(parent, testid, label, hint) {
+    const group = document.createElement("div");
+    group.className = "tablify__option-group";
+    group.dataset.testid = testid;
+    const head = document.createElement("div");
+    head.className = "tablify__option-label";
+    head.textContent = label;
+    if (hint) {
+      head.appendChild(document.createTextNode(" "));
+      const span = document.createElement("span");
+      span.className = "tablify__option-hint";
+      span.textContent = hint;
+      head.appendChild(span);
+    }
+    group.appendChild(head);
+    parent.appendChild(group);
+    return group;
+  }
+  optionSelect(kind, label) {
+    const select = document.createElement("select");
+    select.className = "tablify__option-select";
+    select.dataset.option = kind;
+    select.dataset.focusKey = kind;
+    select.setAttribute("aria-label", label);
+    return select;
+  }
+  static nextUid = 0;
+  uidBase = `tablify-opt-${++_Toolbar.nextUid}`;
+  uid(name) {
+    return `${this.uidBase}-${name}`;
   }
 };
 
@@ -15371,7 +15921,15 @@ var TableView = class extends import_obsidian9.TextFileView {
         const view = s.getView();
         s.setView({ ...view, hidden: view.hidden.filter((id) => id !== fieldId) });
       }),
-      onClearFilters: () => this.applyFilter({ search: "", query: "" }),
+      // SAD-81: Options → Fields → Hide; the primary field is refused (R-D13), as in the header menu.
+      onHideField: (fieldId) => this.applyViewChange((view, fields) => hideField(view, fieldId, fields)),
+      // SAD-81: Group by and the multi-sort list are layout changes — undoable, like the header's.
+      onGroupBy: (fieldId) => this.applyViewChange((view, fields) => setGroupBy(view, fieldId, fields)),
+      onSortChange: (sort) => this.applyViewChange((view, fields) => setSort(view, sort, fields)),
+      onClearFilters: () => {
+        this.applyFilter({ search: "", query: "" });
+        new import_obsidian9.Notice("Search & filters cleared");
+      },
       onUndo: () => this.mutate((s) => s.undo()),
       onRedo: () => this.mutate((s) => s.redo()),
       onDeleteSelected: () => this.deleteSelectedRows()
@@ -15506,7 +16064,9 @@ var TableView = class extends import_obsidian9.TextFileView {
     if (!this.session || !this.body)
       return;
     const s = this.session;
-    const rows = s.getDisplayRows();
+    const grouped = this.groupedRows();
+    const rows = grouped.rows;
+    const groups = grouped.groups;
     const fields = s.getVisibleFields();
     const theme = document.body.classList.contains("theme-dark") ? "dark" : "light";
     applyTheme(this.contentEl, theme);
@@ -15539,7 +16099,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         // SAD-80: row checkboxes and select-all (UI state), and `#`-cell drag to reorder.
         onToggleRow: (rowId, checked) => this.showRowSelection(toggleRow(this.rowSelection, rowId, checked)),
         onToggleAllRows: (checked) => {
-          const visible = this.session?.getDisplayRows().map((r) => r.id) ?? [];
+          const visible = this.displayRows().map((r) => r.id);
           this.showRowSelection(setVisibleRows(this.rowSelection, visible, checked));
         },
         onRowMove: (rowId, beforeRowId) => {
@@ -15549,7 +16109,10 @@ var TableView = class extends import_obsidian9.TextFileView {
           }
         },
         rowMoveBlocked: () => this.rowMoveBlocked(),
-        onRowMoveBlocked: (reason) => new import_obsidian9.Notice(reason)
+        onRowMoveBlocked: (reason) => new import_obsidian9.Notice(reason),
+        // SAD-81: Options → Group by headers; a click collapses or expands one group.
+        groups,
+        onToggleGroup: (key) => this.toggleGroup(key)
       });
       this.grid.setRowSelection(this.rowSelection);
       this.body.appendChild(this.grid.root);
@@ -15559,9 +16122,43 @@ var TableView = class extends import_obsidian9.TextFileView {
       this.wirePressEvents(this.grid.root);
     } else {
       this.grid.setTheme(theme);
-      this.grid.setModel(rows, fields, s.getView());
+      this.grid.setModel(rows, fields, s.getView(), groups);
       this.grid.setRowSelection(this.rowSelection);
     }
+  }
+  // ---- group by (SAD-81) ----
+  /**
+   * The display rows grouped by `view.groupBy`, collapsed groups left out. Without a groupBy
+   * (or with a field that no longer exists) this is exactly session.getDisplayRows() with no
+   * groups, so every flat-grid path is unchanged.
+   */
+  groupedRows() {
+    const s = this.session;
+    if (!s)
+      return { rows: [], groups: null };
+    const rows = s.getDisplayRows();
+    const view = s.getView();
+    const field = view.groupBy ? s.getField(view.groupBy) : void 0;
+    if (!field)
+      return { rows, groups: null };
+    return groupRows(rows, field, view.collapsedGroups ?? []);
+  }
+  /** Rows by grid row index — the grid, keyboard, menus and editors all address these. */
+  displayRows() {
+    return this.groupedRows().rows;
+  }
+  /**
+   * Group header click (prototype `toggleGroup`). Persisted with the view but not undoable —
+   * like search, it is a reading aid, not an edit. An empty list drops the key.
+   */
+  toggleGroup(key) {
+    const s = this.session;
+    if (!s)
+      return;
+    const next = toggleCollapsed(s.getView().collapsedGroups, key);
+    s.patchView({ collapsedGroups: next.length > 0 ? next : void 0 });
+    this.grid?.setSelection(null);
+    this.afterChange();
   }
   // ---- keyboard ----
   onKeyDown(e) {
@@ -15589,7 +16186,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         this.startEdit(sel);
         return;
       }
-      const rowCount = this.session.getDisplayRows().length;
+      const rowCount = this.displayRows().length;
       const colCount = this.session.getVisibleFields().length;
       const next = moveSelection(sel, action, rowCount, colCount);
       this.grid.setSelection(next);
@@ -15683,7 +16280,7 @@ var TableView = class extends import_obsidian9.TextFileView {
   openCellMenu(row, col, pos) {
     if (!this.session)
       return;
-    const rowData = this.session.getDisplayRows()[row];
+    const rowData = this.displayRows()[row];
     const field = this.session.getVisibleFields()[col];
     if (!rowData || !field)
       return;
@@ -15726,7 +16323,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     const t = this.menuTarget;
     if (!s || !t)
       return;
-    const rows = s.getDisplayRows();
+    const rows = this.displayRows();
     const fields = s.getVisibleFields();
     if (id.startsWith("cell.") || id.startsWith("row.")) {
       const row = rows[t.row];
@@ -15869,7 +16466,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     const grid = this.grid;
     if (!s || !grid)
       return;
-    const rows = s.getDisplayRows();
+    const rows = this.displayRows();
     const fields = s.getVisibleFields();
     const row = rows[sel.row];
     const field = fields[sel.col];

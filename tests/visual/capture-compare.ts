@@ -2,7 +2,7 @@
 //
 // Usage:
 //   npx tsx tests/visual/capture-compare.ts [--theme dark|light|all] [--viewport owner|desktop|mobile|all]
-//       [--fixture new|empty|populated|all] [--state default|options|selected|all] [--out dir]
+//       [--fixture new|empty|populated|grouped|all] [--state default|options|selected|grouped|all] [--out dir]
 //
 // For every combination it renders the plugin (real TableView under hostile host CSS) and the
 // prototype (same data, prototype-only chrome hidden), then per region (lib/regions.ts):
@@ -16,12 +16,12 @@ import { PNG } from 'pngjs';
 import type { Page } from 'playwright';
 import { startStaticServer } from './lib/server';
 import { REPO, HARNESS_VIEWPORTS, buildHarness, openPlugin, openPrototype, type HarnessViewport } from './lib/harness';
-import { REGIONS, OPTIONS_REGION, SELECTION_REGION, type Region } from './lib/regions';
+import { REGIONS, OPTIONS_REGION, SELECTION_REGION, GROUP_REGIONS, type Region } from './lib/regions';
 import type { Theme } from './lib/capture';
 import { newTableText } from '../../src/menus/fileMenuModel';
 
-type FixtureName = 'new' | 'empty' | 'populated';
-type StateName = 'default' | 'options' | 'selected';
+type FixtureName = 'new' | 'empty' | 'populated' | 'grouped';
+type StateName = 'default' | 'options' | 'selected' | 'grouped';
 
 function arg(name: string, def: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -34,8 +34,31 @@ function expand<T extends string>(value: string, all: readonly T[]): T[] {
 /** Fixtures. `new` is whatever newTableText() produces today, so Step 9 changes it automatically. */
 function fixtureText(name: FixtureName): string {
   if (name === 'new') return stableIds(newTableText('Untitled table'));
+  if (name === 'grouped') return stableIds(groupedFixture());
   if (name === 'populated') return fs.readFileSync(path.join(REPO, 'samples/v2/customers.tablify'), 'utf8');
   return fs.readFileSync(path.join(REPO, 'samples/v1/empty.tablify'), 'utf8');
+}
+
+/**
+ * SAD-81: the new-table template with eight named rows whose Status covers every option plus an
+ * empty value, so Group by Status draws chip headers and the text-only "(empty)" header.
+ */
+function groupedFixture(): string {
+  const file = JSON.parse(newTableText('Grouped')) as {
+    fields: Array<{ id: string; type: string; primary?: boolean; options?: Array<{ id: string }> }>;
+    rows: Array<{ id: string; values: Record<string, unknown> }>;
+  };
+  const name = file.fields.find((f) => f.primary) ?? file.fields[0];
+  const status = file.fields.find((f) => f.type === 'single_select');
+  const options = status?.options?.map((o) => o.id) ?? [];
+  const plan = [0, 1, 0, 2, -1, 1, 0, 2];
+  const base = file.rows[0];
+  file.rows = plan.map((k, i) => ({
+    ...base,
+    id: `row_grp${i}`,
+    values: { [name.id]: `Task ${i + 1}`, ...(status && k >= 0 ? { [status.id]: options[k] } : {}) },
+  }));
+  return JSON.stringify(file, null, 2);
 }
 
 /** Make generated IDs/timestamps deterministic so repeated runs are comparable. */
@@ -146,6 +169,66 @@ async function openOptions(pp: Page, rp: Page): Promise<void> {
 }
 
 /**
+ * SAD-81: drive both Options panels through the same steps with real input — Group by the first
+ * select field, sort by the primary field, add a second sort and flip it, hide the second field.
+ * Both panels stay open afterwards (each re-renders in place).
+ */
+async function groupAndSort(pp: Page, rp: Page): Promise<void> {
+  await openOptions(pp, rp);
+  const pick = async (page: Page, sel: string, label: string) => {
+    await page.selectOption(sel, { label });
+    await page.waitForTimeout(120);
+  };
+  const groupLabel = (await pp.locator('select[data-option="group-by"] option').allTextContents()).find((t) => t === 'Status');
+  if (groupLabel) {
+    await pick(pp, 'select[data-option="group-by"]', groupLabel);
+    await pick(rp, '#floatPanel select >> nth=0', groupLabel);
+  }
+  const sortable = await pp.locator('select[data-option="add-sort"] option').allTextContents();
+  const [first, , , second] = sortable.slice(1);
+  if (first) {
+    await pick(pp, 'select[data-option="add-sort"]', first);
+    await pick(rp, '#floatPanel select >> nth=1', first);
+  }
+  if (second) {
+    await pick(pp, 'select[data-option="add-sort"]', second);
+    await pick(rp, '#floatPanel select >> nth=1', second);
+    await pp.click('button[data-sort-dir="1"]');
+    await rp.click('#floatPanel button:has-text("A→Z") >> nth=1');
+  }
+  const hideable = await pp.locator('button[data-hide-field]:not([disabled])').first().getAttribute('aria-label');
+  const fieldName = hideable?.replace(/^Hide field /, '');
+  if (fieldName) {
+    await pp.click(`button[aria-label="Hide field ${fieldName}"]`);
+    await rp.click(`#floatPanel div.flex.items-center.justify-between:has(> span:text-is("${fieldName}")) button`);
+  }
+  await pp.mouse.move(0, 0);
+  await rp.mouse.move(0, 0);
+  await pp.waitForTimeout(150);
+  await rp.waitForTimeout(150);
+}
+
+/** Close both float panels (Escape on the plugin toolbar, the prototype's document handler). */
+async function closeOptions(pp: Page, rp: Page): Promise<void> {
+  // Escape without focusing a control (a focused button would draw its focus ring), then undo
+  // the scrolling selectOption() did to reach the panel — on mobile it scrolls the page and
+  // the toolbar sideways — so both grids are captured from their resting position.
+  const reset = `(() => {
+    const a = document.activeElement; if (a && a.blur) a.blur();
+    window.scrollTo(0, 0);
+    document.querySelectorAll('*').forEach((e) => { if (e.scrollLeft) e.scrollLeft = 0; if (e.scrollTop) e.scrollTop = 0; });
+  })()`;
+  await pp.evaluate(`document.querySelector('.tablify__toolbar').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await rp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await pp.evaluate(reset);
+  await rp.evaluate(reset);
+  await pp.mouse.move(0, 0);
+  await rp.mouse.move(0, 0);
+  await pp.waitForTimeout(150);
+  await rp.waitForTimeout(150);
+}
+
+/**
  * SAD-80: tick rows 1 and 3 (or the last row) with real clicks on both pages, then park the
  * mouse so no hover state is captured. The prototype re-renders on every toggle, so each
  * click re-resolves its selector.
@@ -165,8 +248,8 @@ async function selectRows(pp: Page, rp: Page): Promise<void> {
 async function main(): Promise<void> {
   const themes = expand<Theme>(arg('theme', 'dark'), ['dark', 'light']);
   const viewports = expand<HarnessViewport>(arg('viewport', 'owner'), Object.keys(HARNESS_VIEWPORTS) as HarnessViewport[]);
-  const fixtures = expand<FixtureName>(arg('fixture', 'new'), ['new', 'empty', 'populated']);
-  const states = expand<StateName>(arg('state', 'default'), ['default', 'options', 'selected']);
+  const fixtures = expand<FixtureName>(arg('fixture', 'new'), ['new', 'empty', 'populated', 'grouped']);
+  const states = expand<StateName>(arg('state', 'default'), ['default', 'options', 'selected', 'grouped']);
   const outRoot = path.resolve(arg('out', path.join(REPO, 'docs/evidence/visual-parity/latest')));
   fs.mkdirSync(outRoot, { recursive: true });
 
@@ -186,6 +269,17 @@ async function main(): Promise<void> {
       const proto = await openPrototype(server.origin, theme, viewport, text);
       try {
         const regions = [...REGIONS];
+        const results: RegionResult[] = [];
+        if (state === 'grouped') {
+          // The panel is compared while open (sort rows, struck field, Show pill); the grid after
+          // it closes. Row-index regions address the prototype's first <tr>, a group header now.
+          await groupAndSort(plugin.page, proto.page);
+          await plugin.page.screenshot({ path: path.join(dir, 'plugin-panel.png') });
+          await proto.page.screenshot({ path: path.join(dir, 'prototype-panel.png') });
+          results.push(await compareRegion(plugin.page, proto.page, OPTIONS_REGION, dir));
+          await closeOptions(plugin.page, proto.page);
+          regions.splice(0, regions.length, ...REGIONS.filter((r) => r.id !== 'row-number' && r.id !== 'row-check'), ...GROUP_REGIONS);
+        }
         if (state === 'options') {
           await openOptions(plugin.page, proto.page);
           regions.push(OPTIONS_REGION);
@@ -196,7 +290,6 @@ async function main(): Promise<void> {
         }
         await plugin.page.screenshot({ path: path.join(dir, 'plugin.png') });
         await proto.page.screenshot({ path: path.join(dir, 'prototype.png') });
-        const results: RegionResult[] = [];
         for (const r of regions) results.push(await compareRegion(plugin.page, proto.page, r, dir));
         report.push({ combo, regions: results });
       } finally {

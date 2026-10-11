@@ -192,6 +192,11 @@ export function parse(input: string): ParseResult {
         ...(typeof (v as unknown as Record<string, unknown>).query === 'string'
           ? { query: (v as unknown as Record<string, unknown>).query as string }
           : {}),
+        // SAD-81: collapsed group keys, first-class like search/query. A non-array is left to
+        // the unknown-key loop below, so it still round-trips untouched.
+        ...(Array.isArray((v as unknown as Record<string, unknown>).collapsedGroups)
+          ? { collapsedGroups: (v as unknown as Record<string, unknown>).collapsedGroups as string[] }
+          : {}),
       } as unknown as ViewDefinition;
       const result = validateView(viewWithDefaults, fieldsForView);
       // For file load, even if primary hidden error, auto-fix by removing primary from hidden (warnings)

@@ -32,6 +32,11 @@ function cloneView(view: ViewDefinition): ViewDefinition {
     // change two extra keys on its next save and break byte-identical round-trips.
     ...(view.search !== undefined ? { search: view.search } : {}),
     ...(view.query !== undefined && view.query !== null ? { query: view.query } : {}),
+    // SAD-81: same conditional-copy rule as search/query.
+    // A non-array (hand-edited file) is passed through as-is; validateView drops it with a warning.
+    ...(view.collapsedGroups !== undefined
+      ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups }
+      : {}),
   };
 }
 
@@ -107,6 +112,19 @@ export function validateView(view: ViewDefinition, fields: FieldDefinition[]): V
     }
   } else {
     normalized.groupBy = null;
+  }
+
+  // --- collapsedGroups (SAD-81) --- optional; kept only as an array of strings.
+  if (normalized.collapsedGroups !== undefined) {
+    const raw: unknown = normalized.collapsedGroups;
+    if (!Array.isArray(raw)) {
+      warnings.push('collapsedGroups is not an array — ignored');
+      delete normalized.collapsedGroups;
+    } else {
+      const keys = raw.filter((k): k is string => typeof k === 'string');
+      if (keys.length !== raw.length) warnings.push('collapsedGroups entries that are not strings — ignored');
+      normalized.collapsedGroups = keys;
+    }
   }
 
   // --- hidden ---
@@ -259,6 +277,8 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
     // below with a warning rather than coerced, so a corrupt file cannot silently filter rows.
     ...(typeof obj.search === 'string' ? { search: obj.search } : {}),
     ...(typeof obj.query === 'string' ? { query: obj.query } : {}),
+    // SAD-81: optional collapsed group keys; validateView drops non-string entries.
+    ...(Array.isArray(obj.collapsedGroups) ? { collapsedGroups: obj.collapsedGroups as string[] } : {}),
   };
 
   if (!Array.isArray(obj.columnOrder)) {
@@ -277,6 +297,10 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
   }
   if (obj.query !== undefined && obj.query !== null && typeof obj.query !== 'string') {
     warnings.push('view query is not a string — ignored');
+  }
+  // SAD-81: collapsedGroups is optional; a present non-array is dropped with a warning.
+  if (obj.collapsedGroups !== undefined && !Array.isArray(obj.collapsedGroups)) {
+    warnings.push('collapsedGroups is not an array — ignored');
   }
 
   const result = validateView(view, fields);

@@ -381,61 +381,96 @@
   display: none !important;
 }
 
-/* View settings popover (SAD-71 Step 3, owner D-3): a floating card in the prototype's
-   surface language, anchored under the toolbar instead of an inline full-width block
-   that pushed the grid down (owner screenshot). */
+/* View settings panel (SAD-81): the prototype's `#floatPanel` + `renderOptionsPanel` —
+   `.float-panel` (fixed, z 70, radius 16, 0 12px 32px shadow, pill surface) holding a
+   `p-3 text-xs w-[300px] max-h-[70vh] overflow-y-auto` body. Toolbar.positionOptions()
+   anchors it under the Options button (prototype `openPanel`). */
 .tablify__options {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  width: min(320px, 100%);
-  background: var(--tablify-bg-card);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  background: var(--tablify-bg-pill);
   border: 1px solid var(--tablify-border-subtle);
   border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  color: var(--tablify-text);
+  font-family: 'Lora', Georgia, serif;
+}
+
+.tablify__options-inner {
+  box-sizing: border-box;
+  width: 300px;
+  max-width: calc(100vw - 26px);
+  max-height: 70vh;
+  overflow-y: auto;
   padding: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
-  z-index: 40;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+}
+
+.tablify__options-title {
+  margin-bottom: 8px;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tablify-text-muted);
 }
 
 .tablify__option-group {
+  margin-bottom: 12px;
+}
+
+.tablify__option-group--inline {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
 }
 
 .tablify__option-label {
-  font-size: 11px;
-  color: var(--tablify-text-muted);
-  min-width: 96px;
-}
-
-.tablify__option-empty {
-  font-size: 11px;
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
   color: var(--tablify-text);
-  opacity: 0.7;
 }
 
+.tablify__option-group--inline .tablify__option-label {
+  margin-bottom: 0;
+}
+
+.tablify__option-hint {
+  font-size: 10px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__option-pills {
+  display: flex;
+  gap: 6px;
+}
+
+/* Prototype `.pill-btn` in the panel: rounded-full, 11px medium (row height) / 10px (fields). */
 .tablify button.tablify__option-button {
-  background: var(--tablify-bg-capsule);
+  background: var(--tablify-bg-pill);
   color: var(--tablify-text);
   border: 1px solid var(--tablify-border-subtle);
-  border-radius: 999px;
-  padding: 4px 12px;
+  border-radius: 9999px;
+  padding: 6px 12px;
   margin: 0;
   height: auto;
+  min-height: 0;
   line-height: 16px;
   font-family: inherit;
   font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: none;
+  display: block;
+  box-shadow: var(--tablify-pill-shadow, 0 1px 2px rgba(0, 0, 0, 0.2));
   appearance: none;
 }
 
@@ -444,51 +479,242 @@
   border-color: var(--tablify-border-pill-hover);
 }
 
-/* Prototype active language: solid accent pill with AA-checked ink (on-accent token),
-   not an outlined pill. */
+/* Prototype active language (`bg-tablify-terracotta text-white`, no border): solid accent fill.
+   The ink is the AA-checked on-accent token — white on the terracotta is 3.28:1. */
 .tablify button.tablify__option-button.is-active,
 .tablify button.tablify__option-button.is-active:hover {
-  background: var(--tablify-accent-primary);
+  background: var(--tablify-accent-fill);
   color: var(--tablify-on-accent);
-  border-color: var(--tablify-accent-primary);
+  border-width: 0;
+  box-shadow: none;
 }
 
 .tablify button.tablify__option-button:focus-visible,
+.tablify button.tablify__switch:focus-visible,
+.tablify button.tablify__sort-dir:focus-visible,
+.tablify button.tablify__sort-remove:focus-visible,
+.tablify button.tablify__option-clear:focus-visible,
 .tablify select.tablify__option-select:focus-visible {
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
 }
 
-.tablify__option-button--wide {
-  align-self: flex-start;
+/* Freeze primary column: prototype `w-9 h-5 rounded-full` switch with a `w-4 h-4` white knob. */
+.tablify button.tablify__switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--tablify-switch-off);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  appearance: none;
 }
 
+.tablify button.tablify__switch.is-on {
+  background: var(--tablify-accent-fill);
+}
+
+.tablify__switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--tablify-switch-knob);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+.tablify button.tablify__switch.is-on .tablify__switch-knob {
+  left: auto;
+  right: 2px;
+}
+
+/* Group by and + Add sort…: prototype `pill-input w-full rounded-lg px-2.5 py-1.5`. */
 .tablify select.tablify__option-select {
-  background: var(--tablify-bg-capsule);
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 31px;
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--tablify-bg-pill);
   color: var(--tablify-text);
   border: 1px solid var(--tablify-border-subtle);
-  border-radius: 10px;
-  padding: 4px 8px;
-  margin: 0;
-  height: auto;
-  line-height: 16px;
+  border-radius: 8px;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
+  line-height: normal;
   box-shadow: none;
+  background-image: none;
+  appearance: auto;
 }
 
-.tablify__hidden-field {
+.tablify__sort-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* Sort key chip: `flex-1 truncate px-2 py-1 rounded-lg` on the inner surface. */
+.tablify__sort-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  background: var(--tablify-bg-inner);
+}
+
+/* A→Z / Z→A: `pill-btn px-2 py-1 rounded-lg font-mono text-[10px]`. */
+.tablify button.tablify__sort-dir {
+  flex: 0 0 auto;
+  display: block;
+  margin: 0;
+  height: auto;
+  min-height: 0;
+  padding: 4px 8px;
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  box-shadow: var(--tablify-pill-shadow, 0 1px 2px rgba(0, 0, 0, 0.2));
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 16px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__sort-dir:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+}
+
+/* Remove: bare `px-1` xmark, muted, red on hover. */
+.tablify button.tablify__sort-remove {
+  flex: 0 0 auto;
+  display: block;
+  margin: 0;
+  height: 16px;
+  min-height: 0;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: var(--tablify-text-muted);
+  font-size: 10px;
+  line-height: 16px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__sort-remove:hover {
+  background: none;
+  color: var(--tablify-text-danger);
+}
+
+.tablify button.tablify__sort-remove svg.tablify__fa {
+  display: block;
+}
+
+/* Fields: `max-h-36 overflow-y-auto space-y-0.5 pr-1`. */
+.tablify__field-list {
+  max-height: 144px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tablify__field-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  width: 100%;
+  gap: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.tablify__hidden-field-name {
-  font-size: 11px;
+.tablify__field-row + .tablify__field-row {
+  margin-top: 2px;
+}
+
+.tablify__field-row:hover {
+  background: var(--tablify-bg-inner);
+}
+
+.tablify__field-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hidden: struck through and muted. The muted token keeps the name AA-legible (the
+   prototype's clay/60 · gray-500 is below 3:1). */
+.tablify__field-row.is-hidden .tablify__field-name {
+  color: var(--tablify-text-muted);
+  text-decoration: line-through;
+}
+
+.tablify button.tablify__option-button.tablify__field-toggle {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+.tablify button.tablify__option-button.tablify__field-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Clear search & filters: `w-full pill-btn rounded-xl py-1.5 text-[11px]`. */
+.tablify button.tablify__option-clear {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  height: auto;
+  min-height: 0;
+  padding: 6px 0;
+  background: var(--tablify-bg-pill);
   color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--tablify-pill-shadow, 0 1px 2px rgba(0, 0, 0, 0.2));
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__option-clear:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+}
+
+.tablify__option-clear-icon {
+  display: inline-block;
+  margin-right: 4px;
+  color: var(--tablify-accent-fill);
+  font-size: 11px;
+  line-height: 11px;
+  vertical-align: -1px;
 }
 
 /* Meta row (SAD-77): prototype #metaRow — "N selected · Delete" on the left (SAD-80),
@@ -1171,6 +1397,90 @@
   box-sizing: border-box;
   gap: 6px;
   padding: 8px 6px 0;
+}
+
+/* SAD-81: group header row (prototype `<td colspan class="pt-2 pb-0.5 px-2">`): the row's 8px
+   gap + 8px top padding, 6px spacing + 8px side padding, 2px bottom. */
+.tablify__group-row {
+  display: flex;
+  align-items: flex-start;
+  box-sizing: border-box;
+  padding: 16px 14px 2px;
+}
+
+.tablify__group-cell {
+  display: flex;
+  min-width: 0;
+}
+
+/* `flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider font-serif`. */
+.tablify button.tablify__group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  color: var(--tablify-text-muted);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__group-toggle:hover {
+  background: none;
+}
+
+.tablify button.tablify__group-toggle:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.tablify__group-chevron {
+  display: block;
+  font-size: 9px;
+  line-height: 9px;
+}
+
+.tablify__group-chevron svg.tablify__fa {
+  display: block;
+}
+
+/* Option chip (prototype `FT.single_select.fmt`): colours come inline from optionChipColors(). */
+.tablify__group-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.tablify__group-dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 9999px;
+}
+
+.tablify__group-count {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 /* The header keeps an opaque inner-surface paint so capsules scrolling underneath stay

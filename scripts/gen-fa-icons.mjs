@@ -62,6 +62,10 @@ const GLYPHS = [
   'arrow-down-1-9',
   'calendar-plus',
   'calendar-check',
+  // Options panel and group headers (SAD-81)
+  'filter-circle-xmark',
+  'chevron-down',
+  'chevron-right',
 ];
 
 function build() {

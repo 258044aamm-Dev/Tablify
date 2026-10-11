@@ -371,6 +371,13 @@
             "null"
           ],
           "description": "P2-02 query persisted with the view (SAD-69). null means no query filter."
+        },
+        "collapsedGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Keys of the groups collapsed under groupBy (SAD-81). Optional; absent means every group is expanded."
         }
       },
       "additionalProperties": true

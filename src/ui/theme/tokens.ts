@@ -84,7 +84,74 @@ export const palette = {
   dangerLight: '#DC2626',
   /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
   dangerDark: '#F87171',
+  /** #D1D5DB — light switch track when off (prototype Options `bg-gray-300`, SAD-81) */
+  switchOffLight: '#D1D5DB',
 } as const;
+
+/**
+ * SAD-81: select-option chip colours — the prototype's `OPT_COLORS` (Tailwind 500 for the dot,
+ * fill and border, 700 / 300 for the ink in light / dark). Each entry: [500, light ink, dark ink].
+ *
+ * AA variants: on light, emerald / amber / pink 700 over their 15 % tint measure 4.22 / 3.98 /
+ * 4.44:1, short of 4.5:1 for 11 px text, so those three light inks are the 800 shade (5.91 /
+ * 5.62 / 5.80:1). Every dark ink and the other light inks are the prototype's.
+ */
+const chipHues = {
+  gray: ['#6B7280', '#4B5563', '#D1D5DB'],
+  sky: ['#0EA5E9', '#0369A1', '#7DD3FC'],
+  emerald: ['#10B981', '#065F46', '#6EE7B7'],
+  rose: ['#F43F5E', '#BE123C', '#FDA4AF'],
+  amber: ['#F59E0B', '#92400E', '#FCD34D'],
+  purple: ['#A855F7', '#7E22CE', '#D8B4FE'],
+  pink: ['#EC4899', '#9D174D', '#F9A8D4'],
+} as const;
+
+/** Prototype gray dot (`bg-gray-400`) — the only hue whose dot is not its 500 shade. */
+const chipGrayDot = '#9CA3AF';
+
+/**
+ * Plugin option colours (FORMAT_SPEC §3.2) onto the prototype's chip hues. The prototype has no
+ * brown / orange / yellow; all three take its one warm hue, amber.
+ */
+const chipHueFor: Record<string, keyof typeof chipHues> = {
+  gray: 'gray',
+  brown: 'amber',
+  orange: 'amber',
+  yellow: 'amber',
+  green: 'emerald',
+  blue: 'sky',
+  purple: 'purple',
+  pink: 'pink',
+  red: 'rose',
+};
+
+export interface OptionChipColors {
+  background: string;
+  border: string;
+  text: string;
+  dot: string;
+}
+
+function withAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+/**
+ * SAD-81: paint for a select-option chip (prototype `FT.single_select.fmt`): 15 % fill and 30 %
+ * border of the hue, 700 / 300 ink, solid dot. Unknown colours fall back to gray, as
+ * `optColor()` does.
+ */
+export function optionChipColors(color: string | undefined, theme: ThemeName): OptionChipColors {
+  const hue = chipHueFor[color ?? ''] ?? 'gray';
+  const [base, inkLight, inkDark] = chipHues[hue];
+  return {
+    background: withAlpha(base, 0.15),
+    border: withAlpha(base, 0.3),
+    text: theme === 'dark' ? inkDark : inkLight,
+    dot: hue === 'gray' ? chipGrayDot : base,
+  };
+}
 
 // Keep palette values as the only literals — tests enforce no hex outside this file.
 export type Palette = typeof palette;
@@ -138,6 +205,16 @@ export interface Theme {
    * control, so the 3:1 non-text bar applies — met by #CC785C in both themes.
    */
   accentCheck: string;
+  /**
+   * SAD-81: solid accent fill of the Options panel's active pills, Show buttons and switch
+   * (prototype `bg-tablify-terracotta`, no dark variant). Text on it uses onAccent (AA), not
+   * the prototype's white (3.28:1).
+   */
+  accentFill: string;
+  /** SAD-81: switch track when off (prototype `bg-gray-300 dark:bg-gray-600`). */
+  switchOff: string;
+  /** SAD-81: switch knob (prototype `bg-white`, both themes). */
+  switchKnob: string;
 }
 
 export const lightTheme: Theme = {
@@ -168,6 +245,9 @@ export const lightTheme: Theme = {
   textSelected: palette.terracottaTextLight,
   textDanger: palette.dangerLight,
   accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.switchOffLight,
+  switchKnob: palette.cardLight,
 };
 
 export const darkTheme: Theme = {
@@ -198,6 +278,9 @@ export const darkTheme: Theme = {
   textSelected: palette.terracotta,
   textDanger: palette.dangerDark,
   accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.placeholderDark,
+  switchKnob: palette.cardLight,
 };
 
 export const themes = {
@@ -238,6 +321,9 @@ export const cssVars = {
   textSelected: '--tablify-text-selected',
   textDanger: '--tablify-text-danger',
   accentCheck: '--tablify-accent-check',
+  accentFill: '--tablify-accent-fill',
+  switchOff: '--tablify-switch-off',
+  switchKnob: '--tablify-switch-knob',
 } as const;
 
 /**
@@ -276,6 +362,9 @@ export function applyTheme(root: HTMLElement, theme: ThemeName): void {
   root.style.setProperty(cssVars.textSelected, t.textSelected);
   root.style.setProperty(cssVars.textDanger, t.textDanger);
   root.style.setProperty(cssVars.accentCheck, t.accentCheck);
+  root.style.setProperty(cssVars.accentFill, t.accentFill);
+  root.style.setProperty(cssVars.switchOff, t.switchOff);
+  root.style.setProperty(cssVars.switchKnob, t.switchKnob);
 }
 
 /**

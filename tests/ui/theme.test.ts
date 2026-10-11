@@ -44,6 +44,8 @@ describe('P3-09 — Design tokens', () => {
       terracottaTextLight: '#B5573A',
       dangerLight: '#DC2626',
       dangerDark: '#F87171',
+      // SAD-81: Options switch track when off (prototype bg-gray-300).
+      switchOffLight: '#D1D5DB',
     };
     expect(palette).toEqual(expected);
   });

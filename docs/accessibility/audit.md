@@ -102,6 +102,7 @@ New automated guards: `tests/ui/ariaGrid.test.ts` (5 tests), `tests/ui/keyboardC
 | F-4 | Folder context menu keyboard access depends on the Obsidian host (file-explorer Menu-key behavior) | S4 (host capability, not plugin defect) | Owner T-I check records the actual behavior |
 | F-5 | SAD-80: row checkbox tint #CC785C (prototype `accent-tablify-terracotta`) is 2.86:1 on the light inner surface (#F4EFE6) vs 3:1 (WCAG 1.4.11) — the same value as the light focus/selection accent (F-2); dark passes. The control is native: Chrome draws an auto-contrast tick on the fill and a grey border when unchecked, so state is not conveyed by the tint alone | S4 (cosmetic-marginal; native tick and border carry the state) | Kept for prototype fidelity; decide together with F-2 |
 | F-6 | SAD-80: row reorder is drag-only (`#` handle), as in the prototype; there is no keyboard path to move a row | S4 (same class as F-3; row order is also changeable by sorting, which is keyboard-reachable through the header menu) | Backlog with owner sign-off |
+| F-7 | SAD-81: the Freeze switch's off track (prototype `bg-gray-300 dark:bg-gray-600`: #D1D5DB / #4B5563) is 1.47:1 (light) / 2.10:1 (dark) against the panel vs 3:1 (WCAG 1.4.11). The on state is the terracotta fill (≥ 3.28:1), the knob moves to the opposite end, and the control exposes `role="switch"` + `aria-checked` | S4 (cosmetic; the knob position and the on-fill carry the state) | Kept for prototype fidelity; decide together with F-2 / F-5 |
 
 Per P6-03 acceptance: open findings are S3 or lower; F-1 (S3) and F-2/F-3/F-4 (S4) require owner sign-off in the decision log.
 
@@ -113,3 +114,12 @@ Per P6-03 acceptance: open findings are S3 or lower; F-1 (S3) and F-2/F-3/F-4 (S
 - **Drag:** the drop line is `aria-hidden`; the move is announced through the "Row moved" notice.
 - **Contrast:** "N selected" #B5573A light (4.78:1) / #CC785C dark (4.96:1); Delete #DC2626 light (4.83:1) / #F87171 dark (5.87:1) on the card. The prototype's terracotta and red-500 fail AA for this 11px text, so the nearest AA shades ship, as for `mutedLight`. The checkbox tint is F-5.
 - **axe:** `tests/views/grid/rowSelection.test.ts` runs axe on the grid with the checkbox column on and a row selected: 0 critical, 0 serious.
+
+## 8. SAD-81 additions (Options panel, Group by)
+
+- **Panel:** `role="dialog"` labelled "View settings", opened from the **Options** button; Escape and an outside press close it. Every control is a native `<button>` or `<select>`. A re-render after a change returns focus to the control that caused it, so keyboard users stay in place.
+- **Freeze switch:** a `<button role="switch">` with `aria-checked` and `aria-labelledby` pointing at its visible label.
+- **Sort and Fields:** **A→Z / Z→A** has an `aria-label` naming the field and current direction ("Name: ascending — reverse"); **✕** is "Remove sort by Name"; **Hide / Show** are "Hide field Notes" / "Show field Notes". The disabled primary **Hide** is a disabled button with a tooltip.
+- **Group headers:** each is a grid row holding one `gridcell` that spans every column (`aria-colspan`), containing a real `<button>` with `aria-expanded`. Enter and Space press it and are kept from the grid's editor shortcut. `aria-rowcount` counts the header rows. Headers carry no `data-row-id`, so selection and row drag never treat them as rows. Collapsed rows leave the grid entirely (not merely hidden).
+- **Contrast:** active pills, **Show** and the switch use the prototype's terracotta fill (#CC785C, both themes). Their text uses the on-accent ink (#1E1B18 light, 5.23:1 / #181715 dark, 5.47:1) instead of the prototype's white, which is 3.28:1. The switch track when on is 3.28:1 (light) / 4.85:1 (dark) against the panel; the off track is finding F-7. Option chips: in light theme the emerald, amber and pink inks are the Tailwind 800 shade (5.91 / 5.62 / 5.80:1 on their tint) because the prototype's 700 measures 4.22 / 3.98 / 4.44:1; every other chip ink is the prototype's (light ≥ 4.52:1, dark ≥ 7.81:1).
+- **axe:** `tests/views/grid/grouping.test.ts` runs axe on a grouped grid with one group collapsed: 0 critical, 0 serious.

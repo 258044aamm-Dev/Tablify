@@ -300,25 +300,34 @@ describe('Toolbar — Options panel (view settings)', () => {
     expect(callbacks.calls.onRowHeight).toEqual(['large']);
   });
 
-  it('offers a freeze-column control bounded by the field count', () => {
+  // SAD-81 (S-5): the prototype's "Freeze primary column" switch replaces the 0..n select.
+  it('offers a freeze switch that reads any count of 1 or more as on', () => {
     const { toolbar } = mount();
     buttonByAction(toolbar.root, 'options')?.click();
-    const select = toolbar.root.querySelector<HTMLSelectElement>('.tablify__option-select');
-    expect(select).not.toBeNull();
-    // 0 through FIELDS.length inclusive.
-    expect(Array.from(need(select, 'freeze select').options).map((o) => o.value)).toEqual(['0', '1', '2', '3']);
+    const sw = need(toolbar.root.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch');
+    expect(sw.getAttribute('aria-checked')).toBe('true'); // createDefaultView freezes 1
+    expect(toolbar.root.querySelector('[data-testid="option-freeze"]')?.textContent).toContain('Freeze primary column');
+
+    const view = createDefaultView(FIELDS);
+    view.frozenColumns = 3;
+    const wide = mount({ view });
+    buttonByAction(wide.toolbar.root, 'options')?.click();
+    expect(wide.toolbar.root.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
   });
 
-  it('reports a freeze-column change', () => {
+  it('reports freeze off (0) when on, and on (1) when off', () => {
     const { toolbar, callbacks } = mount();
     buttonByAction(toolbar.root, 'options')?.click();
-    const select = need(
-      toolbar.root.querySelector<HTMLSelectElement>('.tablify__option-select'),
-      'freeze select',
-    );
-    select.value = '2';
-    select.dispatchEvent(new Event('change'));
-    expect(callbacks.calls.onFreezeColumns).toEqual([2]);
+    toolbar.root.querySelector<HTMLElement>('[role="switch"]')?.click();
+    expect(callbacks.calls.onFreezeColumns).toEqual([0]);
+
+    const view = createDefaultView(FIELDS);
+    view.frozenColumns = 0;
+    const off = mount({ view });
+    buttonByAction(off.toolbar.root, 'options')?.click();
+    expect(off.toolbar.root.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('false');
+    off.toolbar.root.querySelector<HTMLElement>('[role="switch"]')?.click();
+    expect(off.callbacks.calls.onFreezeColumns).toEqual([1]);
   });
 });
 
@@ -341,11 +350,11 @@ describe('Toolbar — showing a hidden field (plan item B)', () => {
     expect(callbacks.calls.onShowField).toEqual(['fld_score']);
   });
 
-  it('shows "None" when no field is hidden', () => {
+  it('shows "(0 hidden)" and no Show button when no field is hidden (SAD-81)', () => {
     const { toolbar } = mount();
     buttonByAction(toolbar.root, 'options')?.click();
     expect(toolbar.root.querySelector('[data-show-field]')).toBeNull();
-    expect(toolbar.root.textContent).toContain('None');
+    expect(toolbar.root.querySelector('[data-testid="tablify-hidden-fields"]')?.textContent).toContain('(0 hidden)');
   });
 
   it('still offers to unhide the primary field, so a corrupt file is recoverable', () => {

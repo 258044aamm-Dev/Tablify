@@ -6,6 +6,17 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Options panel and Group by (SAD-81, prototype)**: **Options** now opens the prototype's
+  view-settings panel: **Short / Medium / Tall** row height, a **Freeze primary column** switch,
+  **Group by**, a multi-field **Sort** list (**+ Add sort…**, **A→Z / Z→A**, **✕**), a **Fields**
+  list with **Hide / Show** for every field, and **Clear search & filters**. **Group by** (single
+  select, checkbox, rating, text or date) splits the grid into groups, each with a header showing
+  its value (select options as their coloured chip) and row count; click a header to collapse or
+  expand it. The grouping is saved; collapsed groups are saved as the new optional
+  `collapsedGroups` view key (FORMAT_SPEC §5), which older files simply do not have. Group by,
+  sort and hide are undoable; collapsing is not. Embedded tables stay ungrouped. Freeze is now an
+  on / off switch: files that freeze more than one column keep working and show it as on.
+
 - **Row selection, bulk delete and row reorder (SAD-80, prototype)**: each row now has a
   checkbox, and the header checkbox selects every row the search or filter shows (or clears
   them). While rows are selected, the meta row shows the prototype's **"N selected · Delete"**;

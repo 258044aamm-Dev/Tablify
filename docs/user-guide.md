@@ -148,7 +148,7 @@ One box does both jobs. Free words search; `field:value` terms query. They combi
 - **Search words**: matched against the visible text of every cell, case-insensitively. For a single-select field this is the option's *label*, not its stored id.
 - **Query terms**: the query language ([grammar](query-grammar.md)), e.g. `Status:Done`, `Amount:>100`, `Task:~grid`, `"Estimate (h)":>5`, `Tags:UI,Perf`, `Due:empty`. Quote a field name or value that contains spaces.
 
-Typing is debounced (200 ms). The text is saved in the file's `views` section (the words as the search, the terms as the query), so the filter survives closing and reopening the file. **Options → Clear filters** empties the box.
+Typing is debounced (200 ms). The text is saved in the file's `views` section (the words as the search, the terms as the query), so the filter survives closing and reopening the file. **Options → Clear search & filters** empties the box.
 
 An invalid term shows the parser's message under the box, with the position counted from the start of the box (e.g. `Expected value after '>' (position 13)`), and the box gets an accent border. While a term is invalid the query part is ignored rather than silently returning nothing; the search words still apply. Free words on their own never cause an error.
 
@@ -175,14 +175,23 @@ Formula and link fields cannot be filtered and are not listed.
 
 ## 11. View settings
 
-**Options** in the toolbar opens the view-settings panel: row height, frozen columns, hidden fields, and **Clear filters**. Column width and order, hide and sort also live on the header menu and the table menu.
+**Options** in the toolbar opens the view-settings panel, top to bottom: **Row height**, **Freeze primary column**, **Group by**, **Sort**, **Fields** and **Clear search & filters**. Column width and order, hide and sort also live on the header menu and the table menu. Press **Escape** or click outside the panel to close it.
 
 - **Column width** — drag the column edge (120–520 px, stored per field); columns without a stored width are 160 px. When the columns are narrower than the pane, they stretch proportionally to fill it.
 - **Column order** — drag a header by its grip, or use the menu to move left/right.
-- **Hide field** — from the header menu; the primary field cannot be hidden. Hidden fields are listed in **Options** with a **Show** button each, so a hidden column can always be brought back.
-- **Freeze** — freeze the first N columns; they stay pinned on the left while the rest scroll horizontally. A new table starts with its primary column frozen.
-- **Sort** — click a header name, or use the menu; the sorted column is announced to screen readers (`aria-sort`).
-- **Row height** — small / medium / large.
+- **Hide field** — from the header menu, or **Hide** next to the field in **Options → Fields**. The list shows every field in column order with the hidden count; a hidden field is struck through and has a **Show** button, so a hidden column can always be brought back. The primary field cannot be hidden.
+- **Freeze** — the **Freeze primary column** switch pins the primary column on the left while the rest scroll horizontally. A new table starts with it on. A file that freezes more than one column keeps doing so and shows the switch as on; turning it off unfreezes them all.
+- **Sort** — click a header name, use the menu, or **Options → Sort**: **+ Add sort…** adds a field (top of the list sorts first), **A→Z / Z→A** reverses one, **✕** removes it. The sorted column is announced to screen readers (`aria-sort`).
+- **Row height** — Short / Medium / Tall.
+
+### Grouping rows
+
+**Options → Group by** groups the rows by a field: single select, checkbox, rating, text or date. Choose **None** to turn it off.
+
+- Groups appear in the order their first row appears (after sorting). Rows without a value form an **(empty)** group; a checkbox field groups into `true` and `false`.
+- Each group starts with a header showing the value (a single-select value appears as its coloured option chip) and how many rows it has.
+- **Click a group header** (or focus it and press Enter or Space) to collapse or expand it. Collapsed rows are hidden from the grid but still count in the row total; row numbers keep running across groups. Which groups are collapsed is saved with the view; changing **Group by** expands them all.
+- Search, filter and sort work as usual inside groups. Reordering rows by drag is unavailable while grouped (a notice says so). Embedded tables always show the rows ungrouped.
 
 ### Column headers
 
@@ -206,7 +215,7 @@ Each row starts with a checkbox and its row number. The **Insert Row** pill unde
 - **Reorder a row** by dragging its row number (`#`) up or down; a line shows where it will land. Works with mouse, pen and touch. Reordering is saved and undoable. It is unavailable while the view is sorted or grouped: clear sorting or grouping first (a notice says which).
 - Selection is not saved and is not part of undo. Opening the file again starts with nothing selected. The grid is only as tall as its rows, up to the height of the pane, and scrolls inside past that, with the header pinned.
 
-Row height, freeze and unhide are undoable; search and query are not (see §9).
+Row height, freeze, group by, sort, hide and unhide are undoable; search, query and collapsing a group are not (see §9).
 
 All of it is saved in the file's `views` section and restored on reopen (verified by scenario A11 in the test matrix).
 

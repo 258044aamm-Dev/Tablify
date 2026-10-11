@@ -64,13 +64,16 @@ describe('SAD-71 Step 3 — Options is an anchored popover card', () => {
     document.body.innerHTML = '';
   });
 
-  it('styles the options panel as an absolutely positioned card', () => {
+  it('styles the options panel as the prototype float panel (SAD-81)', () => {
     const css = fs.readFileSync(path.resolve(process.cwd(), 'styles.css'), 'utf8');
     const block = css.slice(css.indexOf('.tablify__options {'));
     const rule = block.slice(0, block.indexOf('}'));
-    expect(rule, 'popover must not sit in the toolbar flow').toContain('position: absolute');
-    expect(rule).toContain('var(--tablify-bg-card)');
+    // Prototype `.float-panel`: fixed, anchored by openPanel(), pill surface, subtle border.
+    expect(rule, 'popover must not sit in the toolbar flow').toContain('position: fixed');
+    expect(rule).toContain('var(--tablify-bg-pill)');
     expect(rule).toContain('var(--tablify-border-subtle)');
+    expect(rule).toContain('border-radius: 16px');
+    expect(rule).toContain('0 12px 32px rgba(0, 0, 0, 0.25)');
   });
 
   it('closes on a pointerdown outside the toolbar', () => {
@@ -114,7 +117,8 @@ describe('SAD-71 Step 3 — prototype component language', () => {
     const at = css.indexOf('.tablify__option-button.is-active');
     expect(at).toBeGreaterThan(-1);
     const rule = css.slice(at, css.indexOf('}', at));
-    expect(rule).toContain('var(--tablify-accent-primary)');
+    // SAD-81: prototype `bg-tablify-terracotta` (#CC785C in both themes) with AA ink.
+    expect(rule).toContain('var(--tablify-accent-fill)');
     expect(rule).toContain('var(--tablify-on-accent)');
     expect(rule, 'no outline-style active state').not.toContain('border-width: 2px');
   });

@@ -282,8 +282,9 @@ Each view object has these keys **in this order**:
 | `columnWidths` | object | ✅ | Map of field ID to width in pixels (integer). Missing fields use the default width. |
 | `search` | string | ❌ | Global search text persisted with the view (SAD-69). Optional; `""` means no search. |
 | `query` | string\\|null | ❌ | P2-02 query persisted with the view (SAD-69). Optional; `null` means no query filter. |
+| `collapsedGroups` | string[] | ❌ | Keys of the groups collapsed under `groupBy` (SAD-81). Optional; absent means every group is expanded. |
 
-`search` and `query` were added by SAD-69 and appear **after** `columnWidths` (and after `warnings`, if present) so that files written before they existed keep their original key order.
+`search` and `query` were added by SAD-69 and appear **after** `columnWidths` (and after `warnings`, if present) so that files written before they existed keep their original key order. `collapsedGroups` (SAD-81) comes after `query` for the same reason.
 
 ### 5.1 View rules
 
@@ -291,6 +292,7 @@ Each view object has these keys **in this order**:
 - The primary field cannot be hidden (R-D13). If `hidden` contains the primary field ID, the file is invalid.
 - At least one view must exist.
 - `search` and `query` are **optional**. Absent means "no filter", and an absent key must stay absent: no reader may inject an empty default, so that files written before these keys existed still round-trip byte-identical. A present-but-wrong-typed value is dropped with a warning rather than coerced.
+- `collapsedGroups` follows the same optionality rule, and the plugin omits it when no group is collapsed. Each entry is the group's **raw-value key**, not its label, so renaming an option does not reopen its group: the option id for `single_select`, `"true"` / `"false"` for `checkbox`, the stored string for `text` and `date`, the number as a string for `rating`, and `""` for the empty group. Changing `groupBy` clears it. Non-string entries, and a value that is not an array, are dropped with a warning.
 
 ---
 

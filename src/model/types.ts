@@ -137,6 +137,12 @@ export interface ViewDefinition {
    * Absent or null = no query filter.
    */
   query?: string | null;
+  /**
+   * SAD-81: keys of the groups collapsed under `groupBy` (raw-value keys — see
+   * FORMAT_SPEC §5). Same optionality rule as `search`: absent by default and omitted when
+   * empty, so files that never group round-trip byte-identical.
+   */
+  collapsedGroups?: string[];
 }
 
 // ---- Sync link (table-level) ----

@@ -387,16 +387,14 @@ describe('TableView — view settings (Options)', () => {
     expect(savedView(view).rowHeight).toBe('large');
   });
 
-  it('changing frozen columns persists', async () => {
+  it('the freeze switch toggles the primary column and persists (SAD-81)', async () => {
     const view = await openView(sampleFile());
+    const before = savedView(view).frozenColumns;
     need(action(view, 'options'), 'options button').click();
-    const select = need(
-      view.contentEl.querySelector<HTMLSelectElement>('.tablify__option-select'),
-      'freeze select',
-    );
-    select.value = '2';
-    select.dispatchEvent(new Event('change'));
-    expect(savedView(view).frozenColumns).toBe(2);
+    need(view.contentEl.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch').click();
+    expect(savedView(view).frozenColumns).toBe(before >= 1 ? 0 : 1);
+    need(view.contentEl.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch').click();
+    expect(savedView(view).frozenColumns).toBe(before >= 1 ? 1 : 0);
   });
 });
 

@@ -4,6 +4,7 @@
  */
 
 import { validateView } from '../../model/view.js';
+import { isGroupable } from './grouping.js';
 import type { ViewDefinition, FieldDefinition } from '../../model/types.js';
 
 export const MIN_WIDTH = 60;
@@ -103,5 +104,37 @@ export function moveColumnOnto(view: ViewDefinition, fieldId: string, targetId: 
   order.splice(from, 1);
   order.splice(order.indexOf(targetId) + (from < to ? 1 : 0), 0, fieldId);
   const res = validateView({ ...view, columnOrder: order }, fields);
+  return res.ok ? res.view : view;
+}
+
+/**
+ * Options → Group by (SAD-81, prototype `optGroupBy`). Changing the grouping clears the
+ * collapsed groups, as the prototype does; the key is dropped rather than left empty so the
+ * file stays as it was before grouping.
+ */
+export function setGroupBy(view: ViewDefinition, fieldId: string | null, fields: FieldDefinition[]): ViewDefinition {
+  if ((view.groupBy ?? null) === fieldId) return view;
+  // Only fields the panel offers (prototype `groupable`); validateView would otherwise accept
+  // any type and silently clear an unknown id instead of refusing it.
+  if (fieldId !== null && !fields.some((f) => f.id === fieldId && isGroupable(f))) return view;
+  const { collapsedGroups: _collapsed, ...rest } = view;
+  void _collapsed;
+  const res = validateView({ ...rest, groupBy: fieldId }, fields);
+  return res.ok ? res.view : view;
+}
+
+/** Options → Sort (SAD-81, prototype `optSortAdd` / `optSortDir` / `optSortRemove`). */
+export function setSort(view: ViewDefinition, sort: ViewDefinition['sort'], fields: FieldDefinition[]): ViewDefinition {
+  // Refuse rather than repair: validateView would drop a bad entry and keep the rest.
+  const ids = new Set(fields.map((f) => f.id));
+  if (sort.some((s) => !ids.has(s.fieldId) || (s.direction !== 'asc' && s.direction !== 'desc'))) return view;
+  const res = validateView({ ...view, sort: sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) }, fields);
+  return res.ok ? res.view : view;
+}
+
+/** Options → Fields → Hide (SAD-81). Hiding the primary field is refused by validateView (R-D13). */
+export function hideField(view: ViewDefinition, fieldId: string, fields: FieldDefinition[]): ViewDefinition {
+  if ((view.hidden ?? []).includes(fieldId)) return view;
+  const res = validateView({ ...view, hidden: [...(view.hidden ?? []), fieldId] }, fields);
   return res.ok ? res.view : view;
 }

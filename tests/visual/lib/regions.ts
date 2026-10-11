@@ -35,7 +35,7 @@ export const REGIONS: Region[] = [
   { id: 'grid-shell', plugin: ['.tablify--grid'], prototype: ['#tableInnerContainer'], styles: [...BOX, ...PAD], pixels: true },
   { id: 'header-capsule', plugin: ['.tablify__header-cell[data-field-id] .tablify__header-capsule', '.tablify__header-cell[data-field-id]', '.tablify__header-cell'], prototype: ['.header-capsule'], styles: [...BOX, ...PAD], pixels: true },
   { id: 'header-name', plugin: ['.tablify__hc-name', '.tablify__hc-name--static', '.tablify__header-name', '.tablify__header-cell'], prototype: ['.header-capsule button'], styles: [...TEXT] },
-  { id: 'type-badge', plugin: ['.tablify__hc-badge', '.tablify__type-badge'], prototype: ['.header-capsule span.font-mono'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
+  { id: 'type-badge', plugin: ['.tablify__hc-badge', '.tablify__type-badge'], prototype: ['.header-capsule span.font-mono[title]'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
   { id: 'header-num', plugin: ['.tablify__header .tablify__lead--num'], prototype: ['#tableHeaderHead th:nth-child(2)'], styles: [...TEXT], pixels: true },
   { id: 'body-cell', plugin: ['.tablify__row .tablify__cell[data-field-id] .tablify__capsule', '.tablify__row .tablify__cell[data-field-id]', '.tablify__row .tablify__cell'], prototype: ['.cell-capsule'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
   { id: 'row-number', plugin: ['.tablify__row .tablify__lead--num'], prototype: ['#tableBody tr:first-child td:nth-child(2)'], styles: [...TEXT], pixels: true },
@@ -54,3 +54,39 @@ export const SELECTION_REGION: Region = {
 export const OPTIONS_REGION: Region = {
   id: 'options-panel', plugin: ['.tablify__options'], prototype: ['#floatPanel'], styles: [...BOX], pixels: true,
 };
+
+/**
+ * SAD-81: Group by headers, captured only in the grouped state. The first header is a select
+ * option (chip); the last one in the grouped fixture is the text-only "(empty)" group.
+ */
+export const GROUP_REGIONS: Region[] = [
+  // The grouped state also sorts (two keys), so the header's sort arrow + index is compared too.
+  // The prototype's arrow is the font-mono span without a title (the type badge has one).
+  {
+    id: 'sort-arrow',
+    plugin: ['.tablify__hc-sort'],
+    prototype: ['.header-capsule span.font-mono:not([title])'],
+    styles: [...TEXT],
+    pixels: true,
+  },
+  {
+    id: 'group-header',
+    plugin: ['.tablify__group-row button.tablify__group-toggle'],
+    prototype: ['#tableBody tr:not([data-row]) button'],
+    styles: [...TEXT, 'column-gap'],
+    pixels: true,
+  },
+  {
+    id: 'group-chip',
+    plugin: ['.tablify__group-chip'],
+    prototype: ['#tableBody tr:not([data-row]) button > span.rounded-full'],
+    styles: [...BOX, ...TEXT, ...PAD],
+    pixels: true,
+  },
+  {
+    id: 'group-row',
+    plugin: ['.tablify__group-row'],
+    prototype: ['#tableBody tr:not([data-row])'],
+    styles: [],
+  },
+];
