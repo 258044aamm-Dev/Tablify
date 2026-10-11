@@ -57,6 +57,32 @@ Sync 40.00@29.00 icon 14.00@42.00 · undo/redo 37×38 · Filter 80@167 · Add Ro
 The full 32-combo sweep (`--state all`, both fixtures, both themes, both viewports) now completes in
 126 s and reports what it could not exercise (`**SKIPPED:**` / `**NOTE:**`) instead of hanging.
 
+### 3. The interaction-state route (`tests/visual/capture-states.ts`)
+
+10 targets per page (`search`, the five toolbar pills, `insert-row`, the header and body capsules) are
+driven through `:hover`, `:focus-visible` and `:active` on both pages at 1568×795 and 390×844, dark
+and light — 120 rows per run, ~157 s. Hover and press use a real mouse (`mouse.down`, then the
+pointer parked at 0,0 before `mouse.up`, so the pill actions never fire); focus uses
+`focus({ focusVisible: true })`. Each row captures `rest` and the state for both pages, measures how
+far each page moves from its own rest and how far plugin and prototype are apart *in the state*, and
+compares the state-relevant computed properties (`background-color`, borders, `box-shadow`, outline,
+`transform`, `opacity`, `filter`, …).
+
+Rows are classified so that only genuine state differences remain:
+
+| Class | Rule | Example |
+|---|---|---|
+| accepted accessibility addition | focus / `:active` outline, plus the search box's 2 px WCAG outline | every pill focus row (the prototype authors no focus style at all) |
+| owner-approved overflow deviation | the prototype's control paints outside its card and the plugin's clipped row never received the state | the four mobile `btn-add-field` hover/active rows |
+| resting difference | both pages move the same (or not at all) and what is left is the resting render — `capture-compare.ts`'s territory | `search` hover (0.93 %, identical at rest), mobile `insert-row` hover (1.30 %) |
+
+Computed styles are also split: `styleDiffs` are properties the state *moves* and that differ from
+the prototype; everything that differs identically at rest and in the state is listed separately as a
+`restingDiffs` column instead of being reported as a state problem. `styles.css` gained the
+theme-aware `--tablify-focus-ring` (15 % light / 20 % dark — the prototype's
+`.light/.dark .pill-input:focus-within` values) so the search box's halo matches exactly; a fifth
+`faIconBox` test pins the two alphas.
+
 ## Measurements
 
 `.out/step10-check4/report.md` (dark+light × mobile+owner × new × default), after the fixes:
@@ -133,6 +159,31 @@ the same toolbar/AA numbers, plus the grouped state's own gaps — none of them 
 
 These are Step 11/14 items (group rows, chips, selection summary); Step 10 changed nothing about them.
 
+### Interaction states (final run, `report-states-final.md`)
+
+120 rows: **49 differ by more than 0.5 %, none unaccepted** — every one is a focus/active ring the
+prototype does not author, the owner-approved mobile overflow deviation, or a resting difference.
+Hover moves the previewed pills by 1.6–2.5 % on both pages with a residual of 0.06–0.42 %
+(owner) — i.e. the plugin's `:hover` tokens reproduce the prototype's to within glyph antialiasing.
+Focus is the one place the two differ by design: the plugin paints a 2 px accent ring
+(3.07:1 light / 5.74:1 dark, the WCAG 1.4.11 floor documented at `styles.css` ~230) where the
+prototype leaves the browser default `auto 1px rgb(16,16,16)`; the search box keeps the prototype's
+thin border + halo underneath it. Montages: `states-search-focus-3x.png`,
+`states-undo-focus-3x.png`, `states-insertrow-hover-3x.png`.
+
+Two resting differences surfaced by the route (both already in the sweep's residue list, now with
+root cause):
+
+- **Mobile `insert-row` sits 8 px left of the prototype's.** The prototype's `syncInsertRowWidth()`
+  sets `btn.style.left = paddingLeft` (8 px on a phone) and its comment states the intent — "pin it
+  at the container's content edge". Chrome adds the scrollport's padding to a sticky inset, so the
+  prototype's pill lands at content edge + 8 px (its right corner then overhangs the content box);
+  the plugin's `left: 0` renders the stated intent (content edge), and on desktop, where the
+  prototype's container does not scroll, the two are pixel-identical (both at x 66). Not replicated:
+  copying it would keep a wrong 8 px offset at *every* horizontal scroll position. Documented as a
+  deliberate deviation.
+- **`search` placeholder text** (`SEARCH_PLACEHOLDER`) — unchanged, Step 14 item.
+
 ## Findings recorded for later steps (no code change here)
 
 - `group-row` is the only **size mismatch** in the sweep: 1436×34 vs 1424×26 (owner) and 754×34 vs
@@ -169,6 +220,7 @@ These are Step 11/14 items (group rows, chips, selection summary); Step 10 chang
   attachment panel, validation + invalid badge, context-menu cards, linked-record peek, then the
   desktop residue sweep (type-badge, group-header, group-row geometry, selection-summary, the search
   placeholder).
-- Hover / focus-visible / active capture routes (the remaining harness item from the plan).
+- The interaction-state route (`tests/visual/capture-states.ts`) is in place; its resting-difference
+  findings (mobile `insert-row` 8 px, search placeholder) are listed above for Step 14.
 - If the owner wants the last 0.3–1 % of icon antialiasing gone: ship the Font Awesome 6.4.0 webfont
   (subset) and render icons as text, as the prototype does.

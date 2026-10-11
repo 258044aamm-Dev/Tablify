@@ -216,11 +216,15 @@
 .tablify--light {
   --tablify-placeholder-opacity: 0.7;
   --tablify-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  /* Prototype `.light .pill-input:focus-within` ring: rgba(204,120,92,0.15). */
+  --tablify-focus-ring: color-mix(in srgb, var(--tablify-accent-primary) 15%, transparent);
 }
 
 .tablify--dark {
   --tablify-placeholder-opacity: 1;
   --tablify-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  /* Prototype `.dark .pill-input:focus-within` ring: rgba(217,119,87,0.2). */
+  --tablify-focus-ring: color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
 }
 
 .tablify__toolbar input.tablify__search-input::-webkit-search-cancel-button {
@@ -231,7 +235,7 @@
    the WCAG 1.4.11 floor (3.07:1 light / 5.74:1 dark) while the ring is decorative. */
 .tablify__toolbar input.tablify__search-input:focus {
   border-color: var(--tablify-accent-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
 }
@@ -1249,7 +1253,7 @@
 .tablify select.tablify__fb-input:focus,
 .tablify input.tablify__fb-input:focus {
   border-color: var(--tablify-accent-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
 }
@@ -1735,7 +1739,7 @@
 .tablify--dark.tablify__pmodal.tablify__af-modal input.tablify__pmodal-input:focus,
 .tablify--dark.tablify__pmodal.tablify__af-modal select.tablify__pmodal-input:focus,
 .tablify--dark.tablify__pmodal.tablify__af-modal textarea.tablify__pmodal-input:focus {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
 }
 
 .tablify__af-footer {

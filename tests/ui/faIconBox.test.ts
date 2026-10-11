@@ -54,6 +54,16 @@ describe('SAD-92 — icons take Font Awesome’s rounded box', () => {
     expect(css.slice(j, css.indexOf('}', j))).toContain('margin-top: 2px');
   });
 
+  it('keeps the search box focus ring at the prototype’s alpha per theme', () => {
+    // Prototype `.light/.dark .pill-input:focus-within` rings: 15% light, 20% dark (SAD-92 states run).
+    const i = css.lastIndexOf('.tablify--light {');
+    const dark = css.lastIndexOf('.tablify--dark {');
+    expect(css.slice(i, css.indexOf('}', i))).toContain('var(--tablify-accent-primary) 15%');
+    expect(css.slice(dark, css.indexOf('}', dark))).toContain('var(--tablify-accent-primary) 20%');
+    const focus = css.indexOf('input.tablify__search-input:focus {');
+    expect(css.slice(focus, css.indexOf('}', focus))).toContain('box-shadow: 0 0 0 2px var(--tablify-focus-ring)');
+  });
+
   it('keeps ICON_PX in step with the font-sizes in styles.css', () => {
     const at = (selector: string): number | null => {
       const i = css.indexOf(selector);
