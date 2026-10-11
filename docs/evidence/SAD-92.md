@@ -119,6 +119,20 @@ prototype), a contact sheet of the residuals, and the two reports quoted here
   sliver; the rest is icon antialiasing. Flagged to the owner — literal clipping is one CSS value away
   if the reachability trade-off is not wanted.
 
+### The other two fixtures (`empty`, `grouped`) — `report-sweep-empty-grouped.md`
+
+A second 32-combo run on the fixtures the first sweep did not cover (126 s, no hang, 4 NOTEs) shows
+the same toolbar/AA numbers, plus the grouped state's own gaps — none of them in this step's scope:
+
+| Finding | Value |
+|---|---|
+| The grouped grid is far shorter in the plugin: `card` 1520×747 vs 1520×884 (owner) and 366×820 vs 366×960 (mobile); `grid-shell` 1462×555 vs 1462×691 | `*-grouped-grouped`, both themes |
+| `group-row` 1436×40 vs 1424×32 (owner) / 754×40 vs 742×32 (mobile) — the same 12px width and 8px height difference the `new` fixture showed | all four `*-grouped-grouped` combos |
+| `group-header` 102×22 vs 103×22 (1px narrower) | all four |
+| `grid-shell` 8.71 %, `group-chip` 1.66 %, `sort-arrow` 3.13 %, `selection-summary` 4.95 % | worst combos |
+
+These are Step 11/14 items (group rows, chips, selection summary); Step 10 changed nothing about them.
+
 ## Findings recorded for later steps (no code change here)
 
 - `group-row` is the only **size mismatch** in the sweep: 1436×34 vs 1424×26 (owner) and 754×34 vs
