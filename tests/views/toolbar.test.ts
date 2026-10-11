@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Toolbar, ROW_HEIGHTS, DEBOUNCE_MS, type ToolbarCallbacks, type ToolbarState } from '../../src/views/grid/toolbar.js';
+import { Toolbar, ROW_HEIGHTS, DEBOUNCE_MS, SEARCH_PLACEHOLDER, type ToolbarCallbacks, type ToolbarState } from '../../src/views/grid/toolbar.js';
 import { createDefaultView } from '../../src/model/view.js';
 import type { FieldDefinition } from '../../src/model/types.js';
 
@@ -26,8 +26,9 @@ function makeCallbacks(): ToolbarCallbacks & { calls: Record<string, unknown[]> 
   };
   return {
     calls,
-    onSearch: rec('onSearch') as (t: string) => void,
-    onQuery: rec('onQuery') as (q: string) => void,
+    onFilter: rec('onFilter') as (s: string, q: string) => void,
+    onSync: rec('onSync') as () => void,
+    onOpenFilter: rec('onOpenFilter') as () => void,
     onAddRow: rec('onAddRow') as () => void,
     onAddField: rec('onAddField') as () => void,
     onRowHeight: rec('onRowHeight') as (h: never) => void,
@@ -82,7 +83,9 @@ describe('Toolbar — structure', () => {
   it('renders every control the prototype calls for', () => {
     const { toolbar } = mount();
     expect(q(toolbar.root, '[data-testid="tablify-search"]')).not.toBeNull();
-    expect(q(toolbar.root, '[data-testid="tablify-query"]')).not.toBeNull();
+    expect(q(toolbar.root, '[data-testid="tablify-query"]'), 'one box, no second query input').toBeNull();
+    expect(buttonByAction(toolbar.root, 'sync'), 'Sync button').not.toBeNull();
+    expect(buttonByAction(toolbar.root, 'filter'), 'Filter button').not.toBeNull();
     expect(buttonByAction(toolbar.root, 'add-row'), 'Add row button').not.toBeNull();
     expect(buttonByAction(toolbar.root, 'add-field'), 'Add Field button').not.toBeNull();
     expect(buttonByAction(toolbar.root, 'options'), 'Options button').not.toBeNull();
@@ -100,10 +103,32 @@ describe('Toolbar — structure', () => {
     }
   });
 
-  it('labels the search and query inputs for assistive technology', () => {
+  it('labels the search-or-query box for assistive technology, with the prototype placeholder', () => {
     const { toolbar } = mount();
-    expect(q(toolbar.root, '[data-testid="tablify-search"]')?.getAttribute('aria-label')).toBeTruthy();
-    expect(q(toolbar.root, '[data-testid="tablify-query"]')?.getAttribute('aria-label')).toBeTruthy();
+    const box = q(toolbar.root, '[data-testid="tablify-search"]') as HTMLInputElement;
+    expect(box.getAttribute('aria-label')).toBe('Search or query rows');
+    expect(box.placeholder).toBe(SEARCH_PLACEHOLDER);
+    expect(SEARCH_PLACEHOLDER).toBe('Search or query — e.g. Status:Done Amount:>10');
+  });
+
+  it('orders the buttons like the prototype: Sync · ↶ · ↷ · Filter · Add Row · Add Field · Options', () => {
+    const { toolbar } = mount();
+    const actions = [...toolbar.root.querySelectorAll<HTMLElement>('.tablify__toolbar-actions > button')].map(
+      (b) => b.dataset.action,
+    );
+    expect(actions).toEqual(['sync', 'undo', 'redo', 'filter', 'add-row', 'add-field', 'options']);
+    const label = (a: string) => buttonByAction(toolbar.root, a)?.querySelector('.tablify__btn-label')?.textContent;
+    expect([label('sync'), label('filter'), label('add-row'), label('add-field'), label('options')]).toEqual([
+      'Sync',
+      'Filter',
+      'Add Row',
+      'Add Field',
+      'Options',
+    ]);
+    expect(buttonByAction(toolbar.root, 'undo')?.querySelector('.tablify__btn-label')).toBeNull();
+    for (const a of actions) {
+      expect(buttonByAction(toolbar.root, a ?? '')?.querySelector('svg.tablify__fa'), `${a} glyph`).not.toBeNull();
+    }
   });
 });
 
@@ -121,7 +146,7 @@ describe('Toolbar — search debounce', () => {
     const input = q(toolbar.root, '[data-testid="tablify-search"]') as HTMLInputElement;
     input.value = 'alpha';
     input.dispatchEvent(new Event('input'));
-    expect(callbacks.calls.onSearch).toBeUndefined();
+    expect(callbacks.calls.onFilter).toBeUndefined();
   });
 
   it('reports after the debounce window with the final value', () => {
@@ -130,7 +155,7 @@ describe('Toolbar — search debounce', () => {
     input.value = 'alpha';
     input.dispatchEvent(new Event('input'));
     vi.advanceTimersByTime(DEBOUNCE_MS);
-    expect(callbacks.calls.onSearch).toEqual(['alpha']);
+    expect(callbacks.calls.onFilter).toEqual([['alpha', '']]);
   });
 
   it('collapses rapid typing into a single call', () => {
@@ -142,7 +167,7 @@ describe('Toolbar — search debounce', () => {
       vi.advanceTimersByTime(DEBOUNCE_MS - 50);
     }
     vi.advanceTimersByTime(DEBOUNCE_MS);
-    expect(callbacks.calls.onSearch).toEqual(['alpha']);
+    expect(callbacks.calls.onFilter).toEqual([['alpha', '']]);
   });
 
   it('debounces is 200 ms per the P3-08 spec', () => {
@@ -150,7 +175,7 @@ describe('Toolbar — search debounce', () => {
   });
 });
 
-describe('Toolbar — query input', () => {
+describe('Toolbar — query terms in the box', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     document.body.innerHTML = '';
@@ -159,47 +184,72 @@ describe('Toolbar — query input', () => {
     vi.useRealTimers();
   });
 
-  it('shows an inline error with a position for an invalid query', () => {
+  const box = (toolbar: Toolbar) => q(toolbar.root, '[data-testid="tablify-search"]') as HTMLInputElement;
+  const errorEl = (toolbar: Toolbar) => q(toolbar.root, '[data-testid="tablify-query-error"]') as HTMLElement;
+
+  it('starts with no error shown', () => {
     const { toolbar } = mount();
-    const input = q(toolbar.root, '[data-testid="tablify-query"]') as HTMLInputElement;
-    const error = q(toolbar.root, '[data-testid="tablify-query-error"]') as HTMLElement;
-    input.value = 'Score:"unclosed';
+    expect(errorEl(toolbar).hidden).toBe(true);
+  });
+
+  it('shows an inline error with a position in the box for an invalid term', () => {
+    const { toolbar } = mount();
+    const input = box(toolbar);
+    input.value = 'alpha Score:>';
     input.dispatchEvent(new Event('input'));
-    expect(error.hidden).toBe(false);
-    expect(error.textContent).toContain('position');
-    expect(input.classList.contains('tablify__query-input--invalid')).toBe(true);
+    expect(errorEl(toolbar).hidden).toBe(false);
+    expect(errorEl(toolbar).textContent).toBe("Expected value after '>' (position 13)");
+    expect(input.classList.contains('tablify__search-input--invalid')).toBe(true);
+  });
+
+  it('free words alone are never an error', () => {
+    const { toolbar } = mount();
+    const input = box(toolbar);
+    input.value = 'just some words, even "quoted';
+    input.dispatchEvent(new Event('input'));
+    expect(errorEl(toolbar).hidden).toBe(true);
   });
 
   it('clears the error once the query parses', () => {
     const { toolbar } = mount();
-    const input = q(toolbar.root, '[data-testid="tablify-query"]') as HTMLInputElement;
-    const error = q(toolbar.root, '[data-testid="tablify-query-error"]') as HTMLElement;
-    input.value = 'Score:"unclosed';
+    const input = box(toolbar);
+    input.value = 'Score:>';
     input.dispatchEvent(new Event('input'));
     input.value = 'Status:Done';
     input.dispatchEvent(new Event('input'));
-    expect(error.hidden).toBe(true);
-    expect(input.classList.contains('tablify__query-input--invalid')).toBe(false);
+    expect(errorEl(toolbar).hidden).toBe(true);
+    expect(input.classList.contains('tablify__search-input--invalid')).toBe(false);
   });
 
-  it('applies the query after the debounce', () => {
+  it('applies the split halves after the debounce', () => {
     const { toolbar, callbacks } = mount();
-    const input = q(toolbar.root, '[data-testid="tablify-query"]') as HTMLInputElement;
-    input.value = 'Status:Done';
+    const input = box(toolbar);
+    input.value = 'alpha Status:Done beta';
     input.dispatchEvent(new Event('input'));
-    expect(callbacks.calls.onQuery).toBeUndefined();
+    expect(callbacks.calls.onFilter).toBeUndefined();
     vi.advanceTimersByTime(DEBOUNCE_MS);
-    expect(callbacks.calls.onQuery).toEqual(['Status:Done']);
+    expect(callbacks.calls.onFilter).toEqual([['alpha beta', 'Status:Done']]);
   });
 
   it('surfaces a persisted query error loaded from the file', () => {
     const { toolbar } = mount({
-      query: 'Score:"unclosed',
       queryError: { message: 'Unclosed quote', position: 6, line: 1, column: 7, rawInput: 'Score:"unclosed' },
     });
-    const error = q(toolbar.root, '[data-testid="tablify-query-error"]') as HTMLElement;
-    expect(error.hidden).toBe(false);
-    expect(error.textContent).toContain('Unclosed quote');
+    expect(errorEl(toolbar).hidden).toBe(false);
+    expect(errorEl(toolbar).textContent).toContain('Unclosed quote');
+  });
+
+  it('setFilterText applies at once and cancels pending typing', () => {
+    const { toolbar, callbacks } = mount();
+    const input = box(toolbar);
+    input.value = 'stale';
+    input.dispatchEvent(new Event('input'));
+    toolbar.setFilterText('Gam Status:done');
+    expect(input.value).toBe('Gam Status:done');
+    expect(callbacks.calls.onFilter).toEqual([['Gam', 'Status:done']]);
+    vi.advanceTimersByTime(DEBOUNCE_MS * 2);
+    expect(callbacks.calls.onFilter, 'the stale debounce never fires').toHaveLength(1);
+    expect(toolbar.getFilterText()).toBe('Gam Status:done');
   });
 });
 
@@ -320,10 +370,14 @@ describe('Toolbar — action buttons and row count', () => {
 
   it('routes each button to its callback', () => {
     const { toolbar, callbacks } = mount();
+    buttonByAction(toolbar.root, 'sync')?.click();
+    buttonByAction(toolbar.root, 'filter')?.click();
     buttonByAction(toolbar.root, 'add-row')?.click();
     buttonByAction(toolbar.root, 'add-field')?.click();
     buttonByAction(toolbar.root, 'undo')?.click();
     buttonByAction(toolbar.root, 'redo')?.click();
+    expect(callbacks.calls.onSync).toHaveLength(1);
+    expect(callbacks.calls.onOpenFilter).toHaveLength(1);
     expect(callbacks.calls.onAddRow).toHaveLength(1);
     expect(callbacks.calls.onAddField).toHaveLength(1);
     expect(callbacks.calls.onUndo).toHaveLength(1);
@@ -362,6 +416,20 @@ describe('Toolbar — update() preserves user input', () => {
     const { toolbar, state } = mount();
     toolbar.update({ ...state, search: 'from file' });
     expect((q(toolbar.root, '[data-testid="tablify-search"]') as HTMLInputElement).value).toBe('from file');
+  });
+
+  it('shows persisted search and query together, search first', () => {
+    const { toolbar, state } = mount();
+    toolbar.update({ ...state, search: 'Gam', query: 'Status:done' });
+    expect((q(toolbar.root, '[data-testid="tablify-search"]') as HTMLInputElement).value).toBe('Gam Status:done');
+  });
+
+  it("keeps the user's own spacing when the persisted halves already match", () => {
+    const { toolbar, state } = mount();
+    const input = q(toolbar.root, '[data-testid="tablify-search"]') as HTMLInputElement;
+    input.value = 'Status:done   Gam';
+    toolbar.update({ ...state, search: 'Gam', query: 'Status:done' });
+    expect(input.value).toBe('Status:done   Gam');
   });
 
   it('does not clobber the search box while it is focused', () => {

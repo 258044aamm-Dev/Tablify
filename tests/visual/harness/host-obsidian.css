@@ -101,3 +101,55 @@ select:focus,
 textarea:focus {
   box-shadow: 0 0 0 2px #89b4fa;
 }
+
+/* SAD-78: Obsidian's modal frame (app.css), so the filter builder is captured with the host
+   modal rules it must override: padding, title size/weight, close button placement. */
+.modal-container {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-bg {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+}
+.modal {
+  position: relative;
+  background-color: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 300px;
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  max-height: 85vh;
+  overflow: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  color: #cdd6f4;
+}
+.modal-close-button {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  color: #a6adc8;
+}
+.modal-close-button::before {
+  content: '\2715';
+  font-size: 16px;
+  line-height: 24px;
+  display: block;
+  text-align: center;
+}
+.modal-title {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin-bottom: 0.75em;
+  line-height: 1.3;
+}

@@ -25,8 +25,9 @@ const FIELDS: FieldDefinition[] = [
 function makeCallbacks(): ToolbarCallbacks {
   const noop = (): void => undefined;
   return {
-    onSearch: noop,
-    onQuery: noop,
+    onFilter: noop,
+    onSync: noop,
+    onOpenFilter: noop,
     onAddRow: noop,
     onAddField: noop,
     onRowHeight: noop,
@@ -95,7 +96,7 @@ describe('SAD-71 Step 3 — prototype component language', () => {
 
   it('every action button carries a leading glyph', () => {
     const toolbar = mount();
-    for (const a of ['add-row', 'add-field', 'options', 'undo', 'redo']) {
+    for (const a of ['sync', 'undo', 'redo', 'filter', 'add-row', 'add-field', 'options']) {
       const btn = action(toolbar.root, a);
       expect(btn, `${a} button`).not.toBeNull();
       expect(btn?.querySelector('.tablify__btn-icon'), `${a} leading glyph`).not.toBeNull();

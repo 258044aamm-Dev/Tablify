@@ -12,7 +12,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TableView } from '../../src/views/tableView.js';
 import { AddFieldModal } from '../../src/views/grid/AddFieldModal.js';
-import { WorkspaceLeaf, Modal } from 'obsidian';
+import { WorkspaceLeaf, Modal, Notice } from 'obsidian';
+import { FilterBuilderModal } from '../../src/views/grid/FilterBuilderModal.js';
 import { DEBOUNCE_MS } from '../../src/views/grid/toolbar.js';
 import { newTableText } from '../../src/menus/fileMenuModel.js';
 
@@ -95,8 +96,11 @@ describe('TableView — toolbar is mounted (the SAD-69 bug)', () => {
 
   it('onOpen mounts a toolbar with every control the prototype calls for', async () => {
     const view = await openView();
-    expect(el(view, '[data-testid="tablify-search"]'), 'search box').not.toBeNull();
-    expect(el(view, '[data-testid="tablify-query"]'), 'query input').not.toBeNull();
+    expect(el(view, '[data-testid="tablify-search"]'), 'search-or-query box').not.toBeNull();
+    // SAD-78 (S-3): one box; the separate query input is gone.
+    expect(el(view, '[data-testid="tablify-query"]'), 'no second query input').toBeNull();
+    expect(action(view, 'sync'), 'Sync').not.toBeNull();
+    expect(action(view, 'filter'), 'Filter').not.toBeNull();
     expect(action(view, 'add-row'), 'Add Row').not.toBeNull();
     expect(action(view, 'add-field'), 'Add Field').not.toBeNull();
     expect(action(view, 'options'), 'Options / view settings').not.toBeNull();
@@ -167,12 +171,53 @@ describe('TableView — search and query are wired to the session', () => {
     expect(gridRows(view)).toHaveLength(1);
   });
 
-  it('the query input filters the grid and is persisted', async () => {
+  it('a field:value query in the box filters the grid and is persisted as the query', async () => {
     const view = await openView(sampleFile());
-    typeInto(el(view, '[data-testid="tablify-query"]') as HTMLInputElement, 'Status:done');
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Status:done');
     vi.advanceTimersByTime(DEBOUNCE_MS);
     expect(gridRows(view)).toHaveLength(2);
     expect(savedView(view).query).toBe('Status:done');
+    expect(savedView(view).search).toBe('');
+  });
+
+  it('free words and field:value terms combine (AND), each persisted in its own half', async () => {
+    const view = await openView(sampleFile());
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Gam Status:done');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(gridRows(view)).toHaveLength(1);
+    expect(view.contentEl.textContent).toContain('Gamma');
+    expect(savedView(view).search).toBe('Gam');
+    expect(savedView(view).query).toBe('Status:done');
+  });
+
+  it('one debounce tick writes both halves in a single save request', async () => {
+    const view = await openView(sampleFile());
+    const before = (view as unknown as { saveRequests: number }).saveRequests;
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Gam Status:done');
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect((view as unknown as { saveRequests: number }).saveRequests).toBe(before + 1);
+  });
+
+  it('an invalid query shows the inline error (position in the box) and fails open', async () => {
+    const view = await openView(sampleFile());
+    const box = el(view, '[data-testid="tablify-search"]') as HTMLInputElement;
+    typeInto(box, 'Alpha Status:>');
+    const error = need(el(view, '[data-testid="tablify-query-error"]'), 'error');
+    expect(error.hidden).toBe(false);
+    expect(error.textContent).toMatch(/position 14\)$/);
+    expect(box.classList.contains('tablify__search-input--invalid')).toBe(true);
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    // The search half still applies; the broken query half fails open (no row hidden by it).
+    expect(gridRows(view)).toHaveLength(1);
+  });
+
+  it('a file saved with search and query shows both in the box', async () => {
+    const data = JSON.parse(sampleFile());
+    data.views[0].search = 'Gam';
+    data.views[0].query = 'Status:done';
+    const view = await openView(JSON.stringify(data));
+    expect((el(view, '[data-testid="tablify-search"]') as HTMLInputElement).value).toBe('Gam Status:done');
+    expect(gridRows(view)).toHaveLength(1);
   });
 
   it('the row-count badge reports the filtered and total counts', async () => {
@@ -185,8 +230,7 @@ describe('TableView — search and query are wired to the session', () => {
 
   it('Clear filters empties both search and query', async () => {
     const view = await openView(sampleFile());
-    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha');
-    typeInto(el(view, '[data-testid="tablify-query"]') as HTMLInputElement, 'Status:done');
+    typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha Status:done');
     vi.advanceTimersByTime(DEBOUNCE_MS);
     expect(gridRows(view)).toHaveLength(1);
 
@@ -195,6 +239,64 @@ describe('TableView — search and query are wired to the session', () => {
     expect(gridRows(view)).toHaveLength(3);
     expect(savedView(view).search).toBe('');
     expect(savedView(view).query).toBe('');
+    expect((el(view, '[data-testid="tablify-search"]') as HTMLInputElement).value).toBe('');
+  });
+});
+
+describe('TableView — Filter builder and Sync (SAD-78)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    Modal.reset();
+    Notice.messages = [];
+  });
+
+  it('Filter opens the builder with the box text; Apply writes the box, filters and persists', async () => {
+    const view = await openView(sampleFile());
+    const box = el(view, '[data-testid="tablify-search"]') as HTMLInputElement;
+    box.value = 'Gam';
+    need(action(view, 'filter'), 'filter button').click();
+    const modal = Modal.opened.at(-1);
+    expect(modal).toBeInstanceOf(FilterBuilderModal);
+    const fb = need((modal as FilterBuilderModal).builder, 'builder');
+    // Pick Status = done in the first (blank) row, then Apply.
+    const row = need(fb.root.querySelector('[data-testid="tablify-fb-row"]'), 'row');
+    const fieldSel = row.querySelector<HTMLSelectElement>('.tablify__fb-field');
+    need(fieldSel, 'field select').value = 'fld_status';
+    fieldSel?.dispatchEvent(new Event('change'));
+    const value = need(fb.root.querySelector<HTMLInputElement>('input.tablify__fb-value'), 'value input');
+    value.value = 'done';
+    value.dispatchEvent(new Event('input'));
+    need(fb.root.querySelector<HTMLElement>('[data-action="fb-apply"]'), 'apply').click();
+
+    expect(modal?.isOpen).toBe(false);
+    expect(box.value).toBe('Gam Status:done');
+    expect(gridRows(view)).toHaveLength(1);
+    expect(savedView(view).search).toBe('Gam');
+    expect(savedView(view).query).toBe('Status:done');
+  });
+
+  it('Cancel leaves the filter untouched', async () => {
+    const view = await openView(sampleFile());
+    need(action(view, 'filter'), 'filter button').click();
+    const fb = need((Modal.opened.at(-1) as FilterBuilderModal).builder, 'builder');
+    need(fb.root.querySelector<HTMLElement>('[data-action="fb-cancel"]'), 'cancel').click();
+    expect(gridRows(view)).toHaveLength(3);
+    expect(savedView(view).query ?? '').toBe('');
+  });
+
+  it('Sync calls the plugin entry point with this view', async () => {
+    const openSync = vi.fn();
+    const view = new TableView(new WorkspaceLeaf() as never, { openSync });
+    await view.onOpen();
+    view.setViewData(sampleFile(), false);
+    view.contentEl.querySelector<HTMLElement>('[data-action="sync"]')?.click();
+    expect(openSync).toHaveBeenCalledWith(view);
+  });
+
+  it('Sync without the plugin hook explains instead of failing', async () => {
+    const view = await openView(sampleFile());
+    need(action(view, 'sync'), 'sync button').click();
+    expect(Notice.messages.at(-1)).toMatch(/not available/);
   });
 });
 

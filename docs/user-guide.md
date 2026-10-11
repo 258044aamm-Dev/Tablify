@@ -126,20 +126,52 @@ A field can be marked **required** or **unique**; number fields can have a min/m
 
 **Ctrl/Cmd+Z** / **Ctrl/Cmd+Shift+Z** (or Ctrl/Cmd+Y). Every local edit is undoable: cell edits, row insert/duplicate/delete, clear, paste, sort, hide, freeze, add field, field-type change. Undo restores deleted rows with their **original row IDs and positions**.
 
-Search and query are the exception: they are saved, but they are **not** undoable, so Ctrl/Cmd+Z steps through your edits rather than through your typing. Undo covers local edits only.
+The Search or query box is the exception: it is saved, but it is **not** undoable, so Ctrl/Cmd+Z steps through your edits rather than through your typing. Undo covers local edits only.
 
 ## 10. Filtering and search
 
-Two filter controls sit in the toolbar above the grid:
+### The toolbar
 
-- **Search** — free text, matched against the visible text of every cell, case-insensitively. For a single-select field this is the option's *label*, not its stored id.
-- **Query** — the query language, e.g. `status:Done amount:>100`. Anything the filter builder can express can also be typed here by hand.
+Below the title row sits one toolbar row: the **Search or query** box, then **Sync**, **↶** (undo), **↷** (redo), **Filter**, **Add Row**, **Add Field** and **Options**.
 
-Both are debounced (200 ms) and both are saved in the file's `views` section, so the filter survives closing and reopening the file. **Options → Clear filters** empties both.
+- **Sync** opens Airtable sync for this table, the same as the command **Airtable sync for this table** ([sync rules](sync-rules.md)). Below 1280 px window width it shows only its cloud icon.
+- **↶ / ↷** are the same as Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (§9).
+- **Filter** opens the filter builder (below).
+- **Add Row** appends an empty row; **Add Field** opens the new-field dialog; **Options** opens view settings (§11).
 
-An invalid query shows the parser's message with its line and column under the field, instead of silently returning nothing.
+On a narrow pane the box takes its own line and the buttons scroll sideways beneath it.
+
+### The Search or query box
+
+One box does both jobs. Free words search; `field:value` terms query. They combine: `ship Status:Done` shows the rows that contain "ship" **and** whose Status is Done.
+
+- **Search words**: matched against the visible text of every cell, case-insensitively. For a single-select field this is the option's *label*, not its stored id.
+- **Query terms**: the query language ([grammar](query-grammar.md)), e.g. `Status:Done`, `Amount:>100`, `Task:~grid`, `"Estimate (h)":>5`, `Tags:UI,Perf`, `Due:empty`. Quote a field name or value that contains spaces.
+
+Typing is debounced (200 ms). The text is saved in the file's `views` section (the words as the search, the terms as the query), so the filter survives closing and reopening the file. **Options → Clear filters** empties the box.
+
+An invalid term shows the parser's message under the box, with the position counted from the start of the box (e.g. `Expected value after '>' (position 13)`), and the box gets an accent border. While a term is invalid the query part is ignored rather than silently returning nothing; the search words still apply. Free words on their own never cause an error.
 
 A **row count** above the grid shows what the filter is doing: `40 rows` unfiltered, `12 rows (of 40)` when filtering.
+
+### The filter builder
+
+**Filter** opens the same filter as rows of *field · operator · value*, joined by **and**. Every row is exactly one query term, so the builder and the box always agree; the **Equivalent query string** at the bottom shows the text that **Apply filter** will put in the box. Search words in the box are kept as they are.
+
+| Field type | Operators |
+|---|---|
+| Text, long text, URL, email, phone, attachment | is · contains · is empty |
+| Single select | is · is not · is empty |
+| Multiple select | contains any of · is empty |
+| Checkbox | is (true / false) · is empty |
+| Number, currency, percent, duration, rating, auto number | = · > · < · is empty |
+| Date, date and time, created time, modified time | is · is after · is before · is empty |
+
+Formula and link fields cannot be filtered and are not listed.
+
+- In an **is** row, separate several values with commas to match any of them (`a, b`). To match a value that itself contains a comma, a quote, or leading/trailing spaces, put it in double quotes and double any quote inside: `"Write docs, draft"`, `"say ""hi"""`. Select fields offer a dropdown of their options instead.
+- Rows without a value are skipped. **Clear all** removes every row; **Cancel** (or Esc) leaves the box unchanged.
+- Terms the builder cannot show (a field that no longer exists) are kept unchanged and listed at the top. If the box's query part has an error, the builder says so, and **Apply filter** replaces that part.
 
 ## 11. View settings
 

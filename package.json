@@ -10,7 +10,8 @@
     "test:coverage": "vitest run --coverage",
     "check:guard": "bash scripts/check-tabula-guard.sh",
     "check:docs": "node scripts/check-docs-links.mjs",
-    "check": "npm run lint && npm run test && npm run check:guard && npm run check:docs && npm run build",
+    "check:icons": "node scripts/gen-fa-icons.mjs --check",
+    "check": "npm run lint && npm run test && npm run check:guard && npm run check:docs && npm run check:icons && npm run build",
     "visual:compare": "tsx tests/visual/capture-compare.ts"
   },
   "devDependencies": {

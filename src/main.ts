@@ -23,7 +23,8 @@ export default class TablifyPlugin extends Plugin {
 		installLinkLabelResolver(this.app); // P8-04 follow-up (R-2): sort, filter, export read row names
 		registerLinkIntegrityCommand(this);
 		// P5-00: open .tablify files in the table view (undoable grid, save through TextFileView).
-		this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf));
+		// SAD-78: the toolbar's Sync button reuses the command's entry point (openSyncFor).
+		this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf, { openSync: (view) => this.openSyncFor(view) }));
 		this.registerExtensions(['tablify'], TABLIFY_VIEW_TYPE);
 		// P5-01: file explorer right-click items for .tablify files and folders.
 		registerFileMenu(this);
@@ -38,7 +39,11 @@ export default class TablifyPlugin extends Plugin {
 	}
 
 	private openSync(): void {
-		const view = this.app.workspace.getActiveViewOfType(TableView);
+		this.openSyncFor(this.app.workspace.getActiveViewOfType(TableView));
+	}
+
+	/** Shared by the command (active view) and the table toolbar's Sync button (its own view). */
+	private openSyncFor(view: TableView | null): void {
 		const session = view?.syncSession();
 		if (!view || !session) {
 			new Notice('Open a .tablify table first.');

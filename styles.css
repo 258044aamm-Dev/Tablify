@@ -148,42 +148,48 @@
   position: relative;
 }
 
+/* SAD-78: prototype #toolbarRow — `flex flex-wrap items-center justify-between gap-2.5`. */
 .tablify__toolbar-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
 }
 
-/* Search capsule — matches the prototype's rounded input with an inset icon. */
+/* Search capsule — `relative flex-1 min-w-[200px]`, magnifier `absolute left-4 text-xs`. */
 .tablify__search {
   position: relative;
   display: flex;
   align-items: center;
-  flex: 1 1 200px;
-  min-width: 160px;
+  flex: 1 1 0%;
+  min-width: 200px;
 }
 
 .tablify__search-icon {
   position: absolute;
   left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
+  font-size: 12px;
+  line-height: 1;
   color: var(--tablify-text-muted);
   pointer-events: none;
 }
 
 /* SAD-71 Step 1: scoped with an element qualifier (0,2,1) so Obsidian's element-qualified
    form rules (input[type='search'] etc., 0,1,1) cannot repaint our inputs with the host
-   theme — spec/branding.md §3 requires the plugin theme to win regardless of host theme. */
-.tablify__toolbar input.tablify__search-input,
-.tablify__toolbar input.tablify__query-input {
+   theme — spec/branding.md §3 requires the plugin theme to win regardless of host theme.
+   SAD-78: one "Search or query" box — `.pill-input w-full text-xs rounded-full pl-10 pr-4
+   py-2.5 shadow-sm font-mono`. The 40px icon gutter lives in this rule (SAD-76 RC-C). */
+.tablify__toolbar input.tablify__search-input {
   background: var(--tablify-bg-pill);
   color: var(--tablify-text);
   border: 1px solid var(--tablify-border-subtle);
   border-radius: 999px;
-  padding: 9px 16px;
-  font-family: inherit;
+  padding: 10px 16px 10px 40px;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   font-weight: 400;
   line-height: 16px;
@@ -191,52 +197,50 @@
   margin: 0;
   width: 100%;
   box-sizing: border-box;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   appearance: none;
 }
 
-/* SAD-76 (RC-C): the 40px icon gutter must live at the scoped specificity — a bare
-   .tablify__search-input rule (0,1,0) lost to the scoped `padding` shorthand above, so
-   the inset magnifier sat on top of the first letter of the placeholder. */
-.tablify__toolbar input.tablify__search-input {
-  padding-left: 40px;
+/* Prototype placeholder is Tailwind's gray-400: the dark muted token exactly, and the light
+   muted token lifted toward it (no colour literals outside tokens.ts). */
+.tablify__toolbar input.tablify__search-input::placeholder {
+  color: var(--tablify-text-muted);
+  opacity: var(--tablify-placeholder-opacity, 1);
 }
 
-.tablify__query-input {
-  border-radius: 999px;
-  flex: 1 1 200px;
+.tablify--light {
+  --tablify-placeholder-opacity: 0.7;
+  --tablify-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
-.tablify__search-input::placeholder,
-.tablify__query-input::placeholder {
-  color: var(--tablify-text);
-  opacity: 0.55;
+.tablify--dark {
+  --tablify-placeholder-opacity: 1;
+  --tablify-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.tablify__toolbar input.tablify__search-input::-webkit-search-cancel-button {
+  appearance: none;
 }
 
 /* Prototype focus language: accent border plus a soft ring; the 2px accent outline keeps
    the WCAG 1.4.11 floor (3.07:1 light / 5.74:1 dark) while the ring is decorative. */
-.tablify__toolbar input.tablify__search-input:focus,
-.tablify__toolbar input.tablify__query-input:focus {
+.tablify__toolbar input.tablify__search-input:focus {
   border-color: var(--tablify-accent-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 22%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
 }
 
-/* Invalid query. The message uses the normal text colour: the accent orange is a
-   non-text token (it measures 2.96:1 on the light background), so using it here would
-   fail WCAG AA. The accent marks the field; the words stay readable. */
-.tablify__toolbar input.tablify__query-input--invalid {
+/* Invalid query terms in the box. The message uses the normal text colour: the accent orange
+   is a non-text token (2.96:1 on the light background), so using it for words would fail
+   WCAG AA. The accent marks the field; the words stay readable. Padding drops by the extra
+   border pixel so the box does not grow. */
+.tablify__toolbar input.tablify__search-input--invalid {
   border-color: var(--tablify-accent-primary);
   border-style: solid;
   border-width: 2px;
-}
-
-.tablify__query-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  padding: 9px 15px 9px 39px;
 }
 
 .tablify__query-error {
@@ -247,14 +251,28 @@
   padding-left: 8px;
 }
 
+/* `flex items-center space-x-2`. Never wraps: on a narrow pane the group scrolls sideways
+   instead of overflowing the card (the prototype overflows at 390px). The 4px padding and
+   matching negative margin keep pill shadows and focus rings out of the scroll clip. */
 .tablify__toolbar-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px;
+  margin: -4px;
 }
 
-/* Prototype pill buttons (`.pill-btn`): pill surface, subtle border, soft shadow, leading glyph.
+.tablify__toolbar-actions::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prototype pill buttons (`.pill-btn py-2.5 text-xs rounded-2xl gap-1.5 active:scale-95`).
    SAD-76 (RC-B): every control rule is element-qualified inside the .tablify scope (0,2,1, hover
    0,3,1) and resets the properties Obsidian's `button:not(.clickable-icon)` (0,1,1 / hover 0,2,1)
    sets — fill, ink, weight, height, line-height, shadow — so no host theme can repaint them. */
@@ -262,8 +280,8 @@
   background: var(--tablify-bg-pill);
   color: var(--tablify-text);
   border: 1px solid var(--tablify-border-subtle);
-  border-radius: 14px;
-  padding: 7px 14px;
+  border-radius: 16px;
+  padding: 10px 16px;
   margin: 0;
   height: auto;
   line-height: 16px;
@@ -272,11 +290,13 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--tablify-pill-shadow, 0 1px 2px rgba(0, 0, 0, 0.2));
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   appearance: none;
 }
 
@@ -285,26 +305,70 @@
   border-color: var(--tablify-border-pill-hover);
 }
 
+.tablify button.tablify__toolbar-button:active {
+  transform: scale(0.95);
+}
+
+/* Sync, ↶, ↷ and Options are `px-3`; Filter, Add Row and Add Field are `px-4`. */
+.tablify button.tablify__toolbar-button[data-action='sync'],
+.tablify button.tablify__toolbar-button[data-action='undo'],
+.tablify button.tablify__toolbar-button[data-action='redo'],
+.tablify button.tablify__toolbar-button[data-action='options'] {
+  padding: 10px 12px;
+}
+
+/* ↶ ↷ carry no `font-medium` and their glyphs inherit the ink colour. */
+.tablify button.tablify__toolbar-button[data-action='undo'],
+.tablify button.tablify__toolbar-button[data-action='redo'] {
+  font-weight: 400;
+}
+
+/* Leading glyphs: terracotta `text-[10px]`; Sync, ↶, ↷, Options use `text-[11px]`. */
 .tablify__btn-icon {
   display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  line-height: 1;
   color: var(--tablify-accent-primary);
 }
 
-/* Undo/redo are icon-only circular pills; their glyphs read as chrome, not accent. */
-.tablify button.tablify__toolbar-button[data-action='undo'],
-.tablify button.tablify__toolbar-button[data-action='redo'] {
-  padding: 7px 9px;
-  border-radius: 999px;
+.tablify button.tablify__toolbar-button[data-action='sync'] .tablify__btn-icon,
+.tablify button.tablify__toolbar-button[data-action='undo'] .tablify__btn-icon,
+.tablify button.tablify__toolbar-button[data-action='redo'] .tablify__btn-icon,
+.tablify button.tablify__toolbar-button[data-action='options'] .tablify__btn-icon {
+  font-size: 11px;
 }
 
 .tablify button.tablify__toolbar-button[data-action='undo'] .tablify__btn-icon,
 .tablify button.tablify__toolbar-button[data-action='redo'] .tablify__btn-icon {
+  color: inherit;
+  /* The prototype's ↶ ↷ are not flex boxes: the glyph sits in the 16px text line (38px pill),
+     unlike the flex buttons whose icon-only state is 33px (Sync below xl). */
+  height: 16px;
+}
+
+.tablify button.tablify__toolbar-button[data-action='options'] .tablify__btn-icon {
   color: var(--tablify-text-muted);
 }
 
 .tablify button.tablify__toolbar-button:focus-visible {
   outline: 2px solid var(--tablify-focus);
   outline-offset: 1px;
+}
+
+/* Sync label is `hidden xl:inline` — icon-only below 1280px. */
+@media (max-width: 1279px) {
+  .tablify button.tablify__toolbar-button[data-action='sync'] .tablify__btn-label {
+    display: none;
+  }
+}
+
+/* Phones: the box takes its own row; the buttons scroll beneath it. */
+@media (max-width: 639px) {
+  .tablify__search {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
 }
 
 /* SAD-76: the `hidden` attribute is how TableView/Toolbar hide the Options popover, the query
@@ -709,6 +773,304 @@
   background: var(--tablify-bg-card);
   border: 1px solid var(--tablify-border-subtle);
   border-radius: 16px;
+}
+
+/* ---- Filter builder (SAD-78) — prototype #filterModal ---------------------------------
+   Card `rounded-2xl p-6 max-w-xl shadow-2xl max-h-[85vh] overflow-y-auto`; Obsidian's own
+   close button stays. Controls are element-qualified inside .tablify (applyTheme puts the
+   class on the modal) and reset what the host `button` / `select` / `input` rules set. */
+.tablify__fb-modal {
+  box-sizing: border-box;
+  width: min(576px, calc(100vw - 32px));
+  max-width: 576px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  color: var(--tablify-text);
+}
+
+/* Header `flex items-center mb-4`. Newer Obsidian wraps the title in .modal-header, older builds
+   put .modal-title straight in the modal: the 16px step goes on whichever is the outer box. */
+.tablify__fb-modal .modal-header {
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+.tablify__fb-modal .modal-header .modal-title {
+  margin: 0;
+}
+
+.tablify__fb-modal > .modal-title {
+  margin: 0 0 16px;
+}
+
+.tablify__fb-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* the prototype header row is as tall as its close button's 24px line box */
+  min-height: 24px;
+  padding: 0;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--tablify-text);
+}
+
+.tablify__fb-modal .modal-content {
+  padding: 0;
+  margin: 0;
+}
+
+.tablify__fb-modal .modal-close-button {
+  top: 22px;
+  right: 22px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__fb-title-icon {
+  display: inline-flex;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--tablify-accent-primary);
+}
+
+.tablify__fb-note {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--tablify-text);
+}
+
+/* `space-y-2 text-xs` */
+.tablify__fb-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+/* `flex items-center gap-1.5 flex-wrap sm:flex-nowrap` */
+.tablify__fb-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.tablify__fb-join {
+  width: 40px;
+  flex: 0 0 auto;
+  line-height: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--tablify-text-muted);
+}
+
+/* `.pill-input rounded-lg px-2 py-1.5 text-xs` */
+.tablify select.tablify__fb-input,
+.tablify input.tablify__fb-input {
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: 0;
+  height: auto;
+  min-height: 0;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  box-shadow: none;
+  box-sizing: border-box;
+  appearance: auto;
+}
+
+.tablify input.tablify__fb-input {
+  appearance: none;
+}
+
+.tablify select.tablify__fb-input:focus,
+.tablify input.tablify__fb-input:focus {
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+.tablify select.tablify__fb-field {
+  flex: 1 1 0%;
+  min-width: 110px;
+}
+
+.tablify select.tablify__fb-op {
+  flex: 0 0 120px;
+  width: 120px;
+}
+
+.tablify select.tablify__fb-value,
+.tablify input.tablify__fb-value {
+  flex: 1 1 0%;
+  min-width: 100px;
+}
+
+.tablify select.tablify__fb-value--narrow {
+  flex: 0 0 90px;
+  width: 90px;
+  min-width: 0;
+}
+
+.tablify button.tablify__fb-remove,
+.tablify button.tablify__fb-add,
+.tablify button.tablify__fb-button {
+  background: transparent;
+  color: var(--tablify-text-muted);
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  height: auto;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  box-shadow: none;
+  cursor: pointer;
+  appearance: none;
+}
+
+/* Trash glyph `text-[11px] px-1`, rose-500 on hover. */
+.tablify button.tablify__fb-remove {
+  flex: 0 0 auto;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tablify button.tablify__fb-remove:hover,
+.tablify button.tablify__fb-clear:hover {
+  background: transparent;
+  color: rgb(244, 63, 94);
+}
+
+/* `mt-3 text-xs text-tablify-terracotta hover:underline`, plus glyph `mr-1 text-[10px]`. */
+/* The prototype's inline button sits in a taller text line (its strut), which puts 2px under it. */
+.tablify button.tablify__fb-add {
+  margin-top: 12px;
+  margin-bottom: 2px;
+  padding: 0;
+  color: var(--tablify-accent-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tablify button.tablify__fb-add:hover {
+  background: transparent;
+  text-decoration: underline;
+}
+
+.tablify__fb-add-icon {
+  display: inline-flex;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.tablify__fb-empty {
+  font-size: 11px;
+  color: var(--tablify-text-muted);
+}
+
+/* `mt-4 p-2.5 rounded-xl` on the inner surface. */
+.tablify__fb-preview {
+  margin-top: 16px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+}
+
+.tablify__fb-preview-label {
+  margin-bottom: 4px;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__fb-preview-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 16.5px;
+  word-break: break-all;
+  color: var(--tablify-text);
+}
+
+.tablify__fb-footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tablify__fb-footer-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* Clear all / Cancel `px-3.5 py-2 text-xs`; Apply `px-4 py-2 font-semibold rounded-xl shadow`. */
+.tablify button.tablify__fb-button {
+  padding: 8px 14px;
+}
+
+.tablify button.tablify__fb-cancel {
+  border-radius: 12px;
+}
+
+.tablify button.tablify__fb-cancel:hover {
+  background: var(--tablify-bg-inner);
+}
+
+.tablify button.tablify__fb-apply {
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: var(--tablify-accent-primary);
+  color: var(--tablify-on-accent);
+  font-weight: 600;
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+.tablify button.tablify__fb-apply:hover {
+  background: color-mix(in srgb, var(--tablify-accent-primary) 88%, black);
+}
+
+.tablify button.tablify__fb-button:focus-visible,
+.tablify button.tablify__fb-add:focus-visible,
+.tablify button.tablify__fb-remove:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* The card keeps `p-6` on phones; only the rows wrap (`flex-wrap sm:flex-nowrap`). */
+@media (max-width: 639px) {
+  .tablify__fb-row {
+    flex-wrap: wrap;
+  }
 }
 
 /* ---- Capsule grid (SAD-71 Step 4) ----------------------------------------------

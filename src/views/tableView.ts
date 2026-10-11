@@ -32,6 +32,13 @@ import { exportFolderOf, openExportModal, vaultExportAdapter } from '../commands
 import { writeExport } from '../io/export/exporter.js';
 import { toMarkdown } from '../io/export/markdown.js';
 import type { ExportTable } from '../io/export/view.js';
+import { FilterBuilderModal } from './grid/FilterBuilderModal.js';
+
+/** Plugin-level services the view cannot reach itself (it has no access to plugin settings). */
+export interface TableViewHooks {
+  /** Open the Airtable sync modal for this view — the "Airtable sync for this table" command. */
+  openSync?(view: TableView): void;
+}
 
 export const TABLIFY_VIEW_TYPE = 'tablify';
 
@@ -70,7 +77,10 @@ export class TableView extends TextFileView {
   /** P8-04: unsubscribe from the vault link index on close. */
   private linkUnsub: (() => void) | null = null;
 
-  constructor(leaf: WorkspaceLeaf) {
+  constructor(
+    leaf: WorkspaceLeaf,
+    private readonly hooks: TableViewHooks = {},
+  ) {
     super(leaf);
   }
 
@@ -293,8 +303,10 @@ export class TableView extends TextFileView {
   private toolbarCallbacks(): ToolbarCallbacks {
     return {
       // Search and query are persisted but not undoable — see patchView().
-      onSearch: (term) => this.applyFilter({ search: term }),
-      onQuery: (query) => this.applyFilter({ query }),
+      // SAD-78: one "Search or query" box, split into the persisted halves; one patch, one render.
+      onFilter: (search, query) => this.applyFilter({ search, query }),
+      onSync: () => this.openSync(),
+      onOpenFilter: () => this.openFilterBuilder(),
       onAddRow: () => this.mutate((s) => s.addRow()),
       onAddField: () => this.promptAddField(),
       onRowHeight: (height) =>
@@ -311,6 +323,25 @@ export class TableView extends TextFileView {
       onUndo: () => this.mutate((s) => s.undo()),
       onRedo: () => this.mutate((s) => s.redo()),
     };
+  }
+
+  /** Toolbar Sync: the plugin's sync entry point, same as the command. */
+  private openSync(): void {
+    if (!this.hooks.openSync) {
+      new Notice('Airtable sync is not available here.');
+      return;
+    }
+    this.hooks.openSync(this);
+  }
+
+  /** Toolbar Filter: the builder reads the box's text and writes the result back into it. */
+  private openFilterBuilder(): void {
+    const s = this.session;
+    const toolbar = this.toolbarView;
+    if (!s || !toolbar) return;
+    new FilterBuilderModal(this.app, s.getFields(), toolbar.getFilterText(), (input) =>
+      toolbar.setFilterText(input),
+    ).open();
   }
 
   /**

@@ -6,6 +6,23 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **One "Search or query" box, Sync and Filter in the toolbar (SAD-78, prototype)**: the
+  separate Search and Query inputs are merged into the prototype's single mono box. Free words
+  search; `field:value` terms query; both combine (`ship Status:Done`). The two halves are still
+  saved as the view's search and query, so existing files open unchanged with both shown in the
+  box. Query errors show under the box with the position counted from the start of the box.
+  The toolbar follows the prototype's order: **Sync** (same as the *Airtable sync for this table*
+  command), **↶ ↷**, **Filter**, **Add Row**, **Add Field**, **Options**, with the prototype's
+  measurements and Font Awesome Free 6.4.0 icons. On a narrow pane the buttons scroll sideways
+  instead of overflowing.
+- **Filter builder (SAD-78, prototype)**: **Filter** opens rows of *field · operator · value*
+  joined by *and*, with the live equivalent query string, **Clear all**, **Cancel** and
+  **Apply filter**. Each row is one query term, so the builder and the box always agree.
+  Operators offered are the prototype's, minus the three the query engine does not accept
+  (text "is not", multi-select "does not contain", number "≠"); formula and link fields are not
+  listed. Values with commas, quotes or surrounding spaces round-trip exactly when quoted (`"a, b"`),
+  and terms on unknown fields are kept rather than rewritten.
+
 - **Title row (SAD-77, prototype)**: every table now opens with the prototype's title row above
   the toolbar. It shows the table name (click to rename the file in place; Enter commits, Esc
   cancels, invalid or colliding names are refused with a notice), the vault-path chip, and

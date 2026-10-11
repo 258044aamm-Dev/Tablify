@@ -52,15 +52,36 @@ describe('SAD-71 — form-control selectors outrank Obsidian element rules', () 
     ).toEqual([]);
   });
 
-  it('keeps the search and query inputs scoped inside the toolbar', () => {
+  it('keeps the search input scoped inside the toolbar', () => {
     expect(css).toMatch(/\.tablify__toolbar input\.tablify__search-input/);
-    expect(css).toMatch(/\.tablify__toolbar input\.tablify__query-input/);
+    expect(css).toMatch(/\.tablify__toolbar input\.tablify__search-input--invalid/);
+  });
+
+  // SAD-78: the separate query input merged into the "Search or query" box.
+  it('SAD-78: no rules remain for the retired query input', () => {
+    expect(css).not.toMatch(/tablify__query-input|tablify__query-row/);
+  });
+
+  it('SAD-78: filter builder controls are element-qualified inside .tablify', () => {
+    expect(css).toMatch(/\.tablify select\.tablify__fb-input/);
+    expect(css).toMatch(/\.tablify input\.tablify__fb-input/);
   });
 
   // SAD-76 (RC-B): Obsidian's `button:not(.clickable-icon)` is 0,1,1 (hover 0,2,1) and repainted
   // every pill with the host theme (#313244 fill, blue bold text in the owner screenshot).
   it('SAD-76: every Tablify button class is element-qualified inside the .tablify scope', () => {
-    const buttonClasses = ['tablify__toolbar-button', 'tablify__option-button', 'tablify__insert-row', 'tablify__title-link'];
+    const buttonClasses = [
+      'tablify__toolbar-button',
+      'tablify__option-button',
+      'tablify__insert-row',
+      'tablify__title-link',
+      'tablify__fb-button',
+      'tablify__fb-add',
+      'tablify__fb-remove',
+      'tablify__fb-apply',
+      'tablify__fb-cancel',
+      'tablify__fb-clear',
+    ];
     const offenders: string[] = [];
     for (const group of ruleSelectors(css)) {
       for (const sel of group.split(',')) {
@@ -85,7 +106,11 @@ describe('SAD-71 — form-control selectors outrank Obsidian element rules', () 
   // SAD-76 (RC-C): the magnifier gutter must be at the scoped specificity, or the scoped
   // `padding` shorthand wins and the icon covers the first letter.
   it('SAD-76: the search gutter is declared at the scoped specificity', () => {
-    expect(css).toMatch(/\.tablify__toolbar input\.tablify__search-input\s*\{\s*padding-left:\s*40px/);
+    // Either a padding-left longhand or a 4-value shorthand whose left value is 40px, inside the
+    // scoped (0,2,1) rule itself.
+    const body = /\.tablify__toolbar input\.tablify__search-input\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    const gutter = /padding-left:\s*40px/.test(body) || /padding:\s*\S+\s+\S+\s+\S+\s+40px\s*;/.test(body);
+    expect(gutter, `scoped search rule must declare the 40px icon gutter: ${body}`).toBe(true);
   });
 
   // SAD-76 (RC-D): a `background` shorthand on a frozen capsule resets background-clip to

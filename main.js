@@ -2817,7 +2817,7 @@ __export(main_exports, {
   default: () => TablifyPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 
 // src/commands/import.ts
 var import_obsidian = require("obsidian");
@@ -7476,6 +7476,63 @@ function makeError(text, message, position) {
   const { line, column } = offsetToLineCol3(text, position);
   return { message, position, line, column };
 }
+function needsFieldQuote(name) {
+  if (name.length === 0)
+    return true;
+  if (/^\s|\s$/.test(name))
+    return true;
+  if (/[:,"]/.test(name))
+    return true;
+  if (/\s/.test(name))
+    return true;
+  if (/[~!><]/.test(name))
+    return true;
+  if (/^\d/.test(name))
+    return true;
+  return false;
+}
+function needsValueQuote(value) {
+  if (value.length === 0)
+    return true;
+  if (/[,\s":]/.test(value))
+    return true;
+  return false;
+}
+function escapeQuoted(s) {
+  return s.replace(/"/g, '""');
+}
+function printQuery(ast) {
+  const parts = [];
+  for (const term of ast.terms) {
+    const field = needsFieldQuote(term.rawFieldName) ? `"${escapeQuoted(term.rawFieldName)}"` : term.rawFieldName;
+    if (term.op === "empty") {
+      parts.push(`${field}:empty`);
+      continue;
+    }
+    if (term.op === "eq" && term.values.length === 1 && term.values[0] === "") {
+      parts.push(`${field}:`);
+      continue;
+    }
+    let prefix = "";
+    if (term.op === "contains")
+      prefix = "~";
+    else if (term.op === "not")
+      prefix = "!";
+    else if (term.op === "gt")
+      prefix = ">";
+    else if (term.op === "lt")
+      prefix = "<";
+    if (term.op === "eq") {
+      const vals = term.values.map((v) => needsValueQuote(v) ? `"${escapeQuoted(v)}"` : v);
+      parts.push(`${field}:${vals.join(",")}`);
+    } else {
+      const v = term.values[0] ?? "";
+      const vs = needsValueQuote(v) ? `"${escapeQuoted(v)}"` : v;
+      parts.push(`${field}:${prefix}${vs}`);
+    }
+  }
+  return parts.join(" ");
+}
 function parseQuery(input) {
   const len = input.length;
   let i = 0;
@@ -9757,7 +9814,7 @@ var LinkIntegrityModal = class extends import_obsidian3.Modal {
 };
 
 // src/views/tableView.ts
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/model/tableStore.ts
 function createTableStore(options) {
@@ -11082,9 +11139,9 @@ function findText(a, ci) {
     return err2("#NUM!");
   if (needle.length === 0)
     return numValue(start);
-  const norm = (c) => ci ? lowerCp(c) : c;
-  const h = hay.map(norm);
-  const nd = needle.map(norm);
+  const norm2 = (c) => ci ? lowerCp(c) : c;
+  const h = hay.map(norm2);
+  const nd = needle.map(norm2);
   for (let i = start - 1; i + nd.length <= h.length; i++) {
     let ok = true;
     for (let j = 0; j < nd.length; j++) {
@@ -12926,6 +12983,126 @@ function setRowHeight(view, h, fields) {
   return res.ok ? res.view : view;
 }
 
+// src/query/combined.ts
+var isWS2 = (c) => c === " " || c === "	" || c === "\n" || c === "\r";
+var isBlank = (c) => c === " " || c === "	";
+function splitSearchQuery(input) {
+  const text = input ?? "";
+  const n = text.length;
+  const words = [];
+  const slices = [];
+  let i = 0;
+  const readQuoted = () => {
+    i++;
+    let out = "";
+    while (i < n) {
+      if (text[i] === '"') {
+        if (text[i + 1] === '"') {
+          out += '"';
+          i += 2;
+          continue;
+        }
+        i++;
+        return { value: out, closed: true };
+      }
+      out += text[i++];
+    }
+    return { value: out, closed: false };
+  };
+  while (i < n) {
+    while (i < n && isWS2(text[i]))
+      i++;
+    if (i >= n)
+      break;
+    const start = i;
+    let name;
+    if (text[i] === '"') {
+      const q = readQuoted();
+      if (!q.closed) {
+        if (q.value.trim())
+          words.push(q.value.trim());
+        break;
+      }
+      name = q.value;
+    } else {
+      let raw = "";
+      while (i < n && !isWS2(text[i]) && text[i] !== ":")
+        raw += text[i++];
+      name = raw;
+    }
+    let j = i;
+    while (j < n && isBlank(text[j]))
+      j++;
+    if (text[j] !== ":") {
+      if (name)
+        words.push(name);
+      continue;
+    }
+    i = j + 1;
+    while (i < n && isBlank(text[i]))
+      i++;
+    if (i < n && "~!><".includes(text[i]))
+      i++;
+    while (i < n && !isWS2(text[i])) {
+      if (text[i] === '"') {
+        readQuoted();
+        continue;
+      }
+      if (text[i] === ",") {
+        i++;
+        while (i < n && isBlank(text[i]))
+          i++;
+        continue;
+      }
+      i++;
+    }
+    slices.push({ start, end: i });
+  }
+  let query = "";
+  const map2 = [];
+  for (const s of slices) {
+    if (query) {
+      map2.push(s.start - 1 >= 0 ? s.start - 1 : s.start);
+      query += " ";
+    }
+    for (let k = s.start; k < s.end; k++)
+      map2.push(k);
+    query += text.slice(s.start, s.end);
+  }
+  map2.push(slices.length ? slices[slices.length - 1].end : n);
+  return { search: words.join(" "), query, map: map2 };
+}
+function joinSearchQuery(search, query) {
+  return [(search ?? "").trim(), (query ?? "").trim()].filter(Boolean).join(" ");
+}
+function toInputPosition(split, queryPosition) {
+  const p = Math.max(0, Math.min(queryPosition, split.map.length - 1));
+  return split.map[p] ?? 0;
+}
+
+// src/ui/faIcons.ts
+var GLYPHS = {
+  "file-import": { w: 512, d: "M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z" },
+  "file-export": { w: 576, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z" },
+  "file-csv": { w: 512, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z" },
+  "copy": { w: 512, d: "M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" },
+  "magnifying-glass": { w: 512, d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" },
+  "cloud-arrow-up": { w: 640, d: "M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" },
+  "rotate-left": { w: 512, d: "M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" },
+  "rotate-right": { w: 512, d: "M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z" },
+  "filter": { w: 512, d: "M3.9 54.9C10.5 40.9 24.5 32 40 32H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L320 320.9V448c0 12.1-6.8 23.2-17.7 28.6s-23.8 4.3-33.5-3l-64-48c-8.1-6-12.8-15.5-12.8-25.6V320.9L9 97.3C-.7 85.4-2.8 68.8 3.9 54.9z" },
+  "plus": { w: 448, d: "M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" },
+  "table-columns": { w: 512, d: "M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z" },
+  "sliders": { w: 512, d: "M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" },
+  "xmark": { w: 384, d: "M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" },
+  "trash-can": { w: 448, d: "M135.2 17.7C140.6 6.8 151.7 0 163.8 0H284.2c12.1 0 23.2 6.8 28.6 17.7L320 32h96c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32h96l7.2-14.3zM32 128H416V448c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V128zm96 64c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16z" }
+};
+function faIcon(name) {
+  const g = GLYPHS[name];
+  const width = +(g.w / 512).toFixed(4);
+  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${width}em" height="1em" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
+}
+
 // src/views/grid/toolbar.ts
 var ROW_HEIGHTS = ["small", "medium", "large"];
 var ROW_HEIGHT_LABELS = {
@@ -12934,22 +13111,27 @@ var ROW_HEIGHT_LABELS = {
   large: "Large"
 };
 var DEBOUNCE_MS2 = 200;
+var SEARCH_PLACEHOLDER = "Search or query \u2014 e.g. Status:Done Amount:>10";
 var ICONS = {
-  search: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 L14 14"></path></svg>',
-  plus: '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg>',
-  columns: '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M8 3v10"></path></svg>',
-  sliders: '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 5h10M3 11h10"></path><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"></circle></svg>',
-  undo: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 4 L3 7 L6 10"></path><path d="M3 7 h7 a3 3 0 0 1 0 6 H7"></path></svg>',
-  redo: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 4 L13 7 L10 10"></path><path d="M13 7 H6 a3 3 0 0 0 0 6 h3"></path></svg>'
+  search: "magnifying-glass",
+  sync: "cloud-arrow-up",
+  undo: "rotate-left",
+  redo: "rotate-right",
+  filter: "filter",
+  plus: "plus",
+  columns: "table-columns",
+  sliders: "sliders"
 };
 function iconSpan(glyph) {
   const span = document.createElement("span");
   span.className = "tablify__btn-icon";
   span.setAttribute("aria-hidden", "true");
-  span.innerHTML = ICONS[glyph];
+  span.innerHTML = faIcon(ICONS[glyph]);
   return span;
 }
 var ACTIONS = {
+  sync: "sync",
+  filter: "filter",
   addRow: "add-row",
   addField: "add-field",
   options: "options",
@@ -12961,14 +13143,12 @@ var Toolbar = class {
   root;
   opts;
   searchInput;
-  queryInput;
   queryError;
   optionsPanel;
   optionsButton;
   rowCount;
   hiddenList;
   searchTimer = null;
-  queryTimer = null;
   constructor(options) {
     this.opts = options;
     this.root = document.createElement("div");
@@ -12981,43 +13161,39 @@ var Toolbar = class {
     const searchIcon = document.createElement("span");
     searchIcon.className = "tablify__search-icon";
     searchIcon.setAttribute("aria-hidden", "true");
-    searchIcon.innerHTML = ICONS.search;
+    searchIcon.innerHTML = faIcon(ICONS.search);
     this.searchInput = document.createElement("input");
     this.searchInput.type = "search";
     this.searchInput.className = "tablify__search-input";
-    this.searchInput.placeholder = "Search rows\u2026";
-    this.searchInput.setAttribute("aria-label", "Search rows");
+    this.searchInput.placeholder = SEARCH_PLACEHOLDER;
+    this.searchInput.setAttribute("aria-label", "Search or query rows");
+    this.searchInput.spellcheck = false;
     this.searchInput.dataset.testid = "tablify-search";
     searchWrap.appendChild(searchIcon);
     searchWrap.appendChild(this.searchInput);
     const actions = document.createElement("div");
     actions.className = "tablify__toolbar-actions";
-    actions.appendChild(this.makeButton(ACTIONS.addRow, "Add row", "Add row", "plus"));
+    actions.appendChild(this.makeButton(ACTIONS.sync, "Sync", "Airtable sync for this table", "sync"));
+    actions.appendChild(this.makeButton(ACTIONS.undo, "", "Undo", "undo"));
+    actions.appendChild(this.makeButton(ACTIONS.redo, "", "Redo", "redo"));
+    const filterButton = this.makeButton(ACTIONS.filter, "Filter", "Filter builder", "filter");
+    filterButton.setAttribute("aria-haspopup", "dialog");
+    actions.appendChild(filterButton);
+    actions.appendChild(this.makeButton(ACTIONS.addRow, "Add Row", "Add row", "plus"));
     actions.appendChild(this.makeButton(ACTIONS.addField, "Add Field", "Add field", "columns"));
     this.optionsButton = this.makeButton(ACTIONS.options, "Options", "View settings", "sliders");
     this.optionsButton.setAttribute("aria-haspopup", "true");
     this.optionsButton.setAttribute("aria-expanded", "false");
     actions.appendChild(this.optionsButton);
-    actions.appendChild(this.makeButton(ACTIONS.undo, "", "Undo", "undo"));
-    actions.appendChild(this.makeButton(ACTIONS.redo, "", "Redo", "redo"));
     topRow.appendChild(searchWrap);
     topRow.appendChild(actions);
     this.root.appendChild(topRow);
-    const queryRow = document.createElement("div");
-    queryRow.className = "tablify__query-row";
-    this.queryInput = document.createElement("input");
-    this.queryInput.type = "text";
-    this.queryInput.className = "tablify__query-input";
-    this.queryInput.placeholder = "Filter, e.g. Status:Done Amount:>10";
-    this.queryInput.setAttribute("aria-label", "Filter rows with a query");
-    this.queryInput.dataset.testid = "tablify-query";
     this.queryError = document.createElement("div");
     this.queryError.className = "tablify__query-error";
     this.queryError.setAttribute("role", "alert");
     this.queryError.dataset.testid = "tablify-query-error";
-    queryRow.appendChild(this.queryInput);
-    queryRow.appendChild(this.queryError);
-    this.root.appendChild(queryRow);
+    this.queryError.hidden = true;
+    this.root.appendChild(this.queryError);
     this.optionsPanel = document.createElement("div");
     this.optionsPanel.className = "tablify__options";
     this.optionsPanel.hidden = true;
@@ -13071,22 +13247,13 @@ var Toolbar = class {
   };
   wireEvents() {
     this.searchInput.addEventListener("input", () => {
+      this.showQueryError(this.searchInput.value);
       if (this.searchTimer !== null)
         clearTimeout(this.searchTimer);
       const value = this.searchInput.value;
       this.searchTimer = setTimeout(() => {
         this.searchTimer = null;
-        this.opts.callbacks.onSearch(value);
-      }, DEBOUNCE_MS2);
-    });
-    this.queryInput.addEventListener("input", () => {
-      this.showQueryError(this.queryInput.value);
-      if (this.queryTimer !== null)
-        clearTimeout(this.queryTimer);
-      const value = this.queryInput.value;
-      this.queryTimer = setTimeout(() => {
-        this.queryTimer = null;
-        this.opts.callbacks.onQuery(value);
+        this.emitFilter(value);
       }, DEBOUNCE_MS2);
     });
     this.root.addEventListener("click", (event) => {
@@ -13117,6 +13284,12 @@ var Toolbar = class {
   }
   handleAction(action) {
     switch (action) {
+      case ACTIONS.sync:
+        this.opts.callbacks.onSync();
+        break;
+      case ACTIONS.filter:
+        this.opts.callbacks.onOpenFilter();
+        break;
       case ACTIONS.addRow:
         this.opts.callbacks.onAddRow();
         break;
@@ -13153,15 +13326,35 @@ var Toolbar = class {
       this.opts.theme = state.theme;
       applyTheme(this.root, state.theme);
     }
-    if (document.activeElement !== this.searchInput && this.searchInput.value !== (state.search ?? "")) {
-      this.searchInput.value = state.search ?? "";
+    if (document.activeElement !== this.searchInput) {
+      const split = splitSearchQuery(this.searchInput.value);
+      if (split.search !== (state.search ?? "").trim() || split.query.trim() !== (state.query ?? "").trim()) {
+        this.searchInput.value = joinSearchQuery(state.search, state.query);
+      }
     }
-    if (document.activeElement !== this.queryInput && this.queryInput.value !== (state.query ?? "")) {
-      this.queryInput.value = state.query ?? "";
-    }
-    this.showQueryError(this.queryInput.value);
+    this.showQueryError(this.searchInput.value);
     this.renderRowCount();
     this.renderOptions();
+  }
+  /** The box's current text (including anything typed but not yet applied). */
+  getFilterText() {
+    return this.searchInput.value;
+  }
+  /**
+   * Replace the box's text and apply it at once (filter builder Apply). Cancels a pending
+   * debounce so stale typing cannot overwrite the new filter afterwards.
+   */
+  setFilterText(text) {
+    if (this.searchTimer !== null)
+      clearTimeout(this.searchTimer);
+    this.searchTimer = null;
+    this.searchInput.value = text;
+    this.showQueryError(text);
+    this.emitFilter(text);
+  }
+  emitFilter(text) {
+    const split = splitSearchQuery(text);
+    this.opts.callbacks.onFilter(split.search, split.query);
   }
   /** True when the view settings popover is open. */
   isOptionsOpen() {
@@ -13170,39 +13363,34 @@ var Toolbar = class {
   destroy() {
     if (this.searchTimer !== null)
       clearTimeout(this.searchTimer);
-    if (this.queryTimer !== null)
-      clearTimeout(this.queryTimer);
     this.searchTimer = null;
-    this.queryTimer = null;
     document.removeEventListener("pointerdown", this.outsideClose);
     this.root.remove();
   }
   // ---- rendering ----
   showQueryError(raw) {
-    const trimmed = (raw ?? "").trim();
-    if (!trimmed) {
+    const split = splitSearchQuery(raw ?? "");
+    const query = split.query.trim();
+    if (!query) {
       const persisted = this.opts.queryError;
       if (persisted) {
-        this.queryError.textContent = `${persisted.message} (position ${persisted.position})`;
-        this.queryError.hidden = false;
-        this.queryInput.classList.add("tablify__query-input--invalid");
+        this.setError(`${persisted.message} (position ${persisted.position})`);
         return;
       }
-      this.queryError.textContent = "";
-      this.queryError.hidden = true;
-      this.queryInput.classList.remove("tablify__query-input--invalid");
+      this.setError(null);
       return;
     }
-    const parsed = parseQuery(trimmed);
+    const parsed = parseQuery(split.query);
     if (parsed.ok) {
-      this.queryError.textContent = "";
-      this.queryError.hidden = true;
-      this.queryInput.classList.remove("tablify__query-input--invalid");
+      this.setError(null);
       return;
     }
-    this.queryError.textContent = `${parsed.error.message} (position ${parsed.error.position})`;
-    this.queryError.hidden = false;
-    this.queryInput.classList.add("tablify__query-input--invalid");
+    this.setError(`${parsed.error.message} (position ${toInputPosition(split, parsed.error.position)})`);
+  }
+  setError(message) {
+    this.queryError.textContent = message ?? "";
+    this.queryError.hidden = message === null;
+    this.searchInput.classList.toggle("tablify__search-input--invalid", message !== null);
   }
   renderRowCount() {
     const { visibleRowCount, totalRowCount } = this.opts;
@@ -13552,10 +13740,10 @@ function validateTableName(name) {
   return null;
 }
 var ICONS2 = {
-  import: '<svg class="tablify__fa" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z"></path></svg>',
-  export: '<svg class="tablify__fa" viewBox="0 0 576 512" width="1.125em" height="1em" fill="currentColor" aria-hidden="true"><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z"></path></svg>',
-  "export-csv": '<svg class="tablify__fa" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z"></path></svg>',
-  "copy-markdown": '<svg class="tablify__fa" viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" aria-hidden="true"><path d="M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z"></path></svg>'
+  import: faIcon("file-import"),
+  export: faIcon("file-export"),
+  "export-csv": faIcon("file-csv"),
+  "copy-markdown": faIcon("copy")
 };
 var LINKS = [
   { action: "import", label: "Import\u2026", title: "Import CSV / Excel as table" },
@@ -13696,9 +13884,388 @@ var TitleRow = class {
   }
 };
 
+// src/views/grid/FilterBuilderModal.ts
+var import_obsidian8 = require("obsidian");
+
+// src/views/grid/filterBuilder.ts
+var NUMBER_TYPES = ["number", "currency", "percent", "duration", "rating", "auto_number"];
+var DATE_TYPES = ["date", "date_time", "created_time", "modified_time"];
+function isQueryable(field) {
+  return field.type !== "formula" && field.type !== "link";
+}
+function opsFor(type) {
+  if (type === "multi_select")
+    return [["", "contains any of"], ["empty", "is empty"]];
+  if (type === "single_select")
+    return [["", "is"], ["!", "is not"], ["empty", "is empty"]];
+  if (type === "checkbox")
+    return [["", "is"], ["empty", "is empty"]];
+  if (NUMBER_TYPES.includes(type))
+    return [["", "="], [">", ">"], ["<", "<"], ["empty", "is empty"]];
+  if (DATE_TYPES.includes(type))
+    return [["", "is"], [">", "is after"], ["<", "is before"], ["empty", "is empty"]];
+  return [["", "is"], ["~", "contains"], ["empty", "is empty"]];
+}
+var GENERIC_OP_LABEL = {
+  "": "is",
+  "~": "contains",
+  "!": "is not",
+  ">": ">",
+  "<": "<",
+  empty: "is empty"
+};
+var OP_FROM_AST = { eq: "", contains: "~", not: "!", gt: ">", lt: "<", empty: "empty" };
+var OP_TO_AST = { "": "eq", "~": "contains", "!": "not", ">": "gt", "<": "lt", empty: "empty" };
+var norm = (name) => name.trim().toLowerCase();
+var quote = (v) => `"${v.replace(/"/g, '""')}"`;
+function encodeListValue(v) {
+  return v === "" || /[",]/.test(v) || v !== v.trim() ? quote(v) : v;
+}
+function encodeSingleValue(v) {
+  return v === "" || v.startsWith('"') || v !== v.trim() ? quote(v) : v;
+}
+function decodeListValue(text) {
+  const out = [];
+  let i = 0;
+  const n = text.length;
+  while (i <= n) {
+    while (i < n && (text[i] === " " || text[i] === "	"))
+      i++;
+    let item = "";
+    let quoted = false;
+    if (text[i] === '"') {
+      quoted = true;
+      i++;
+      while (i < n) {
+        if (text[i] === '"') {
+          if (text[i + 1] === '"') {
+            item += '"';
+            i += 2;
+            continue;
+          }
+          i++;
+          break;
+        }
+        item += text[i++];
+      }
+      while (i < n && text[i] !== ",")
+        i++;
+    } else {
+      while (i < n && text[i] !== ",")
+        item += text[i++];
+      item = item.trim();
+    }
+    if (quoted || item !== "")
+      out.push(item);
+    i++;
+  }
+  return out;
+}
+function decodeSingleValue(text) {
+  const t = text.trim();
+  if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+    const inner = t.slice(1, -1);
+    if (!inner.replace(/""/g, "").includes('"'))
+      return inner.replace(/""/g, '"');
+  }
+  return t;
+}
+function blankCondition(fields) {
+  const first = fields.find(isQueryable);
+  return first ? { fieldId: first.id, op: "", value: "" } : null;
+}
+function builderFromInput(input, fields) {
+  const split = splitSearchQuery(input);
+  const state = { search: split.search, conditions: [], kept: [], unreadable: false };
+  if (split.query.trim()) {
+    const parsed = parseQuery(split.query);
+    if (!parsed.ok) {
+      state.unreadable = true;
+    } else {
+      for (const term of parsed.ast.terms) {
+        const field = fields.find((f) => isQueryable(f) && norm(f.name) === term.fieldName);
+        if (!field) {
+          state.kept.push(printQuery({ terms: [term], rawInput: "" }));
+          continue;
+        }
+        const isEmpty3 = term.op === "empty" || term.op === "eq" && term.values.length === 1 && term.values[0] === "";
+        state.conditions.push({
+          fieldId: field.id,
+          op: isEmpty3 ? "empty" : OP_FROM_AST[term.op],
+          value: isEmpty3 ? "" : term.op === "eq" ? term.values.map(encodeListValue).join(", ") : encodeSingleValue(term.values[0] ?? "")
+        });
+      }
+    }
+  }
+  if (state.conditions.length === 0) {
+    const blank = blankCondition(fields);
+    if (blank)
+      state.conditions.push(blank);
+  }
+  return state;
+}
+function queryFromConditions(conditions, fields) {
+  const terms = [];
+  for (const c of conditions) {
+    const field = fields.find((f) => f.id === c.fieldId && isQueryable(f));
+    if (!field)
+      continue;
+    const base = { fieldName: norm(field.name), rawFieldName: field.name, raw: "", position: 0 };
+    if (c.op === "empty") {
+      terms.push({ ...base, op: "empty", values: [] });
+      continue;
+    }
+    if (!c.value.trim())
+      continue;
+    if (c.op === "") {
+      const values = decodeListValue(c.value);
+      if (values.length === 0)
+        continue;
+      if (values.length === 1 && values[0] === "")
+        terms.push({ ...base, op: "empty", values: [] });
+      else
+        terms.push({ ...base, op: "eq", values });
+    } else {
+      terms.push({ ...base, op: OP_TO_AST[c.op], values: [decodeSingleValue(c.value)] });
+    }
+  }
+  return printQuery({ terms, rawInput: "" });
+}
+function inputFromBuilder(state, fields) {
+  const query = [queryFromConditions(state.conditions, fields), ...state.kept].filter(Boolean).join(" ");
+  return joinSearchQuery(state.search, query);
+}
+var FilterBuilder = class {
+  constructor(fields, input, callbacks) {
+    this.fields = fields;
+    this.callbacks = callbacks;
+    this.state = builderFromInput(input, fields);
+    this.root = document.createElement("div");
+    this.root.className = "tablify__fb";
+    this.root.dataset.testid = "tablify-filter-builder";
+    if (this.state.unreadable || this.state.kept.length > 0) {
+      const note = document.createElement("div");
+      note.className = "tablify__fb-note";
+      note.dataset.testid = "tablify-fb-note";
+      note.textContent = this.state.unreadable ? "The query in the search box has an error, so it is not shown here. Applying replaces it." : `${this.state.kept.length === 1 ? "A condition" : `${this.state.kept.length} conditions`} on a field this table does not have ${this.state.kept.length === 1 ? "is" : "are"} kept as typed: ${this.state.kept.join(" ")}`;
+      this.root.appendChild(note);
+    }
+    this.body = document.createElement("div");
+    this.body.className = "tablify__fb-body";
+    this.root.appendChild(this.body);
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "tablify__fb-add";
+    add.dataset.action = "fb-add";
+    add.innerHTML = `<span class="tablify__fb-add-icon" aria-hidden="true">${faIcon("plus")}</span>Add condition`;
+    add.addEventListener("click", () => {
+      const blank = blankCondition(this.fields);
+      if (blank)
+        this.state.conditions.push(blank);
+      this.render();
+    });
+    this.root.appendChild(add);
+    const previewBox = document.createElement("div");
+    previewBox.className = "tablify__fb-preview";
+    const previewLabel = document.createElement("div");
+    previewLabel.className = "tablify__fb-preview-label";
+    previewLabel.textContent = "Equivalent query string";
+    this.preview = document.createElement("div");
+    this.preview.className = "tablify__fb-preview-text";
+    this.preview.dataset.testid = "tablify-fb-preview";
+    previewBox.appendChild(previewLabel);
+    previewBox.appendChild(this.preview);
+    this.root.appendChild(previewBox);
+    const footer = document.createElement("div");
+    footer.className = "tablify__fb-footer";
+    const clear = this.footerButton("fb-clear", "Clear all", "tablify__fb-clear");
+    clear.addEventListener("click", () => {
+      this.state.conditions = [];
+      this.state.kept = [];
+      this.state.search = "";
+      this.state.unreadable = false;
+      this.root.querySelector(".tablify__fb-note")?.remove();
+      this.render();
+    });
+    const right = document.createElement("div");
+    right.className = "tablify__fb-footer-right";
+    const cancel = this.footerButton("fb-cancel", "Cancel", "tablify__fb-cancel");
+    cancel.addEventListener("click", () => this.callbacks.onCancel());
+    const apply = this.footerButton("fb-apply", "Apply filter", "tablify__fb-apply");
+    apply.addEventListener("click", () => this.callbacks.onApply(this.currentInput()));
+    right.appendChild(cancel);
+    right.appendChild(apply);
+    footer.appendChild(clear);
+    footer.appendChild(right);
+    this.root.appendChild(footer);
+    this.render();
+  }
+  root;
+  body;
+  preview;
+  state;
+  /** The box text the current rows produce. */
+  currentInput() {
+    return inputFromBuilder(this.state, this.fields);
+  }
+  footerButton(action, label, cls) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `tablify__fb-button ${cls}`;
+    b.dataset.action = action;
+    b.textContent = label;
+    return b;
+  }
+  queryableFields() {
+    return this.fields.filter(isQueryable);
+  }
+  render() {
+    this.body.textContent = "";
+    if (this.state.conditions.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "tablify__fb-empty";
+      empty.textContent = "No conditions \u2014 click \u201CAdd condition\u201D.";
+      this.body.appendChild(empty);
+    }
+    this.state.conditions.forEach((c, i) => this.body.appendChild(this.renderRow(c, i)));
+    this.renderPreview();
+  }
+  renderPreview() {
+    this.preview.textContent = this.currentInput() || "(no filter)";
+  }
+  select(cls, label, options, value) {
+    const s = document.createElement("select");
+    s.className = `tablify__fb-input ${cls}`;
+    s.setAttribute("aria-label", label);
+    for (const [v, text] of options) {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = text;
+      if (v === value)
+        o.selected = true;
+      s.appendChild(o);
+    }
+    s.value = value;
+    return s;
+  }
+  renderRow(c, i) {
+    const field = this.fields.find((f) => f.id === c.fieldId) ?? this.queryableFields()[0];
+    const row = document.createElement("div");
+    row.className = "tablify__fb-row";
+    row.dataset.testid = "tablify-fb-row";
+    const join = document.createElement("span");
+    join.className = "tablify__fb-join";
+    join.textContent = i === 0 ? "Where" : "and";
+    row.appendChild(join);
+    const fieldSel = this.select(
+      "tablify__fb-field",
+      "Field",
+      this.queryableFields().map((f) => [f.id, f.name]),
+      c.fieldId
+    );
+    fieldSel.addEventListener("change", () => {
+      this.state.conditions[i] = { fieldId: fieldSel.value, op: "", value: "" };
+      this.render();
+    });
+    row.appendChild(fieldSel);
+    const ops = opsFor(field.type);
+    if (!ops.some(([op]) => op === c.op))
+      ops.push([c.op, GENERIC_OP_LABEL[c.op]]);
+    const opSel = this.select("tablify__fb-op", "Operator", ops, c.op);
+    opSel.addEventListener("change", () => {
+      this.state.conditions[i] = { ...this.state.conditions[i], op: opSel.value };
+      this.render();
+    });
+    row.appendChild(opSel);
+    if (c.op !== "empty")
+      row.appendChild(this.valueControl(field, c, i));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "tablify__fb-remove";
+    remove.dataset.action = "fb-remove";
+    remove.title = "Remove condition";
+    remove.setAttribute("aria-label", "Remove condition");
+    remove.innerHTML = faIcon("trash-can");
+    remove.addEventListener("click", () => {
+      this.state.conditions.splice(i, 1);
+      this.render();
+    });
+    row.appendChild(remove);
+    return row;
+  }
+  valueControl(field, c, i) {
+    const set = (value) => {
+      this.state.conditions[i] = { ...this.state.conditions[i], value };
+      this.renderPreview();
+    };
+    const encode = c.op === "" ? encodeListValue : encodeSingleValue;
+    const choices = (field.options ?? []).map((o) => [encode(o.name), o.name]);
+    const isSelect = field.type === "single_select" || field.type === "multi_select";
+    if (isSelect && (c.value === "" || choices.some(([v]) => v === c.value))) {
+      const s = this.select("tablify__fb-value", "Value", [["", "\u2014"], ...choices], c.value);
+      s.addEventListener("change", () => set(s.value));
+      return s;
+    }
+    if (field.type === "checkbox" && (c.value === "" || c.value === "true" || c.value === "false")) {
+      const value = c.value === "false" ? "false" : "true";
+      if (c.value === "")
+        this.state.conditions[i] = { ...c, value };
+      const s = this.select("tablify__fb-value tablify__fb-value--narrow", "Value", [["true", "true"], ["false", "false"]], value);
+      s.addEventListener("change", () => set(s.value));
+      return s;
+    }
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tablify__fb-input tablify__fb-value";
+    input.value = c.value;
+    input.placeholder = c.op === "" ? "value (a,b = any of)" : "value";
+    input.setAttribute("aria-label", "Value");
+    input.addEventListener("input", () => set(input.value));
+    return input;
+  }
+};
+
+// src/views/grid/FilterBuilderModal.ts
+var FilterBuilderModal = class extends import_obsidian8.Modal {
+  constructor(app, fields, input, onApply) {
+    super(app);
+    this.fields = fields;
+    this.input = input;
+    this.onApply = onApply;
+  }
+  builder = null;
+  onOpen() {
+    this.setTitle("Filter builder");
+    this.modalEl.addClass("tablify__modal");
+    this.modalEl.addClass("tablify__fb-modal");
+    applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
+    const icon = document.createElement("span");
+    icon.className = "tablify__fb-title-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.innerHTML = faIcon("filter");
+    this.titleEl.prepend(icon);
+    this.builder = new FilterBuilder(this.fields, this.input, {
+      onApply: (input) => {
+        this.onApply(input);
+        this.close();
+      },
+      onCancel: () => this.close()
+    });
+    this.contentEl.appendChild(this.builder.root);
+  }
+  onClose() {
+    this.contentEl.textContent = "";
+    this.builder = null;
+  }
+};
+
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
-var TableView = class extends import_obsidian8.TextFileView {
+var TableView = class extends import_obsidian9.TextFileView {
+  constructor(leaf, hooks = {}) {
+    super(leaf);
+    this.hooks = hooks;
+  }
   session = null;
   grid = null;
   rawData = "";
@@ -13725,9 +14292,6 @@ var TableView = class extends import_obsidian8.TextFileView {
   lastTouchAt = 0;
   /** P8-04: unsubscribe from the vault link index on close. */
   linkUnsub = null;
-  constructor(leaf) {
-    super(leaf);
-  }
   getViewType() {
     return TABLIFY_VIEW_TYPE;
   }
@@ -13850,7 +14414,7 @@ var TableView = class extends import_obsidian8.TextFileView {
   titleCallbacks() {
     return {
       onRename: (name) => this.renameTable(name),
-      onInvalidName: (message) => new import_obsidian8.Notice(message),
+      onInvalidName: (message) => new import_obsidian9.Notice(message),
       // Same flow as the "Import CSV / Excel as table" command (file picker → folder picker).
       onImport: () => startImport(this.app),
       onExport: () => void this.openExport(),
@@ -13868,14 +14432,14 @@ var TableView = class extends import_obsidian8.TextFileView {
     if (newPath === file.path)
       return true;
     if (this.app.vault.getAbstractFileByPath(newPath)) {
-      new import_obsidian8.Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
+      new import_obsidian9.Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
       return false;
     }
     try {
       await this.app.fileManager.renameFile(file, newPath);
       return true;
     } catch (e) {
-      new import_obsidian8.Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian9.Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
       return false;
     }
   }
@@ -13903,10 +14467,10 @@ var TableView = class extends import_obsidian8.TextFileView {
       return;
     const outcome = await writeExport(table, "csv", exportFolderOf(file), file.basename, vaultExportAdapter(this.app));
     if (!outcome.ok) {
-      new import_obsidian8.Notice(`Export failed. No file was written. ${outcome.error}`);
+      new import_obsidian9.Notice(`Export failed. No file was written. ${outcome.error}`);
       return;
     }
-    new import_obsidian8.Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
+    new import_obsidian9.Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
   }
   /** Copy Markdown: the current view as a Markdown table on the system clipboard. */
   async copyCurrentViewMarkdown() {
@@ -13918,9 +14482,9 @@ var TableView = class extends import_obsidian8.TextFileView {
       if (!navigator.clipboard)
         throw new Error("clipboard unavailable");
       await navigator.clipboard.writeText(markdown);
-      new import_obsidian8.Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"} as a Markdown table.`);
+      new import_obsidian9.Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"} as a Markdown table.`);
     } catch {
-      new import_obsidian8.Notice("Could not copy to the clipboard.");
+      new import_obsidian9.Notice("Could not copy to the clipboard.");
     }
   }
   syncToolbar() {
@@ -13929,8 +14493,10 @@ var TableView = class extends import_obsidian8.TextFileView {
   toolbarCallbacks() {
     return {
       // Search and query are persisted but not undoable — see patchView().
-      onSearch: (term) => this.applyFilter({ search: term }),
-      onQuery: (query) => this.applyFilter({ query }),
+      // SAD-78: one "Search or query" box, split into the persisted halves; one patch, one render.
+      onFilter: (search, query) => this.applyFilter({ search, query }),
+      onSync: () => this.openSync(),
+      onOpenFilter: () => this.openFilterBuilder(),
       onAddRow: () => this.mutate((s) => s.addRow()),
       onAddField: () => this.promptAddField(),
       onRowHeight: (height) => this.applyViewChange((view, fields) => setRowHeight(view, height, fields)),
@@ -13944,6 +14510,27 @@ var TableView = class extends import_obsidian8.TextFileView {
       onUndo: () => this.mutate((s) => s.undo()),
       onRedo: () => this.mutate((s) => s.redo())
     };
+  }
+  /** Toolbar Sync: the plugin's sync entry point, same as the command. */
+  openSync() {
+    if (!this.hooks.openSync) {
+      new import_obsidian9.Notice("Airtable sync is not available here.");
+      return;
+    }
+    this.hooks.openSync(this);
+  }
+  /** Toolbar Filter: the builder reads the box's text and writes the result back into it. */
+  openFilterBuilder() {
+    const s = this.session;
+    const toolbar = this.toolbarView;
+    if (!s || !toolbar)
+      return;
+    new FilterBuilderModal(
+      this.app,
+      s.getFields(),
+      toolbar.getFilterText(),
+      (input) => toolbar.setFilterText(input)
+    ).open();
   }
   /**
    * Persist search/query. Goes through patchView(), not setView(), so typing does not push
@@ -14287,7 +14874,7 @@ var TableView = class extends import_obsidian8.TextFileView {
         new TypePickerModal(this.app, targets, (target) => {
           const result = s.changeFieldType(field.id, target.type);
           if (!result.ok)
-            new import_obsidian8.Notice(result.reason);
+            new import_obsidian9.Notice(result.reason);
           this.afterChange();
         }).open();
         return;
@@ -14297,7 +14884,7 @@ var TableView = class extends import_obsidian8.TextFileView {
         new FormulaEditModal(this.app, current, (expression) => {
           const result = s.setFormula(field.id, expression);
           if (!result.ok)
-            new import_obsidian8.Notice(result.reason);
+            new import_obsidian9.Notice(result.reason);
           this.afterChange();
         }).open();
         return;
@@ -14321,16 +14908,16 @@ var TableView = class extends import_obsidian8.TextFileView {
   }
   pasteInto(row, field) {
     if (field.type === "link") {
-      new import_obsidian8.Notice("Use Choose linked rows to change links.");
+      new import_obsidian9.Notice("Use Choose linked rows to change links.");
       return;
     }
     if (this.clipboardText === null) {
-      new import_obsidian8.Notice("Nothing copied yet.");
+      new import_obsidian9.Notice("Nothing copied yet.");
       return;
     }
     const res = parseInput(field, this.clipboardText);
     if (!res.ok) {
-      new import_obsidian8.Notice(`Cannot paste here: ${res.error}`);
+      new import_obsidian9.Notice(`Cannot paste here: ${res.error}`);
       return;
     }
     this.session?.setValue(row.id, field.id, res.value);
@@ -14415,7 +15002,7 @@ function isEmptyValue(v) {
 }
 
 // src/menus/fileMenu.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // src/menus/fileMenuModel.ts
 var NEW_TABLE_ROW_COUNT = 3;
@@ -14519,7 +15106,7 @@ function registerFileMenu(plugin) {
           (mi) => mi.setTitle(item.label).onClick(() => void run(app, file, item.id))
         );
       }
-      if (file instanceof import_obsidian9.TFile && file.extension === "tablify") {
+      if (file instanceof import_obsidian10.TFile && file.extension === "tablify") {
         const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
         if (cached.kind === "reissue") {
           menu.addItem((mi) => mi.setTitle(REISSUE_LABEL).onClick(() => void reissueFile(app, file)));
@@ -14535,52 +15122,52 @@ async function reissueFile(app, file) {
   const decision = decideReissue(idx.index.duplicates(), file.path, openPaths);
   switch (decision.kind) {
     case "not-duplicated":
-      new import_obsidian9.Notice("This table ID is not shared. Nothing to change.");
+      new import_obsidian10.Notice("This table ID is not shared. Nothing to change.");
       return;
     case "keeps-id":
-      new import_obsidian9.Notice("This file keeps the table ID. Give the other copy a new ID instead.");
+      new import_obsidian10.Notice("This file keeps the table ID. Give the other copy a new ID instead.");
       return;
     case "open":
-      new import_obsidian9.Notice("Close this table tab first, then try again.");
+      new import_obsidian10.Notice("Close this table tab first, then try again.");
       return;
     case "reissue":
       break;
   }
   const result = reissueTableIdText(await app.vault.read(file));
   if (!result.ok) {
-    new import_obsidian9.Notice(`Could not give a new ID: ${result.error}`);
+    new import_obsidian10.Notice(`Could not give a new ID: ${result.error}`);
     return;
   }
   await app.vault.modify(file, result.text);
-  new import_obsidian9.Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
+  new import_obsidian10.Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
 }
 function targetOf(file) {
-  if (file instanceof import_obsidian9.TFile)
+  if (file instanceof import_obsidian10.TFile)
     return { kind: "file", extension: file.extension };
-  if (file instanceof import_obsidian9.TFolder)
+  if (file instanceof import_obsidian10.TFolder)
     return { kind: "folder", path: file.isRoot() ? "" : file.path };
   return { kind: "other" };
 }
 async function run(app, file, action) {
   switch (action) {
     case "open":
-      if (file instanceof import_obsidian9.TFile)
+      if (file instanceof import_obsidian10.TFile)
         await app.workspace.getLeaf(false).openFile(file);
       return;
     case "export":
-      if (file instanceof import_obsidian9.TFile)
+      if (file instanceof import_obsidian10.TFile)
         openExportModal(app, file);
       return;
     case "duplicate":
-      if (file instanceof import_obsidian9.TFile)
+      if (file instanceof import_obsidian10.TFile)
         await duplicateFile(app, file);
       return;
     case "newTable":
-      if (file instanceof import_obsidian9.TFolder)
+      if (file instanceof import_obsidian10.TFolder)
         await createNewTable(app, file.path);
       return;
     case "importTable":
-      if (file instanceof import_obsidian9.TFolder)
+      if (file instanceof import_obsidian10.TFolder)
         startImport(app, file.path);
       return;
   }
@@ -14592,12 +15179,12 @@ async function duplicateFile(app, source) {
   const text = await app.vault.read(source);
   const result = duplicateTableText(text, name);
   if (!result.ok) {
-    new import_obsidian9.Notice(`Duplicate failed. The table file could not be read: ${result.error}`);
+    new import_obsidian10.Notice(`Duplicate failed. The table file could not be read: ${result.error}`);
     return;
   }
   const path = joinPath(folder, `${name}.tablify`);
   await app.vault.create(path, result.text);
-  new import_obsidian9.Notice(`Created ${path}.`);
+  new import_obsidian10.Notice(`Created ${path}.`);
 }
 async function createNewTable(app, folder) {
   const exists = (name2) => app.vault.getAbstractFileByPath(joinPath(folder, `${name2}.tablify`)) !== null;
@@ -14608,7 +15195,7 @@ async function createNewTable(app, folder) {
 }
 
 // src/settings.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 var DEFAULT_SETTINGS = Object.freeze({ airtableToken: "" });
 var MAX_TOKEN_LENGTH = 512;
 function normalizeSettings(raw) {
@@ -14634,7 +15221,7 @@ async function saveSettings(store, settings) {
   const clean = normalizeSettings(settings);
   await store.saveData({ airtableToken: clean.airtableToken });
 }
-var TablifySettingTab = class extends import_obsidian10.PluginSettingTab {
+var TablifySettingTab = class extends import_obsidian11.PluginSettingTab {
   host;
   constructor(app, host) {
     super(app, host);
@@ -14643,8 +15230,8 @@ var TablifySettingTab = class extends import_obsidian10.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian10.Setting(containerEl).setName("Airtable").setHeading();
-    new import_obsidian10.Setting(containerEl).setName("Personal access token").setDesc(
+    new import_obsidian11.Setting(containerEl).setName("Airtable").setHeading();
+    new import_obsidian11.Setting(containerEl).setName("Personal access token").setDesc(
       "Used only for Airtable sync. Stored in this plugin\u2019s settings. It is never written to .tablify files or exports."
     ).addText((text) => {
       text.inputEl.type = "password";
@@ -14662,7 +15249,7 @@ var TablifySettingTab = class extends import_obsidian10.PluginSettingTab {
 };
 
 // src/embed/register.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // src/embed/embedDocument.ts
 var EmbedDocument = class {
@@ -14810,7 +15397,7 @@ var EmbedRegistry = class {
 };
 
 // src/embed/embedView.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 var EMBED_VIEWPORT_HEIGHT = 320;
 var EmbedView = class {
   root;
@@ -14898,7 +15485,7 @@ var EmbedView = class {
     if (!storeRow)
       return false;
     if (field.type === "link") {
-      new import_obsidian11.Notice("Open the full table to change links.");
+      new import_obsidian12.Notice("Open the full table to change links.");
       return false;
     }
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
@@ -15100,7 +15687,7 @@ var EMBED_FENCE_LANGUAGE = "tablify";
 function vaultEmbedIO(app) {
   const fileAt = (path) => {
     const f = app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof import_obsidian12.TFile))
+    if (!(f instanceof import_obsidian13.TFile))
       throw new Error("file not found");
     return f;
   };
@@ -15111,7 +15698,7 @@ function vaultEmbedIO(app) {
     }
   };
 }
-var EmbedRenderChild = class extends import_obsidian12.MarkdownRenderChild {
+var EmbedRenderChild = class extends import_obsidian13.MarkdownRenderChild {
   onDone;
   constructor(containerEl, onDone) {
     super(containerEl);
@@ -15157,7 +15744,7 @@ function registerEmbedProcessor(plugin) {
   );
   plugin.registerEvent(
     app.vault.on("modify", (file) => {
-      if (file instanceof import_obsidian12.TFile)
+      if (file instanceof import_obsidian13.TFile)
         void registry2.fileChanged(file.path);
     })
   );
@@ -15165,10 +15752,10 @@ function registerEmbedProcessor(plugin) {
 }
 
 // src/views/sync/SyncModal.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // src/sync/airtableClient.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // src/sync/rateLimiter.ts
 var defaultClock = () => Date.now();
@@ -15240,7 +15827,7 @@ var BASE_ID = /^app[A-Za-z0-9]+$/;
 var TABLE_ID = /^tbl[A-Za-z0-9]+$/;
 var RECORD_ID = /^rec[A-Za-z0-9]+$/;
 function transportDefault(param) {
-  return (0, import_obsidian13.requestUrl)(param);
+  return (0, import_obsidian14.requestUrl)(param);
 }
 function headerValue(headers, name) {
   if (!headers)
@@ -16462,7 +17049,7 @@ function el(parent, tag, opts = {}) {
 }
 var SCOPES_TEXT = "data.records:read \xB7 data.records:write \xB7 schema.bases:read";
 var CREATE_SCOPE_TEXT = "schema.bases:write is needed only to create fields.";
-var SyncModal = class extends import_obsidian14.Modal {
+var SyncModal = class extends import_obsidian15.Modal {
   constructor(app, deps) {
     super(app);
     this.deps = deps;
@@ -16749,7 +17336,7 @@ var SyncModal = class extends import_obsidian14.Modal {
 };
 
 // src/main.ts
-var TablifyPlugin = class extends import_obsidian15.Plugin {
+var TablifyPlugin = class extends import_obsidian16.Plugin {
   // P7-03: plugin settings. The Airtable token lives only here (plugin data).
   settings = { ...DEFAULT_SETTINGS };
   async onload() {
@@ -16760,7 +17347,7 @@ var TablifyPlugin = class extends import_obsidian15.Plugin {
     linkIndexFor(this.app).start(this);
     installLinkLabelResolver(this.app);
     registerLinkIntegrityCommand(this);
-    this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf));
+    this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf, { openSync: (view) => this.openSyncFor(view) }));
     this.registerExtensions(["tablify"], TABLIFY_VIEW_TYPE);
     registerFileMenu(this);
     registerEmbedProcessor(this);
@@ -16771,10 +17358,13 @@ var TablifyPlugin = class extends import_obsidian15.Plugin {
     });
   }
   openSync() {
-    const view = this.app.workspace.getActiveViewOfType(TableView);
+    this.openSyncFor(this.app.workspace.getActiveViewOfType(TableView));
+  }
+  /** Shared by the command (active view) and the table toolbar's Sync button (its own view). */
+  openSyncFor(view) {
     const session = view?.syncSession();
     if (!view || !session) {
-      new import_obsidian15.Notice("Open a .tablify table first.");
+      new import_obsidian16.Notice("Open a .tablify table first.");
       return;
     }
     const token = this.settings.airtableToken.trim() || null;

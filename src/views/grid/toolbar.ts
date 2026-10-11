@@ -6,9 +6,10 @@
  * it is what makes the toolbar testable in jsdom. The Obsidian-facing layer (TableView)
  * only mounts it and hands it callbacks.
  *
- * Layout follows Prototype/Anthropic Table Workspace.html: a search capsule on the left,
- * Add Row / Add Field / Options on the right, a row-count badge beneath, and a query row
- * with inline errors.
+ * Layout follows the prototype's #toolbarRow (SAD-78, owner decision S-3): one "Search or
+ * query" capsule on the left, then Sync · ↶ · ↷ · Filter · Add Row · Add Field · Options, with
+ * the query's inline error beneath and the meta row (row count) below that. The box's text is
+ * split into the persisted view.search + view.query halves by src/query/combined.ts.
  *
  * Build once, update often: the DOM is constructed in the constructor and `update()` only
  * refreshes derived pieces. Rebuilding on every keystroke would destroy focus and caret
@@ -18,6 +19,8 @@
 import { applyTheme } from '../../ui/theme/tokens.js';
 import { parseQuery } from '../../query/parse.js';
 import type { QueryError } from '../../query/parse.js';
+import { joinSearchQuery, splitSearchQuery, toInputPosition } from '../../query/combined.js';
+import { faIcon, type FaGlyph } from '../../ui/faIcons.js';
 import type { FieldDefinition, ViewDefinition } from '../../model/types.js';
 
 /**
@@ -36,14 +39,22 @@ export const ROW_HEIGHT_LABELS: Record<string, string> = {
   large: 'Large',
 };
 
-/** Search and query debounce in ms. P3-08 specifies 200 ms (proposed). */
+/** Search-or-query debounce in ms. P3-08 specifies 200 ms (proposed). */
 export const DEBOUNCE_MS = 200;
 
+/** Placeholder of the single box: the prototype's wording with a generic example (S-3). */
+export const SEARCH_PLACEHOLDER = 'Search or query — e.g. Status:Done Amount:>10';
+
 export interface ToolbarCallbacks {
-  /** Search text changed (debounced). Persisted, not undoable. */
-  onSearch(term: string): void;
-  /** Query text changed (debounced). Persisted, not undoable. */
-  onQuery(query: string): void;
+  /**
+   * The "Search or query" box changed (debounced), already split into its free-text search
+   * and `field:value` query halves. Persisted, not undoable.
+   */
+  onFilter(search: string, query: string): void;
+  /** Sync button: the same entry point as the "Airtable sync for this table" command. */
+  onSync(): void;
+  /** Filter button: open the filter builder for the box's current text. */
+  onOpenFilter(): void;
   onAddRow(): void;
   onAddField(): void;
   onRowHeight(height: ToolbarRowHeight): void;
@@ -76,36 +87,33 @@ export interface ToolbarOptions extends ToolbarState {
 }
 
 /**
- * Inline SVG glyphs (SAD-71 Step 3). The prototype uses Font Awesome from a CDN; the
- * plugin ships offline, so the same shapes are hand-inlined here. `currentColor` only —
- * styles.css colours them through tokens, and the no-hex-literals rule stays intact.
+ * Toolbar glyphs: the prototype's Font Awesome 6.4.0 solid icons (src/ui/faIcons.ts), inlined
+ * because the plugin ships offline. `currentColor` only — styles.css colours them via tokens.
  */
 const ICONS = {
-  search:
-    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 L14 14"></path></svg>',
-  plus:
-    '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg>',
-  columns:
-    '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M8 3v10"></path></svg>',
-  sliders:
-    '<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 5h10M3 11h10"></path><circle cx="6" cy="5" r="1.6" fill="currentColor" stroke="none"></circle><circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none"></circle></svg>',
-  undo:
-    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 4 L3 7 L6 10"></path><path d="M3 7 h7 a3 3 0 0 1 0 6 H7"></path></svg>',
-  redo:
-    '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 4 L13 7 L10 10"></path><path d="M13 7 H6 a3 3 0 0 0 0 6 h3"></path></svg>',
-} as const;
+  search: 'magnifying-glass',
+  sync: 'cloud-arrow-up',
+  undo: 'rotate-left',
+  redo: 'rotate-right',
+  filter: 'filter',
+  plus: 'plus',
+  columns: 'table-columns',
+  sliders: 'sliders',
+} as const satisfies Record<string, FaGlyph>;
 
 /** Wrap a glyph in the icon span the styles colour with the accent token. */
 function iconSpan(glyph: keyof typeof ICONS): HTMLElement {
   const span = document.createElement('span');
   span.className = 'tablify__btn-icon';
   span.setAttribute('aria-hidden', 'true');
-  span.innerHTML = ICONS[glyph];
+  span.innerHTML = faIcon(ICONS[glyph]);
   return span;
 }
 
 /** Stable data-action values, so tests and the DOM agree. */
 const ACTIONS = {
+  sync: 'sync',
+  filter: 'filter',
   addRow: 'add-row',
   addField: 'add-field',
   options: 'options',
@@ -119,14 +127,12 @@ export class Toolbar {
 
   private readonly opts: ToolbarOptions;
   private readonly searchInput: HTMLInputElement;
-  private readonly queryInput: HTMLInputElement;
   private readonly queryError: HTMLElement;
   private readonly optionsPanel: HTMLElement;
   private readonly optionsButton: HTMLElement;
   private readonly rowCount: HTMLElement;
   private readonly hiddenList: HTMLElement;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
-  private queryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: ToolbarOptions) {
     this.opts = options;
@@ -146,47 +152,44 @@ export class Toolbar {
     const searchIcon = document.createElement('span');
     searchIcon.className = 'tablify__search-icon';
     searchIcon.setAttribute('aria-hidden', 'true');
-    searchIcon.innerHTML = ICONS.search; // inline svg glyph, no external asset
+    searchIcon.innerHTML = faIcon(ICONS.search); // inline svg glyph, no external asset
     this.searchInput = document.createElement('input');
     this.searchInput.type = 'search';
     this.searchInput.className = 'tablify__search-input';
-    this.searchInput.placeholder = 'Search rows…';
-    this.searchInput.setAttribute('aria-label', 'Search rows');
+    this.searchInput.placeholder = SEARCH_PLACEHOLDER;
+    this.searchInput.setAttribute('aria-label', 'Search or query rows');
+    this.searchInput.spellcheck = false;
     this.searchInput.dataset.testid = 'tablify-search';
     searchWrap.appendChild(searchIcon);
     searchWrap.appendChild(this.searchInput);
 
+    // Prototype order: Sync · ↶ · ↷ · Filter · Add Row · Add Field · Options.
     const actions = document.createElement('div');
     actions.className = 'tablify__toolbar-actions';
-    actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add row', 'Add row', 'plus'));
+    actions.appendChild(this.makeButton(ACTIONS.sync, 'Sync', 'Airtable sync for this table', 'sync'));
+    actions.appendChild(this.makeButton(ACTIONS.undo, '', 'Undo', 'undo'));
+    actions.appendChild(this.makeButton(ACTIONS.redo, '', 'Redo', 'redo'));
+    const filterButton = this.makeButton(ACTIONS.filter, 'Filter', 'Filter builder', 'filter');
+    filterButton.setAttribute('aria-haspopup', 'dialog');
+    actions.appendChild(filterButton);
+    actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add Row', 'Add row', 'plus'));
     actions.appendChild(this.makeButton(ACTIONS.addField, 'Add Field', 'Add field', 'columns'));
     this.optionsButton = this.makeButton(ACTIONS.options, 'Options', 'View settings', 'sliders');
     this.optionsButton.setAttribute('aria-haspopup', 'true');
     this.optionsButton.setAttribute('aria-expanded', 'false');
     actions.appendChild(this.optionsButton);
-    actions.appendChild(this.makeButton(ACTIONS.undo, '', 'Undo', 'undo'));
-    actions.appendChild(this.makeButton(ACTIONS.redo, '', 'Redo', 'redo'));
 
     topRow.appendChild(searchWrap);
     topRow.appendChild(actions);
     this.root.appendChild(topRow);
 
-    // ---- query row ----
-    const queryRow = document.createElement('div');
-    queryRow.className = 'tablify__query-row';
-    this.queryInput = document.createElement('input');
-    this.queryInput.type = 'text';
-    this.queryInput.className = 'tablify__query-input';
-    this.queryInput.placeholder = 'Filter, e.g. Status:Done Amount:>10';
-    this.queryInput.setAttribute('aria-label', 'Filter rows with a query');
-    this.queryInput.dataset.testid = 'tablify-query';
+    // ---- inline query error (the box's `field:value` part) ----
     this.queryError = document.createElement('div');
     this.queryError.className = 'tablify__query-error';
     this.queryError.setAttribute('role', 'alert');
     this.queryError.dataset.testid = 'tablify-query-error';
-    queryRow.appendChild(this.queryInput);
-    queryRow.appendChild(this.queryError);
-    this.root.appendChild(queryRow);
+    this.queryError.hidden = true;
+    this.root.appendChild(this.queryError);
 
     // ---- options popover (view settings) ----
     this.optionsPanel = document.createElement('div');
@@ -250,23 +253,14 @@ export class Toolbar {
 
   private wireEvents(): void {
     this.searchInput.addEventListener('input', () => {
+      // The error is shown immediately so typing is responsive; applying the filter waits
+      // for the debounce, so a half-typed query does not thrash the grid.
+      this.showQueryError(this.searchInput.value);
       if (this.searchTimer !== null) clearTimeout(this.searchTimer);
       const value = this.searchInput.value;
       this.searchTimer = setTimeout(() => {
         this.searchTimer = null;
-        this.opts.callbacks.onSearch(value);
-      }, DEBOUNCE_MS);
-    });
-
-    this.queryInput.addEventListener('input', () => {
-      // The error is shown immediately so typing is responsive; applying the filter waits
-      // for the debounce, so a half-typed query does not thrash the grid.
-      this.showQueryError(this.queryInput.value);
-      if (this.queryTimer !== null) clearTimeout(this.queryTimer);
-      const value = this.queryInput.value;
-      this.queryTimer = setTimeout(() => {
-        this.queryTimer = null;
-        this.opts.callbacks.onQuery(value);
+        this.emitFilter(value);
       }, DEBOUNCE_MS);
     });
 
@@ -297,6 +291,12 @@ export class Toolbar {
 
   private handleAction(action: string): void {
     switch (action) {
+      case ACTIONS.sync:
+        this.opts.callbacks.onSync();
+        break;
+      case ACTIONS.filter:
+        this.opts.callbacks.onOpenFilter();
+        break;
       case ACTIONS.addRow:
         this.opts.callbacks.onAddRow();
         break;
@@ -341,16 +341,40 @@ export class Toolbar {
     // moves the caret to the end, and overwriting a field mid-keystroke would fight the
     // user: a re-render triggered by something else (an undo, a row insert) would otherwise
     // wipe text that the debounce has not applied yet.
-    if (document.activeElement !== this.searchInput && this.searchInput.value !== (state.search ?? '')) {
-      this.searchInput.value = state.search ?? '';
-    }
-    if (document.activeElement !== this.queryInput && this.queryInput.value !== (state.query ?? '')) {
-      this.queryInput.value = state.query ?? '';
+    // The box shows search + query; it is only rewritten when its own split disagrees with
+    // the persisted halves (a clear, an undo, a file change), so the user's spacing survives.
+    if (document.activeElement !== this.searchInput) {
+      const split = splitSearchQuery(this.searchInput.value);
+      if (split.search !== (state.search ?? '').trim() || split.query.trim() !== (state.query ?? '').trim()) {
+        this.searchInput.value = joinSearchQuery(state.search, state.query);
+      }
     }
 
-    this.showQueryError(this.queryInput.value);
+    this.showQueryError(this.searchInput.value);
     this.renderRowCount();
     this.renderOptions();
+  }
+
+  /** The box's current text (including anything typed but not yet applied). */
+  getFilterText(): string {
+    return this.searchInput.value;
+  }
+
+  /**
+   * Replace the box's text and apply it at once (filter builder Apply). Cancels a pending
+   * debounce so stale typing cannot overwrite the new filter afterwards.
+   */
+  setFilterText(text: string): void {
+    if (this.searchTimer !== null) clearTimeout(this.searchTimer);
+    this.searchTimer = null;
+    this.searchInput.value = text;
+    this.showQueryError(text);
+    this.emitFilter(text);
+  }
+
+  private emitFilter(text: string): void {
+    const split = splitSearchQuery(text);
+    this.opts.callbacks.onFilter(split.search, split.query);
   }
 
   /** True when the view settings popover is open. */
@@ -360,9 +384,7 @@ export class Toolbar {
 
   destroy(): void {
     if (this.searchTimer !== null) clearTimeout(this.searchTimer);
-    if (this.queryTimer !== null) clearTimeout(this.queryTimer);
     this.searchTimer = null;
-    this.queryTimer = null;
     document.removeEventListener('pointerdown', this.outsideClose);
     this.root.remove();
   }
@@ -370,31 +392,31 @@ export class Toolbar {
   // ---- rendering ----
 
   private showQueryError(raw: string): void {
-    const trimmed = (raw ?? '').trim();
-    if (!trimmed) {
+    const split = splitSearchQuery(raw ?? '');
+    const query = split.query.trim();
+    if (!query) {
       // Fall back to the session's persisted-query error (e.g. loaded from a file).
       const persisted = this.opts.queryError;
       if (persisted) {
-        this.queryError.textContent = `${persisted.message} (position ${persisted.position})`;
-        this.queryError.hidden = false;
-        this.queryInput.classList.add('tablify__query-input--invalid');
+        this.setError(`${persisted.message} (position ${persisted.position})`);
         return;
       }
-      this.queryError.textContent = '';
-      this.queryError.hidden = true;
-      this.queryInput.classList.remove('tablify__query-input--invalid');
+      this.setError(null);
       return;
     }
-    const parsed = parseQuery(trimmed);
+    const parsed = parseQuery(split.query);
     if (parsed.ok) {
-      this.queryError.textContent = '';
-      this.queryError.hidden = true;
-      this.queryInput.classList.remove('tablify__query-input--invalid');
+      this.setError(null);
       return;
     }
-    this.queryError.textContent = `${parsed.error.message} (position ${parsed.error.position})`;
-    this.queryError.hidden = false;
-    this.queryInput.classList.add('tablify__query-input--invalid');
+    // Positions refer to the box text, not the extracted query part.
+    this.setError(`${parsed.error.message} (position ${toInputPosition(split, parsed.error.position)})`);
+  }
+
+  private setError(message: string | null): void {
+    this.queryError.textContent = message ?? '';
+    this.queryError.hidden = message === null;
+    this.searchInput.classList.toggle('tablify__search-input--invalid', message !== null);
   }
 
   private renderRowCount(): void {
