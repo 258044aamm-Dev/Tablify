@@ -11,7 +11,7 @@
 
 import { App, Modal, Setting } from 'obsidian';
 import type { FieldDefinition, LinkRef } from '../../model/types.js';
-import { applyTheme } from '../../ui/theme/tokens.js';
+import { dressProtoModal } from '../../ui/protoModal.js';
 import { buildSelection, filterRows, type LinkableRow, type LinkIndex } from '../../model/link.js';
 
 export interface LinkPickerOptions {
@@ -42,8 +42,7 @@ export class LinkPickerModal extends Modal {
 
   onOpen(): void {
     this.setTitle(`Link: ${this.opts.field.name}`);
-    this.modalEl.addClass('tablify__modal');
-    applyTheme(this.modalEl, document.body.classList.contains('theme-dark') ? 'dark' : 'light');
+    dressProtoModal(this, { icon: 'link', size: 'md' });
     this.render();
   }
 

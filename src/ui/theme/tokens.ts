@@ -86,6 +86,8 @@ export const palette = {
   dangerDark: '#F87171',
   /** #D1D5DB — light switch track when off (prototype Options `bg-gray-300`, SAD-81) */
   switchOffLight: '#D1D5DB',
+  /** #D5CEC2 — light scrollbar thumb (prototype `.light ::-webkit-scrollbar-thumb`, SAD-85) */
+  scrollThumbLight: '#D5CEC2',
 } as const;
 
 /**
@@ -213,6 +215,8 @@ export interface Theme {
   accentFill: string;
   /** SAD-81: switch track when off (prototype `bg-gray-300 dark:bg-gray-600`). */
   switchOff: string;
+  /** SAD-85: prototype scrollbar thumb (`#D5CEC2` light, `#3A3630` dark). Decoration only. */
+  scrollThumb: string;
   /** SAD-81: switch knob (prototype `bg-white`, both themes). */
   switchKnob: string;
 }
@@ -247,6 +251,7 @@ export const lightTheme: Theme = {
   accentCheck: palette.terracotta,
   accentFill: palette.terracotta,
   switchOff: palette.switchOffLight,
+  scrollThumb: palette.scrollThumbLight,
   switchKnob: palette.cardLight,
 };
 
@@ -280,6 +285,7 @@ export const darkTheme: Theme = {
   accentCheck: palette.terracotta,
   accentFill: palette.terracotta,
   switchOff: palette.placeholderDark,
+  scrollThumb: palette.capsuleBorderDark,
   switchKnob: palette.cardLight,
 };
 
@@ -323,6 +329,7 @@ export const cssVars = {
   accentCheck: '--tablify-accent-check',
   accentFill: '--tablify-accent-fill',
   switchOff: '--tablify-switch-off',
+  scrollThumb: '--tablify-scroll-thumb',
   switchKnob: '--tablify-switch-knob',
 } as const;
 
@@ -364,6 +371,7 @@ export function applyTheme(root: HTMLElement, theme: ThemeName): void {
   root.style.setProperty(cssVars.accentCheck, t.accentCheck);
   root.style.setProperty(cssVars.accentFill, t.accentFill);
   root.style.setProperty(cssVars.switchOff, t.switchOff);
+  root.style.setProperty(cssVars.scrollThumb, t.scrollThumb);
   root.style.setProperty(cssVars.switchKnob, t.switchKnob);
 }
 

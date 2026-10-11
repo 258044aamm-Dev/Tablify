@@ -46,6 +46,8 @@ describe('P3-09 — Design tokens', () => {
       dangerDark: '#F87171',
       // SAD-81: Options switch track when off (prototype bg-gray-300).
       switchOffLight: '#D1D5DB',
+      // SAD-85: prototype light scrollbar thumb.
+      scrollThumbLight: '#D5CEC2',
     };
     expect(palette).toEqual(expected);
   });

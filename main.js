@@ -9783,6 +9783,318 @@ function installLinkLabelResolver(app) {
   });
 }
 
+// src/ui/theme/tokens.ts
+var palette = {
+  /** #181715 — dark theme background (prototype `dark`) */
+  dark: "#181715",
+  /** #FAF7F2 — light theme background (prototype `paper`) */
+  light: "#FAF7F2",
+  /** #22201D — dark card surface (prototype `dark-card`) */
+  cardDark: "#22201D",
+  /** #FFFFFF — light card surface (prototype `paper-card`) */
+  cardLight: "#FFFFFF",
+  /** #1B1A17 — dark inner surface: grid shell (prototype `dark-inner`) */
+  innerDark: "#1B1A17",
+  /** #F4EFE6 — light inner surface: grid shell (prototype `paper-inner`) */
+  innerLight: "#F4EFE6",
+  /** #262420 — dark capsule surface: cells, header capsules, popovers */
+  capsuleDark: "#262420",
+  /** #FFFFFF — light capsule surface (prototype cell/header capsules) */
+  capsuleLight: "#FFFFFF",
+  /** #38342E — dark subtle border (prototype `dark-border`) */
+  borderDark: "#38342E",
+  /** #E6E0D5 — light subtle border (prototype `paper-border`) */
+  borderLight: "#E6E0D5",
+  /** #24221E — dark pill surface: toolbar buttons, search input, float panels (prototype `.pill-btn`) */
+  pillDark: "#24221E",
+  /** #2D2A25 — dark pill hover surface (prototype `.pill-btn:hover`) */
+  pillHoverDark: "#2D2A25",
+  /** #4A453E — dark pill hover border (prototype `.pill-btn:hover`) */
+  pillBorderHoverDark: "#4A453E",
+  /** #F6F2EA — light pill hover surface (prototype `.pill-btn:hover`) */
+  pillHoverLight: "#F6F2EA",
+  /** #D3CAB9 — light pill hover border (prototype `.pill-btn:hover`) */
+  pillBorderHoverLight: "#D3CAB9",
+  /** #3A3630 — dark header/cell capsule border (prototype `.header-capsule`, `.cell-capsule`) */
+  capsuleBorderDark: "#3A3630",
+  /** #ECE7E1 — body text on dark surfaces */
+  textOnDark: "#ECE7E1",
+  /** #1E1B18 — body text on light surfaces (prototype `charcoal`) */
+  textOnLight: "#1E1B18",
+  /** #9CA3AF — muted small text on dark (prototype dark `gray-400`) */
+  mutedDark: "#9CA3AF",
+  /**
+   * #6E655C — muted small text on light. The prototype's clay (#8C827A) measures 3.55:1 on
+   * its paper background — below AA for the 11px labels it carries — so the accessible
+   * clay variant ships instead; see docs/evidence/P3-11.md (SAD-71 Step 2).
+   */
+  mutedLight: "#6E655C",
+  /** #d97757 — primary accent on dark (prototype `terracotta-dark`), focus, selection */
+  accentOrange: "#d97757",
+  /** #CC785C — primary accent on light (prototype `terracotta`), focus, selection */
+  terracotta: "#CC785C",
+  /** #6a9bcc — secondary accent (links, info) */
+  accentBlue: "#6a9bcc",
+  /** #788c5d — success and tertiary accent */
+  accentGreen: "#788c5d",
+  /** #6B7280 — dark header grip glyph (prototype dark `gray-500`) */
+  gripDark: "#6B7280",
+  /** #B7B2AE — light header grip glyph: prototype `clay/50` composited on the white capsule */
+  gripLight: "#B7B2AE",
+  /** #4B5563 — dark empty-cell dash and row-number grip (prototype dark `gray-600`) */
+  placeholderDark: "#4B5563",
+  /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
+  placeholderLight: "#C5C1BE",
+  /**
+   * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
+   * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
+   * rule as mutedLight (SAD-80).
+   */
+  terracottaTextLight: "#B5573A",
+  /** #DC2626 — light Delete ink (Tailwind red-600, 4.83:1). Prototype red-500 is 3.76:1 (SAD-80). */
+  dangerLight: "#DC2626",
+  /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
+  dangerDark: "#F87171",
+  /** #D1D5DB — light switch track when off (prototype Options `bg-gray-300`, SAD-81) */
+  switchOffLight: "#D1D5DB",
+  /** #D5CEC2 — light scrollbar thumb (prototype `.light ::-webkit-scrollbar-thumb`, SAD-85) */
+  scrollThumbLight: "#D5CEC2"
+};
+var chipHues = {
+  gray: ["#6B7280", "#4B5563", "#D1D5DB"],
+  sky: ["#0EA5E9", "#0369A1", "#7DD3FC"],
+  emerald: ["#10B981", "#065F46", "#6EE7B7"],
+  rose: ["#F43F5E", "#BE123C", "#FDA4AF"],
+  amber: ["#F59E0B", "#92400E", "#FCD34D"],
+  purple: ["#A855F7", "#7E22CE", "#D8B4FE"],
+  pink: ["#EC4899", "#9D174D", "#F9A8D4"]
+};
+var chipGrayDot = "#9CA3AF";
+var chipHueFor = {
+  gray: "gray",
+  brown: "amber",
+  orange: "amber",
+  yellow: "amber",
+  green: "emerald",
+  blue: "sky",
+  purple: "purple",
+  pink: "pink",
+  red: "rose"
+};
+function withAlpha(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
+}
+function optionChipColors(color, theme) {
+  const hue = chipHueFor[color ?? ""] ?? "gray";
+  const [base, inkLight, inkDark] = chipHues[hue];
+  return {
+    background: withAlpha(base, 0.15),
+    border: withAlpha(base, 0.3),
+    text: theme === "dark" ? inkDark : inkLight,
+    dot: hue === "gray" ? chipGrayDot : base
+  };
+}
+var lightTheme = {
+  bg: palette.light,
+  bgCard: palette.cardLight,
+  bgInner: palette.innerLight,
+  bgCapsule: palette.capsuleLight,
+  bgSubtle: palette.innerLight,
+  bgStripe: palette.innerLight,
+  text: palette.textOnLight,
+  textMuted: palette.mutedLight,
+  border: palette.borderLight,
+  borderSubtle: palette.borderLight,
+  accentPrimary: palette.terracotta,
+  accentSecondary: palette.accentBlue,
+  accentSuccess: palette.accentGreen,
+  selection: palette.terracotta,
+  focus: palette.terracotta,
+  onAccent: palette.textOnLight,
+  bgPill: palette.cardLight,
+  bgPillHover: palette.pillHoverLight,
+  borderPillHover: palette.pillBorderHoverLight,
+  borderCapsule: palette.borderLight,
+  textTitle: palette.textOnLight,
+  textStrong: palette.textOnLight,
+  textFaint: palette.gripLight,
+  textPlaceholder: palette.placeholderLight,
+  textSelected: palette.terracottaTextLight,
+  textDanger: palette.dangerLight,
+  accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.switchOffLight,
+  scrollThumb: palette.scrollThumbLight,
+  switchKnob: palette.cardLight
+};
+var darkTheme = {
+  bg: palette.dark,
+  bgCard: palette.cardDark,
+  bgInner: palette.innerDark,
+  bgCapsule: palette.capsuleDark,
+  bgSubtle: palette.capsuleDark,
+  bgStripe: palette.cardDark,
+  text: palette.textOnDark,
+  textMuted: palette.mutedDark,
+  border: palette.borderDark,
+  borderSubtle: palette.borderDark,
+  accentPrimary: palette.accentOrange,
+  accentSecondary: palette.accentBlue,
+  accentSuccess: palette.accentGreen,
+  selection: palette.accentOrange,
+  focus: palette.accentOrange,
+  onAccent: palette.dark,
+  bgPill: palette.pillDark,
+  bgPillHover: palette.pillHoverDark,
+  borderPillHover: palette.pillBorderHoverDark,
+  borderCapsule: palette.capsuleBorderDark,
+  textTitle: palette.light,
+  textStrong: palette.cardLight,
+  textFaint: palette.gripDark,
+  textPlaceholder: palette.placeholderDark,
+  textSelected: palette.terracotta,
+  textDanger: palette.dangerDark,
+  accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.placeholderDark,
+  scrollThumb: palette.capsuleBorderDark,
+  switchKnob: palette.cardLight
+};
+var themes = {
+  light: lightTheme,
+  dark: darkTheme
+};
+var cssVars = {
+  bg: "--tablify-bg",
+  bgCard: "--tablify-bg-card",
+  bgInner: "--tablify-bg-inner",
+  bgCapsule: "--tablify-bg-capsule",
+  bgSubtle: "--tablify-bg-subtle",
+  bgStripe: "--tablify-bg-stripe",
+  text: "--tablify-text",
+  textMuted: "--tablify-text-muted",
+  border: "--tablify-border",
+  borderSubtle: "--tablify-border-subtle",
+  accentPrimary: "--tablify-accent-primary",
+  accentSecondary: "--tablify-accent-secondary",
+  accentSuccess: "--tablify-accent-success",
+  selection: "--tablify-selection",
+  focus: "--tablify-focus",
+  onAccent: "--tablify-on-accent",
+  bgPill: "--tablify-bg-pill",
+  bgPillHover: "--tablify-bg-pill-hover",
+  borderPillHover: "--tablify-border-pill-hover",
+  borderCapsule: "--tablify-border-capsule",
+  textTitle: "--tablify-text-title",
+  textStrong: "--tablify-text-strong",
+  textFaint: "--tablify-text-faint",
+  textPlaceholder: "--tablify-text-placeholder",
+  textSelected: "--tablify-text-selected",
+  textDanger: "--tablify-text-danger",
+  accentCheck: "--tablify-accent-check",
+  accentFill: "--tablify-accent-fill",
+  switchOff: "--tablify-switch-off",
+  scrollThumb: "--tablify-scroll-thumb",
+  switchKnob: "--tablify-switch-knob"
+};
+function applyTheme(root, theme) {
+  root.classList.remove("tablify--light", "tablify--dark");
+  root.classList.add("tablify", `tablify--${theme}`);
+  const t = themes[theme];
+  root.style.setProperty(cssVars.bg, t.bg);
+  root.style.setProperty(cssVars.bgCard, t.bgCard);
+  root.style.setProperty(cssVars.bgInner, t.bgInner);
+  root.style.setProperty(cssVars.bgCapsule, t.bgCapsule);
+  root.style.setProperty(cssVars.bgSubtle, t.bgSubtle);
+  root.style.setProperty(cssVars.bgStripe, t.bgStripe);
+  root.style.setProperty(cssVars.text, t.text);
+  root.style.setProperty(cssVars.textMuted, t.textMuted);
+  root.style.setProperty(cssVars.border, t.border);
+  root.style.setProperty(cssVars.borderSubtle, t.borderSubtle);
+  root.style.setProperty(cssVars.accentPrimary, t.accentPrimary);
+  root.style.setProperty(cssVars.accentSecondary, t.accentSecondary);
+  root.style.setProperty(cssVars.accentSuccess, t.accentSuccess);
+  root.style.setProperty(cssVars.selection, t.selection);
+  root.style.setProperty(cssVars.focus, t.focus);
+  root.style.setProperty(cssVars.onAccent, t.onAccent);
+  root.style.setProperty(cssVars.bgPill, t.bgPill);
+  root.style.setProperty(cssVars.bgPillHover, t.bgPillHover);
+  root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
+  root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
+  root.style.setProperty(cssVars.textTitle, t.textTitle);
+  root.style.setProperty(cssVars.textStrong, t.textStrong);
+  root.style.setProperty(cssVars.textFaint, t.textFaint);
+  root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
+  root.style.setProperty(cssVars.textSelected, t.textSelected);
+  root.style.setProperty(cssVars.textDanger, t.textDanger);
+  root.style.setProperty(cssVars.accentCheck, t.accentCheck);
+  root.style.setProperty(cssVars.accentFill, t.accentFill);
+  root.style.setProperty(cssVars.switchOff, t.switchOff);
+  root.style.setProperty(cssVars.scrollThumb, t.scrollThumb);
+  root.style.setProperty(cssVars.switchKnob, t.switchKnob);
+}
+
+// src/ui/faIcons.ts
+var GLYPHS = {
+  "file-import": { w: 512, d: "M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z" },
+  "file-export": { w: 576, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z" },
+  "file-csv": { w: 512, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z" },
+  "copy": { w: 512, d: "M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" },
+  "magnifying-glass": { w: 512, d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" },
+  "cloud-arrow-up": { w: 640, d: "M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" },
+  "rotate-left": { w: 512, d: "M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" },
+  "rotate-right": { w: 512, d: "M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z" },
+  "filter": { w: 512, d: "M3.9 54.9C10.5 40.9 24.5 32 40 32H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L320 320.9V448c0 12.1-6.8 23.2-17.7 28.6s-23.8 4.3-33.5-3l-64-48c-8.1-6-12.8-15.5-12.8-25.6V320.9L9 97.3C-.7 85.4-2.8 68.8 3.9 54.9z" },
+  "plus": { w: 448, d: "M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" },
+  "table-columns": { w: 512, d: "M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z" },
+  "sliders": { w: 512, d: "M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" },
+  "xmark": { w: 384, d: "M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" },
+  "trash-can": { w: 448, d: "M135.2 17.7C140.6 6.8 151.7 0 163.8 0H284.2c12.1 0 23.2 6.8 28.6 17.7L320 32h96c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32h96l7.2-14.3zM32 128H416V448c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V128zm96 64c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16z" },
+  "grip-vertical": { w: 320, d: "M40 352l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zm192 0l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 320c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 192l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 160c-22.1 0-40-17.9-40-40L0 72C0 49.9 17.9 32 40 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40z" },
+  "key": { w: 512, d: "M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z" },
+  "ellipsis-vertical": { w: 128, d: "M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z" },
+  "font": { w: 448, d: "M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z" },
+  "align-left": { w: 448, d: "M288 64c0 17.7-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H256c17.7 0 32 14.3 32 32zm0 256c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H256c17.7 0 32 14.3 32 32zM0 192c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 448c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z" },
+  "hashtag": { w: 448, d: "M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H347.1L325.8 320H384c17.7 0 32 14.3 32 32s-14.3 32-32 32H315.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7H155.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8L90.2 384H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192L165.8 320h95.1l21.3-128H187.1z" },
+  "dollar-sign": { w: 320, d: "M160 0c17.7 0 32 14.3 32 32V67.7c1.6 .2 3.1 .4 4.7 .7c.4 .1 .7 .1 1.1 .2l48 8.8c17.4 3.2 28.9 19.9 25.7 37.2s-19.9 28.9-37.2 25.7l-47.5-8.7c-31.3-4.6-58.9-1.5-78.3 6.2s-27.2 18.3-29 28.1c-2 10.7-.5 16.7 1.2 20.4c1.8 3.9 5.5 8.3 12.8 13.2c16.3 10.7 41.3 17.7 73.7 26.3l2.9 .8c28.6 7.6 63.6 16.8 89.6 33.8c14.2 9.3 27.6 21.9 35.9 39.5c8.5 17.9 10.3 37.9 6.4 59.2c-6.9 38-33.1 63.4-65.6 76.7c-13.7 5.6-28.6 9.2-44.4 11V480c0 17.7-14.3 32-32 32s-32-14.3-32-32V445.1c-.4-.1-.9-.1-1.3-.2l-.2 0 0 0c-24.4-3.8-64.5-14.3-91.5-26.3c-16.1-7.2-23.4-26.1-16.2-42.2s26.1-23.4 42.2-16.2c20.9 9.3 55.3 18.5 75.2 21.6c31.9 4.7 58.2 2 76-5.3c16.9-6.9 24.6-16.9 26.8-28.9c1.9-10.6 .4-16.7-1.3-20.4c-1.9-4-5.6-8.4-13-13.3c-16.4-10.7-41.5-17.7-74-26.3l-2.8-.7 0 0C119.4 279.3 84.4 270 58.4 253c-14.2-9.3-27.5-22-35.8-39.6c-8.4-17.9-10.1-37.9-6.1-59.2C23.7 116 52.3 91.2 84.8 78.3c13.3-5.3 27.9-8.9 43.2-11V32c0-17.7 14.3-32 32-32z" },
+  "percent": { w: 384, d: "M374.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-320 320c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l320-320zM128 128A64 64 0 1 0 0 128a64 64 0 1 0 128 0zM384 384a64 64 0 1 0 -128 0 64 64 0 1 0 128 0z" },
+  "stopwatch": { w: 448, d: "M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-41.8-12.3-80.7-33.5-113.2l24.1-24.1c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L355.7 143c-28.1-23-62.2-38.8-99.7-44.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H224 176zm72 192V320c0 13.3-10.7 24-24 24s-24-10.7-24-24V192c0-13.3 10.7-24 24-24s24 10.7 24 24z" },
+  "star": { w: 576, d: "M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z" },
+  "square-check": { w: 448, d: "M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM337 209L209 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L303 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z" },
+  "calendar": { w: 448, d: "M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z" },
+  "clock": { w: 512, d: "M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z" },
+  "link": { w: 640, d: "M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z" },
+  "envelope": { w: 512, d: "M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z" },
+  "phone": { w: 512, d: "M164.9 24.6c-7.7-18.6-28-28.5-47.4-23.2l-88 24C12.1 30.2 0 46 0 64C0 311.4 200.6 512 448 512c18 0 33.8-12.1 38.6-29.5l24-88c5.3-19.4-4.6-39.7-23.2-47.4l-96-40c-16.3-6.8-35.2-2.1-46.3 11.6L304.7 368C234.3 334.7 177.3 277.7 144 207.3L193.3 167c13.7-11.2 18.4-30 11.6-46.3l-40-96z" },
+  "circle-dot": { w: 512, d: "M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-352a96 96 0 1 1 0 192 96 96 0 1 1 0-192z" },
+  "list-check": { w: 512, d: "M152.1 38.2c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 113C-2.3 103.6-2.3 88.4 7 79s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zm0 160c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zM224 96c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H192c-17.7 0-32-14.3-32-32zM48 368a48 48 0 1 1 0 96 48 48 0 1 1 0-96z" },
+  "paperclip": { w: 448, d: "M364.2 83.8c-24.4-24.4-64-24.4-88.4 0l-184 184c-42.1 42.1-42.1 110.3 0 152.4s110.3 42.1 152.4 0l152-152c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-152 152c-64 64-167.6 64-231.6 0s-64-167.6 0-231.6l184-184c46.3-46.3 121.3-46.3 167.6 0s46.3 121.3 0 167.6l-176 176c-28.6 28.6-75 28.6-103.6 0s-28.6-75 0-103.6l144-144c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-144 144c-6.7 6.7-6.7 17.7 0 24.4s17.7 6.7 24.4 0l176-176c24.4-24.4 24.4-64 0-88.4z" },
+  "square-root-variable": { w: 576, d: "M282.6 78.1c8-27.3 33-46.1 61.4-46.1H544c17.7 0 32 14.3 32 32s-14.3 32-32 32H344L238.7 457c-3.6 12.3-14.1 21.2-26.8 22.8s-25.1-4.6-31.5-15.6L77.6 288H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H77.6c22.8 0 43.8 12.1 55.3 31.8l65.2 111.8L282.6 78.1zM393.4 233.4c12.5-12.5 32.8-12.5 45.3 0L480 274.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3L525.3 320l41.4 41.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L480 365.3l-41.4 41.4c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L434.7 320l-41.4-41.4c-12.5-12.5-12.5-32.8 0-45.3z" },
+  "diagram-project": { w: 576, d: "M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z" },
+  "arrow-down-1-9": { w: 576, d: "M450.7 38c-8.3-6-19.1-7.7-28.8-4.4l-48 16c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l5.9-2V160H384c-17.7 0-32 14.3-32 32s14.3 32 32 32h48 48c17.7 0 32-14.3 32-32s-14.3-32-32-32H464V64c0-10.3-4.9-19.9-13.3-26zM160 480c9 0 17.5-3.8 23.6-10.4l88-96c11.9-13 11.1-33.3-2-45.2s-33.3-11.1-45.2 2L192 365.7V64c0-17.7-14.3-32-32-32s-32 14.3-32 32V365.7L95.6 330.4c-11.9-13-32.2-13.9-45.2-2s-13.9 32.2-2 45.2l88 96C142.5 476.2 151 480 160 480zM418.3 307a32 32 0 1 1 27.4 57.9A32 32 0 1 1 418.3 307zM405.1 419.8l-6.8 9.2c-10.5 14.2-7.5 34.2 6.7 44.8s34.2 7.5 44.8-6.7l48.8-65.8c14-18.9 21.5-41.7 21.5-65.2c0-48.6-39.4-88-88-88s-88 39.4-88 88c0 39.2 25.6 72.4 61.1 83.8z" },
+  "calendar-plus": { w: 512, d: "M128 32V64H80c-26.5 0-48 21.5-48 48v48H480V112c0-26.5-21.5-48-48-48H384V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H192V32c0-17.7-14.3-32-32-32s-32 14.3-32 32zM480 192H32V464c0 26.5 21.5 48 48 48H432c26.5 0 48-21.5 48-48V192zM256 248c13.3 0 24 10.7 24 24v56h56c13.3 0 24 10.7 24 24s-10.7 24-24 24H280v56c0 13.3-10.7 24-24 24s-24-10.7-24-24V376H176c-13.3 0-24-10.7-24-24s10.7-24 24-24h56V272c0-13.3 10.7-24 24-24z" },
+  "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" },
+  "filter-circle-xmark": { w: 576, d: "M3.9 22.9C10.5 8.9 24.5 0 40 0H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L396.4 195.6C316.2 212.1 256 283 256 368c0 27.4 6.3 53.4 17.5 76.5c-1.6-.8-3.2-1.8-4.7-2.9l-64-48c-8.1-6-12.8-15.5-12.8-25.6V288.9L9 65.3C-.7 53.4-2.8 36.8 3.9 22.9zM432 224a144 144 0 1 1 0 288 144 144 0 1 1 0-288zm59.3 107.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L432 345.4l-36.7-36.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6L409.4 368l-36.7 36.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L432 390.6l36.7 36.7c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L454.6 368l36.7-36.7z" },
+  "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
+  "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" }
+};
+function faIcon(name) {
+  const g = GLYPHS[name];
+  const width = +(g.w / 512).toFixed(4);
+  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${width}em" height="1em" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
+}
+
+// src/ui/protoModal.ts
+function dressProtoModal(modal, options = {}) {
+  const { modalEl, titleEl } = modal;
+  modalEl.classList.add("tablify__modal", "tablify__pmodal", `tablify__pmodal--${options.size ?? "sm"}`);
+  applyTheme(modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
+  if (options.icon && !titleEl.querySelector(":scope > .tablify__pmodal-icon")) {
+    titleEl.insertAdjacentHTML("afterbegin", `<span class="tablify__pmodal-icon" aria-hidden="true">${faIcon(options.icon)}</span>`);
+  }
+}
+
 // src/commands/linkIntegrity.ts
 var LINK_INTEGRITY_COMMAND_ID = "tablify-link-integrity";
 var LINK_INTEGRITY_COMMAND_NAME = "Check link integrity (all tables)";
@@ -9806,7 +10118,7 @@ var LinkIntegrityModal = class extends import_obsidian3.Modal {
   onOpen() {
     const r = this.report;
     this.setTitle("Link integrity");
-    this.modalEl.addClass("tablify__modal");
+    dressProtoModal(this, { icon: "link", size: "md" });
     const summary = r.broken.length === 0 ? `No broken links. ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.` : `${r.broken.length} broken of ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.`;
     this.contentEl.createEl("p", { text: summary, cls: "tablify-link-integrity__summary" });
     if (r.broken.length > 0) {
@@ -12275,302 +12587,6 @@ var RowPool = class {
   }
 };
 
-// src/ui/theme/tokens.ts
-var palette = {
-  /** #181715 — dark theme background (prototype `dark`) */
-  dark: "#181715",
-  /** #FAF7F2 — light theme background (prototype `paper`) */
-  light: "#FAF7F2",
-  /** #22201D — dark card surface (prototype `dark-card`) */
-  cardDark: "#22201D",
-  /** #FFFFFF — light card surface (prototype `paper-card`) */
-  cardLight: "#FFFFFF",
-  /** #1B1A17 — dark inner surface: grid shell (prototype `dark-inner`) */
-  innerDark: "#1B1A17",
-  /** #F4EFE6 — light inner surface: grid shell (prototype `paper-inner`) */
-  innerLight: "#F4EFE6",
-  /** #262420 — dark capsule surface: cells, header capsules, popovers */
-  capsuleDark: "#262420",
-  /** #FFFFFF — light capsule surface (prototype cell/header capsules) */
-  capsuleLight: "#FFFFFF",
-  /** #38342E — dark subtle border (prototype `dark-border`) */
-  borderDark: "#38342E",
-  /** #E6E0D5 — light subtle border (prototype `paper-border`) */
-  borderLight: "#E6E0D5",
-  /** #24221E — dark pill surface: toolbar buttons, search input, float panels (prototype `.pill-btn`) */
-  pillDark: "#24221E",
-  /** #2D2A25 — dark pill hover surface (prototype `.pill-btn:hover`) */
-  pillHoverDark: "#2D2A25",
-  /** #4A453E — dark pill hover border (prototype `.pill-btn:hover`) */
-  pillBorderHoverDark: "#4A453E",
-  /** #F6F2EA — light pill hover surface (prototype `.pill-btn:hover`) */
-  pillHoverLight: "#F6F2EA",
-  /** #D3CAB9 — light pill hover border (prototype `.pill-btn:hover`) */
-  pillBorderHoverLight: "#D3CAB9",
-  /** #3A3630 — dark header/cell capsule border (prototype `.header-capsule`, `.cell-capsule`) */
-  capsuleBorderDark: "#3A3630",
-  /** #ECE7E1 — body text on dark surfaces */
-  textOnDark: "#ECE7E1",
-  /** #1E1B18 — body text on light surfaces (prototype `charcoal`) */
-  textOnLight: "#1E1B18",
-  /** #9CA3AF — muted small text on dark (prototype dark `gray-400`) */
-  mutedDark: "#9CA3AF",
-  /**
-   * #6E655C — muted small text on light. The prototype's clay (#8C827A) measures 3.55:1 on
-   * its paper background — below AA for the 11px labels it carries — so the accessible
-   * clay variant ships instead; see docs/evidence/P3-11.md (SAD-71 Step 2).
-   */
-  mutedLight: "#6E655C",
-  /** #d97757 — primary accent on dark (prototype `terracotta-dark`), focus, selection */
-  accentOrange: "#d97757",
-  /** #CC785C — primary accent on light (prototype `terracotta`), focus, selection */
-  terracotta: "#CC785C",
-  /** #6a9bcc — secondary accent (links, info) */
-  accentBlue: "#6a9bcc",
-  /** #788c5d — success and tertiary accent */
-  accentGreen: "#788c5d",
-  /** #6B7280 — dark header grip glyph (prototype dark `gray-500`) */
-  gripDark: "#6B7280",
-  /** #B7B2AE — light header grip glyph: prototype `clay/50` composited on the white capsule */
-  gripLight: "#B7B2AE",
-  /** #4B5563 — dark empty-cell dash and row-number grip (prototype dark `gray-600`) */
-  placeholderDark: "#4B5563",
-  /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
-  placeholderLight: "#C5C1BE",
-  /**
-   * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
-   * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
-   * rule as mutedLight (SAD-80).
-   */
-  terracottaTextLight: "#B5573A",
-  /** #DC2626 — light Delete ink (Tailwind red-600, 4.83:1). Prototype red-500 is 3.76:1 (SAD-80). */
-  dangerLight: "#DC2626",
-  /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
-  dangerDark: "#F87171",
-  /** #D1D5DB — light switch track when off (prototype Options `bg-gray-300`, SAD-81) */
-  switchOffLight: "#D1D5DB"
-};
-var chipHues = {
-  gray: ["#6B7280", "#4B5563", "#D1D5DB"],
-  sky: ["#0EA5E9", "#0369A1", "#7DD3FC"],
-  emerald: ["#10B981", "#065F46", "#6EE7B7"],
-  rose: ["#F43F5E", "#BE123C", "#FDA4AF"],
-  amber: ["#F59E0B", "#92400E", "#FCD34D"],
-  purple: ["#A855F7", "#7E22CE", "#D8B4FE"],
-  pink: ["#EC4899", "#9D174D", "#F9A8D4"]
-};
-var chipGrayDot = "#9CA3AF";
-var chipHueFor = {
-  gray: "gray",
-  brown: "amber",
-  orange: "amber",
-  yellow: "amber",
-  green: "emerald",
-  blue: "sky",
-  purple: "purple",
-  pink: "pink",
-  red: "rose"
-};
-function withAlpha(hex, alpha) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
-}
-function optionChipColors(color, theme) {
-  const hue = chipHueFor[color ?? ""] ?? "gray";
-  const [base, inkLight, inkDark] = chipHues[hue];
-  return {
-    background: withAlpha(base, 0.15),
-    border: withAlpha(base, 0.3),
-    text: theme === "dark" ? inkDark : inkLight,
-    dot: hue === "gray" ? chipGrayDot : base
-  };
-}
-var lightTheme = {
-  bg: palette.light,
-  bgCard: palette.cardLight,
-  bgInner: palette.innerLight,
-  bgCapsule: palette.capsuleLight,
-  bgSubtle: palette.innerLight,
-  bgStripe: palette.innerLight,
-  text: palette.textOnLight,
-  textMuted: palette.mutedLight,
-  border: palette.borderLight,
-  borderSubtle: palette.borderLight,
-  accentPrimary: palette.terracotta,
-  accentSecondary: palette.accentBlue,
-  accentSuccess: palette.accentGreen,
-  selection: palette.terracotta,
-  focus: palette.terracotta,
-  onAccent: palette.textOnLight,
-  bgPill: palette.cardLight,
-  bgPillHover: palette.pillHoverLight,
-  borderPillHover: palette.pillBorderHoverLight,
-  borderCapsule: palette.borderLight,
-  textTitle: palette.textOnLight,
-  textStrong: palette.textOnLight,
-  textFaint: palette.gripLight,
-  textPlaceholder: palette.placeholderLight,
-  textSelected: palette.terracottaTextLight,
-  textDanger: palette.dangerLight,
-  accentCheck: palette.terracotta,
-  accentFill: palette.terracotta,
-  switchOff: palette.switchOffLight,
-  switchKnob: palette.cardLight
-};
-var darkTheme = {
-  bg: palette.dark,
-  bgCard: palette.cardDark,
-  bgInner: palette.innerDark,
-  bgCapsule: palette.capsuleDark,
-  bgSubtle: palette.capsuleDark,
-  bgStripe: palette.cardDark,
-  text: palette.textOnDark,
-  textMuted: palette.mutedDark,
-  border: palette.borderDark,
-  borderSubtle: palette.borderDark,
-  accentPrimary: palette.accentOrange,
-  accentSecondary: palette.accentBlue,
-  accentSuccess: palette.accentGreen,
-  selection: palette.accentOrange,
-  focus: palette.accentOrange,
-  onAccent: palette.dark,
-  bgPill: palette.pillDark,
-  bgPillHover: palette.pillHoverDark,
-  borderPillHover: palette.pillBorderHoverDark,
-  borderCapsule: palette.capsuleBorderDark,
-  textTitle: palette.light,
-  textStrong: palette.cardLight,
-  textFaint: palette.gripDark,
-  textPlaceholder: palette.placeholderDark,
-  textSelected: palette.terracotta,
-  textDanger: palette.dangerDark,
-  accentCheck: palette.terracotta,
-  accentFill: palette.terracotta,
-  switchOff: palette.placeholderDark,
-  switchKnob: palette.cardLight
-};
-var themes = {
-  light: lightTheme,
-  dark: darkTheme
-};
-var cssVars = {
-  bg: "--tablify-bg",
-  bgCard: "--tablify-bg-card",
-  bgInner: "--tablify-bg-inner",
-  bgCapsule: "--tablify-bg-capsule",
-  bgSubtle: "--tablify-bg-subtle",
-  bgStripe: "--tablify-bg-stripe",
-  text: "--tablify-text",
-  textMuted: "--tablify-text-muted",
-  border: "--tablify-border",
-  borderSubtle: "--tablify-border-subtle",
-  accentPrimary: "--tablify-accent-primary",
-  accentSecondary: "--tablify-accent-secondary",
-  accentSuccess: "--tablify-accent-success",
-  selection: "--tablify-selection",
-  focus: "--tablify-focus",
-  onAccent: "--tablify-on-accent",
-  bgPill: "--tablify-bg-pill",
-  bgPillHover: "--tablify-bg-pill-hover",
-  borderPillHover: "--tablify-border-pill-hover",
-  borderCapsule: "--tablify-border-capsule",
-  textTitle: "--tablify-text-title",
-  textStrong: "--tablify-text-strong",
-  textFaint: "--tablify-text-faint",
-  textPlaceholder: "--tablify-text-placeholder",
-  textSelected: "--tablify-text-selected",
-  textDanger: "--tablify-text-danger",
-  accentCheck: "--tablify-accent-check",
-  accentFill: "--tablify-accent-fill",
-  switchOff: "--tablify-switch-off",
-  switchKnob: "--tablify-switch-knob"
-};
-function applyTheme(root, theme) {
-  root.classList.remove("tablify--light", "tablify--dark");
-  root.classList.add("tablify", `tablify--${theme}`);
-  const t = themes[theme];
-  root.style.setProperty(cssVars.bg, t.bg);
-  root.style.setProperty(cssVars.bgCard, t.bgCard);
-  root.style.setProperty(cssVars.bgInner, t.bgInner);
-  root.style.setProperty(cssVars.bgCapsule, t.bgCapsule);
-  root.style.setProperty(cssVars.bgSubtle, t.bgSubtle);
-  root.style.setProperty(cssVars.bgStripe, t.bgStripe);
-  root.style.setProperty(cssVars.text, t.text);
-  root.style.setProperty(cssVars.textMuted, t.textMuted);
-  root.style.setProperty(cssVars.border, t.border);
-  root.style.setProperty(cssVars.borderSubtle, t.borderSubtle);
-  root.style.setProperty(cssVars.accentPrimary, t.accentPrimary);
-  root.style.setProperty(cssVars.accentSecondary, t.accentSecondary);
-  root.style.setProperty(cssVars.accentSuccess, t.accentSuccess);
-  root.style.setProperty(cssVars.selection, t.selection);
-  root.style.setProperty(cssVars.focus, t.focus);
-  root.style.setProperty(cssVars.onAccent, t.onAccent);
-  root.style.setProperty(cssVars.bgPill, t.bgPill);
-  root.style.setProperty(cssVars.bgPillHover, t.bgPillHover);
-  root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
-  root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
-  root.style.setProperty(cssVars.textTitle, t.textTitle);
-  root.style.setProperty(cssVars.textStrong, t.textStrong);
-  root.style.setProperty(cssVars.textFaint, t.textFaint);
-  root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
-  root.style.setProperty(cssVars.textSelected, t.textSelected);
-  root.style.setProperty(cssVars.textDanger, t.textDanger);
-  root.style.setProperty(cssVars.accentCheck, t.accentCheck);
-  root.style.setProperty(cssVars.accentFill, t.accentFill);
-  root.style.setProperty(cssVars.switchOff, t.switchOff);
-  root.style.setProperty(cssVars.switchKnob, t.switchKnob);
-}
-
-// src/ui/faIcons.ts
-var GLYPHS = {
-  "file-import": { w: 512, d: "M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z" },
-  "file-export": { w: 576, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z" },
-  "file-csv": { w: 512, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z" },
-  "copy": { w: 512, d: "M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" },
-  "magnifying-glass": { w: 512, d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" },
-  "cloud-arrow-up": { w: 640, d: "M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" },
-  "rotate-left": { w: 512, d: "M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" },
-  "rotate-right": { w: 512, d: "M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z" },
-  "filter": { w: 512, d: "M3.9 54.9C10.5 40.9 24.5 32 40 32H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L320 320.9V448c0 12.1-6.8 23.2-17.7 28.6s-23.8 4.3-33.5-3l-64-48c-8.1-6-12.8-15.5-12.8-25.6V320.9L9 97.3C-.7 85.4-2.8 68.8 3.9 54.9z" },
-  "plus": { w: 448, d: "M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" },
-  "table-columns": { w: 512, d: "M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z" },
-  "sliders": { w: 512, d: "M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" },
-  "xmark": { w: 384, d: "M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" },
-  "trash-can": { w: 448, d: "M135.2 17.7C140.6 6.8 151.7 0 163.8 0H284.2c12.1 0 23.2 6.8 28.6 17.7L320 32h96c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32h96l7.2-14.3zM32 128H416V448c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V128zm96 64c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16z" },
-  "grip-vertical": { w: 320, d: "M40 352l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zm192 0l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 320c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 192l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 160c-22.1 0-40-17.9-40-40L0 72C0 49.9 17.9 32 40 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40z" },
-  "key": { w: 512, d: "M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z" },
-  "ellipsis-vertical": { w: 128, d: "M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z" },
-  "font": { w: 448, d: "M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z" },
-  "align-left": { w: 448, d: "M288 64c0 17.7-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H256c17.7 0 32 14.3 32 32zm0 256c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H256c17.7 0 32 14.3 32 32zM0 192c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 448c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z" },
-  "hashtag": { w: 448, d: "M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H347.1L325.8 320H384c17.7 0 32 14.3 32 32s-14.3 32-32 32H315.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7H155.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8L90.2 384H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192L165.8 320h95.1l21.3-128H187.1z" },
-  "dollar-sign": { w: 320, d: "M160 0c17.7 0 32 14.3 32 32V67.7c1.6 .2 3.1 .4 4.7 .7c.4 .1 .7 .1 1.1 .2l48 8.8c17.4 3.2 28.9 19.9 25.7 37.2s-19.9 28.9-37.2 25.7l-47.5-8.7c-31.3-4.6-58.9-1.5-78.3 6.2s-27.2 18.3-29 28.1c-2 10.7-.5 16.7 1.2 20.4c1.8 3.9 5.5 8.3 12.8 13.2c16.3 10.7 41.3 17.7 73.7 26.3l2.9 .8c28.6 7.6 63.6 16.8 89.6 33.8c14.2 9.3 27.6 21.9 35.9 39.5c8.5 17.9 10.3 37.9 6.4 59.2c-6.9 38-33.1 63.4-65.6 76.7c-13.7 5.6-28.6 9.2-44.4 11V480c0 17.7-14.3 32-32 32s-32-14.3-32-32V445.1c-.4-.1-.9-.1-1.3-.2l-.2 0 0 0c-24.4-3.8-64.5-14.3-91.5-26.3c-16.1-7.2-23.4-26.1-16.2-42.2s26.1-23.4 42.2-16.2c20.9 9.3 55.3 18.5 75.2 21.6c31.9 4.7 58.2 2 76-5.3c16.9-6.9 24.6-16.9 26.8-28.9c1.9-10.6 .4-16.7-1.3-20.4c-1.9-4-5.6-8.4-13-13.3c-16.4-10.7-41.5-17.7-74-26.3l-2.8-.7 0 0C119.4 279.3 84.4 270 58.4 253c-14.2-9.3-27.5-22-35.8-39.6c-8.4-17.9-10.1-37.9-6.1-59.2C23.7 116 52.3 91.2 84.8 78.3c13.3-5.3 27.9-8.9 43.2-11V32c0-17.7 14.3-32 32-32z" },
-  "percent": { w: 384, d: "M374.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-320 320c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l320-320zM128 128A64 64 0 1 0 0 128a64 64 0 1 0 128 0zM384 384a64 64 0 1 0 -128 0 64 64 0 1 0 128 0z" },
-  "stopwatch": { w: 448, d: "M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-41.8-12.3-80.7-33.5-113.2l24.1-24.1c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L355.7 143c-28.1-23-62.2-38.8-99.7-44.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H224 176zm72 192V320c0 13.3-10.7 24-24 24s-24-10.7-24-24V192c0-13.3 10.7-24 24-24s24 10.7 24 24z" },
-  "star": { w: 576, d: "M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z" },
-  "square-check": { w: 448, d: "M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM337 209L209 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L303 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z" },
-  "calendar": { w: 448, d: "M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z" },
-  "clock": { w: 512, d: "M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z" },
-  "link": { w: 640, d: "M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z" },
-  "envelope": { w: 512, d: "M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z" },
-  "phone": { w: 512, d: "M164.9 24.6c-7.7-18.6-28-28.5-47.4-23.2l-88 24C12.1 30.2 0 46 0 64C0 311.4 200.6 512 448 512c18 0 33.8-12.1 38.6-29.5l24-88c5.3-19.4-4.6-39.7-23.2-47.4l-96-40c-16.3-6.8-35.2-2.1-46.3 11.6L304.7 368C234.3 334.7 177.3 277.7 144 207.3L193.3 167c13.7-11.2 18.4-30 11.6-46.3l-40-96z" },
-  "circle-dot": { w: 512, d: "M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-352a96 96 0 1 1 0 192 96 96 0 1 1 0-192z" },
-  "list-check": { w: 512, d: "M152.1 38.2c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 113C-2.3 103.6-2.3 88.4 7 79s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zm0 160c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zM224 96c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H192c-17.7 0-32-14.3-32-32zM48 368a48 48 0 1 1 0 96 48 48 0 1 1 0-96z" },
-  "paperclip": { w: 448, d: "M364.2 83.8c-24.4-24.4-64-24.4-88.4 0l-184 184c-42.1 42.1-42.1 110.3 0 152.4s110.3 42.1 152.4 0l152-152c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-152 152c-64 64-167.6 64-231.6 0s-64-167.6 0-231.6l184-184c46.3-46.3 121.3-46.3 167.6 0s46.3 121.3 0 167.6l-176 176c-28.6 28.6-75 28.6-103.6 0s-28.6-75 0-103.6l144-144c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-144 144c-6.7 6.7-6.7 17.7 0 24.4s17.7 6.7 24.4 0l176-176c24.4-24.4 24.4-64 0-88.4z" },
-  "square-root-variable": { w: 576, d: "M282.6 78.1c8-27.3 33-46.1 61.4-46.1H544c17.7 0 32 14.3 32 32s-14.3 32-32 32H344L238.7 457c-3.6 12.3-14.1 21.2-26.8 22.8s-25.1-4.6-31.5-15.6L77.6 288H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H77.6c22.8 0 43.8 12.1 55.3 31.8l65.2 111.8L282.6 78.1zM393.4 233.4c12.5-12.5 32.8-12.5 45.3 0L480 274.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3L525.3 320l41.4 41.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L480 365.3l-41.4 41.4c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L434.7 320l-41.4-41.4c-12.5-12.5-12.5-32.8 0-45.3z" },
-  "diagram-project": { w: 576, d: "M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z" },
-  "arrow-down-1-9": { w: 576, d: "M450.7 38c-8.3-6-19.1-7.7-28.8-4.4l-48 16c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l5.9-2V160H384c-17.7 0-32 14.3-32 32s14.3 32 32 32h48 48c17.7 0 32-14.3 32-32s-14.3-32-32-32H464V64c0-10.3-4.9-19.9-13.3-26zM160 480c9 0 17.5-3.8 23.6-10.4l88-96c11.9-13 11.1-33.3-2-45.2s-33.3-11.1-45.2 2L192 365.7V64c0-17.7-14.3-32-32-32s-32 14.3-32 32V365.7L95.6 330.4c-11.9-13-32.2-13.9-45.2-2s-13.9 32.2-2 45.2l88 96C142.5 476.2 151 480 160 480zM418.3 307a32 32 0 1 1 27.4 57.9A32 32 0 1 1 418.3 307zM405.1 419.8l-6.8 9.2c-10.5 14.2-7.5 34.2 6.7 44.8s34.2 7.5 44.8-6.7l48.8-65.8c14-18.9 21.5-41.7 21.5-65.2c0-48.6-39.4-88-88-88s-88 39.4-88 88c0 39.2 25.6 72.4 61.1 83.8z" },
-  "calendar-plus": { w: 512, d: "M128 32V64H80c-26.5 0-48 21.5-48 48v48H480V112c0-26.5-21.5-48-48-48H384V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H192V32c0-17.7-14.3-32-32-32s-32 14.3-32 32zM480 192H32V464c0 26.5 21.5 48 48 48H432c26.5 0 48-21.5 48-48V192zM256 248c13.3 0 24 10.7 24 24v56h56c13.3 0 24 10.7 24 24s-10.7 24-24 24H280v56c0 13.3-10.7 24-24 24s-24-10.7-24-24V376H176c-13.3 0-24-10.7-24-24s10.7-24 24-24h56V272c0-13.3 10.7-24 24-24z" },
-  "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" },
-  "filter-circle-xmark": { w: 576, d: "M3.9 22.9C10.5 8.9 24.5 0 40 0H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L396.4 195.6C316.2 212.1 256 283 256 368c0 27.4 6.3 53.4 17.5 76.5c-1.6-.8-3.2-1.8-4.7-2.9l-64-48c-8.1-6-12.8-15.5-12.8-25.6V288.9L9 65.3C-.7 53.4-2.8 36.8 3.9 22.9zM432 224a144 144 0 1 1 0 288 144 144 0 1 1 0-288zm59.3 107.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L432 345.4l-36.7-36.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6L409.4 368l-36.7 36.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L432 390.6l36.7 36.7c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L454.6 368l36.7-36.7z" },
-  "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
-  "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" }
-};
-function faIcon(name) {
-  const g = GLYPHS[name];
-  const width = +(g.w / 512).toFixed(4);
-  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${width}em" height="1em" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
-}
-
 // src/menus/tableMenuModel.ts
 var SEPARATOR = { id: "sep", label: "", enabled: false, separator: true };
 var TYPE_LABELS = {
@@ -15025,8 +15041,7 @@ var LinkPickerModal = class extends import_obsidian6.Modal {
   query = "";
   onOpen() {
     this.setTitle(`Link: ${this.opts.field.name}`);
-    this.modalEl.addClass("tablify__modal");
-    applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
+    dressProtoModal(this, { icon: "link", size: "md" });
     this.render();
   }
   render() {
@@ -15114,8 +15129,7 @@ var FormulaEditModal = class extends import_obsidian7.Modal {
   expression;
   onOpen() {
     this.setTitle("Edit formula");
-    this.modalEl.addClass("tablify__modal");
-    applyTheme(this.modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
+    dressProtoModal(this, { icon: "square-root-variable", size: "sm" });
     new import_obsidian7.Setting(this.contentEl).setName("Formula").setDesc("Refer to fields as {Field name}. Example: {Price} * {Quantity}").addText(
       (text) => text.setValue(this.expression).setPlaceholder("{Price} * 2").onChange((value) => {
         this.expression = value;
@@ -16497,8 +16511,8 @@ var TableView = class extends import_obsidian9.TextFileView {
     editor.style.position = "absolute";
     const rootRect = grid.root.getBoundingClientRect();
     const cellRect = (cell2.querySelector(".tablify__capsule") ?? cell2).getBoundingClientRect();
-    editor.style.left = `${cellRect.left - rootRect.left + grid.root.scrollLeft}px`;
-    editor.style.top = `${cellRect.top - rootRect.top + grid.root.scrollTop}px`;
+    editor.style.left = `${cellRect.left - rootRect.left - grid.root.clientLeft + grid.root.scrollLeft}px`;
+    editor.style.top = `${cellRect.top - rootRect.top - grid.root.clientTop + grid.root.scrollTop}px`;
     editor.style.width = `${cellRect.width}px`;
     editor.style.height = `${cellRect.height}px`;
     grid.root.appendChild(editor);

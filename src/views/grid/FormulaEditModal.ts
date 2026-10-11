@@ -5,7 +5,7 @@
  */
 
 import { App, Modal, Notice, Setting } from 'obsidian';
-import { applyTheme } from '../../ui/theme/tokens.js';
+import { dressProtoModal } from '../../ui/protoModal.js';
 import { compileFormula } from '../../formula/index.js';
 
 export class FormulaEditModal extends Modal {
@@ -22,8 +22,7 @@ export class FormulaEditModal extends Modal {
 
   onOpen(): void {
     this.setTitle('Edit formula');
-    this.modalEl.addClass('tablify__modal');
-    applyTheme(this.modalEl, document.body.classList.contains('theme-dark') ? 'dark' : 'light');
+    dressProtoModal(this, { icon: 'square-root-variable', size: 'sm' });
 
     new Setting(this.contentEl)
       .setName('Formula')

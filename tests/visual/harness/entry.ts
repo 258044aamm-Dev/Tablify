@@ -4,6 +4,9 @@
 // the same class Obsidian runs — so captures show production rendering, not a re-implementation.
 import { TableView } from '../../../src/views/tableView';
 import { FilterBuilderModal } from '../../../src/views/grid/FilterBuilderModal';
+import { FormulaEditModal } from '../../../src/views/grid/FormulaEditModal';
+import { LinkPickerModal } from '../../../src/views/grid/LinkPickerModal';
+import { LinkIntegrityModal } from '../../../src/commands/linkIntegrity';
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
 
 declare global {
@@ -13,6 +16,7 @@ declare global {
     __tablifyView?: TableView;
     __tablifyReady?: boolean;
     __tablifyOpenFilterBuilder?: (input: string) => void;
+    __tablifyOpenModal?: (kind: string) => void;
   }
 }
 
@@ -40,9 +44,8 @@ async function mount(): Promise<void> {
   // SAD-78 capture hook: the obsidian mock's Modal never attaches to the DOM, so place the real
   // FilterBuilderModal in Obsidian's modal markup (.modal-container > .modal-bg + .modal with
   // .modal-close-button, .modal-header > .modal-title, .modal-content).
-  window.__tablifyOpenFilterBuilder = (input: string) => {
-    const fields = (view as unknown as { session: { getFields(): unknown[] } }).session.getFields();
-    const modal = new FilterBuilderModal(app as never, fields as never, input, () => undefined);
+  // SAD-85: the same markup for any plugin modal (Obsidian's Modal.open() builds it for real).
+  const mountModal = (modal: { titleEl: HTMLElement; contentEl: HTMLElement; modalEl: HTMLElement; open(): void }) => {
     modal.titleEl.classList.add('modal-title');
     modal.contentEl.classList.add('modal-content');
     modal.modalEl.classList.add('modal');
@@ -59,6 +62,29 @@ async function mount(): Promise<void> {
     modal.modalEl.append(close, header, modal.contentEl);
     container.append(bg, modal.modalEl);
     document.body.appendChild(container);
+  };
+  window.__tablifyOpenFilterBuilder = (input: string) => {
+    const fields = (view as unknown as { session: { getFields(): unknown[] } }).session.getFields();
+    mountModal(new FilterBuilderModal(app as never, fields as never, input, () => undefined));
+  };
+  window.__tablifyOpenModal = (kind: string) => {
+    const noop = () => undefined;
+    if (kind === 'formula') mountModal(new FormulaEditModal(app as never, '{Price} * 2', noop));
+    if (kind === 'linkPicker') {
+      const rows = ['Acme Corp', 'Globex', 'Initech', 'Umbrella'].map((label, i) => ({ id: `r${i}`, label }));
+      const index = { byTableId: () => ({ id: 't1', name: 'Customers', rows }) };
+      const field = { id: 'f1', name: 'Customer', type: 'link', linkTableId: 't1' };
+      const current = [{ tableId: 't1', rowId: 'r1' }];
+      mountModal(new LinkPickerModal({ app: app as never, field: field as never, current, index: index as never, onSave: noop }));
+    }
+    if (kind === 'linkIntegrity') {
+      const report = {
+        checked: 12,
+        broken: [{ sourceTable: 'Orders', sourcePath: 'Tables/Orders.tablify', fieldName: 'Customer', rowLabel: 'Order 7', message: 'the row was deleted', targetTableId: 't1', targetRowId: 'r9' }],
+        duplicates: [],
+      };
+      mountModal(new LinkIntegrityModal(app as never, report as never));
+    }
   };
   window.__tablifyReady = true;
 }

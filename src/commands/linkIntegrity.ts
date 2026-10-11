@@ -5,6 +5,7 @@
 import { App, Modal, Plugin } from 'obsidian';
 import { linkIndexFor } from '../links/vaultLinkIndex.js';
 import { checkIntegrity, type IntegrityReport } from '../model/link.js';
+import { dressProtoModal } from '../ui/protoModal.js';
 
 export const LINK_INTEGRITY_COMMAND_ID = 'tablify-link-integrity';
 export const LINK_INTEGRITY_COMMAND_NAME = 'Check link integrity (all tables)';
@@ -31,7 +32,7 @@ export class LinkIntegrityModal extends Modal {
   onOpen(): void {
     const r = this.report;
     this.setTitle('Link integrity');
-    this.modalEl.addClass('tablify__modal');
+    dressProtoModal(this, { icon: 'link', size: 'md' });
     const summary =
       r.broken.length === 0
         ? `No broken links. ${r.checked} ${r.checked === 1 ? 'link' : 'links'} checked.`

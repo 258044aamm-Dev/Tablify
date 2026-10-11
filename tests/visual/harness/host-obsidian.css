@@ -171,3 +171,48 @@ textarea:focus {
   margin-bottom: 0.75em;
   line-height: 1.3;
 }
+
+/* SAD-85: Obsidian's Setting rows and accent / warning buttons (app.css), so the dialogs built
+   from `Setting` are captured with the host rules the prototype card must override. */
+.setting-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75em 0;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.setting-item:first-child {
+  border-top: none;
+}
+.setting-item-info {
+  flex: 1 1 auto;
+  margin-inline-end: 1em;
+}
+.setting-item-name {
+  color: var(--text-normal);
+  font-size: 15px;
+  line-height: 1.3;
+}
+.setting-item-description {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding-top: 4px;
+  line-height: 1.3;
+}
+.setting-item-control {
+  flex: 1 1 auto;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+button.mod-cta {
+  background-color: #89b4fa;
+  color: #1e1e2e;
+}
+button.mod-cta:hover {
+  background-color: #b4befe;
+}
+button.mod-warning {
+  background-color: #f38ba8;
+  color: #1e1e2e;
+}

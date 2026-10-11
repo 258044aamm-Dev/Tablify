@@ -920,8 +920,9 @@ export class TableView extends TextFileView {
     const rootRect = grid.root.getBoundingClientRect();
     // SAD-79: the visible cell is the capsule inside the slot; edit over it.
     const cellRect = (cell.querySelector<HTMLElement>('.tablify__capsule') ?? cell).getBoundingClientRect();
-    editor.style.left = `${cellRect.left - rootRect.left + grid.root.scrollLeft}px`;
-    editor.style.top = `${cellRect.top - rootRect.top + grid.root.scrollTop}px`;
+    // Absolute offsets start inside the root's border (SAD-85: the outline showed a 1px shift).
+    editor.style.left = `${cellRect.left - rootRect.left - grid.root.clientLeft + grid.root.scrollLeft}px`;
+    editor.style.top = `${cellRect.top - rootRect.top - grid.root.clientTop + grid.root.scrollTop}px`;
     editor.style.width = `${cellRect.width}px`;
     editor.style.height = `${cellRect.height}px`;
     grid.root.appendChild(editor);

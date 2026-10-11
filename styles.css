@@ -117,9 +117,11 @@
   outline: 2px solid var(--tablify-focus);
 }
 
-.tablify__cell--invalid {
-  border: 1px solid var(--tablify-accent-primary);
-  background: var(--tablify-bg);
+/* SAD-85: prototype `.cell-invalid` — a rose-500 border drawn on the capsule, like selection;
+   the slot itself stays unpainted. The prototype's 1px ring loses to the capsule's `shadow-sm`
+   there, so the rendered state keeps the capsule shadow — and so does this. */
+.tablify__cell--invalid > .tablify__capsule {
+  border-color: rgb(244, 63, 94);
 }
 
 .tablify--light,
@@ -1070,11 +1072,11 @@
 }
 
 .tablify ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--tablify-bg);
 }
 
 .tablify ::-webkit-scrollbar-thumb {
-  background: var(--tablify-border-subtle);
+  background: var(--tablify-scroll-thumb);
   border-radius: 999px;
 }
 
@@ -1093,7 +1095,8 @@
    Card `rounded-2xl p-6 max-w-xl shadow-2xl max-h-[85vh] overflow-y-auto`; Obsidian's own
    close button stays. Controls are element-qualified inside .tablify (applyTheme puts the
    class on the modal) and reset what the host `button` / `select` / `input` rules set. */
-.tablify__fb-modal {
+.tablify__fb-modal,
+.tablify__pmodal {
   box-sizing: border-box;
   width: min(576px, calc(100vw - 32px));
   max-width: 576px;
@@ -1109,20 +1112,24 @@
 
 /* Header `flex items-center mb-4`. Newer Obsidian wraps the title in .modal-header, older builds
    put .modal-title straight in the modal: the 16px step goes on whichever is the outer box. */
-.tablify__fb-modal .modal-header {
+.tablify__fb-modal .modal-header,
+.tablify__pmodal .modal-header {
   margin: 0 0 16px;
   padding: 0;
 }
 
-.tablify__fb-modal .modal-header .modal-title {
+.tablify__fb-modal .modal-header .modal-title,
+.tablify__pmodal .modal-header .modal-title {
   margin: 0;
 }
 
-.tablify__fb-modal > .modal-title {
+.tablify__fb-modal > .modal-title,
+.tablify__pmodal > .modal-title {
   margin: 0 0 16px;
 }
 
-.tablify__fb-modal .modal-title {
+.tablify__fb-modal .modal-title,
+.tablify__pmodal .modal-title {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1136,18 +1143,21 @@
   color: var(--tablify-text);
 }
 
-.tablify__fb-modal .modal-content {
+.tablify__fb-modal .modal-content,
+.tablify__pmodal .modal-content {
   padding: 0;
   margin: 0;
 }
 
-.tablify__fb-modal .modal-close-button {
+.tablify__fb-modal .modal-close-button,
+.tablify__pmodal .modal-close-button {
   top: 22px;
   right: 22px;
   color: var(--tablify-text-muted);
 }
 
-.tablify__fb-title-icon {
+.tablify__fb-title-icon,
+.tablify__pmodal-icon {
   display: inline-flex;
   font-size: 14px;
   line-height: 1;
@@ -1385,6 +1395,271 @@
   .tablify__fb-row {
     flex-wrap: wrap;
   }
+}
+
+/* ---- Prototype modal card (SAD-85 / Step 7a) ---------------------------------------
+   Every plugin dialog wears the prototype card (src/ui/protoModal.ts adds the classes): the
+   filter-builder card above plus the prototype dialog widths, its field rhythm (`space-y-3`,
+   label `block mb-1 font-medium` in clay) and `.pill-input` controls (`rounded-xl px-3.5
+   py-2.5`). Obsidian `Setting` rows are laid out the same way — label over a full-width control
+   — and a button-only row becomes the prototype footer (`mt-5 flex justify-end space-x-2`). */
+.tablify__pmodal--sm {
+  width: min(384px, calc(100vw - 32px));
+  max-width: 384px;
+}
+
+.tablify__pmodal--md {
+  width: min(448px, calc(100vw - 32px));
+  max-width: 448px;
+}
+
+.tablify__pmodal--2xl {
+  width: min(672px, calc(100vw - 32px));
+  max-width: 672px;
+}
+
+.tablify__pmodal .modal-content > p {
+  margin: 0 0 12px;
+  line-height: 16px;
+}
+
+.tablify.tablify__pmodal .setting-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  border: none;
+}
+
+.tablify.tablify__pmodal .setting-item-info {
+  margin: 0 0 4px;
+  padding: 0;
+}
+
+.tablify.tablify__pmodal .setting-item-info:has(> .setting-item-name:empty):has(> .setting-item-description:empty),
+.tablify.tablify__pmodal .setting-item-name:empty,
+.tablify.tablify__pmodal .setting-item-description:empty {
+  display: none;
+}
+
+.tablify.tablify__pmodal .setting-item-name {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify.tablify__pmodal .setting-item-description {
+  padding: 2px 0 0;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify.tablify__pmodal .setting-item-control {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+/* Footer: a Setting row whose control holds buttons and nothing else. */
+.tablify.tablify__pmodal .setting-item:has(> .setting-item-control > button):not(:has(> .setting-item-control > :not(button))) {
+  margin: 20px 0 0;
+}
+
+.tablify.tablify__pmodal .setting-item:has(> .setting-item-control > button):not(:has(> .setting-item-control > :not(button))) > .setting-item-control {
+  justify-content: flex-end;
+}
+
+/* `.pill-input w-full rounded-xl px-3.5 py-2.5` — 12px Lora on the pill surface. */
+.tablify.tablify__pmodal input[type='text'],
+.tablify.tablify__pmodal input[type='search'],
+.tablify.tablify__pmodal input[type='number'],
+.tablify.tablify__pmodal input.tablify__pmodal-input,
+.tablify.tablify__pmodal select.tablify__pmodal-input,
+.tablify.tablify__pmodal textarea.tablify__pmodal-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.tablify.tablify__pmodal input[type='text']::placeholder,
+.tablify.tablify__pmodal input[type='search']::placeholder,
+.tablify.tablify__pmodal textarea.tablify__pmodal-input::placeholder {
+  color: var(--tablify-text-muted);
+}
+
+/* `.pill-input:focus-within` — accent border and soft ring; the outline keeps keyboard focus
+   visible (plugin focus language, as on the search box). */
+.tablify.tablify__pmodal input[type='text']:focus,
+.tablify.tablify__pmodal input[type='search']:focus,
+.tablify.tablify__pmodal input[type='number']:focus,
+.tablify.tablify__pmodal input.tablify__pmodal-input:focus,
+.tablify.tablify__pmodal select.tablify__pmodal-input:focus,
+.tablify.tablify__pmodal textarea.tablify__pmodal-input:focus {
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 15%, transparent);
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* Ghost button (prototype Cancel `px-3.5 py-2 text-xs text-clay hover:bg-inner rounded-xl`). */
+.tablify.tablify__pmodal .setting-item-control button,
+.tablify button.tablify__pmodal-btn {
+  height: auto;
+  margin: 0;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--tablify-text-muted);
+  border: none;
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.tablify.tablify__pmodal .setting-item-control button:hover,
+.tablify button.tablify__pmodal-btn:hover {
+  background: var(--tablify-bg-inner);
+  color: var(--tablify-text-muted);
+}
+
+/* Primary (prototype Save `px-4 py-2 bg-terracotta text-xs font-semibold rounded-xl shadow`,
+   the same terracotta in both themes); on-accent ink instead of white for AA. */
+.tablify.tablify__pmodal .setting-item-control button.mod-cta,
+.tablify button.tablify__pmodal-btn--primary {
+  padding: 8px 16px;
+  background: var(--tablify-accent-fill);
+  color: var(--tablify-on-accent);
+  font-weight: 600;
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+.tablify.tablify__pmodal .setting-item-control button.mod-cta:hover,
+.tablify button.tablify__pmodal-btn--primary:hover {
+  /* prototype terracotta-hover */
+  background: color-mix(in srgb, var(--tablify-accent-fill) 88%, black);
+  color: var(--tablify-on-accent);
+}
+
+/* Destructive (Clear links): danger ink on the ghost button. */
+.tablify.tablify__pmodal .setting-item-control button.mod-warning,
+.tablify button.tablify__pmodal-btn--danger {
+  color: var(--tablify-text-danger);
+}
+
+.tablify.tablify__pmodal .setting-item-control button:focus-visible,
+.tablify button.tablify__pmodal-btn:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* Checkboxes: the prototype's native box tinted `accent-tablify-terracotta` (as the row
+   checkboxes, SAD-80); the element + attribute selector outranks Obsidian's restyle. */
+.tablify.tablify__pmodal input[type='checkbox'] {
+  -webkit-appearance: auto;
+  appearance: auto;
+  box-sizing: border-box;
+  flex: none;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  padding: 0;
+  border: initial;
+  border-radius: initial;
+  background: initial;
+  box-shadow: none;
+  filter: none;
+  accent-color: var(--tablify-accent-check);
+  cursor: pointer;
+  transition: none;
+}
+
+.tablify.tablify__pmodal input[type='checkbox']::before,
+.tablify.tablify__pmodal input[type='checkbox']::after {
+  content: none;
+  display: none;
+}
+
+/* Link picker inside the card: inner-surface list (`rounded-xl`), rows on the pill hover. */
+.tablify__pmodal .tablify-link-picker__note {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.tablify__pmodal .tablify-link-picker__list {
+  border-radius: 12px;
+  background: var(--tablify-bg-inner);
+}
+
+.tablify.tablify__pmodal input.tablify-link-picker__search {
+  margin: 8px 0 0;
+}
+
+.tablify__pmodal .tablify-link-picker__row:hover {
+  background: var(--tablify-bg-pill-hover);
+}
+
+.tablify__pmodal .tablify-link-integrity__list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  line-height: 18px;
+}
+
+/* ---- Cell editor (SAD-85) — prototype `.cell-editing` ----------------------------------
+   The editor overlays the capsule (tableView sizes it to the capsule rect), so it takes the
+   capsule's paint — surface, border, `rounded-2xl`, `px-3.5`, 12px — plus the 2px accent
+   outline at -1px. A value the field rejects keeps the editor open with the `.cell-invalid`
+   rose border. The checkbox editor keeps its native box. */
+.tablify input.tablify__editor:not([type='checkbox']),
+.tablify textarea.tablify__editor {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 14px;
+  background: var(--tablify-bg-capsule);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-capsule);
+  border-radius: 16px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  outline: 2px solid var(--tablify-accent-primary);
+  outline-offset: -1px;
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.tablify textarea.tablify__editor {
+  padding: 8px 14px;
+  resize: none;
+}
+
+.tablify input.tablify__editor[aria-invalid='true'],
+.tablify textarea.tablify__editor[aria-invalid='true'] {
+  border-color: rgb(244, 63, 94);
 }
 
 /* ---- Grid geometry (SAD-79) -------------------------------------------------------
