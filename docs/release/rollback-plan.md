@@ -34,8 +34,8 @@ Do not edit a v2 file by hand. Test on a copy of your vault first.
 
 - [x] Clean build of the release commit (`npm ci` → `npm run check` → production build): lint 0 errors, 1545/1545 tests, `.tabula` guard, docs-link check, FA icon check all pass.
 - [x] Version bump does not change the shipped bundle: production `main.js` and `styles.css` are byte-identical to the pre-bump build of `main` (sha256 `15ffb158…` / `3f246e74…`).
-- [ ] SHA-256 of `main.js`, `manifest.json`, `styles.css` recorded in the release notes.
-- [ ] Re-build from the tag reproduces identical hashes (build determinism check).
+- [x] SHA-256 of `main.js` (`15ffb158…`), `manifest.json` (`be9e1de8…`), `styles.css` (`3f246e74…`) recorded in the release notes; the uploaded `main.js` was re-downloaded and matches byte for byte.
+- [x] Re-build from a pristine export of the tag reproduces identical hashes for all three files (build determinism check).
 - [ ] Owner: install release assets in a clean vault on **desktop** and **mobile**.
 - [ ] Owner: walk the SAD-77 to SAD-92 parity checklist in light and dark; record in `docs/evidence/`.
 - [ ] Owner: revoke the temporary GitHub credential used for this release.
