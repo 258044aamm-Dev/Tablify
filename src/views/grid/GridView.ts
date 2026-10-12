@@ -44,6 +44,13 @@ export interface GridOptions {
   viewportWidth?: number; // default 800, for column measurement
   /** Called when a body cell is clicked. Indexes refer to the current rows and fields. */
   onCellClick?: (rowIndex: number, colIndex: number) => void;
+  /**
+   * SAD-96: the clicked cell was already selected (a second click/tap on it). Touch uses this
+   * to open the editor where there is no Enter key; fired after onCellClick.
+   */
+  onCellReselect?: (rowIndex: number, colIndex: number) => void;
+  /** SAD-96: a body cell was double-clicked — open its editor (the documented edit gesture). */
+  onCellActivate?: (rowIndex: number, colIndex: number) => void;
   /** P8-03: error state of a formula cell (tooltip and styling). Null for a good value. */
   formulaError?: (rowId: string, fieldId: string) => { code: string; message: string } | null;
   /** P8-04: label text for a link cell, and how many of its links are broken. */
@@ -328,7 +335,7 @@ export class GridView {
       this.render();
     });
 
-    // click-to-select (delegated)
+    // click-to-select (delegated); double-click opens the cell editor (SAD-96)
     this.root.addEventListener('click', (e) => {
       const target = e.target as HTMLElement | null;
       const cell = target?.closest?.('.tablify__cell') as HTMLElement | null;
@@ -337,8 +344,20 @@ export class GridView {
       const row = Number(rowEl?.dataset.rowIndex);
       const col = Number(cell.dataset.colIndex);
       if (Number.isNaN(row) || Number.isNaN(col)) return;
+      const wasSelected = this.selected?.row === row && this.selected?.col === col;
       this.setSelection({ row, col });
       this.opts.onCellClick?.(row, col);
+      if (wasSelected) this.opts.onCellReselect?.(row, col);
+    });
+    this.root.addEventListener('dblclick', (e) => {
+      const target = e.target as HTMLElement | null;
+      const cell = target?.closest?.('.tablify__cell') as HTMLElement | null;
+      if (!cell) return;
+      const row = Number((cell.parentElement as HTMLElement).dataset.rowIndex);
+      const col = Number(cell.dataset.colIndex);
+      if (Number.isNaN(row) || Number.isNaN(col)) return;
+      this.setSelection({ row, col });
+      this.opts.onCellActivate?.(row, col);
     });
 
     // SAD-79 fill mode follows the shell's width. Obsidian also calls handleResize() on pane

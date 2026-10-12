@@ -94,6 +94,7 @@ Use the header menu (**Change field type…**) to change a column's type. A type
 ## 4. Editing cells
 
 - Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits.
+- On a touch device, tap the selected cell again to edit it — or choose **Edit cell** from the long-press menu.
 - Paste tab-separated text (e.g. copied from a spreadsheet) with **Ctrl/Cmd+V** — a rectangular range is filled; **Ctrl/Cmd+C** copies the selected range as tab-separated text.
 
 ## 5. Keyboard use

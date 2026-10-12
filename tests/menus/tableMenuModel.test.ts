@@ -27,12 +27,20 @@ describe('cell menu (P5-02)', () => {
     expect(byId(ro, 'cell.clear')).toMatchObject({ enabled: false, reason: 'Read-only field' });
   });
 
+  it('Edit cell leads the cell items and is disabled with a reason on read-only fields (SAD-96)', () => {
+    const ok = cellEntries({ readOnly: false, cellEmpty: true, hasClipboard: false });
+    expect(byId(ok, 'cell.edit')).toMatchObject({ enabled: true, label: 'Edit cell' });
+    const ro = cellEntries({ readOnly: true, cellEmpty: false, hasClipboard: true });
+    expect(byId(ro, 'cell.edit')).toMatchObject({ enabled: false, reason: 'Read-only field' });
+    expect(displayTitle(byId(ro, 'cell.edit'))).toBe('Edit cell (Read-only field)');
+  });
+
   it('cell right-click shows cell items, a separator, then row items', () => {
     const entries = cellMenu({ readOnly: false, cellEmpty: false, hasClipboard: false });
     expect(entries.map((e) => e.label)).toEqual([
-      'Copy', 'Paste', 'Clear', '', 'Insert row above', 'Insert row below', 'Duplicate row', 'Copy row', 'Delete row',
+      'Edit cell', 'Copy', 'Paste', 'Clear', '', 'Insert row above', 'Insert row below', 'Duplicate row', 'Copy row', 'Delete row',
     ]);
-    expect(entries[3].separator).toBe(true);
+    expect(entries[4].separator).toBe(true);
   });
 });
 

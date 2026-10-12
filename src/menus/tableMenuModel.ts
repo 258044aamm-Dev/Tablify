@@ -72,7 +72,16 @@ export interface CellContext {
 }
 
 export function cellEntries(ctx: CellContext): MenuEntry[] {
-  const entries: MenuEntry[] = [{ id: 'cell.copy', label: 'Copy', enabled: true }];
+  const entries: MenuEntry[] = [
+    // SAD-96: the always-available edit gesture (mobile's way into the editor).
+    {
+      id: 'cell.edit',
+      label: 'Edit cell',
+      enabled: !ctx.readOnly,
+      reason: ctx.readOnly ? 'Read-only field' : undefined,
+    },
+    { id: 'cell.copy', label: 'Copy', enabled: true },
+  ];
   if (ctx.isLink) {
     entries.push({ id: 'cell.links', label: 'Choose linked rows…', enabled: !ctx.readOnly });
     if ((ctx.foreignLinks ?? 0) > 0) {

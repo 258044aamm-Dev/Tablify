@@ -13,6 +13,16 @@ Grid shortcuts apply **only when the grid has focus**.
 | Ctrl/Cmd+C | Copy range | Tab-separated text for spreadsheets |
 | Ctrl/Cmd+V | Paste | Tab-separated text |
 
+## Mouse and touch (SAD-96)
+
+| Gesture | Action | Notes |
+|----------|--------|-------|
+| Click / tap a cell | Select it | Shift-click extends a range |
+| Double-click a cell | Edit it | Opens the editor, option panel, attachment panel or link picker for the field's type |
+| Tap the selected cell again | Edit it | Touch equivalent of double-click |
+| Right-click / long-press a cell | Cell menu | **Edit cell** opens the editor from here too |
+| Double-click / tap a read-only cell | Nothing | System and formula fields cannot be edited (the menu says why) |
+
 ## Overlap with Obsidian defaults
 
 Checked against Obsidian 1.5 hotkeys (desktop):

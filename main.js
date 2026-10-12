@@ -12676,9 +12676,11 @@ function createEditor(field, row, store, stack, onDone) {
       return;
     if (e.key === "Enter") {
       e.preventDefault();
+      e.stopPropagation();
       doCommit();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       doCancel();
     }
   });
@@ -12823,7 +12825,16 @@ var CHANGE_TARGET_TYPES = [
   "link"
 ];
 function cellEntries(ctx) {
-  const entries = [{ id: "cell.copy", label: "Copy", enabled: true }];
+  const entries = [
+    // SAD-96: the always-available edit gesture (mobile's way into the editor).
+    {
+      id: "cell.edit",
+      label: "Edit cell",
+      enabled: !ctx.readOnly,
+      reason: ctx.readOnly ? "Read-only field" : void 0
+    },
+    { id: "cell.copy", label: "Copy", enabled: true }
+  ];
   if (ctx.isLink) {
     entries.push({ id: "cell.links", label: "Choose linked rows\u2026", enabled: !ctx.readOnly });
     if ((ctx.foreignLinks ?? 0) > 0) {
@@ -13052,8 +13063,23 @@ var GridView = class {
       const col = Number(cell2.dataset.colIndex);
       if (Number.isNaN(row) || Number.isNaN(col))
         return;
+      const wasSelected = this.selected?.row === row && this.selected?.col === col;
       this.setSelection({ row, col });
       this.opts.onCellClick?.(row, col);
+      if (wasSelected)
+        this.opts.onCellReselect?.(row, col);
+    });
+    this.root.addEventListener("dblclick", (e) => {
+      const target = e.target;
+      const cell2 = target?.closest?.(".tablify__cell");
+      if (!cell2)
+        return;
+      const row = Number(cell2.parentElement.dataset.rowIndex);
+      const col = Number(cell2.dataset.colIndex);
+      if (Number.isNaN(row) || Number.isNaN(col))
+        return;
+      this.setSelection({ row, col });
+      this.opts.onCellActivate?.(row, col);
     });
     if (typeof ResizeObserver !== "undefined") {
       this.resizeObserver = new ResizeObserver(() => this.refreshGeometry());
@@ -16919,6 +16945,8 @@ var TableView = class extends import_obsidian9.TextFileView {
   /** Time of the last touch (P5-03), used to ignore the native touch context menu. SAD-97:
    * stamped on touch contact only — never on mouse/pen — so desktop right-clicks are unaffected. */
   lastTouchAt = 0;
+  /** SAD-96: pointer type of the most recent press — touch taps edit differently from mouse. */
+  lastPointerType = "mouse";
   /** P8-04: unsubscribe from the vault link index on close. */
   linkUnsub = null;
   getViewType() {
@@ -17306,6 +17334,15 @@ var TableView = class extends import_obsidian9.TextFileView {
         theme,
         viewportWidth: this.contentEl.clientWidth || 800,
         onCellClick: () => this.grid?.root.focus(),
+        // SAD-96: on touch the second tap on the selected cell opens the editor — the
+        // documented gesture where there is no Enter key. Mouse editing is double-click.
+        onCellReselect: (row, col) => {
+          this.grid?.root.focus();
+          if (this.lastPointerType === "touch")
+            this.startEdit({ row, col });
+        },
+        // SAD-96: double-click (the README's documented gesture) opens the cell's editor.
+        onCellActivate: (row, col) => this.startEdit({ row, col }),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -17480,6 +17517,7 @@ var TableView = class extends import_obsidian9.TextFileView {
   wirePressEvents(root) {
     root.addEventListener("pointerdown", (e) => {
       this.suppressClick = false;
+      this.lastPointerType = e.pointerType || "mouse";
       if (this.editing || e.pointerType !== "touch")
         return;
       this.lastTouchAt = Date.now();
@@ -17586,6 +17624,9 @@ var TableView = class extends import_obsidian9.TextFileView {
       if (!row || !field2)
         return;
       switch (id) {
+        case "cell.edit":
+          this.startEdit({ row: t.row, col: t.col });
+          return;
         case "cell.copy":
           this.copyText(formatValue(row.values[field2.id], field2));
           return;
@@ -17719,7 +17760,7 @@ var TableView = class extends import_obsidian9.TextFileView {
   startEdit(sel) {
     const s = this.session;
     const grid = this.grid;
-    if (!s || !grid)
+    if (!s || !grid || this.editing)
       return;
     const rows = this.displayRows();
     const fields = s.getVisibleFields();

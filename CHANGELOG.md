@@ -6,6 +6,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **Cell editing is reachable the way the docs promise (SAD-96)** — double-click now opens a
+  cell’s editor (inline editor, option panel, attachment panel or link picker, by field type);
+  on touch, tapping the selected cell again edits it; and the cell menu gains **Edit cell**
+  (disabled with a reason on read-only fields). Previously the only way in was the Enter key,
+  so mouse and touch users could not edit any cell. Enter and Escape in the editor are now
+  consumed there, so **Enter** commits and closes the editor instead of instantly reopening it.
 - **Context menu appears reliably (SAD-97)** — the right-click menu was swallowed for about 1.5
   seconds after any click: a touch long-press guard (added for mobile) was being armed by mouse
   clicks too, so ordinary desktop right-clicks were treated as duplicates. The guard now applies

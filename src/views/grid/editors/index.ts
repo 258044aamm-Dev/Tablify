@@ -121,9 +121,14 @@ export function createEditor(
     if (isComposing) return;
     if (e.key === 'Enter') {
       e.preventDefault();
+      // SAD-96: the commit keystroke must not bubble to the grid, where Enter means
+      // "edit this cell" and would immediately re-open the editor just closed.
+      e.stopPropagation();
       doCommit();
     } else if (e.key === 'Escape') {
       e.preventDefault();
+      // SAD-96: same for cancel — Escape belongs to the editor while it is open.
+      e.stopPropagation();
       doCancel();
     }
   });

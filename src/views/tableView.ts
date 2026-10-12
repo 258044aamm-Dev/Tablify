@@ -83,6 +83,8 @@ export class TableView extends TextFileView {
   /** Time of the last touch (P5-03), used to ignore the native touch context menu. SAD-97:
    * stamped on touch contact only — never on mouse/pen — so desktop right-clicks are unaffected. */
   private lastTouchAt = 0;
+  /** SAD-96: pointer type of the most recent press — touch taps edit differently from mouse. */
+  private lastPointerType = 'mouse';
   /** P8-04: unsubscribe from the vault link index on close. */
   private linkUnsub: (() => void) | null = null;
 
@@ -510,6 +512,14 @@ export class TableView extends TextFileView {
         theme,
         viewportWidth: this.contentEl.clientWidth || 800,
         onCellClick: () => this.grid?.root.focus(),
+        // SAD-96: on touch the second tap on the selected cell opens the editor — the
+        // documented gesture where there is no Enter key. Mouse editing is double-click.
+        onCellReselect: (row, col) => {
+          this.grid?.root.focus();
+          if (this.lastPointerType === 'touch') this.startEdit({ row, col });
+        },
+        // SAD-96: double-click (the README's documented gesture) opens the cell's editor.
+        onCellActivate: (row, col) => this.startEdit({ row, col }),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -702,6 +712,7 @@ export class TableView extends TextFileView {
     root.addEventListener('pointerdown', (e) => {
       // Reset on every press, so a long press that gets no click cannot swallow the next click.
       this.suppressClick = false;
+      this.lastPointerType = e.pointerType || 'mouse';
       if (this.editing || e.pointerType !== 'touch') return;
       this.lastTouchAt = Date.now();
       this.pressTarget = e.target as HTMLElement | null;
@@ -805,6 +816,10 @@ export class TableView extends TextFileView {
       const field = fields[t.col];
       if (!row || !field) return;
       switch (id) {
+        case 'cell.edit':
+          // SAD-96: opens the editor / panel / picker for this cell's type.
+          this.startEdit({ row: t.row, col: t.col });
+          return;
         case 'cell.copy':
           this.copyText(formatValue(row.values[field.id], field));
           return;
@@ -943,7 +958,7 @@ export class TableView extends TextFileView {
   private startEdit(sel: GridSelection): void {
     const s = this.session;
     const grid = this.grid;
-    if (!s || !grid) return;
+    if (!s || !grid || this.editing) return;
     const rows = this.displayRows();
     const fields = s.getVisibleFields();
     const row = rows[sel.row];
