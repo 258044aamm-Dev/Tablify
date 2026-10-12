@@ -1,6 +1,20 @@
-# Tablify — SAD-96 / SAD-97 fix plan (PLAN ONLY)
+# Tablify — SAD-96 / SAD-97 fix plan
 
-**Date:** 2026-10-12 · **Repo:** `258044aamm-Dev/Tablify` @ `830e692` (v2.0.0-beta.2) · **Mode:** plan only — no code changed
+> **Execution status (2026-10-12):** executed in full, same day. Two steps, two commits on
+> `main`, each pushed and posted to its Linear issue:
+> **SAD-97** `688d095` (touch dedupe, drag-blocker lifecycle, row-lead menu — Done) ·
+> **SAD-96** `8c4031b` (double-click / tap-again / **Edit cell**, Enter-close fix — Done).
+> Red→green tests first (`tests/views/contextMenu.test.ts` 8, `tests/views/editTriggers.test.ts`
+> 8); `npm run check` green at every step — **97 files / 1562 tests** at close (baseline
+> 95 / 1545; no existing test weakened). Evidence: `docs/evidence/SAD-97.md`,
+> `docs/evidence/SAD-96.md`; CHANGELOG entries under `[Unreleased]`; `main.js` rebuilt with
+> each step. Deviations from this plan: the drag blocker is scoped to the grid root *and*
+> armed only after the threshold (belt-and-braces, §3 step 2.3); `onCellReselect` is a separate
+> callback instead of a widened `onCellClick` signature (keeps the existing test contract
+> exact); Enter/Escape consume their keystroke in the editor (a third defect found mid-fix —
+> the commit keystroke re-opened the editor via the grid’s Enter→edit binding).
+
+**Date:** 2026-10-12 · **Repo:** `258044aamm-Dev/Tablify` @ `830e692` (v2.0.0-beta.2) · **Mode:** plan (written first) → executed, see status above
 **Linear:** project *Tablify* (`94bfabaa`, target 2026-10-15) — **SAD-96** “Cell editing is not working” (Bug, Urgent, Todo), **SAD-97** “Context menu” (Bug, Urgent, Todo). Both filed 2026-10-12, no comments yet.
 **Baseline:** `npx vitest run` = **95 files / 1545 tests green** at plan time — the suite does not exercise either broken path (see §3).
 **Sources:** `src/views/tableView.ts`, `src/views/grid/GridView.ts`, `src/views/grid/keyboard.ts`, `src/menus/tableMenuModel.ts`, `Prototype/script.js`, `README.md`, `docs/user-guide.md` §4/§18, `docs/shortcuts.md`, `docs/plans/prototype-visual-fidelity-plan.md` (SAD-82 programme), git history (`git log -S` on the relevant symbols).
