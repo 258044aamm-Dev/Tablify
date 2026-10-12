@@ -1,9 +1,10 @@
 /**
- * Title row (SAD-77, owner decisions S-1 / S-7; SAD-98): the prototype's `#titleRow` — an
- * editable table title, a file chip with the vault path, and a single **Export…** link pinned
- * to the right (SAD-98 removed Import… / Export CSV / Copy Markdown; those actions live on the
- * command palette). Prototype-only items (brand header, vault sidebar, tabs, "Saved locally",
- * "New Table") are deliberately absent.
+ * Title row (SAD-77, owner decisions S-1 / S-7; SAD-98/99): the prototype's `#titleRow` — an
+ * editable table title and a single **Export…** link pinned to the right. SAD-98 removed
+ * Import… / Export CSV / Copy Markdown (now commands); SAD-99 removed the vault-path chip (the
+ * owner does not want the folder/file name shown — an owner-directed prototype deviation).
+ * Prototype-only items (brand header, vault sidebar, tabs, "Saved locally", "New Table") are
+ * deliberately absent.
  *
  * Pure DOM, no Obsidian imports (like Toolbar and GridView), so it is unit-tested in jsdom. TableView
  * supplies the callbacks, which reuse the existing command paths (the Export modal).
@@ -27,8 +28,6 @@ export interface TitleRowCallbacks {
 export interface TitleRowState {
   /** File basename shown as the title. */
   title: string;
-  /** Vault path shown in the file chip ("" hides the chip). */
-  path: string;
 }
 
 /** Characters Obsidian rejects in file names, or that break [[links]] to the table. */
@@ -54,7 +53,6 @@ const LINKS: Array<{ action: TitleAction; label: string; title: string }> = [
 export class TitleRow {
   readonly root: HTMLElement;
   private readonly titleEl: HTMLElement;
-  private readonly chip: HTMLElement;
   private readonly callbacks: TitleRowCallbacks;
   private state: TitleRowState;
   /** True while a rename is in flight, so a second blur cannot start another. */
@@ -81,11 +79,6 @@ export class TitleRow {
     this.titleEl.dataset.testid = 'tablify-title';
     left.appendChild(this.titleEl);
 
-    this.chip = document.createElement('span');
-    this.chip.className = 'tablify__file-chip';
-    this.chip.dataset.testid = 'tablify-file-chip';
-    left.appendChild(this.chip);
-
     const right = document.createElement('div');
     right.className = 'tablify__title-actions';
     for (const link of LINKS) right.appendChild(this.makeLink(link.action, link.label, link.title));
@@ -96,13 +89,10 @@ export class TitleRow {
     this.render();
   }
 
-  /** Refresh title and chip (file opened or renamed). Never clobbers an edit in progress. */
+  /** Refresh the title (file opened or renamed). Never clobbers an edit in progress. */
   update(state: TitleRowState): void {
     this.state = state;
-    if (document.activeElement === this.titleEl) {
-      this.renderChip();
-      return;
-    }
+    if (document.activeElement === this.titleEl) return;
     this.render();
   }
 
@@ -176,15 +166,9 @@ export class TitleRow {
 
   private render(): void {
     this.renderTitle();
-    this.renderChip();
   }
 
   private renderTitle(): void {
     this.titleEl.textContent = this.state.title;
-  }
-
-  private renderChip(): void {
-    this.chip.textContent = this.state.path;
-    this.chip.hidden = this.state.path.length === 0;
   }
 }

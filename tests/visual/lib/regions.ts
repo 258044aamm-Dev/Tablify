@@ -20,7 +20,8 @@ export const REGIONS: Region[] = [
   { id: 'card', plugin: ['.tablify__card'], prototype: ['main > div.flex-1'], styles: [...BOX, ...PAD] },
   { id: 'title-row', plugin: ['.tablify__title-row'], prototype: ['#titleRow'], styles: [], pixels: true },
   { id: 'title', plugin: ['.tablify__title'], prototype: ['#editableTableTitle'], styles: [...TEXT] },
-  { id: 'file-chip', plugin: ['.tablify__file-chip'], prototype: ['#fileChip'], styles: [...BOX, ...TEXT, ...PAD] },
+// SAD-99: the plugin no longer renders the vault-path chip; the prototype's #fileChip is an
+// owner-directed deviation, so the region is gone (not compared).
   { id: 'toolbar-row', plugin: ['.tablify__toolbar-row'], prototype: ['#toolbarRow'], styles: ['border-bottom-width'], pixels: true },
   { id: 'search', plugin: ['input.tablify__search-input'], prototype: ['#searchInput'], styles: [...BOX, ...TEXT, ...PAD] },
   { id: 'btn-add-row', plugin: ['button[data-action="add-row"]', 'button[data-action="addRow"]'], prototype: ['#toolbarRow button[onclick="addRow()"]'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },

@@ -107,19 +107,19 @@ describe('title row placement', () => {
     expect(kids[2]).toContain('tablify__body');
   });
 
-  it('shows the file basename as the title and the vault path in the chip', async () => {
+  it('shows the file basename as the title and no path / file-name element (SAD-99)', async () => {
     const view = await openView();
     expect(q(view, '[data-testid="tablify-title"]')?.textContent).toBe('Budget');
-    expect(q(view, '[data-testid="tablify-file-chip"]')?.textContent).toBe('Tables/Budget.tablify');
+    expect(q(view, '[data-testid="tablify-file-chip"]')).toBeNull();
+    expect(q(view, '.tablify__file-chip')).toBeNull();
   });
 
-  it('refreshes title and chip after Obsidian reports a rename/move', async () => {
+  it('refreshes the title after Obsidian reports a rename/move', async () => {
     const view = await openView();
     const moved = tableFile('Archive/Old budget.tablify');
     (view as unknown as { file: TFile }).file = moved;
     await view.onRename(moved);
     expect(q(view, '[data-testid="tablify-title"]')?.textContent).toBe('Old budget');
-    expect(q(view, '[data-testid="tablify-file-chip"]')?.textContent).toBe('Archive/Old budget.tablify');
   });
 });
 

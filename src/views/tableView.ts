@@ -232,7 +232,7 @@ export class TableView extends TextFileView {
   // ---- title row (SAD-77) ----
 
   private titleState(): TitleRowState {
-    return { title: this.file?.basename ?? '', path: this.file?.path ?? '' };
+    return { title: this.file?.basename ?? '' };
   }
 
   private titleCallbacks(): TitleRowCallbacks {

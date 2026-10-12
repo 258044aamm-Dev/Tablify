@@ -12,6 +12,11 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   palette and the folder menu, and the two one-click current-view actions are now the commands
   **Export current view as CSV** and **Copy current view as Markdown**.
 
+### Removed
+
+- **Vault-path chip in the title row (SAD-99)** — the table's folder name and file name are no
+  longer shown next to the title. Renaming (click the title) is unchanged.
+
 ### Fixed
 
 - **Cell editing is reachable the way the docs promise (SAD-96)** — double-click now opens a

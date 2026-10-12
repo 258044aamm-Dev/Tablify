@@ -15649,7 +15649,6 @@ var LINKS = [
 var TitleRow = class {
   root;
   titleEl;
-  chip;
   callbacks;
   state;
   /** True while a rename is in flight, so a second blur cannot start another. */
@@ -15670,10 +15669,6 @@ var TitleRow = class {
     this.titleEl.setAttribute("aria-label", "Table name");
     this.titleEl.dataset.testid = "tablify-title";
     left.appendChild(this.titleEl);
-    this.chip = document.createElement("span");
-    this.chip.className = "tablify__file-chip";
-    this.chip.dataset.testid = "tablify-file-chip";
-    left.appendChild(this.chip);
     const right = document.createElement("div");
     right.className = "tablify__title-actions";
     for (const link of LINKS)
@@ -15683,13 +15678,11 @@ var TitleRow = class {
     this.wire();
     this.render();
   }
-  /** Refresh title and chip (file opened or renamed). Never clobbers an edit in progress. */
+  /** Refresh the title (file opened or renamed). Never clobbers an edit in progress. */
   update(state) {
     this.state = state;
-    if (document.activeElement === this.titleEl) {
-      this.renderChip();
+    if (document.activeElement === this.titleEl)
       return;
-    }
     this.render();
   }
   makeLink(action, label, title) {
@@ -15762,14 +15755,9 @@ var TitleRow = class {
   }
   render() {
     this.renderTitle();
-    this.renderChip();
   }
   renderTitle() {
     this.titleEl.textContent = this.state.title;
-  }
-  renderChip() {
-    this.chip.textContent = this.state.path;
-    this.chip.hidden = this.state.path.length === 0;
   }
 };
 
@@ -17080,7 +17068,7 @@ var TableView = class extends import_obsidian9.TextFileView {
   /** Push the current model state into the toolbar without rebuilding it. */
   // ---- title row (SAD-77) ----
   titleState() {
-    return { title: this.file?.basename ?? "", path: this.file?.path ?? "" };
+    return { title: this.file?.basename ?? "" };
   }
   titleCallbacks() {
     return {

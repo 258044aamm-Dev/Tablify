@@ -1,9 +1,9 @@
 /**
  * @vitest-environment jsdom
  *
- * TitleRow unit tests (SAD-77, SAD-98): the prototype's editable table name, file chip and the
- * title links. SAD-98 keeps only Export… (pinned right); Import… / Export CSV / Copy Markdown
- * moved to commands and must not render here. jsdom only, no Obsidian.
+ * TitleRow unit tests (SAD-77, SAD-98/99): the prototype's editable table title and the Export…
+ * link pinned right. SAD-98 moved Import… / Export CSV / Copy Markdown to commands; SAD-99 removed
+ * the vault-path chip. jsdom only, no Obsidian.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -20,13 +20,12 @@ function makeCallbacks(renameResult: boolean | (() => Promise<boolean>) = true) 
   return cb satisfies TitleRowCallbacks;
 }
 
-function mount(cb = makeCallbacks(), state = { title: 'Budget', path: 'Tables/Budget.tablify' }) {
+function mount(cb = makeCallbacks(), state = { title: 'Budget' }) {
   const row = new TitleRow(state, cb);
   document.body.appendChild(row.root);
   const title = row.root.querySelector<HTMLElement>('[data-testid="tablify-title"]');
-  const chip = row.root.querySelector<HTMLElement>('[data-testid="tablify-file-chip"]');
-  if (!title || !chip) throw new Error('title row incomplete');
-  return { row, cb, title, chip };
+  if (!title) throw new Error('title row incomplete');
+  return { row, cb, title };
 }
 
 /** Type a new name and commit it the way a user does (focus, edit, Enter → blur). */
@@ -42,14 +41,12 @@ afterEach(() => {
 });
 
 describe('TitleRow structure', () => {
-  it('renders title, file chip, then a single Export… link', () => {
-    const { row, title, chip } = mount();
+  it('renders title, then a single Export… link', () => {
+    const { row, title } = mount();
     expect(row.root.classList.contains('tablify__title-row')).toBe(true);
     expect(title.tagName).toBe('H2');
     expect(title.textContent).toBe('Budget');
     expect(title.contentEditable).toBe('true');
-    expect(chip.textContent).toBe('Tables/Budget.tablify');
-    expect(chip.hidden).toBe(false);
     const links = [...row.root.querySelectorAll<HTMLButtonElement>('button.tablify__title-link')];
     expect(links.map((b) => b.textContent?.trim())).toEqual(['Export…']);
     expect(links.map((b) => b.dataset.action)).toEqual(['export']);
@@ -72,9 +69,10 @@ describe('TitleRow structure', () => {
     }
   });
 
-  it('hides the chip when there is no file path', () => {
-    const { chip } = mount(makeCallbacks(), { title: '', path: '' });
-    expect(chip.hidden).toBe(true);
+  it('renders no vault-path / file-name element (SAD-99)', () => {
+    const { row } = mount();
+    expect(row.root.querySelector('[data-testid="tablify-file-chip"]')).toBeNull();
+    expect(row.root.querySelector('.tablify__file-chip')).toBeNull();
   });
 
   it('contains no prototype-only annotation text', () => {
@@ -160,13 +158,12 @@ describe('TitleRow rename', () => {
     expect(cb.onRename).toHaveBeenCalledTimes(2);
   });
 
-  it('update() refreshes title and chip, but never clobbers an edit in progress', async () => {
-    const { row, title, chip } = mount();
+  it('update() refreshes the title, but never clobbers an edit in progress', async () => {
+    const { row, title } = mount();
     title.focus();
     title.textContent = 'Half typed';
-    row.update({ title: 'Renamed', path: 'Tables/Renamed.tablify' });
+    row.update({ title: 'Renamed' });
     expect(title.textContent).toBe('Half typed');
-    expect(chip.textContent).toBe('Tables/Renamed.tablify');
     title.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(title.textContent).toBe('Renamed');
   });

@@ -43,7 +43,7 @@ The primary field cannot be hidden or deleted; it labels each row.
 
 ### The title row
 
-The top of every table shows its **name** (and the file's vault path) and a single **Export…** button on the right:
+The top of every table shows its **name** and a single **Export…** button on the right:
 
 - **Name**: click it, type, then press **Enter** (or click away) to rename the table *file*, in the same folder. **Esc** cancels. Names cannot be empty, cannot start with `.`, and cannot contain `\ / : * ? " < > | # ^ [ ]`. If a file with that name already exists in the folder, the rename is refused with a notice and the old name stays. Obsidian updates links to the table as usual.
 - **Export…** (right): saves pending edits, then opens the Export dialog for this table ([§13](#13-exporting-csv-excel-markdown)).
