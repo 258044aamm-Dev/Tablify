@@ -4,7 +4,20 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+## [2.0.0-beta.2] — 2026-10-12
+
 ### Added
+
+- **Select panel, option manager and attachment panel (SAD-90)** — the prototype's anchored
+  select card with hue-classed colour chips, **Create row** and a **Clear / Manage options**
+  footer; the option manager (swatch / arrows / name / trash rows, **New option…**, every edit
+  through one undoable `createSetFieldOptionsCommand`, delete carrying the affected cells); and
+  the attachment panel — one vault-relative path per cell, its vault check warns and offers
+  **Save anyway** (P3-04). (`721a858`)
+
+- **Visual-parity harness (SAD-75)** — `tests/visual/` renders the real `TableView` and the
+  prototype side by side under hostile host CSS, with pixel comparison for rest and interaction
+  states; harness output is git-ignored. (`d5c4676`)
 
 - **Options panel and Group by (SAD-81, prototype)**: **Options** now opens the prototype's
   view-settings panel: **Short / Medium / Tall** row height, a **Freeze primary column** switch,
@@ -99,6 +112,19 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Host-CSS isolation and embedded fonts (SAD-76)** — fonts are embedded in `styles.css`, plugin
+  controls are scoped past host CSS, and the search gutter, capsule focus ring and `[hidden]`
+  handling are corrected. (`f62028b`)
+
+- **Prototype modal shell and editing states (SAD-85)** — the shared modal card shell, cell
+  editing and invalid states, and scrollbars (Step 7a of SAD-82). (`6a00bac`)
+
+- **Add Field dialog (SAD-86)** — rebuilt in the prototype's layout (Step 7b). (`6dbdf00`)
+
+- **Theme-aware focus ring (SAD-92)** — the search box's focus halo is now `--tablify-focus-ring`
+  (15 % light / 20 % dark) with the 2 px WCAG 1.4.11 outline kept; both alphas are pinned by
+  tests. (`7a93a6b`)
+
 - **Smoother scrolling (SAD-79)**: scrolling within the rows already on screen no longer
   rebuilds them, so ordinary scrolling of large tables does about a third of the work it did.
 - **Row height (SAD-79)**: rows follow the prototype's spacing (50 / 50 / 56 px for
@@ -161,6 +187,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 - Per-batch headless smoke suites (Node + DOM stubs against the extracted script); 41 assertions
   green on the final file. No real tokens in the prototype (masked `pat_demo…`, settings-only per
   §2.19); no `.tabula` references; all pre-existing prototype behaviors preserved.
+
+- **Interaction states, empty and grouped fixtures (SAD-92)** — `tests/visual/capture-states.ts`
+  drives hover / focus-visible / active over 10 targets per page at 1568x795 and 390x844, dark
+  and light; the final matrix has 49 rows above 0.5 % and none unaccepted. A second 32-combo
+  sweep covers the empty and grouped fixtures. Evidence: `docs/evidence/SAD-92.md` and
+  `docs/evidence/visual-parity/sad-92/report-sweep-empty-grouped.md`. (`7a93a6b`, `519899f`)
 
 ## [2.0.0-beta.1] — 2026-10-10
 

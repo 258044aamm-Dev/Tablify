@@ -2,6 +2,44 @@
 
 ---
 
+# 2.0.0-beta.2 — 2026-10-12
+
+**Release:** v2.0.0-beta.2 (pre-release) · **Format version 2** · prototype-parity tranche (SAD-75 to SAD-92); no file-format change since 2.0.0-beta.1
+
+## Situation
+
+2.0.0-beta.2 carries the prototype-parity work (title row and toolbar, one search/query box with the filter builder, capsule grid, row selection and reorder, Options panel with Group by, select / option-manager / attachment panels) on top of 2.0.0-beta.1. The format rules are unchanged: a table that uses a formula or link field is saved as `formatVersion: 2`, and Tablify 1.0.2 and earlier refuse to open such a file. Tables without those fields stay at version 1 and open in any version.
+
+No file-format change is introduced: a table written by beta.1 opens unchanged in beta.2, and a table written by beta.2 opens in beta.1. The only new view key is the optional `collapsedGroups` (FORMAT_SPEC §5), which beta.1 ignores.
+
+## Rolling back
+
+| Situation | Action |
+|---|---|
+| Testing in a copy of the vault | Delete the copy. The original is untouched. |
+| Reinstalled 1.0.2 and a v2 file will not open | Reinstall 2.0.0-beta.2 (or 2.0.0-beta.1). Version 1.0.2 cannot open a v2 file, so it cannot remove the fields either. |
+| Downgrade to 2.0.0-beta.1 | Download `main.js`, `manifest.json`, `styles.css` from the [v2.0.0-beta.1 release](https://github.com/258044aamm-Dev/Tablify/releases/tag/v2.0.0-beta.1) and replace the three files in `<vault>/.obsidian/plugins/tablify/`. |
+| Downgrade a vault with no v2 files | Reinstall 1.0.2 from its release. |
+
+Do not edit a v2 file by hand. Test on a copy of your vault first.
+
+## Known issues carried by 2.0.0-beta.2
+
+- Live Airtable and Obsidian checks have still not been run; the sync is tested against a fake server only (carried from beta.1).
+- Renaming a field does not update formulas that use it; those formulas show `#NAME?` until edited. Field rename is not built.
+- Link fields have one target table each; export writes link names only and import does not restore links; lookups and rollups are not included.
+- Prototype parity is not claimed as complete. The remaining, measured gaps are recorded in `docs/evidence/SAD-92.md` (grouped-state geometry, search placeholder / Step 14, mobile insert-row offset).
+
+## Release verification checklist (2.0.0-beta.2)
+
+- [x] Clean build of the release commit (`npm ci` → `npm run check` → production build): lint 0 errors, 1545/1545 tests, `.tabula` guard, docs-link check, FA icon check all pass.
+- [x] Version bump does not change the shipped bundle: production `main.js` and `styles.css` are byte-identical to the pre-bump build of `main` (sha256 `15ffb158…` / `3f246e74…`).
+- [ ] SHA-256 of `main.js`, `manifest.json`, `styles.css` recorded in the release notes.
+- [ ] Re-build from the tag reproduces identical hashes (build determinism check).
+- [ ] Owner: install release assets in a clean vault on **desktop** and **mobile**.
+- [ ] Owner: walk the SAD-77 to SAD-92 parity checklist in light and dark; record in `docs/evidence/`.
+- [ ] Owner: revoke the temporary GitHub credential used for this release.
+
 # 2.0.0-beta.1 — 2026-10-10
 
 **Release:** v2.0.0-beta.1 (pre-release) · **Format version 2** · Phase 7 and Phase 8
