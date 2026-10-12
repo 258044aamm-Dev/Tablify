@@ -16,7 +16,7 @@ import { getGridAction, shouldHandleForGrid } from './grid/keyboard.js';
 import { isMoveAction, moveSelection } from './tableController.js';
 import { LongPressDetector } from './longPress.js';
 import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
-import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
+import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, rowEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
 import { createDefaultView } from '../model/view.js';
 import { cycleHeaderSort, hideField, moveColumnOnto, resizeColumn, setFrozenColumns, setGroupBy, setRowHeight, setSort } from './grid/columns.js';
 import { groupRows, toggleCollapsed, type GroupedRows } from './grid/grouping.js';
@@ -80,7 +80,8 @@ export class TableView extends TextFileView {
   private pressTarget: HTMLElement | null = null;
   /** Set when a long press opened the menu, so the following click does nothing. */
   private suppressClick = false;
-  /** Time of the last touch, used to ignore the native touch context menu (P5-03). */
+  /** Time of the last touch (P5-03), used to ignore the native touch context menu. SAD-97:
+   * stamped on touch contact only — never on mouse/pen — so desktop right-clicks are unaffected. */
   private lastTouchAt = 0;
   /** P8-04: unsubscribe from the vault link index on close. */
   private linkUnsub: (() => void) | null = null;
@@ -646,15 +647,29 @@ export class TableView extends TextFileView {
 
   private onContextMenu(e: MouseEvent): void {
     // A touch long press opens the menu through LongPressDetector. The native touch context menu
-    // that follows is ignored, so the menu does not open twice (P5-03).
-    if (Date.now() - this.lastTouchAt < 1500) {
+    // that follows is ignored, so the menu does not open twice (P5-03). The dedupe window is
+    // armed by touch presses only (SAD-97): a mouse or pen right-click always opens the menu,
+    // even right after a click. When the event reports its input device (Chromium), only
+    // touch-originated menus are suppressed; elsewhere the time window decides.
+    const caps = (e as MouseEvent & { sourceCapabilities?: { firesTouchEvents?: boolean } | null })
+      .sourceCapabilities;
+    const touchOriginated = caps ? caps.firesTouchEvents === true : true;
+    if (touchOriginated && Date.now() - this.lastTouchAt < 1500) {
       e.preventDefault();
       return;
     }
-    if (this.openMenuFromTarget(e.target as HTMLElement | null, e)) e.preventDefault();
+    const target = e.target as HTMLElement | null;
+    // Inside the grid's table surface (header + body) the prototype replaces the native menu
+    // entirely (SAD-97); chrome such as the Insert Row pill keeps the platform menu.
+    const inTable = !!target?.closest?.('.tablify__header, .tablify__viewport');
+    if (this.openMenuFromTarget(target, e) || inTable) e.preventDefault();
   }
 
-  /** Open the header or cell menu for a DOM target. Returns false when the target is neither. */
+  /**
+   * Open the header, cell or row menu for a DOM target. Returns false when the target is
+   * neither. SAD-97: a row target (the `#` / checkbox lead, the row itself) opens the row
+   * menu — the prototype does this for any `tr[data-row]`.
+   */
   private openMenuFromTarget(target: HTMLElement | null, pos: MouseEvent | { x: number; y: number }): boolean {
     if (!this.grid) return false;
     const headerCell = target?.closest?.('.tablify__header-cell') as HTMLElement | null;
@@ -663,12 +678,22 @@ export class TableView extends TextFileView {
       return true;
     }
     const cell = target?.closest?.('.tablify__cell') as HTMLElement | null;
-    if (!cell) return false;
-    const row = Number((cell.parentElement as HTMLElement).dataset.rowIndex);
-    const col = Number(cell.dataset.colIndex);
-    this.grid.setSelection({ row, col });
-    this.openCellMenu(row, col, pos);
-    return true;
+    if (cell) {
+      const row = Number((cell.parentElement as HTMLElement).dataset.rowIndex);
+      const col = Number(cell.dataset.colIndex);
+      this.grid.setSelection({ row, col });
+      this.openCellMenu(row, col, pos);
+      return true;
+    }
+    const rowEl = target?.closest?.('.tablify__row') as HTMLElement | null;
+    if (rowEl) {
+      const row = Number(rowEl.dataset.rowIndex);
+      if (!Number.isNaN(row)) {
+        this.openRowMenu(row, pos);
+        return true;
+      }
+    }
+    return false;
   }
 
   // ---- touch long press (P5-03) ----
@@ -683,12 +708,14 @@ export class TableView extends TextFileView {
       this.press.pointerDown(e.clientX, e.clientY, e.pointerType);
     });
     root.addEventListener('pointermove', (e) => this.press.pointerMove(e.clientX, e.clientY));
-    root.addEventListener('pointerup', () => {
-      this.lastTouchAt = Date.now();
+    root.addEventListener('pointerup', (e) => {
+      // SAD-97: only touch stamps the dedupe window; a mouse click must never suppress a
+      // right-click that follows it.
+      if (e.pointerType === 'touch') this.lastTouchAt = Date.now();
       this.suppressClick = this.press.pointerUp() || this.suppressClick;
     });
-    root.addEventListener('pointercancel', () => {
-      this.lastTouchAt = Date.now();
+    root.addEventListener('pointercancel', (e) => {
+      if (e.pointerType === 'touch') this.lastTouchAt = Date.now();
       this.press.pointerCancel();
     });
     // A scroll that starts on a cell cancels the press, so the menu does not open (P5-03).
@@ -734,6 +761,14 @@ export class TableView extends TextFileView {
       foreignLinks: field.type === 'link' ? countForeignRefs(value, field.linkTableId) : 0,
     });
     this.showMenu(entries, { row, col }, pos);
+  }
+
+  /** SAD-97: row targets (the `#` / checkbox lead) open the row items, as the prototype's `tr` menu. */
+  private openRowMenu(row: number, pos: MouseEvent | { x: number; y: number }): void {
+    if (!this.session) return;
+    const rowData = this.displayRows()[row];
+    if (!rowData) return;
+    this.showMenu(rowEntries(), { row, col: 0 }, pos);
   }
 
   private openHeaderMenu(col: number, pos: MouseEvent | { x: number; y: number }): void {

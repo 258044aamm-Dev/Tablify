@@ -13607,6 +13607,7 @@ var GridView = class {
       return;
     this.cancelRowDrag?.();
     const doc = this.root.ownerDocument;
+    const win = doc.defaultView;
     const startX = e.clientX;
     const startY = e.clientY;
     let active = false;
@@ -13619,7 +13620,8 @@ var GridView = class {
       doc.removeEventListener("pointermove", move);
       doc.removeEventListener("pointerup", up);
       doc.removeEventListener("pointercancel", cleanup);
-      doc.removeEventListener("contextmenu", blockMenu, true);
+      win?.removeEventListener("blur", cleanup);
+      this.root.removeEventListener("contextmenu", blockMenu, true);
       this.root.classList.remove("tablify--row-dragging");
       if (this.rowDropIndicator)
         this.rowDropIndicator.style.display = "none";
@@ -13641,6 +13643,7 @@ var GridView = class {
         this.draggingRowId = rowId;
         this.root.classList.add("tablify--row-dragging");
         this.content.querySelector(`.tablify__row[data-row-id="${cssEscape(rowId)}"]`)?.classList.add("tablify__row--dragging");
+        this.root.addEventListener("contextmenu", blockMenu, true);
       }
       if (ev.cancelable)
         ev.preventDefault();
@@ -13657,7 +13660,7 @@ var GridView = class {
     doc.addEventListener("pointermove", move);
     doc.addEventListener("pointerup", up);
     doc.addEventListener("pointercancel", cleanup);
-    doc.addEventListener("contextmenu", blockMenu, true);
+    win?.addEventListener("blur", cleanup);
     this.cancelRowDrag = cleanup;
   }
   /**
@@ -16913,7 +16916,8 @@ var TableView = class extends import_obsidian9.TextFileView {
   pressTarget = null;
   /** Set when a long press opened the menu, so the following click does nothing. */
   suppressClick = false;
-  /** Time of the last touch, used to ignore the native touch context menu (P5-03). */
+  /** Time of the last touch (P5-03), used to ignore the native touch context menu. SAD-97:
+   * stamped on touch contact only — never on mouse/pen — so desktop right-clicks are unaffected. */
   lastTouchAt = 0;
   /** P8-04: unsubscribe from the vault link index on close. */
   linkUnsub = null;
@@ -17430,14 +17434,22 @@ var TableView = class extends import_obsidian9.TextFileView {
   }
   // ---- context menus (P5-02) ----
   onContextMenu(e) {
-    if (Date.now() - this.lastTouchAt < 1500) {
+    const caps = e.sourceCapabilities;
+    const touchOriginated = caps ? caps.firesTouchEvents === true : true;
+    if (touchOriginated && Date.now() - this.lastTouchAt < 1500) {
       e.preventDefault();
       return;
     }
-    if (this.openMenuFromTarget(e.target, e))
+    const target = e.target;
+    const inTable = !!target?.closest?.(".tablify__header, .tablify__viewport");
+    if (this.openMenuFromTarget(target, e) || inTable)
       e.preventDefault();
   }
-  /** Open the header or cell menu for a DOM target. Returns false when the target is neither. */
+  /**
+   * Open the header, cell or row menu for a DOM target. Returns false when the target is
+   * neither. SAD-97: a row target (the `#` / checkbox lead, the row itself) opens the row
+   * menu — the prototype does this for any `tr[data-row]`.
+   */
   openMenuFromTarget(target, pos) {
     if (!this.grid)
       return false;
@@ -17447,13 +17459,22 @@ var TableView = class extends import_obsidian9.TextFileView {
       return true;
     }
     const cell2 = target?.closest?.(".tablify__cell");
-    if (!cell2)
-      return false;
-    const row = Number(cell2.parentElement.dataset.rowIndex);
-    const col = Number(cell2.dataset.colIndex);
-    this.grid.setSelection({ row, col });
-    this.openCellMenu(row, col, pos);
-    return true;
+    if (cell2) {
+      const row = Number(cell2.parentElement.dataset.rowIndex);
+      const col = Number(cell2.dataset.colIndex);
+      this.grid.setSelection({ row, col });
+      this.openCellMenu(row, col, pos);
+      return true;
+    }
+    const rowEl = target?.closest?.(".tablify__row");
+    if (rowEl) {
+      const row = Number(rowEl.dataset.rowIndex);
+      if (!Number.isNaN(row)) {
+        this.openRowMenu(row, pos);
+        return true;
+      }
+    }
+    return false;
   }
   // ---- touch long press (P5-03) ----
   wirePressEvents(root) {
@@ -17466,12 +17487,14 @@ var TableView = class extends import_obsidian9.TextFileView {
       this.press.pointerDown(e.clientX, e.clientY, e.pointerType);
     });
     root.addEventListener("pointermove", (e) => this.press.pointerMove(e.clientX, e.clientY));
-    root.addEventListener("pointerup", () => {
-      this.lastTouchAt = Date.now();
+    root.addEventListener("pointerup", (e) => {
+      if (e.pointerType === "touch")
+        this.lastTouchAt = Date.now();
       this.suppressClick = this.press.pointerUp() || this.suppressClick;
     });
-    root.addEventListener("pointercancel", () => {
-      this.lastTouchAt = Date.now();
+    root.addEventListener("pointercancel", (e) => {
+      if (e.pointerType === "touch")
+        this.lastTouchAt = Date.now();
       this.press.pointerCancel();
     });
     root.addEventListener("scroll", () => this.press.scroll());
@@ -17516,6 +17539,15 @@ var TableView = class extends import_obsidian9.TextFileView {
       foreignLinks: field.type === "link" ? countForeignRefs(value, field.linkTableId) : 0
     });
     this.showMenu(entries, { row, col }, pos);
+  }
+  /** SAD-97: row targets (the `#` / checkbox lead) open the row items, as the prototype's `tr` menu. */
+  openRowMenu(row, pos) {
+    if (!this.session)
+      return;
+    const rowData = this.displayRows()[row];
+    if (!rowData)
+      return;
+    this.showMenu(rowEntries(), { row, col: 0 }, pos);
   }
   openHeaderMenu(col, pos) {
     if (!this.session)

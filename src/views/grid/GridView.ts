@@ -895,6 +895,7 @@ export class GridView {
     if (e.button !== undefined && e.button !== 0) return; // primary button / touch only
     this.cancelRowDrag?.();
     const doc = this.root.ownerDocument;
+    const win = doc.defaultView;
     const startX = e.clientX;
     const startY = e.clientY;
     let active = false;
@@ -910,7 +911,8 @@ export class GridView {
       doc.removeEventListener('pointermove', move);
       doc.removeEventListener('pointerup', up);
       doc.removeEventListener('pointercancel', cleanup);
-      doc.removeEventListener('contextmenu', blockMenu, true);
+      win?.removeEventListener('blur', cleanup);
+      this.root.removeEventListener('contextmenu', blockMenu, true);
       this.root.classList.remove('tablify--row-dragging');
       if (this.rowDropIndicator) this.rowDropIndicator.style.display = 'none';
       this.draggingRowId = null;
@@ -930,6 +932,11 @@ export class GridView {
         this.draggingRowId = rowId;
         this.root.classList.add('tablify--row-dragging');
         this.content.querySelector(`.tablify__row[data-row-id="${cssEscape(rowId)}"]`)?.classList.add('tablify__row--dragging');
+        // SAD-97: the menu blocker is armed only once this is really a drag, and only on the
+        // grid — an inert press on the handle must not swallow context menus (inside or out),
+        // and a lost pointerup can never block the rest of Obsidian. `blur` guarantees
+        // teardown when the release event is never delivered.
+        this.root.addEventListener('contextmenu', blockMenu, true);
       }
       if (ev.cancelable) ev.preventDefault();
       before = this.dropSlotAt(ev.clientY);
@@ -944,7 +951,7 @@ export class GridView {
     doc.addEventListener('pointermove', move);
     doc.addEventListener('pointerup', up);
     doc.addEventListener('pointercancel', cleanup);
-    doc.addEventListener('contextmenu', blockMenu, true);
+    win?.addEventListener('blur', cleanup);
     this.cancelRowDrag = cleanup;
   }
 

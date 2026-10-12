@@ -4,6 +4,16 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- **Context menu appears reliably (SAD-97)** — the right-click menu was swallowed for about 1.5
+  seconds after any click: a touch long-press guard (added for mobile) was being armed by mouse
+  clicks too, so ordinary desktop right-clicks were treated as duplicates. The guard now applies
+  to touch only. Row drag no longer blocks the menu before a drag has actually started, and its
+  guard can never leak outside the grid. Right-clicking the row number or the checkbox now opens
+  the row menu (Insert row above/below, Duplicate, Copy row, Delete row), matching the rest of
+  the row.
+
 ## [2.0.0-beta.2] — 2026-10-12
 
 ### Added
