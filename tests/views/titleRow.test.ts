@@ -1,8 +1,9 @@
 /**
  * @vitest-environment jsdom
  *
- * TitleRow unit tests (SAD-77): the prototype's editable table name, file chip and the
- * Import… / Export… / Export CSV / Copy Markdown links. jsdom only, no Obsidian.
+ * TitleRow unit tests (SAD-77, SAD-98): the prototype's editable table name, file chip and the
+ * title links. SAD-98 keeps only Export… (pinned right); Import… / Export CSV / Copy Markdown
+ * moved to commands and must not render here. jsdom only, no Obsidian.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -13,10 +14,7 @@ function makeCallbacks(renameResult: boolean | (() => Promise<boolean>) = true) 
     onRename: vi.fn(async (_name: string) =>
       typeof renameResult === 'function' ? renameResult() : renameResult,
     ),
-    onImport: vi.fn(),
     onExport: vi.fn(),
-    onExportCsv: vi.fn(),
-    onCopyMarkdown: vi.fn(),
     onInvalidName: vi.fn(),
   };
   return cb satisfies TitleRowCallbacks;
@@ -44,7 +42,7 @@ afterEach(() => {
 });
 
 describe('TitleRow structure', () => {
-  it('renders the prototype order: title, file chip, then the four links', () => {
+  it('renders title, file chip, then a single Export… link', () => {
     const { row, title, chip } = mount();
     expect(row.root.classList.contains('tablify__title-row')).toBe(true);
     expect(title.tagName).toBe('H2');
@@ -53,11 +51,24 @@ describe('TitleRow structure', () => {
     expect(chip.textContent).toBe('Tables/Budget.tablify');
     expect(chip.hidden).toBe(false);
     const links = [...row.root.querySelectorAll<HTMLButtonElement>('button.tablify__title-link')];
-    expect(links.map((b) => b.textContent?.trim())).toEqual(['Import…', 'Export…', 'Export CSV', 'Copy Markdown']);
-    expect(links.map((b) => b.dataset.action)).toEqual(['import', 'export', 'export-csv', 'copy-markdown']);
+    expect(links.map((b) => b.textContent?.trim())).toEqual(['Export…']);
+    expect(links.map((b) => b.dataset.action)).toEqual(['export']);
     for (const b of links) {
       expect(b.type).toBe('button');
       expect(b.querySelector('.tablify__title-link-icon svg')).not.toBeNull();
+    }
+  });
+
+  it('renders none of the SAD-98-removed links (Import…, Export CSV, Copy Markdown)', () => {
+    const { row } = mount();
+    const labels = [...row.root.querySelectorAll<HTMLButtonElement>('button.tablify__title-link')].map(
+      (b) => b.textContent?.trim(),
+    );
+    expect(labels).not.toContain('Import…');
+    expect(labels).not.toContain('Export CSV');
+    expect(labels).not.toContain('Copy Markdown');
+    for (const action of ['import', 'export-csv', 'copy-markdown']) {
+      expect(row.root.querySelector(`[data-action="${action}"]`)).toBeNull();
     }
   });
 
@@ -73,23 +84,18 @@ describe('TitleRow structure', () => {
 });
 
 describe('TitleRow links', () => {
-  it.each([
-    ['import', 'onImport'],
-    ['export', 'onExport'],
-    ['export-csv', 'onExportCsv'],
-    ['copy-markdown', 'onCopyMarkdown'],
-  ] as const)('%s fires %s only', (action, handler) => {
+  it('export fires onExport', () => {
     const { row, cb } = mount();
-    row.root.querySelector<HTMLElement>(`[data-action="${action}"]`)?.click();
-    for (const key of ['onImport', 'onExport', 'onExportCsv', 'onCopyMarkdown'] as const) {
-      expect(cb[key]).toHaveBeenCalledTimes(key === handler ? 1 : 0);
-    }
+    row.root.querySelector<HTMLElement>('[data-action="export"]')?.click();
+    expect(cb.onExport).toHaveBeenCalledTimes(1);
   });
 
   it('a click on the icon still fires the link', () => {
     const { row, cb } = mount();
-    row.root.querySelector<HTMLElement>('[data-action="export-csv"] svg')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(cb.onExportCsv).toHaveBeenCalledTimes(1);
+    row.root.querySelector<HTMLElement>('[data-action="export"] svg')?.dispatchEvent(
+      new MouseEvent('click', { bubbles: true }),
+    );
+    expect(cb.onExport).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -154,7 +160,7 @@ describe('TitleRow rename', () => {
     expect(cb.onRename).toHaveBeenCalledTimes(2);
   });
 
-  it('update() refreshes title and chip, but never clobbers an edit in progress', () => {
+  it('update() refreshes title and chip, but never clobbers an edit in progress', async () => {
     const { row, title, chip } = mount();
     title.focus();
     title.textContent = 'Half typed';

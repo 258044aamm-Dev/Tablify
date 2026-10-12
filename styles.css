@@ -892,11 +892,15 @@
   overflow-wrap: break-word;
 }
 
-/* Prototype: `flex items-center gap-2`, no wrap — on a phone each label wraps inside its button. */
+/* Prototype: `flex items-center gap-2`, no wrap — on a phone each label wraps inside its button.
+   SAD-98: with a single Export… link, `margin-left: auto` keeps it on the right end of the row at
+   every width, including when the row wraps on a narrow pane (space-between alone sends a wrapped
+   lone item left). */
 .tablify__title-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
 /* Title links: text-xs, clay/gray-400, hover charcoal/white on the inner surface, px-2 py-1,

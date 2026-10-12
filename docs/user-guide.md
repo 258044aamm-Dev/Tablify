@@ -43,13 +43,12 @@ The primary field cannot be hidden or deleted; it labels each row.
 
 ### The title row
 
-The top of every table shows its **name**, the file's **vault path**, and four links:
+The top of every table shows its **name** (and the file's vault path) and a single **Export…** button on the right:
 
 - **Name**: click it, type, then press **Enter** (or click away) to rename the table *file*, in the same folder. **Esc** cancels. Names cannot be empty, cannot start with `.`, and cannot contain `\ / : * ? " < > | # ^ [ ]`. If a file with that name already exists in the folder, the rename is refused with a notice and the old name stays. Obsidian updates links to the table as usual.
-- **Import…**: the same flow as **Import CSV / Excel as table** ([§12](#12-importing-csv-and-excel)).
-- **Export…**: saves pending edits, then opens the Export dialog for this table ([§13](#13-exporting-csv-excel-markdown)).
-- **Export CSV**: one click, no dialog. Writes the **current view** (visible fields in their order, with the active sort, search and query) as `<name>.csv` next to the table, numbered if that name is taken. Never overwrites.
-- **Copy Markdown**: copies the same current view to the clipboard as a Markdown table.
+- **Export…** (right): saves pending edits, then opens the Export dialog for this table ([§13](#13-exporting-csv-excel-markdown)).
+
+The one-click current-view actions are commands instead of buttons: **Export current view as CSV** writes the **current view** (visible fields in their order, with the active sort, search and query) as `<name>.csv` next to the table, numbered if that name is taken, never overwriting; **Copy current view as Markdown** copies the same view to the clipboard as a Markdown table. **Import CSV / Excel as table** is likewise a command and a folder-menu item ([§12](#12-importing-csv-and-excel)).
 
 ## 2. The `.tablify` file format
 
@@ -229,7 +228,7 @@ All of it is saved in the file's `views` section and restored on reopen (verifie
 
 ## 12. Importing CSV and Excel
 
-Right-click a folder → **Import CSV / Excel as table**, run the command **Import CSV / Excel as table** from the command palette, or click **Import…** in a table's title row.
+Right-click a folder → **Import CSV / Excel as table**, or run the command **Import CSV / Excel as table** from the command palette.
 
 - **CSV**: RFC 4180 (quoted fields, CRLF, embedded newlines, BOM handled; delimiter detection).
 - **XLSX**: reads the first sheet; dates come in as dates.
@@ -238,7 +237,7 @@ Right-click a folder → **Import CSV / Excel as table**, run the command **Impo
 
 ## 13. Exporting CSV, Excel, Markdown
 
-Run **Export table (CSV, Excel, Markdown)** from the command palette or the file-explorer menu, or click **Export…** in the table's title row. (**Export CSV** and **Copy Markdown** next to it are one-click shortcuts for the current view; see [the title row](#the-title-row).) The dialog has:
+Run **Export table (CSV, Excel, Markdown)** from the command palette or the file-explorer menu, or click **Export…** in the table's title row. (**Export current view as CSV** and **Copy current view as Markdown** are command-palette shortcuts for the current view; see [the title row](#the-title-row).) The dialog has:
 
 - **Format** — CSV, XLSX, or Markdown.
 - **Full table** checkbox — **off (default): export the current view** (your filter, sort, visible fields, column order); **on**: every field and row.

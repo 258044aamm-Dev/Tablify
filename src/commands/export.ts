@@ -9,6 +9,21 @@ import { exportTable, type ExportAdapter, type ExportFormat } from '../io/export
 export const EXPORT_COMMAND_ID = 'export-table';
 export const EXPORT_COMMAND_NAME = 'Export table (CSV, Excel, Markdown)';
 
+/** SAD-98: the one-click current-view actions kept as commands after leaving the title row. */
+export const EXPORT_VIEW_CSV_COMMAND_ID = 'export-current-view-csv';
+export const EXPORT_VIEW_CSV_COMMAND_NAME = 'Export current view as CSV';
+export const COPY_MARKDOWN_COMMAND_ID = 'copy-current-view-markdown';
+export const COPY_MARKDOWN_COMMAND_NAME = 'Copy current view as Markdown';
+
+/**
+ * What the SAD-98 current-view commands need from the open TableView. A structural type so this
+ * module never imports views/tableView.js (tableView already imports this module).
+ */
+export interface CurrentViewExportTarget {
+  exportCurrentViewCsv(): Promise<void>;
+  copyCurrentViewMarkdown(): Promise<void>;
+}
+
 export function registerExportCommand(plugin: Plugin): void {
   plugin.addCommand({
     id: EXPORT_COMMAND_ID,
@@ -21,6 +36,35 @@ export function registerExportCommand(plugin: Plugin): void {
       }
       new ExportModal(plugin.app, file).open();
     },
+  });
+}
+
+/**
+ * SAD-98: command-palette entries for "Export current view as CSV" and "Copy current view as
+ * Markdown" — the two quick actions removed from the title row. `getTable` resolves the active
+ * TableView (wired in main.ts so this module stays free of view imports).
+ */
+export function registerCurrentViewExportCommands(
+  plugin: Plugin,
+  getTable: () => CurrentViewExportTarget | null,
+): void {
+  const run = (action: (table: CurrentViewExportTarget) => Promise<void>) => () => {
+    const table = getTable();
+    if (!table) {
+      new Notice('Open a .tablify table first.');
+      return;
+    }
+    void action(table);
+  };
+  plugin.addCommand({
+    id: EXPORT_VIEW_CSV_COMMAND_ID,
+    name: EXPORT_VIEW_CSV_COMMAND_NAME,
+    callback: run((table) => table.exportCurrentViewCsv()),
+  });
+  plugin.addCommand({
+    id: COPY_MARKDOWN_COMMAND_ID,
+    name: COPY_MARKDOWN_COMMAND_NAME,
+    callback: run((table) => table.copyCurrentViewMarkdown()),
   });
 }
 

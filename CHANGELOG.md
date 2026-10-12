@@ -4,6 +4,14 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- **Title row keeps a single Export… button (SAD-98)** — the **Import…**, **Export CSV** and
+  **Copy Markdown** links are gone from the title row, and **Export…** alone sits on the right at
+  every screen width. Nothing is lost: **Import CSV / Excel as table** stays on the command
+  palette and the folder menu, and the two one-click current-view actions are now the commands
+  **Export current view as CSV** and **Copy current view as Markdown**.
+
 ### Fixed
 
 - **Cell editing is reachable the way the docs promise (SAD-96)** — double-click now opens a

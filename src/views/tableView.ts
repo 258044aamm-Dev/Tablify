@@ -30,7 +30,6 @@ import { snapshotTable, summarizeLinks } from '../model/link.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 import { TitleRow, type TitleRowCallbacks, type TitleRowState } from './titleRow.js';
-import { startImport } from '../commands/import.js';
 import { exportFolderOf, openExportModal, vaultExportAdapter } from '../commands/export.js';
 import { writeExport } from '../io/export/exporter.js';
 import { toMarkdown } from '../io/export/markdown.js';
@@ -240,11 +239,7 @@ export class TableView extends TextFileView {
     return {
       onRename: (name) => this.renameTable(name),
       onInvalidName: (message) => new Notice(message),
-      // Same flow as the "Import CSV / Excel as table" command (file picker → folder picker).
-      onImport: () => startImport(this.app),
       onExport: () => void this.openExport(),
-      onExportCsv: () => void this.exportCurrentViewCsv(),
-      onCopyMarkdown: () => void this.copyCurrentViewMarkdown(),
     };
   }
 
@@ -283,8 +278,11 @@ export class TableView extends TextFileView {
     openExportModal(this.app, file);
   }
 
-  /** Export CSV: the current view, written next to the table through the Export modal's writer. */
-  private async exportCurrentViewCsv(): Promise<void> {
+  /**
+   * Export current view as CSV (SAD-98 command target; was the title-row Export CSV button).
+   * The current view, written next to the table through the Export modal's writer.
+   */
+  async exportCurrentViewCsv(): Promise<void> {
     const file = this.file;
     const table = this.currentViewTable();
     if (!file || !table) return;
@@ -296,8 +294,11 @@ export class TableView extends TextFileView {
     new Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
   }
 
-  /** Copy Markdown: the current view as a Markdown table on the system clipboard. */
-  private async copyCurrentViewMarkdown(): Promise<void> {
+  /**
+   * Copy current view as Markdown (SAD-98 command target; was the title-row Copy Markdown
+   * button). The current view as a Markdown table on the system clipboard.
+   */
+  async copyCurrentViewMarkdown(): Promise<void> {
     const table = this.currentViewTable();
     if (!table) return;
     const markdown = toMarkdown(table);

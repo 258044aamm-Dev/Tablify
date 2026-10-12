@@ -1,12 +1,12 @@
 /**
- * Title row (SAD-77, owner decisions S-1 / S-7): the prototype's `#titleRow` — an editable table
- * title, a file chip with the vault path, and the four title links Import… / Export… / Export CSV /
- * Copy Markdown. Prototype-only items (brand header, vault sidebar, tabs, "Saved locally",
+ * Title row (SAD-77, owner decisions S-1 / S-7; SAD-98): the prototype's `#titleRow` — an
+ * editable table title, a file chip with the vault path, and a single **Export…** link pinned
+ * to the right (SAD-98 removed Import… / Export CSV / Copy Markdown; those actions live on the
+ * command palette). Prototype-only items (brand header, vault sidebar, tabs, "Saved locally",
  * "New Table") are deliberately absent.
  *
  * Pure DOM, no Obsidian imports (like Toolbar and GridView), so it is unit-tested in jsdom. TableView
- * supplies the callbacks, which reuse the existing command paths (startImport, the Export modal, the
- * exporter, the Markdown writer).
+ * supplies the callbacks, which reuse the existing command paths (the Export modal).
  *
  * The title is the file's basename. Committing an edit (Enter or blur) calls `onRename`; Escape
  * reverts. An empty, unchanged or invalid name never reaches `onRename`.
@@ -14,15 +14,12 @@
 
 import { faIcon } from '../ui/faIcons.js';
 
-export type TitleAction = 'import' | 'export' | 'export-csv' | 'copy-markdown';
+export type TitleAction = 'export';
 
 export interface TitleRowCallbacks {
   /** Rename the table file to `name` (no extension). Resolve false to revert the title. */
   onRename(name: string): Promise<boolean>;
-  onImport(): void;
   onExport(): void;
-  onExportCsv(): void;
-  onCopyMarkdown(): void;
   /** Shown when the typed name is rejected before any rename is attempted. */
   onInvalidName(message: string): void;
 }
@@ -47,17 +44,11 @@ export function validateTableName(name: string): string | null {
 
 /** The prototype's title-link glyphs (Font Awesome Free 6.4.0 solid, see src/ui/faIcons.ts). */
 const ICONS: Record<TitleAction, string> = {
-  import: faIcon('file-import'),
   export: faIcon('file-export'),
-  'export-csv': faIcon('file-csv'),
-  'copy-markdown': faIcon('copy'),
 };
 
 const LINKS: Array<{ action: TitleAction; label: string; title: string }> = [
-  { action: 'import', label: 'Import…', title: 'Import CSV / Excel as table' },
   { action: 'export', label: 'Export…', title: 'Export CSV / Excel / Markdown' },
-  { action: 'export-csv', label: 'Export CSV', title: 'Export the current view as CSV next to this table' },
-  { action: 'copy-markdown', label: 'Copy Markdown', title: 'Copy the current view as a Markdown table' },
 ];
 
 export class TitleRow {
@@ -154,10 +145,7 @@ export class TitleRow {
       const btn = (e.target as HTMLElement).closest<HTMLElement>('.tablify__title-link');
       if (!btn) return;
       const action = btn.dataset.action as TitleAction;
-      if (action === 'import') this.callbacks.onImport();
-      else if (action === 'export') this.callbacks.onExport();
-      else if (action === 'export-csv') this.callbacks.onExportCsv();
-      else if (action === 'copy-markdown') this.callbacks.onCopyMarkdown();
+      if (action === 'export') this.callbacks.onExport();
     });
   }
 

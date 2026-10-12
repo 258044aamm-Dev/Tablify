@@ -1,14 +1,14 @@
 /**
  * @vitest-environment jsdom
  *
- * TableView × title row integration (SAD-77). Proves the title row is mounted in the card
- * above the toolbar, renames the file (never the JSON), and that Export CSV / Copy Markdown
- * write the *current view* — the prototype's visible fields × pipeline rows.
+ * TableView × title row integration (SAD-77, SAD-98). Proves the title row is mounted in the
+ * card above the toolbar, renames the file (never the JSON), and that the Export CSV / Copy
+ * Markdown actions (SAD-98: commands, not title links) write the *current view* — the
+ * prototype's visible fields × pipeline rows.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-vi.mock('../../src/commands/import.js', () => ({ startImport: vi.fn() }));
 vi.mock('../../src/commands/export.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/commands/export.js')>()),
   openExportModal: vi.fn(),
@@ -16,8 +16,8 @@ vi.mock('../../src/commands/export.js', async (importOriginal) => ({
 
 import { TableView } from '../../src/views/tableView.js';
 import { WorkspaceLeaf, Notice, TFile } from 'obsidian';
-import { startImport } from '../../src/commands/import.js';
 import { openExportModal } from '../../src/commands/export.js';
+import { menuItemsFor } from '../../src/menus/fileMenuModel.js';
 import { DEBOUNCE_MS } from '../../src/views/grid/toolbar.js';
 
 function mkRow(id: string, values: Record<string, unknown>) {
@@ -89,7 +89,6 @@ async function rename(view: TableView, text: string) {
 
 beforeEach(() => {
   Notice.messages = [];
-  vi.mocked(startImport).mockClear();
   vi.mocked(openExportModal).mockClear();
 });
 
@@ -181,10 +180,17 @@ describe('rename', () => {
 });
 
 describe('links', () => {
-  it('Import… runs the standard import flow', async () => {
+  it('renders only the Export… link — Import…, Export CSV and Copy Markdown are gone (SAD-98)', async () => {
     const view = await openView();
-    q(view, '[data-action="import"]')?.click();
-    expect(startImport).toHaveBeenCalledWith(view.app);
+    const labels = [
+      ...view.contentEl.querySelectorAll<HTMLButtonElement>('button.tablify__title-link'),
+    ].map((b) => b.textContent?.trim());
+    expect(labels).toEqual(['Export…']);
+  });
+
+  it('Import stays reachable from the file-explorer folder menu', () => {
+    const items = menuItemsFor({ kind: 'folder', path: 'Tables' });
+    expect(items.map((i) => i.id)).toContain('importTable');
   });
 
   it('Export… saves pending edits, then opens the Export modal for this file', async () => {
@@ -195,7 +201,7 @@ describe('links', () => {
     expect(openExportModal).toHaveBeenCalledWith(view.app, view.file);
   });
 
-  it('Export CSV writes the current view (visible fields, sorted + searched rows) next to the table', async () => {
+  it('exportCurrentViewCsv (the SAD-98 command target) writes the current view (visible fields, sorted + searched rows) next to the table', async () => {
     vi.useFakeTimers();
     const view = await openView();
     const create = vi.fn(async (_p: string, _d: string) => undefined);
@@ -205,7 +211,7 @@ describe('links', () => {
     search.dispatchEvent(new Event('input', { bubbles: true }));
     vi.advanceTimersByTime(DEBOUNCE_MS + 1);
     vi.useRealTimers();
-    q(view, '[data-action="export-csv"]')?.click();
+    await view.exportCurrentViewCsv();
     await flush();
     await flush();
     expect(create).toHaveBeenCalledTimes(1);
@@ -219,25 +225,25 @@ describe('links', () => {
     expect(Notice.messages.at(-1)).toBe('Exported 2 rows and 2 columns to Budget.csv.');
   });
 
-  it('Export CSV never overwrites: an existing target gets a numbered name', async () => {
+  it('exportCurrentViewCsv never overwrites: an existing target gets a numbered name', async () => {
     const view = await openView();
     const create = vi.fn(async (_p: string, _d: string) => undefined);
     (view.app.vault as unknown as { create: typeof create }).create = create;
     vi.spyOn(view.app.vault, 'getAbstractFileByPath').mockImplementation(
       (p?: string) => (p === 'Budget.csv' ? new TFile() : null) as never,
     );
-    q(view, '[data-action="export-csv"]')?.click();
+    await view.exportCurrentViewCsv();
     await flush();
     await flush();
     expect(create.mock.calls[0][0]).not.toBe('Budget.csv');
     expect(create.mock.calls[0][0]).toMatch(/^Budget.*\.csv$/);
   });
 
-  it('Copy Markdown puts the current view on the clipboard as a Markdown table', async () => {
+  it('copyCurrentViewMarkdown (the SAD-98 command target) puts the current view on the clipboard as a Markdown table', async () => {
     const view = await openView();
     const writeText = vi.fn(async (_t: string) => undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    q(view, '[data-action="copy-markdown"]')?.click();
+    await view.copyCurrentViewMarkdown();
     await flush();
     expect(writeText).toHaveBeenCalledTimes(1);
     const md = writeText.mock.calls[0][0];
@@ -247,13 +253,13 @@ describe('links', () => {
     expect(Notice.messages.at(-1)).toBe('Copied 3 rows as a Markdown table.');
   });
 
-  it('Copy Markdown reports a clipboard failure', async () => {
+  it('copyCurrentViewMarkdown reports a clipboard failure', async () => {
     const view = await openView();
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
       configurable: true,
     });
-    q(view, '[data-action="copy-markdown"]')?.click();
+    await view.copyCurrentViewMarkdown();
     await flush();
     expect(Notice.messages.at(-1)).toBe('Could not copy to the clipboard.');
   });
