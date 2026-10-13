@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * SAD-80 — row selection, bulk delete and row drag reorder (prototype checkbox column,
+ * SAD-80 — row selection (SAD-114: menu and Shift/Ctrl-click, no checkbox), bulk delete and row drag reorder (prototype
  * #selectionSummary and `.row-drag-handle`).
  *
  * Covers the pure selection helpers, the two new undoable session commands, the GridView DOM /
@@ -13,13 +13,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import axe from 'axe-core';
 import { WorkspaceLeaf, Notice } from 'obsidian';
 import { GridView, ROW_DRAG_THRESHOLD_PX, type GridOptions } from '../../../src/views/grid/GridView.js';
-import {
-  toggleRow,
-  setVisibleRows,
-  allVisibleSelected,
-  pruneSelection,
-  selectionLabel,
-} from '../../../src/views/grid/selection.js';
+import { toggleRow, addRowRange, pruneSelection, selectionLabel } from '../../../src/views/grid/selection.js';
 import { TableView } from '../../../src/views/tableView.js';
 import { createSession } from '../../../src/model/tableSession.js';
 import { createDefaultView } from '../../../src/model/view.js';
@@ -57,8 +51,6 @@ function mount(extra: Partial<GridOptions> = {}, r: Row[] = rows(3), view?: View
 }
 
 const SELECT_CALLBACKS = (): Partial<GridOptions> => ({
-  onToggleRow: vi.fn(),
-  onToggleAllRows: vi.fn(),
   onRowMove: vi.fn(),
 });
 
@@ -66,8 +58,9 @@ function pointer(type: string, init: { clientX?: number; clientY?: number; butto
   return new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init });
 }
 
-const rowChecks = (g: GridView) => Array.from(g.root.querySelectorAll<HTMLInputElement>('.tablify__row-check'));
-const selectAll = (g: GridView) => g.root.querySelector<HTMLInputElement>('.tablify__select-all');
+/** SAD-114: ids of the rows the grid marks as selected. */
+const selectedRows = (g: GridView) =>
+  Array.from(g.content.querySelectorAll<HTMLElement>('.tablify__row--selected')).map((r) => r.dataset.rowId);
 const handle = (g: GridView, i: number) =>
   g.root.querySelector<HTMLElement>(`.tablify__row[data-row-index="${i}"] .tablify__lead--num`);
 
@@ -101,16 +94,14 @@ describe('SAD-80 selection helpers (prototype selectedRowIds)', () => {
     expect([...toggleRow(one, 'b', false)]).toEqual(['a']);
   });
 
-  it('select-all acts on the visible rows only and keeps hidden selections', () => {
+  it('addRowRange adds the rows between anchor and target, in either direction, keeping the rest', () => {
     const sel = new Set(['hidden']);
-    const all = setVisibleRows(sel, ['a', 'b'], true);
-    expect([...all].sort()).toEqual(['a', 'b', 'hidden']);
-    expect(allVisibleSelected(all, ['a', 'b'])).toBe(true);
-    const none = setVisibleRows(all, ['a', 'b'], false);
-    expect([...none]).toEqual(['hidden']);
-    expect(allVisibleSelected(none, ['a', 'b'])).toBe(false);
-    // No visible rows: never "all selected" (the prototype header box stays unchecked).
-    expect(allVisibleSelected(all, [])).toBe(false);
+    const ids = ['a', 'b', 'c', 'd'];
+    expect([...addRowRange(sel, ids, 'b', 'd')].sort()).toEqual(['b', 'c', 'd', 'hidden']);
+    expect([...addRowRange(sel, ids, 'c', 'a')].sort()).toEqual(['a', 'b', 'c', 'hidden']);
+    // An anchor or target not in view changes nothing.
+    expect([...addRowRange(sel, ids, 'gone', 'a')]).toEqual(['hidden']);
+    expect(sel.size).toBe(1);
   });
 
   it('pruneSelection drops deleted ids and returns the same set when nothing changed', () => {
@@ -170,75 +161,47 @@ describe('SAD-80 session commands (undoable)', () => {
   });
 });
 
-describe('SAD-80 GridView checkbox column', () => {
-  it('embeds (no callbacks) keep the inert empty slot and the original ARIA column indexes', () => {
-    const grid = mount();
-    expect(rowChecks(grid)).toHaveLength(0);
-    expect(selectAll(grid)).toBeNull();
-    expect(grid.root.getAttribute('aria-colcount')).toBe('2');
-    const first = grid.root.querySelector('.tablify__row .tablify__cell');
-    expect(first?.getAttribute('aria-colindex')).toBe('1');
-    expect(handle(grid, 0)?.classList.contains('tablify__lead--drag')).toBe(false);
-    grid.destroy();
-  });
-
-  it('renders a labelled checkbox per row and a select-all box, shifting ARIA columns by one', () => {
+describe('SAD-114 GridView row selection (no checkbox column)', () => {
+  it('renders no checkbox and no select-all, with ARIA columns exactly the fields', () => {
     const grid = mount(SELECT_CALLBACKS());
-    const boxes = rowChecks(grid);
-    expect(boxes).toHaveLength(3);
-    expect(boxes.map((b) => b.getAttribute('aria-label'))).toEqual(['Select row 1', 'Select row 2', 'Select row 3']);
-    expect(selectAll(grid)?.getAttribute('aria-label')).toBe('Select all rows');
-    expect(grid.root.getAttribute('aria-colcount')).toBe('3');
-    const lead = boxes[0].parentElement;
-    expect(lead?.getAttribute('role')).toBe('gridcell');
-    expect(lead?.getAttribute('aria-colindex')).toBe('1');
-    expect(grid.root.querySelector('.tablify__row .tablify__cell')?.getAttribute('aria-colindex')).toBe('2');
-    expect(grid.root.querySelector('.tablify__header .tablify__header-cell')?.getAttribute('aria-colindex')).toBe('2');
+    expect(grid.root.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(grid.root.getAttribute('aria-colcount')).toBe('2');
+    expect(grid.root.querySelector('.tablify__row .tablify__cell')?.getAttribute('aria-colindex')).toBe('1');
+    expect(grid.root.querySelector('.tablify__header .tablify__header-cell')?.getAttribute('aria-colindex')).toBe('1');
     expect(handle(grid, 0)?.title).toBe('Drag to reorder row');
     grid.destroy();
   });
 
-  it('row and header changes report through the callbacks', () => {
-    const cbs = SELECT_CALLBACKS();
-    const grid = mount(cbs);
-    const box = rowChecks(grid)[1];
-    box.checked = true;
-    box.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(cbs.onToggleRow).toHaveBeenCalledWith('row_1', true);
-    const all = selectAll(grid);
-    if (!all) throw new Error('missing select-all');
-    all.checked = true;
-    all.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(cbs.onToggleAllRows).toHaveBeenCalledWith(true);
-    grid.destroy();
-  });
-
-  it('setRowSelection updates boxes in place; select-all is checked only when every visible row is', () => {
+  it('setRowSelection marks the rows in place; a new model keeps the marks', () => {
     const grid = mount(SELECT_CALLBACKS());
-    const before = rowChecks(grid);
+    const first = grid.content.querySelector<HTMLElement>('.tablify__row[data-row-index="0"]');
     grid.setRowSelection(new Set(['row_0', 'row_2']));
-    expect(rowChecks(grid).map((b) => b.checked)).toEqual([true, false, true]);
-    expect(rowChecks(grid)[0]).toBe(before[0]); // no re-render
-    expect(selectAll(grid)?.checked).toBe(false);
-    grid.setRowSelection(new Set(['row_0', 'row_1', 'row_2', 'gone']));
-    expect(selectAll(grid)?.checked).toBe(true);
-    // A new model (e.g. filtered to fewer rows) keeps the boxes in step.
+    expect(selectedRows(grid)).toEqual(['row_0', 'row_2']);
+    expect(grid.content.querySelector('.tablify__row[data-row-index="0"]')).toBe(first); // no re-render
     grid.setModel(rows(2), FIELDS, createDefaultView(FIELDS));
-    expect(rowChecks(grid).map((b) => b.checked)).toEqual([true, true]);
-    expect(selectAll(grid)?.checked).toBe(true);
+    expect(selectedRows(grid)).toEqual(['row_0']);
     grid.destroy();
   });
 
-  it('Enter / Space on a checkbox stay with the checkbox; other keys still reach the grid', () => {
-    const grid = mount(SELECT_CALLBACKS());
-    const seen: string[] = [];
-    grid.root.addEventListener('keydown', (e) => seen.push(e.key));
-    const box = rowChecks(grid)[0];
-    for (const key of ['Enter', ' ', 'z', 'ArrowDown']) {
-      box.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ctrlKey: key === 'z' }));
-    }
-    selectAll(grid)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    expect(seen).toEqual(['z', 'ArrowDown']);
+  it('Shift / Ctrl / Cmd click report through onRowModifierClick and leave the cell selection alone', () => {
+    const onRowModifierClick = vi.fn();
+    const onCellClick = vi.fn();
+    const grid = mount({ onRowModifierClick, onCellClick });
+    const cell = (i: number) => grid.root.querySelector<HTMLElement>(`.tablify__row[data-row-index="${i}"] .tablify__cell`);
+    cell(1)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true }));
+    cell(2)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, shiftKey: true }));
+    cell(0)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true }));
+    expect(onRowModifierClick.mock.calls).toEqual([
+      [1, { shift: false, toggle: true }],
+      [2, { shift: true, toggle: false }],
+      [0, { shift: false, toggle: true }],
+    ]);
+    expect(onCellClick).not.toHaveBeenCalled();
+    expect(grid.root.querySelector('.tablify__cell--selected')).toBeNull();
+    // A plain click is unchanged: it selects the cell.
+    cell(1)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(onCellClick).toHaveBeenCalledWith(1, 0);
+    expect(onRowModifierClick).toHaveBeenCalledTimes(3);
     grid.destroy();
   });
 });
@@ -416,12 +379,19 @@ describe('SAD-80 TableView wiring', () => {
     return view;
   }
   const q = <T extends HTMLElement>(v: TableView, sel: string) => v.contentEl.querySelector<T>(sel);
-  const checks = (v: TableView) => Array.from(v.contentEl.querySelectorAll<HTMLInputElement>('.tablify__row-check'));
+  const rowAt = (v: TableView, i: number) => q<HTMLElement>(v, `.tablify__row[data-row-index="${i}"]`);
+  /** Ids of the rows the grid currently marks as selected. */
+  const selectedIds = (v: TableView) =>
+    Array.from(v.contentEl.querySelectorAll<HTMLElement>('.tablify__row--selected')).map((r) => r.dataset.rowId);
   const summary = (v: TableView) => q<HTMLElement>(v, '[data-testid="tablify-selection-summary"]');
   const savedIds = (v: TableView) => (JSON.parse(v.getViewData()).rows as { id: string }[]).map((r) => r.id);
-  const tick = (box: HTMLInputElement, on = true) => {
-    box.checked = on;
-    box.dispatchEvent(new Event('change', { bubbles: true }));
+  /** A Ctrl (or Shift) click on a row's cell — the same DOM path a mouse user takes. */
+  const modClick = (v: TableView, i: number, mods: MouseEventInit) =>
+    rowAt(v, i)?.querySelector('.tablify__cell')?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...mods }));
+  /** The row menu's "Select row" / "Deselect row" item, run as the menu runs it. */
+  const menuSelect = (v: TableView, i: number) => {
+    (v as unknown as { menuTarget: unknown }).menuTarget = { row: i, col: 0 };
+    (v as unknown as { runMenuAction(id: string): void }).runMenuAction('row.select');
   };
 
   beforeEach(() => {
@@ -431,36 +401,46 @@ describe('SAD-80 TableView wiring', () => {
   it('the summary is hidden until rows are selected, then shows the prototype count', async () => {
     const view = await open();
     expect(summary(view)?.hidden).toBe(true);
-    tick(checks(view)[0]);
-    tick(checks(view)[2]);
+    menuSelect(view, 0);
+    modClick(view, 2, { ctrlKey: true });
     expect(summary(view)?.hidden).toBe(false);
     expect(q(view, '.tablify__selected-count')?.textContent).toBe('2 selected');
     expect(q(view, '.tablify__delete-selected')?.textContent).toBe('Delete');
-    tick(checks(view)[0], false);
+    menuSelect(view, 0); // the item now reads Deselect row and clears the row
     expect(q(view, '.tablify__selected-count')?.textContent).toBe('1 selected');
+  });
+
+  it('Ctrl-click toggles one row; Shift-click adds the range from the last clicked row', async () => {
+    const view = await open();
+    modClick(view, 1, { ctrlKey: true });
+    expect(selectedIds(view)).toEqual(['r2']);
+    modClick(view, 0, { shiftKey: true }); // range from r2 to r1
+    expect(selectedIds(view)).toEqual(['r1', 'r2']);
+    modClick(view, 2, { ctrlKey: true }); // Ctrl adds Gamma
+    modClick(view, 1, { ctrlKey: true }); // Ctrl on a selected row clears it
+    expect(selectedIds(view)).toEqual(['r1', 'r3']);
+  });
+
+  it('Shift-click with no anchor selects only the clicked row', async () => {
+    const view = await open();
+    modClick(view, 2, { shiftKey: true });
+    expect(selectedIds(view)).toEqual(['r3']);
   });
 
   it('selecting is UI state only: no save, no undo entry', async () => {
     const view = await open();
     const data = view.getViewData();
-    tick(checks(view)[1]);
+    menuSelect(view, 1);
     expect(view.getViewData()).toBe(data);
     q<HTMLElement>(view, '[data-action="undo"]')?.click();
     expect(view.getViewData()).toBe(data);
   });
 
-  it('select-all toggles the visible rows; Delete removes them in one undo step with a notice', async () => {
+  it('there is no select-all box; Delete removes the selected rows in one undo step with a notice', async () => {
     const view = await open();
-    const all = q<HTMLInputElement>(view, '.tablify__select-all');
-    if (!all) throw new Error('missing select-all');
-    tick(all);
-    expect(checks(view).every((b) => b.checked)).toBe(true);
-    expect(all.checked).toBe(true);
-    tick(all, false);
-    expect(checks(view).some((b) => b.checked)).toBe(false);
-
-    tick(checks(view)[0]);
-    tick(checks(view)[2]);
+    expect(q(view, '.tablify__select-all')).toBeNull();
+    menuSelect(view, 0);
+    menuSelect(view, 2);
     q<HTMLElement>(view, '.tablify__delete-selected')?.click();
     expect(savedIds(view)).toEqual(['r2']);
     expect(Notice.messages.at(-1)).toBe('Deleted 2 rows');
@@ -468,29 +448,29 @@ describe('SAD-80 TableView wiring', () => {
     q<HTMLElement>(view, '[data-action="undo"]')?.click();
     expect(savedIds(view)).toEqual(['r1', 'r2', 'r3']);
     // The selection was cleared by Delete, so restored rows come back unselected.
-    expect(checks(view).some((b) => b.checked)).toBe(false);
+    expect(selectedIds(view)).toEqual([]);
   });
 
   it('a selected row removed another way leaves the selection, so undo restores it unselected', async () => {
     const view = await open();
-    tick(checks(view)[0]);
-    tick(checks(view)[1]);
+    menuSelect(view, 0);
+    modClick(view, 1, { ctrlKey: true });
     const s = (view as unknown as { session: { deleteRow(id: string): void } }).session;
     s.deleteRow('r1');
     (view as unknown as { renderGrid(): void }).renderGrid();
     expect(q(view, '.tablify__selected-count')?.textContent).toBe('1 selected');
     q<HTMLElement>(view, '[data-action="undo"]')?.click();
     expect(savedIds(view)).toEqual(['r1', 'r2', 'r3']);
-    expect(checks(view).map((b) => b.checked)).toEqual([false, true, false]);
+    expect(selectedIds(view)).toEqual(['r2']);
     expect(q(view, '.tablify__selected-count')?.textContent).toBe('1 selected');
   });
 
   it('loading a file clears the selection (prototype switchTable)', async () => {
     const view = await open();
-    tick(checks(view)[0]);
+    menuSelect(view, 0);
     view.setViewData(file(), false);
     expect(summary(view)?.hidden).toBe(true);
-    expect(checks(view).some((b) => b.checked)).toBe(false);
+    expect(selectedIds(view)).toEqual([]);
   });
 
   it('row drop reorders the stored rows with a notice and one undo step', async () => {
@@ -530,7 +510,7 @@ describe('SAD-80 TableView wiring', () => {
   });
 });
 
-describe('SAD-80 axe with the checkbox column on', () => {
+describe('SAD-114 axe with row selection on', () => {
   it('no critical or serious violations', async () => {
     const grid = mount(SELECT_CALLBACKS(), rows(5));
     grid.setRowSelection(new Set(['row_1']));

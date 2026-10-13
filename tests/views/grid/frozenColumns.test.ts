@@ -14,7 +14,6 @@ import {
   GridView,
   columnWidths,
   DEFAULT_COLUMN_WIDTH,
-  LEAD_CHECK_WIDTH,
   LEAD_NUM_WIDTH,
   COLUMN_GAP,
 } from '../../../src/views/grid/GridView.js';
@@ -47,16 +46,16 @@ function mount(f: FieldDefinition[], r: Row[], view: ViewDefinition, viewportWid
   return grid;
 }
 
-// SAD-79: field cells only — every line also starts with the checkbox and `#` lead slots.
+// SAD-79: field cells only — every line also starts with the `#` lead slot (SAD-114: no checkbox).
 const headerCells = (grid: GridView) =>
   Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__header-cell'));
 const headerLeads = (grid: GridView) =>
   Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__lead'));
-/** Sticky left of the first field: the checkbox and `#` slots plus their spacing. */
-const LEAD_BLOCK = LEAD_CHECK_WIDTH + COLUMN_GAP + LEAD_NUM_WIDTH + COLUMN_GAP;
+/** Sticky left of the first field: the `#` slot plus its spacing. */
+const LEAD_BLOCK = LEAD_NUM_WIDTH + COLUMN_GAP;
 /** Row/header box width for field widths `w` (6px edge spacing + 6px after every slot). */
 const lineWidth = (w: number[]) =>
-  COLUMN_GAP + [LEAD_CHECK_WIDTH, LEAD_NUM_WIDTH, ...w].reduce((a, b) => a + b + COLUMN_GAP, 0);
+  COLUMN_GAP + [LEAD_NUM_WIDTH, ...w].reduce((a, b) => a + b + COLUMN_GAP, 0);
 const firstRow = (grid: GridView): HTMLElement => {
   const row = grid.content.querySelector<HTMLElement>('.tablify__row');
   expect(row, 'first body row').not.toBeNull();
@@ -127,9 +126,10 @@ describe('GridView — header and body agree on column geometry', () => {
   it('spans rows and header across the full column width, not just the viewport', () => {
     const f = fields(12); // 12 * 160 = 1920px of fields, well past the 800px viewport
     const grid = mount(f, rows(2, f), createDefaultView(f));
-    // SAD-79: + the 32px checkbox and 40px `#` slots and the 6px prototype column spacing.
+    // SAD-79: + the 40px `#` slot and the 6px prototype column spacing (SAD-114: no checkbox slot,
+    // so 12 × 160 + 40 + 6 × 14 = 2044).
     const total = lineWidth(Array(12).fill(DEFAULT_COLUMN_WIDTH));
-    expect(total).toBe(2082);
+    expect(total).toBe(2044);
     expect(grid.header.style.width).toBe(`${total}px`);
     expect(firstRow(grid).style.width).toBe(`${total}px`);
     // min-width keeps them filling the grid when the columns are narrower than the viewport.
@@ -262,18 +262,19 @@ describe('GridView — frozen columns', () => {
     grid.destroy();
   });
 
-  // SAD-79 (S-5): freeze pins the prototype's whole frozen block — checkbox, `#`, then fields.
-  it('pins the checkbox and # slots with the frozen fields, flush to the shell edge', () => {
+  // SAD-79 (S-5): freeze pins the frozen block — the `#` slot, then the fields. SAD-114: the
+  // checkbox slot is gone, so `#` is the first slot and sits flush to the shell edge.
+  it('pins the # slot with the frozen fields, flush to the shell edge', () => {
     const f = fields(3);
     const grid = mount(f, rows(2, f), { ...createDefaultView(f), frozenColumns: 1 });
     for (const leads of [headerLeads(grid), bodyLeads(grid)]) {
-      expect(leads).toHaveLength(2);
-      expect(leads.map((c) => c.style.position)).toEqual(['sticky', 'sticky']);
-      expect(leads.map((c) => c.style.left)).toEqual(['0px', `${LEAD_CHECK_WIDTH + COLUMN_GAP}px`]);
+      expect(leads).toHaveLength(1);
+      expect(leads.map((c) => c.style.position)).toEqual(['sticky']);
+      expect(leads.map((c) => c.style.left)).toEqual(['0px']);
       expect(leads.every((c) => c.classList.contains('tablify__lead--frozen'))).toBe(true);
     }
-    expect(headerLeads(grid).map((c) => c.style.zIndex)).toEqual(['2', '2']);
-    expect(bodyLeads(grid).map((c) => c.style.zIndex)).toEqual(['1', '1']);
+    expect(headerLeads(grid).map((c) => c.style.zIndex)).toEqual(['2']);
+    expect(bodyLeads(grid).map((c) => c.style.zIndex)).toEqual(['1']);
     grid.destroy();
   });
 
@@ -290,7 +291,7 @@ describe('GridView — frozen columns', () => {
   it('gives the lead slots the prototype widths in header and body alike', () => {
     const f = fields(2);
     const grid = mount(f, rows(1, f), createDefaultView(f));
-    const want = [`${LEAD_CHECK_WIDTH}px`, `${LEAD_NUM_WIDTH}px`];
+    const want = [`${LEAD_NUM_WIDTH}px`];
     expect(headerLeads(grid).map((c) => c.style.width)).toEqual(want);
     expect(bodyLeads(grid).map((c) => c.style.width)).toEqual(want);
     grid.destroy();

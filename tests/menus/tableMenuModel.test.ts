@@ -38,17 +38,23 @@ describe('cell menu (P5-02)', () => {
   it('cell right-click shows cell items, a separator, then row items', () => {
     const entries = cellMenu({ readOnly: false, cellEmpty: false, hasClipboard: false });
     expect(entries.map((e) => e.label)).toEqual([
-      'Edit cell', 'Copy', 'Paste', 'Clear', '', 'Insert row above', 'Insert row below', 'Duplicate row', 'Copy row', 'Delete row',
+      'Edit cell', 'Copy', 'Paste', 'Clear', '', 'Select row', 'Insert row above', 'Insert row below', 'Duplicate row', 'Copy row', 'Delete row',
     ]);
     expect(entries[4].separator).toBe(true);
   });
 });
 
 describe('row menu (P5-02)', () => {
-  it('has Insert above, Insert below, Duplicate, Copy, Delete, all enabled', () => {
+  it('has Select row, Insert above, Insert below, Duplicate, Copy, Delete, all enabled', () => {
     const r = rowEntries();
-    expect(r.map((e) => e.label)).toEqual(['Insert row above', 'Insert row below', 'Duplicate row', 'Copy row', 'Delete row']);
+    expect(r.map((e) => e.label)).toEqual(['Select row', 'Insert row above', 'Insert row below', 'Duplicate row', 'Copy row', 'Delete row']);
     expect(r.every((e) => e.enabled)).toBe(true);
+  });
+
+  // SAD-114: the first item selects the row, or clears it when it is already selected.
+  it('labels the selection item Deselect row when the row is selected', () => {
+    expect(rowEntries(true)[0]).toMatchObject({ id: 'row.select', label: 'Deselect row', enabled: true });
+    expect(rowEntries(false)[0]).toMatchObject({ id: 'row.select', label: 'Select row' });
   });
 });
 

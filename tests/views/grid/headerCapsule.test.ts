@@ -5,7 +5,7 @@
  *
  * Covers: fill-mode widths (prototype `table-layout: fixed; width: 100%`), the header capsule
  * (grip, key, sortable name, sort arrow + index, type badge, ⋮, resize handle), the leading
- * checkbox / `#` slots, the pure sort-cycle and drop helpers, and the TableView wiring through
+ * `#` slot, the pure sort-cycle and drop helpers, and the TableView wiring through
  * undoable setView() calls.
  */
 
@@ -14,7 +14,6 @@ import { WorkspaceLeaf, Menu } from 'obsidian';
 import {
   GridView,
   fillWidths,
-  LEAD_CHECK_WIDTH,
   LEAD_NUM_WIDTH,
   COLUMN_GAP,
   RESIZE_MIN_WIDTH,
@@ -257,19 +256,18 @@ describe('SAD-79 header interactions', () => {
 });
 
 describe('SAD-79 lead slots and body capsules', () => {
-  it('renders the checkbox and # slots: header "#", row numbers, hidden from the grid semantics', () => {
+  it('renders the # slot: header "#", row numbers, hidden from the grid semantics', () => {
     const grid = mount();
     const leads = Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__lead'));
-    expect(leads.map((l) => l.textContent)).toEqual(['', '#']);
+    expect(leads.map((l) => l.textContent)).toEqual(['#']);
     const nums = Array.from(grid.content.querySelectorAll<HTMLElement>('.tablify__lead--num')).map((l) => l.textContent);
     expect(nums).toEqual(['1', '2', '3']);
     for (const l of grid.root.querySelectorAll('.tablify__lead')) expect(l.getAttribute('aria-hidden')).toBe('true');
-    // Row selection is SAD-80: no inert checkbox control ships before it works.
+    // SAD-114: rows are selected from the menu, so the grid ships no checkbox control.
     expect(grid.root.querySelector('input[type="checkbox"]')).toBeNull();
-    // ARIA column count is still the field count.
+    // ARIA column count is the field count (no checkbox column).
     expect(grid.root.getAttribute('aria-colcount')).toBe('3');
-    expect(leads[0].style.width).toBe(`${LEAD_CHECK_WIDTH}px`);
-    expect(leads[1].style.width).toBe(`${LEAD_NUM_WIDTH}px`);
+    expect(leads[0].style.width).toBe(`${LEAD_NUM_WIDTH}px`);
     grid.destroy();
   });
 

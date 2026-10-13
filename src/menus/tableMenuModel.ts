@@ -109,9 +109,14 @@ export function cellEntries(ctx: CellContext): MenuEntry[] {
   ];
 }
 
-/** Row items. All apply to any row; Insert uses stored order, so it works in sorted views too. */
-export function rowEntries(): MenuEntry[] {
+/**
+ * Row items. All apply to any row; Insert uses stored order, so it works in sorted views too.
+ * SAD-114: the first item selects the row (or clears it when already selected); this replaces the
+ * row checkbox.
+ */
+export function rowEntries(rowSelected = false): MenuEntry[] {
   return [
+    { id: 'row.select', label: rowSelected ? 'Deselect row' : 'Select row', enabled: true },
     { id: 'row.insertAbove', label: 'Insert row above', enabled: true },
     { id: 'row.insertBelow', label: 'Insert row below', enabled: true },
     { id: 'row.duplicate', label: 'Duplicate row', enabled: true },
@@ -175,8 +180,8 @@ export function headerEntries(ctx: HeaderContext): MenuEntry[] {
 }
 
 /** Cell right-click: cell items, a separator, then row items. */
-export function cellMenu(cell: CellContext): MenuEntry[] {
-  return [...cellEntries(cell), SEPARATOR, ...rowEntries()];
+export function cellMenu(cell: CellContext, rowSelected = false): MenuEntry[] {
+  return [...cellEntries(cell), SEPARATOR, ...rowEntries(rowSelected)];
 }
 
 /** Text for a disabled item: the label with its reason, so the user sees why. */

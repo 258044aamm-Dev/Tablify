@@ -1,6 +1,6 @@
 /**
  * Row selection (SAD-80, owner decision S-2; prototype `state.selected`, `toggleSelectRow`,
- * `toggleSelectAll`, `deleteSelectedRows`).
+ * `deleteSelectedRows`). SAD-114: chosen from the row menu and with Shift/Ctrl-click, not checkboxes.
  *
  * Selection is UI state only: it is never written to the file and never enters the undo stack.
  * It is a set of row ids, so it survives sorting, filtering and re-rendering, exactly like the
@@ -20,25 +20,22 @@ export function toggleRow(selection: RowSelection, rowId: string, checked?: bool
 }
 
 /**
- * Select or clear every row currently in view (prototype `toggleSelectAll`: it walks
- * `pipelineRows`, i.e. the filtered, sorted rows). Rows outside the filter keep their state.
+ * SAD-114: Shift-click range. Adds every row from the anchor to the target (inclusive) to the
+ * selection, in the order the rows are shown. Returns the same set when either id is not in view.
  */
-export function setVisibleRows(selection: RowSelection, visibleRowIds: readonly string[], checked: boolean): Set<string> {
+export function addRowRange(
+  selection: RowSelection,
+  visibleRowIds: readonly string[],
+  anchorId: string,
+  targetId: string,
+): Set<string> {
+  const a = visibleRowIds.indexOf(anchorId);
+  const b = visibleRowIds.indexOf(targetId);
+  if (a < 0 || b < 0) return new Set(selection);
   const next = new Set(selection);
-  for (const id of visibleRowIds) {
-    if (checked) next.add(id);
-    else next.delete(id);
-  }
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  for (const id of visibleRowIds.slice(lo, hi + 1)) next.add(id);
   return next;
-}
-
-/**
- * The header checkbox's state: checked when there is at least one row in view and every one is
- * selected. (The prototype rebuilt it unchecked on every render, so it could select all but
- * never clear; reflecting the state lets the same control do both.)
- */
-export function allVisibleSelected(selection: RowSelection, visibleRowIds: readonly string[]): boolean {
-  return visibleRowIds.length > 0 && visibleRowIds.every((id) => selection.has(id));
 }
 
 /**

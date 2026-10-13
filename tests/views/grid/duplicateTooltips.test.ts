@@ -113,8 +113,6 @@ describe('SAD-109 — no element shows two tooltips', () => {
       onSortClick: () => {},
       onColumnMove: () => {},
       onRowMove: () => {},
-      onToggleRow: () => {},
-      onToggleAllRows: () => {},
     } as never);
     document.body.appendChild(grid.root);
 

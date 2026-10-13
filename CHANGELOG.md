@@ -6,6 +6,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Row selection moves to the menu (SAD-114)** — the always-visible row checkbox column and the
+  header select-all checkbox are removed. Select a row from its menu (**Select row** / **Deselect
+  row**). Shift-click selects the rows from the last selected row to the clicked row. Ctrl/Cmd-click
+  adds or removes one row. Selected rows are shaded. Bulk **Delete** is still on the summary bar.
+  Selecting every row at once is not available any more.
+
 - **Done rows move to the bottom (SAD-115)** — when a single-select field has an option named
   **Done**, changing a row to Done moves it to the bottom of its group (when the table is grouped
   by another field) or to the bottom of the table (when it is not grouped). Grouping by the same

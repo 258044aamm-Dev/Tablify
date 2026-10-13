@@ -214,11 +214,11 @@ Each column header is a capsule:
 
 Sorting, moving and resizing from the header are saved and undoable, like the same actions in the menu. Embedded tables show the header read-only.
 
-Each row starts with a checkbox and its row number. The **Insert Row** pill under the last row adds a row, the same as **Add Row** in the toolbar.
+Each row starts with its row number. The **Insert Row** pill under the last row adds a row, the same as **Add Row** in the toolbar.
 
 ### Selecting, deleting and reordering rows
 
-- **Select rows** with the checkboxes. The header checkbox selects every row the search or filter currently shows, or clears them when they are all selected. Selected rows stay selected while a filter hides them.
+- **Select rows** from the row menu: right-click a row and choose **Select row** (or **Deselect row** to clear it). **Shift-click** a row to select every row from the last selected row to this one. **Ctrl/Cmd-click** a row to add it to the selection or remove it. Selected rows are shaded. Selected rows stay selected while a filter hides them.
 - **"N selected · Delete"** appears above the grid while rows are selected. **Delete** removes all of them in one step (a notice confirms how many), and **Ctrl/Cmd+Z** brings them back.
 - **Reorder a row** by dragging its row number (`#`) up or down; a line shows where it will land. Works with mouse, pen and touch. Reordering is saved and undoable. It is unavailable while the view is sorted or grouped: clear sorting or grouping first (a notice says which).
 - Selection is not saved and is not part of undo. Opening the file again starts with nothing selected. The grid is only as tall as its rows, up to the height of the pane, and scrolls inside past that, with the header pinned.

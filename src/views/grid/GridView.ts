@@ -13,7 +13,8 @@
  * SAD-79: prototype grid geometry (Prototype/index.html `#tableInnerContainer`, script.js
  * `renderGrid` / `headCellHtml` / `cellHtml`). The prototype is a `border-separate` table —
  * 6px column spacing, 8px row spacing, `table-layout: fixed; width: 100%` — so:
- *   - every row starts with a 32px checkbox slot and a 40px `#` slot (`w-8`, `w-10`);
+ *   - every row starts with a 40px `#` slot (`w-10`). SAD-114 removed the prototype's 32px
+ *     checkbox slot: rows are selected from the menu or with Shift/Ctrl-click;
  *   - when the columns are narrower than the shell, every slot scales up proportionally to
  *     fill it (fill mode); wider tables keep their widths and scroll horizontally;
  *   - header cells are capsules with grip, key, sortable name, sort arrow, type badge, ⋮ and
@@ -83,12 +84,10 @@ export interface GridOptions {
   /** SAD-79: Insert Row pill inside the shell (prototype `#insertRowWrap`). Omitted = no pill. */
   onInsertRow?: () => void;
   /**
-   * SAD-80: a row checkbox changed (prototype `toggleSelectRow`). Without it the checkbox slot
-   * stays empty and the grid's ARIA columns are exactly the fields (embeds).
+   * SAD-114: a row was clicked with Shift or Ctrl/Cmd held. The grid leaves the cell selection
+   * alone and the table extends or toggles the row selection (`toggle` = Ctrl/Cmd).
    */
-  onToggleRow?: (rowId: string, checked: boolean) => void;
-  /** SAD-80: the header checkbox changed — select or clear the rows in view (`toggleSelectAll`). */
-  onToggleAllRows?: (checked: boolean) => void;
+  onRowModifierClick?: (rowIndex: number, mods: { shift: boolean; toggle: boolean }) => void;
   /**
    * SAD-80: commit a row drag from the `#` cell: put `rowId` directly above `beforeRowId`
    * (null = after the last row). Without it rows cannot be dragged.
@@ -140,8 +139,7 @@ export interface GridSelection {
  */
 export const DEFAULT_COLUMN_WIDTH = 160;
 
-/** SAD-79: prototype leading slots — checkbox `th.w-8` and `#` `th.w-10`. */
-export const LEAD_CHECK_WIDTH = 32;
+/** SAD-79: prototype leading slot `#` `th.w-10`. SAD-114: the checkbox slot (`w-8`) is gone. */
 export const LEAD_NUM_WIDTH = 40;
 /** SAD-79: prototype `border-spacing` — 6px between columns, 8px between rows. */
 export const COLUMN_GAP = 6;
@@ -151,8 +149,8 @@ export const RESIZE_MIN_WIDTH = 120;
 export const RESIZE_MAX_WIDTH = 520;
 /** Pointer travel before a grip press becomes a column drag. */
 const DRAG_THRESHOLD_PX = 4;
-/** Number of leading (non-field) slots in every row. */
-const LEAD_SLOTS = 2;
+/** Number of leading (non-field) slots in every row: the `#` slot. */
+const LEAD_SLOTS = 1;
 /** SAD-80: prototype `rowDragMove` threshold — |dx| + |dy| before a `#` press becomes a drag. */
 export const ROW_DRAG_THRESHOLD_PX = 5;
 /** Prototype `#rowDropIndicator` left/right inset inside the scroll container. */
@@ -250,7 +248,7 @@ export class GridView {
     // P6-03 (a11y): grid semantics. Attribute-only; no behavior change.
     this.root.setAttribute('role', 'grid');
     this.root.setAttribute('aria-rowcount', String(this.ariaRowCount())); // +1 header row
-    this.root.setAttribute('aria-colcount', String(this.fields.length + this.ariaColBase()));
+    this.root.setAttribute('aria-colcount', String(this.fields.length));
     this.sortState = Array.isArray(opts.view.sort)
       ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction }))
       : [];
@@ -303,16 +301,8 @@ export class GridView {
     this.viewport.appendChild(this.content);
     this.root.appendChild(this.viewport);
 
-    // SAD-80: one delegated listener each for the row checkboxes and the `#` drag handle —
-    // rows are rebuilt as they scroll, so per-row listeners would be re-created every frame.
-    this.content.addEventListener('change', (e) => {
-      const box = e.target as HTMLInputElement | null;
-      if (!box?.classList?.contains('tablify__row-check')) return;
-      const rowId = (box.closest('.tablify__row') as HTMLElement | null)?.dataset.rowId;
-      if (rowId) this.opts.onToggleRow?.(rowId, box.checked);
-    });
-    this.content.addEventListener('keydown', stopCheckboxKeys);
-    this.header.addEventListener('keydown', stopCheckboxKeys);
+    // SAD-80: one delegated listener for the `#` drag handle — rows are rebuilt as they scroll,
+    // so per-row listeners would be re-created every frame.
     if (opts.onRowMove) {
       this.content.addEventListener('pointerdown', (e) => {
         const lead = (e.target as HTMLElement | null)?.closest?.('.tablify__lead--num') as HTMLElement | null;
@@ -345,6 +335,16 @@ export class GridView {
     // click-to-select (delegated); double-click opens the cell editor (SAD-96)
     this.root.addEventListener('click', (e) => {
       const target = e.target as HTMLElement | null;
+      // SAD-114: Shift / Ctrl / Cmd click on a row extends or toggles the row selection.
+      const modRow = target?.closest?.('.tablify__row') as HTMLElement | null;
+      if ((e.shiftKey || e.ctrlKey || e.metaKey) && this.opts.onRowModifierClick && modRow) {
+        const rowIndex = Number(modRow.dataset.rowIndex);
+        if (!Number.isNaN(rowIndex) && modRow.dataset.rowId) {
+          e.preventDefault();
+          this.opts.onRowModifierClick(rowIndex, { shift: e.shiftKey, toggle: e.ctrlKey || e.metaKey });
+          return;
+        }
+      }
       const cell = target?.closest?.('.tablify__cell') as HTMLElement | null;
       if (!cell) return;
       const rowEl = cell.parentElement as HTMLElement | null;
@@ -398,7 +398,7 @@ export class GridView {
     this.readAvailableWidth();
     this.measure(view);
     this.root.setAttribute('aria-rowcount', String(this.ariaRowCount())); // keep counts in sync (P6-03)
-    this.root.setAttribute('aria-colcount', String(this.fields.length + this.ariaColBase()));
+    this.root.setAttribute('aria-colcount', String(this.fields.length));
     this.viewport.style.height = `${this.bodyHeight()}px`;
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
       this.selected = null;
@@ -408,28 +408,14 @@ export class GridView {
   }
 
   /**
-   * SAD-80: the selected row ids. Updates the checkboxes in place — no re-render — so a
-   * toggle never moves the scroll position or rebuilds rows under the pointer.
+   * SAD-80 / SAD-114: the selected row ids. Marks the rows in place — no re-render — so a
+   * selection change never moves the scroll position or rebuilds rows under the pointer.
    */
   setRowSelection(selection: ReadonlySet<string>): void {
     this.rowSelection = selection;
     for (const rowEl of Array.from(this.content.children) as HTMLElement[]) {
-      const box = rowEl.querySelector<HTMLInputElement>('.tablify__row-check');
-      if (box && rowEl.dataset.rowId) box.checked = selection.has(rowEl.dataset.rowId);
+      if (rowEl.dataset.rowId) rowEl.classList.toggle('tablify__row--selected', selection.has(rowEl.dataset.rowId));
     }
-    this.syncSelectAll();
-  }
-
-  /** The header checkbox is checked when every row in view is selected (see selection.ts). */
-  private syncSelectAll(): void {
-    const box = this.header.querySelector<HTMLInputElement>('.tablify__select-all');
-    if (!box) return;
-    box.checked = this.rows.length > 0 && this.rows.every((r) => this.rowSelection.has(r.id));
-  }
-
-  /** SAD-80: with row checkboxes the checkbox slot is ARIA column 1 and fields start at 2. */
-  private ariaColBase(): number {
-    return this.opts.onToggleRow ? 1 : 0;
   }
 
   /** Current selection, or null. */
@@ -598,7 +584,7 @@ export class GridView {
       const i = this.fields.findIndex((f) => f.id === preview.fieldId);
       if (i >= 0) base[i] = preview.width;
     }
-    this.slotWidths = fillWidths([LEAD_CHECK_WIDTH, LEAD_NUM_WIDTH, ...base], this.availableWidth);
+    this.slotWidths = fillWidths([LEAD_NUM_WIDTH, ...base], this.availableWidth);
     // Sticky `left` of each slot = its distance from the first slot, so a frozen block pins
     // flush to the shell's padding edge — the prototype's syncFrozenOffsets().
     this.slotLefts = [];
@@ -694,9 +680,9 @@ export class GridView {
     return this.rowGripTemplate;
   }
 
-  private createLead(kind: 'check' | 'num', frozenZIndex: string, slot: number): HTMLElement {
+  private createLead(frozenZIndex: string, slot: number): HTMLElement {
     const el = document.createElement('div');
-    el.className = `tablify__lead tablify__lead--${kind}`;
+    el.className = 'tablify__lead tablify__lead--num';
     // Visual row furniture: the grid's own row/column semantics stay on the field cells.
     el.setAttribute('aria-hidden', 'true');
     this.placeSlot(el, slot, frozenZIndex);
@@ -709,23 +695,8 @@ export class GridView {
     // than the viewport, so its background never stops short of the body.
     this.header.style.minWidth = '100%';
     this.header.style.width = `${this.totalWidth}px`;
-    // SAD-79: leading slots — checkbox and `#`. SAD-80: the checkbox selects the rows in view.
-    const checkLead = this.createLead('check', '2', 0);
-    if (this.opts.onToggleRow && this.opts.onToggleAllRows) {
-      const onToggleAll = this.opts.onToggleAllRows;
-      checkLead.removeAttribute('aria-hidden');
-      checkLead.setAttribute('role', 'columnheader');
-      checkLead.setAttribute('aria-colindex', '1');
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.className = 'tablify__select-all';
-      box.setAttribute('aria-label', 'Select all rows');
-      box.checked = this.rows.length > 0 && this.rows.every((r) => this.rowSelection.has(r.id));
-      box.addEventListener('change', () => onToggleAll(box.checked));
-      checkLead.appendChild(box);
-    }
-    this.header.appendChild(checkLead);
-    const hash = this.createLead('num', '2', 1);
+    // SAD-79: the leading `#` slot (SAD-114: the checkbox slot and select-all are gone).
+    const hash = this.createLead('2', 0);
     hash.textContent = '#';
     this.header.appendChild(hash);
     const primarySort = this.sortState[0];
@@ -734,7 +705,7 @@ export class GridView {
       this.styleCell(cell, colIndex, '2');
       cell.classList.add('tablify__header-cell');
       cell.setAttribute('role', 'columnheader');
-      cell.setAttribute('aria-colindex', String(colIndex + 1 + this.ariaColBase()));
+      cell.setAttribute('aria-colindex', String(colIndex + 1));
       // The column's accessible name is the field name, not name + button labels.
       cell.setAttribute('aria-label', field.name);
       cell.setAttribute('data-field-type', field.type);
@@ -1172,7 +1143,7 @@ export class GridView {
     cell.className = 'tablify__group-cell';
     cell.setAttribute('role', 'gridcell');
     cell.setAttribute('aria-colindex', '1');
-    cell.setAttribute('aria-colspan', String(this.fields.length + this.ariaColBase()));
+    cell.setAttribute('aria-colspan', String(this.fields.length));
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tablify__group-toggle';
@@ -1247,22 +1218,10 @@ export class GridView {
         else rowEl.classList.remove('tablify__row--stripe');
         rowEl.dataset.rowId = row.id;
         rowEl.classList.toggle('tablify__row--dragging', row.id === this.draggingRowId);
-        // SAD-79: leading slots — checkbox and the row number. SAD-80: the checkbox selects
-        // the row (one delegated change listener on the content, see the constructor).
-        const checkLead = this.createLead('check', '1', 0);
-        if (this.opts.onToggleRow) {
-          checkLead.removeAttribute('aria-hidden');
-          checkLead.setAttribute('role', 'gridcell');
-          checkLead.setAttribute('aria-colindex', '1');
-          const box = document.createElement('input');
-          box.type = 'checkbox';
-          box.className = 'tablify__row-check';
-          box.checked = this.rowSelection.has(row.id);
-          box.setAttribute('aria-label', `Select row ${number}`);
-          checkLead.appendChild(box);
-        }
-        rowEl.appendChild(checkLead);
-        const num = this.createLead('num', '1', 1);
+        // SAD-114: a selected row is marked on the row element (no checkbox).
+        rowEl.classList.toggle('tablify__row--selected', this.rowSelection.has(row.id));
+        // SAD-79: the leading `#` slot.
+        const num = this.createLead('1', 0);
         if (this.opts.onRowMove) {
           num.classList.add('tablify__lead--drag');
           num.title = 'Drag to reorder row';
@@ -1326,7 +1285,7 @@ export class GridView {
           cell.setAttribute('data-field-id', field.id);
           cell.dataset.colIndex = String(colIndex);
           cell.setAttribute('role', 'gridcell');
-          cell.setAttribute('aria-colindex', String(colIndex + 1 + this.ariaColBase()));
+          cell.setAttribute('aria-colindex', String(colIndex + 1));
           // P6-03 (a11y): give screen readers a stable name for each cell
           // ("RowIndex, ColumnName, value") without changing any behavior.
           cell.setAttribute('aria-description', `Row ${number}, column ${field.name}`);
@@ -1374,12 +1333,6 @@ function capturePointer(el: HTMLElement, pointerId: number): void {
  * SAD-80: Space toggles a focused row checkbox natively and Enter must not open the cell
  * editor through the grid's keydown handler. Other keys (undo, arrows) still reach the grid.
  */
-function stopCheckboxKeys(e: KeyboardEvent): void {
-  const t = e.target as HTMLInputElement | null;
-  if (t && t.tagName === 'INPUT' && t.type === 'checkbox' && (e.key === 'Enter' || e.key === ' ')) {
-    e.stopPropagation();
-  }
-}
 
 /** CSS.escape where available (row ids are generated, but stay safe in a selector). */
 function cssEscape(value: string): string {

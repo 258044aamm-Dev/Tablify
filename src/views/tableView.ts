@@ -20,7 +20,7 @@ import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, rowEntries, type MenuEntr
 import { createDefaultView, effectiveFrozenColumns } from '../model/view.js';
 import { cycleHeaderSort, hideField, moveColumnOnto, resizeColumn, setFrozenColumns, setGroupBy, setRowHeight, setSort } from './grid/columns.js';
 import { groupRows, toggleCollapsed, type GroupedRows } from './grid/grouping.js';
-import { pruneSelection, setVisibleRows, toggleRow } from './grid/selection.js';
+import { addRowRange, pruneSelection, toggleRow } from './grid/selection.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
 import { AddFieldModal } from './grid/AddFieldModal.js';
 import { previewFormula } from '../model/formulaPreview.js';
@@ -79,6 +79,8 @@ export class TableView extends TextFileView {
   private pressTarget: HTMLElement | null = null;
   /** Set when a long press opened the menu, so the following click does nothing. */
   private suppressClick = false;
+  /** SAD-114: the row a Shift-click range starts from (set by any row selection change). */
+  private selectionAnchor: string | null = null;
   /** Time of the last touch (P5-03), used to ignore the native touch context menu. SAD-97:
    * stamped on touch contact only — never on mouse/pen — so desktop right-clicks are unaffected. */
   private lastTouchAt = 0;
@@ -368,6 +370,24 @@ export class TableView extends TextFileView {
     this.afterChange();
   }
 
+  /**
+   * SAD-114: Shift-click adds the rows from the anchor to this row. Ctrl/Cmd-click flips this
+   * row; Shift-click with no anchor just selects it. Rows in collapsed groups are not in
+   * `displayRows()`, so they are skipped.
+   */
+  private onRowModifierClick(rowIndex: number, mods: { shift: boolean; toggle: boolean }): void {
+    const rows = this.displayRows();
+    const row = rows[rowIndex];
+    if (!row) return;
+    const ids = rows.map((r) => r.id);
+    if (mods.shift && this.selectionAnchor && ids.includes(this.selectionAnchor)) {
+      this.showRowSelection(addRowRange(this.rowSelection, ids, this.selectionAnchor, row.id));
+    } else {
+      this.showRowSelection(toggleRow(this.rowSelection, row.id, mods.toggle ? undefined : true));
+    }
+    this.selectionAnchor = row.id;
+  }
+
   /** Re-show the selection without touching the model: no save, no undo entry, no re-render. */
   private showRowSelection(next: ReadonlySet<string>): void {
     this.rowSelection = next;
@@ -548,13 +568,9 @@ export class TableView extends TextFileView {
         // SAD-79 (S-6): the Insert Row pill lives inside the shell (prototype #insertRowWrap)
         // and the grid shrinks to its content, so the empty-state hint is retired.
         onInsertRow: () => this.mutate((st) => st.addRow()),
-        // SAD-80: row checkboxes and select-all (UI state), and `#`-cell drag to reorder.
-        onToggleRow: (rowId, checked) => this.showRowSelection(toggleRow(this.rowSelection, rowId, checked)),
-        onToggleAllRows: (checked) => {
-          // SAD-81: rows in collapsed groups are out of view, so select-all skips them (prototype).
-          const visible = this.displayRows().map((r) => r.id);
-          this.showRowSelection(setVisibleRows(this.rowSelection, visible, checked));
-        },
+        // SAD-114: Shift / Ctrl-click on a row selects rows (the row menu does the rest).
+        onRowModifierClick: (rowIndex, mods) => this.onRowModifierClick(rowIndex, mods),
+        // SAD-80: `#`-cell drag to reorder.
         onRowMove: (rowId, beforeRowId) => {
           if (this.session?.moveRowBefore(rowId, beforeRowId)) {
             new Notice('Row moved');
@@ -687,7 +703,7 @@ export class TableView extends TextFileView {
 
   /**
    * Open the header, cell or row menu for a DOM target. Returns false when the target is
-   * neither. SAD-97: a row target (the `#` / checkbox lead, the row itself) opens the row
+   * neither. SAD-97: a row target (the `#` lead, the row itself) opens the row
    * menu — the prototype does this for any `tr[data-row]`.
    */
   private openMenuFromTarget(target: HTMLElement | null, pos: MouseEvent | { x: number; y: number }): boolean {
@@ -774,22 +790,25 @@ export class TableView extends TextFileView {
     const field = this.session.getVisibleFields()[col];
     if (!rowData || !field) return;
     const value = rowData.values[field.id];
-    const entries = cellMenu({
-      readOnly: isReadOnly(field),
-      cellEmpty: isEmptyValue(value),
-      hasClipboard: this.clipboardText !== null,
-      isLink: field.type === 'link',
-      foreignLinks: field.type === 'link' ? countForeignRefs(value, field.linkTableId) : 0,
-    });
+    const entries = cellMenu(
+      {
+        readOnly: isReadOnly(field),
+        cellEmpty: isEmptyValue(value),
+        hasClipboard: this.clipboardText !== null,
+        isLink: field.type === 'link',
+        foreignLinks: field.type === 'link' ? countForeignRefs(value, field.linkTableId) : 0,
+      },
+      this.rowSelection.has(rowData.id),
+    );
     this.showMenu(entries, { row, col }, pos);
   }
 
-  /** SAD-97: row targets (the `#` / checkbox lead) open the row items, as the prototype's `tr` menu. */
+  /** SAD-97: row targets (the `#` lead) open the row items, as the prototype's `tr` menu. */
   private openRowMenu(row: number, pos: MouseEvent | { x: number; y: number }): void {
     if (!this.session) return;
     const rowData = this.displayRows()[row];
     if (!rowData) return;
-    this.showMenu(rowEntries(), { row, col: 0 }, pos);
+    this.showMenu(rowEntries(this.rowSelection.has(rowData.id)), { row, col: 0 }, pos);
   }
 
   private openHeaderMenu(col: number, pos: MouseEvent | { x: number; y: number }): void {
@@ -850,6 +869,11 @@ export class TableView extends TextFileView {
         case 'cell.clear':
           s.setValue(row.id, field.id, null);
           break;
+        case 'row.select':
+          // SAD-114: the row menu's selection item (no undo entry, no save).
+          this.showRowSelection(toggleRow(this.rowSelection, row.id));
+          this.selectionAnchor = row.id;
+          return;
         case 'row.insertAbove':
           s.insertRowNear(row.id, 'above');
           break;

@@ -13080,8 +13080,9 @@ function cellEntries(ctx) {
     }
   ];
 }
-function rowEntries() {
+function rowEntries(rowSelected = false) {
   return [
+    { id: "row.select", label: rowSelected ? "Deselect row" : "Select row", enabled: true },
     { id: "row.insertAbove", label: "Insert row above", enabled: true },
     { id: "row.insertBelow", label: "Insert row below", enabled: true },
     { id: "row.duplicate", label: "Duplicate row", enabled: true },
@@ -13124,8 +13125,8 @@ function headerEntries(ctx) {
     }
   ];
 }
-function cellMenu(cell2) {
-  return [...cellEntries(cell2), SEPARATOR, ...rowEntries()];
+function cellMenu(cell2, rowSelected = false) {
+  return [...cellEntries(cell2), SEPARATOR, ...rowEntries(rowSelected)];
 }
 function displayTitle(entry) {
   return entry.enabled || !entry.reason ? entry.label : `${entry.label} (${entry.reason})`;
@@ -13190,14 +13191,13 @@ function applyValidationState(cellEl, field, row, allRows) {
 var GROUP_HEADER_CHIP_PX = 40;
 var GROUP_HEADER_TEXT_PX = 34;
 var DEFAULT_COLUMN_WIDTH = 160;
-var LEAD_CHECK_WIDTH = 32;
 var LEAD_NUM_WIDTH = 40;
 var COLUMN_GAP = 6;
 var ROW_GAP = 8;
 var RESIZE_MIN_WIDTH = 120;
 var RESIZE_MAX_WIDTH = 520;
 var DRAG_THRESHOLD_PX = 4;
-var LEAD_SLOTS = 2;
+var LEAD_SLOTS = 1;
 var ROW_DRAG_THRESHOLD_PX = 5;
 var ROW_DROP_INSET_PX = 10;
 var ROW_DRAG_EDGE_PX = 48;
@@ -13231,7 +13231,7 @@ var GridView = class {
     this.root.className = "tablify tablify--grid";
     this.root.setAttribute("role", "grid");
     this.root.setAttribute("aria-rowcount", String(this.ariaRowCount()));
-    this.root.setAttribute("aria-colcount", String(this.fields.length + this.ariaColBase()));
+    this.root.setAttribute("aria-colcount", String(this.fields.length));
     this.sortState = Array.isArray(opts.view.sort) ? opts.view.sort.map((s) => ({ fieldId: s.fieldId, direction: s.direction })) : [];
     this.applyRowHeightClass(opts.view.rowHeight);
     this.measure(opts.view);
@@ -13261,16 +13261,6 @@ var GridView = class {
     this.content.style.right = "0";
     this.viewport.appendChild(this.content);
     this.root.appendChild(this.viewport);
-    this.content.addEventListener("change", (e) => {
-      const box = e.target;
-      if (!box?.classList?.contains("tablify__row-check"))
-        return;
-      const rowId = box.closest(".tablify__row")?.dataset.rowId;
-      if (rowId)
-        this.opts.onToggleRow?.(rowId, box.checked);
-    });
-    this.content.addEventListener("keydown", stopCheckboxKeys);
-    this.header.addEventListener("keydown", stopCheckboxKeys);
     if (opts.onRowMove) {
       this.content.addEventListener("pointerdown", (e) => {
         const lead = e.target?.closest?.(".tablify__lead--num");
@@ -13296,6 +13286,15 @@ var GridView = class {
     });
     this.root.addEventListener("click", (e) => {
       const target = e.target;
+      const modRow = target?.closest?.(".tablify__row");
+      if ((e.shiftKey || e.ctrlKey || e.metaKey) && this.opts.onRowModifierClick && modRow) {
+        const rowIndex = Number(modRow.dataset.rowIndex);
+        if (!Number.isNaN(rowIndex) && modRow.dataset.rowId) {
+          e.preventDefault();
+          this.opts.onRowModifierClick(rowIndex, { shift: e.shiftKey, toggle: e.ctrlKey || e.metaKey });
+          return;
+        }
+      }
       const cell2 = target?.closest?.(".tablify__cell");
       if (!cell2)
         return;
@@ -13387,7 +13386,7 @@ var GridView = class {
     this.readAvailableWidth();
     this.measure(view);
     this.root.setAttribute("aria-rowcount", String(this.ariaRowCount()));
-    this.root.setAttribute("aria-colcount", String(this.fields.length + this.ariaColBase()));
+    this.root.setAttribute("aria-colcount", String(this.fields.length));
     this.viewport.style.height = `${this.bodyHeight()}px`;
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
       this.selected = null;
@@ -13396,28 +13395,15 @@ var GridView = class {
     this.render();
   }
   /**
-   * SAD-80: the selected row ids. Updates the checkboxes in place — no re-render — so a
-   * toggle never moves the scroll position or rebuilds rows under the pointer.
+   * SAD-80 / SAD-114: the selected row ids. Marks the rows in place — no re-render — so a
+   * selection change never moves the scroll position or rebuilds rows under the pointer.
    */
   setRowSelection(selection) {
     this.rowSelection = selection;
     for (const rowEl of Array.from(this.content.children)) {
-      const box = rowEl.querySelector(".tablify__row-check");
-      if (box && rowEl.dataset.rowId)
-        box.checked = selection.has(rowEl.dataset.rowId);
+      if (rowEl.dataset.rowId)
+        rowEl.classList.toggle("tablify__row--selected", selection.has(rowEl.dataset.rowId));
     }
-    this.syncSelectAll();
-  }
-  /** The header checkbox is checked when every row in view is selected (see selection.ts). */
-  syncSelectAll() {
-    const box = this.header.querySelector(".tablify__select-all");
-    if (!box)
-      return;
-    box.checked = this.rows.length > 0 && this.rows.every((r) => this.rowSelection.has(r.id));
-  }
-  /** SAD-80: with row checkboxes the checkbox slot is ARIA column 1 and fields start at 2. */
-  ariaColBase() {
-    return this.opts.onToggleRow ? 1 : 0;
   }
   /** Current selection, or null. */
   getSelection() {
@@ -13578,7 +13564,7 @@ var GridView = class {
       if (i >= 0)
         base[i] = preview.width;
     }
-    this.slotWidths = fillWidths([LEAD_CHECK_WIDTH, LEAD_NUM_WIDTH, ...base], this.availableWidth);
+    this.slotWidths = fillWidths([LEAD_NUM_WIDTH, ...base], this.availableWidth);
     this.slotLefts = [];
     let x = 0;
     for (const w of this.slotWidths) {
@@ -13655,9 +13641,9 @@ var GridView = class {
     }
     return this.rowGripTemplate;
   }
-  createLead(kind, frozenZIndex, slot) {
+  createLead(frozenZIndex, slot) {
     const el2 = document.createElement("div");
-    el2.className = `tablify__lead tablify__lead--${kind}`;
+    el2.className = "tablify__lead tablify__lead--num";
     el2.setAttribute("aria-hidden", "true");
     this.placeSlot(el2, slot, frozenZIndex);
     return el2;
@@ -13666,22 +13652,7 @@ var GridView = class {
     this.header.innerHTML = "";
     this.header.style.minWidth = "100%";
     this.header.style.width = `${this.totalWidth}px`;
-    const checkLead = this.createLead("check", "2", 0);
-    if (this.opts.onToggleRow && this.opts.onToggleAllRows) {
-      const onToggleAll = this.opts.onToggleAllRows;
-      checkLead.removeAttribute("aria-hidden");
-      checkLead.setAttribute("role", "columnheader");
-      checkLead.setAttribute("aria-colindex", "1");
-      const box = document.createElement("input");
-      box.type = "checkbox";
-      box.className = "tablify__select-all";
-      box.setAttribute("aria-label", "Select all rows");
-      box.checked = this.rows.length > 0 && this.rows.every((r) => this.rowSelection.has(r.id));
-      box.addEventListener("change", () => onToggleAll(box.checked));
-      checkLead.appendChild(box);
-    }
-    this.header.appendChild(checkLead);
-    const hash = this.createLead("num", "2", 1);
+    const hash = this.createLead("2", 0);
     hash.textContent = "#";
     this.header.appendChild(hash);
     const primarySort = this.sortState[0];
@@ -13690,7 +13661,7 @@ var GridView = class {
       this.styleCell(cell2, colIndex, "2");
       cell2.classList.add("tablify__header-cell");
       cell2.setAttribute("role", "columnheader");
-      cell2.setAttribute("aria-colindex", String(colIndex + 1 + this.ariaColBase()));
+      cell2.setAttribute("aria-colindex", String(colIndex + 1));
       cell2.setAttribute("aria-label", field.name);
       cell2.setAttribute("data-field-type", field.type);
       if (primarySort && primarySort.fieldId === field.id) {
@@ -14103,7 +14074,7 @@ var GridView = class {
     cell2.className = "tablify__group-cell";
     cell2.setAttribute("role", "gridcell");
     cell2.setAttribute("aria-colindex", "1");
-    cell2.setAttribute("aria-colspan", String(this.fields.length + this.ariaColBase()));
+    cell2.setAttribute("aria-colspan", String(this.fields.length));
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tablify__group-toggle";
@@ -14170,20 +14141,8 @@ var GridView = class {
           rowEl.classList.remove("tablify__row--stripe");
         rowEl.dataset.rowId = row.id;
         rowEl.classList.toggle("tablify__row--dragging", row.id === this.draggingRowId);
-        const checkLead = this.createLead("check", "1", 0);
-        if (this.opts.onToggleRow) {
-          checkLead.removeAttribute("aria-hidden");
-          checkLead.setAttribute("role", "gridcell");
-          checkLead.setAttribute("aria-colindex", "1");
-          const box = document.createElement("input");
-          box.type = "checkbox";
-          box.className = "tablify__row-check";
-          box.checked = this.rowSelection.has(row.id);
-          box.setAttribute("aria-label", `Select row ${number}`);
-          checkLead.appendChild(box);
-        }
-        rowEl.appendChild(checkLead);
-        const num = this.createLead("num", "1", 1);
+        rowEl.classList.toggle("tablify__row--selected", this.rowSelection.has(row.id));
+        const num = this.createLead("1", 0);
         if (this.opts.onRowMove) {
           num.classList.add("tablify__lead--drag");
           num.title = "Drag to reorder row";
@@ -14235,7 +14194,7 @@ var GridView = class {
           cell2.setAttribute("data-field-id", field.id);
           cell2.dataset.colIndex = String(colIndex);
           cell2.setAttribute("role", "gridcell");
-          cell2.setAttribute("aria-colindex", String(colIndex + 1 + this.ariaColBase()));
+          cell2.setAttribute("aria-colindex", String(colIndex + 1));
           cell2.setAttribute("aria-description", `Row ${number}, column ${field.name}`);
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
             cell2.classList.add("tablify__cell--selected");
@@ -14266,12 +14225,6 @@ function capturePointer(el2, pointerId) {
   try {
     el2.setPointerCapture?.(pointerId);
   } catch {
-  }
-}
-function stopCheckboxKeys(e) {
-  const t = e.target;
-  if (t && t.tagName === "INPUT" && t.type === "checkbox" && (e.key === "Enter" || e.key === " ")) {
-    e.stopPropagation();
   }
 }
 function cssEscape(value) {
@@ -14577,14 +14530,15 @@ function toggleRow(selection, rowId, checked) {
     next.delete(rowId);
   return next;
 }
-function setVisibleRows(selection, visibleRowIds, checked) {
+function addRowRange(selection, visibleRowIds, anchorId, targetId) {
+  const a = visibleRowIds.indexOf(anchorId);
+  const b = visibleRowIds.indexOf(targetId);
+  if (a < 0 || b < 0)
+    return new Set(selection);
   const next = new Set(selection);
-  for (const id of visibleRowIds) {
-    if (checked)
-      next.add(id);
-    else
-      next.delete(id);
-  }
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  for (const id of visibleRowIds.slice(lo, hi + 1))
+    next.add(id);
   return next;
 }
 function pruneSelection(selection, existingRowIds) {
@@ -17118,6 +17072,8 @@ var TableView = class extends import_obsidian9.TextFileView {
   pressTarget = null;
   /** Set when a long press opened the menu, so the following click does nothing. */
   suppressClick = false;
+  /** SAD-114: the row a Shift-click range starts from (set by any row selection change). */
+  selectionAnchor = null;
   /** Time of the last touch (P5-03), used to ignore the native touch context menu. SAD-97:
    * stamped on touch contact only — never on mouse/pen — so desktop right-clicks are unaffected. */
   lastTouchAt = 0;
@@ -17372,6 +17328,24 @@ var TableView = class extends import_obsidian9.TextFileView {
       new import_obsidian9.Notice(`Deleted ${deleted} ${deleted === 1 ? "row" : "rows"}`);
     this.afterChange();
   }
+  /**
+   * SAD-114: Shift-click adds the rows from the anchor to this row. Ctrl/Cmd-click flips this
+   * row; Shift-click with no anchor just selects it. Rows in collapsed groups are not in
+   * `displayRows()`, so they are skipped.
+   */
+  onRowModifierClick(rowIndex, mods) {
+    const rows = this.displayRows();
+    const row = rows[rowIndex];
+    if (!row)
+      return;
+    const ids = rows.map((r) => r.id);
+    if (mods.shift && this.selectionAnchor && ids.includes(this.selectionAnchor)) {
+      this.showRowSelection(addRowRange(this.rowSelection, ids, this.selectionAnchor, row.id));
+    } else {
+      this.showRowSelection(toggleRow(this.rowSelection, row.id, mods.toggle ? void 0 : true));
+    }
+    this.selectionAnchor = row.id;
+  }
   /** Re-show the selection without touching the model: no save, no undo entry, no re-render. */
   showRowSelection(next) {
     this.rowSelection = next;
@@ -17544,12 +17518,9 @@ var TableView = class extends import_obsidian9.TextFileView {
         // SAD-79 (S-6): the Insert Row pill lives inside the shell (prototype #insertRowWrap)
         // and the grid shrinks to its content, so the empty-state hint is retired.
         onInsertRow: () => this.mutate((st) => st.addRow()),
-        // SAD-80: row checkboxes and select-all (UI state), and `#`-cell drag to reorder.
-        onToggleRow: (rowId, checked) => this.showRowSelection(toggleRow(this.rowSelection, rowId, checked)),
-        onToggleAllRows: (checked) => {
-          const visible = this.displayRows().map((r) => r.id);
-          this.showRowSelection(setVisibleRows(this.rowSelection, visible, checked));
-        },
+        // SAD-114: Shift / Ctrl-click on a row selects rows (the row menu does the rest).
+        onRowModifierClick: (rowIndex, mods) => this.onRowModifierClick(rowIndex, mods),
+        // SAD-80: `#`-cell drag to reorder.
         onRowMove: (rowId, beforeRowId) => {
           if (this.session?.moveRowBefore(rowId, beforeRowId)) {
             new import_obsidian9.Notice("Row moved");
@@ -17668,7 +17639,7 @@ var TableView = class extends import_obsidian9.TextFileView {
   }
   /**
    * Open the header, cell or row menu for a DOM target. Returns false when the target is
-   * neither. SAD-97: a row target (the `#` / checkbox lead, the row itself) opens the row
+   * neither. SAD-97: a row target (the `#` lead, the row itself) opens the row
    * menu — the prototype does this for any `tr[data-row]`.
    */
   openMenuFromTarget(target, pos) {
@@ -17753,23 +17724,26 @@ var TableView = class extends import_obsidian9.TextFileView {
     if (!rowData || !field)
       return;
     const value = rowData.values[field.id];
-    const entries = cellMenu({
-      readOnly: isReadOnly(field),
-      cellEmpty: isEmptyValue(value),
-      hasClipboard: this.clipboardText !== null,
-      isLink: field.type === "link",
-      foreignLinks: field.type === "link" ? countForeignRefs(value, field.linkTableId) : 0
-    });
+    const entries = cellMenu(
+      {
+        readOnly: isReadOnly(field),
+        cellEmpty: isEmptyValue(value),
+        hasClipboard: this.clipboardText !== null,
+        isLink: field.type === "link",
+        foreignLinks: field.type === "link" ? countForeignRefs(value, field.linkTableId) : 0
+      },
+      this.rowSelection.has(rowData.id)
+    );
     this.showMenu(entries, { row, col }, pos);
   }
-  /** SAD-97: row targets (the `#` / checkbox lead) open the row items, as the prototype's `tr` menu. */
+  /** SAD-97: row targets (the `#` lead) open the row items, as the prototype's `tr` menu. */
   openRowMenu(row, pos) {
     if (!this.session)
       return;
     const rowData = this.displayRows()[row];
     if (!rowData)
       return;
-    this.showMenu(rowEntries(), { row, col: 0 }, pos);
+    this.showMenu(rowEntries(this.rowSelection.has(rowData.id)), { row, col: 0 }, pos);
   }
   openHeaderMenu(col, pos) {
     if (!this.session)
@@ -17830,6 +17804,10 @@ var TableView = class extends import_obsidian9.TextFileView {
         case "cell.clear":
           s.setValue(row.id, field2.id, null);
           break;
+        case "row.select":
+          this.showRowSelection(toggleRow(this.rowSelection, row.id));
+          this.selectionAnchor = row.id;
+          return;
         case "row.insertAbove":
           s.insertRowNear(row.id, "above");
           break;
