@@ -1,6 +1,18 @@
 # SAD-98 / SAD-99 / SAD-100 — Final Fix Plan
 
-**Date:** 2026-10-12 · **Repo:** `258044aamm-Dev/Tablify` @ `13389ec` (v2.0.0-beta.2) · **Mode:** plan only — no code changed
+**Date:** 2026-10-12 · **Repo:** `258044aamm-Dev/Tablify` @ `13389ec` (v2.0.0-beta.2) · **Mode:** plan (written first) → **executed 2026-10-13**
+
+> **Execution status — COMPLETE (all three steps landed on `main`, each pushed and closed in Linear):**
+>
+> | Step | Commit | Result |
+> |---|---|---|
+> | SAD-98 | `e093f6a` | Title row keeps a single **Export…** button, pinned right at every width; Import… / Export CSV / Copy Markdown removed from the row; the two quick actions kept as commands (`export-current-view-csv`, `copy-current-view-markdown`); Import stays on the palette + folder menu. |
+> | SAD-99 | `13cc91f` | Vault-path chip removed (title + Export… only); click-to-rename untouched; parity `file-chip` region dropped as owner-directed deviation. |
+> | SAD-100 | `fb0824d` | Optional view key `freezeMode: 'viewport' \| 'fixed'` (no formatVersion change); effective freeze follows the live pane width (≤639px unfrozen, wider frozen) with live resize; switch/header Freeze stamp `'fixed'`. |
+>
+> **Gate at close-out:** `npm run check` green — lint 0 errors (119 pre-existing warnings), **99 files / 1584 tests** (baseline 97/1562), guards, docs links, FA icons, build. Evidence: `docs/evidence/SAD-98.md`, `SAD-99.md`, `SAD-100.md`.
+>
+> **As-built deviations from this plan:** (1) SAD-98's two command registrations live in `commands/export.ts` behind a `CurrentViewExportTarget` structural type with the active-view getter injected from `main.ts` (`commands/export.ts` must not import `views/tableView.js` — module cycle); (2) SAD-100 semantics refined to "`viewport` + stored N renders N on desktop, suppressed on mobile" (not "ignore N"), which keeps every spread-override path (`{ ...createDefaultView(f), frozenColumns: N }`) rendering exactly as before on wide panes; (3) the freeze width basis is the grid shell's measured width (`GridView.currentPaneWidth`, falling back to the host `viewportWidth` pre-layout).
 
 **Issues (Linear project Tablify, all label *Improvement*, P1):**
 
