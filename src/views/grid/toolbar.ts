@@ -98,6 +98,8 @@ export interface ToolbarState {
   theme: 'light' | 'dark';
   /** SAD-80: selected rows that still exist (0 or absent hides the summary). */
   selectedCount?: number;
+  /** SAD-113: every field in the table, hidden ones included. Absent hides the field count. */
+  totalFieldCount?: number;
 }
 
 export interface ToolbarOptions extends ToolbarState {
@@ -167,6 +169,9 @@ export class Toolbar {
   private readonly optionsPanel: HTMLElement;
   private readonly optionsButton: HTMLElement;
   private readonly rowCount: HTMLElement;
+  /** SAD-113: field count and its separator, shown only when a field count is supplied. */
+  private readonly fieldCount: HTMLElement;
+  private readonly fieldSep: HTMLElement;
   private readonly selectionSummary: HTMLElement;
   private readonly selectedCount: HTMLElement;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -272,7 +277,17 @@ export class Toolbar {
     this.rowCount.className = 'tablify__rowcount';
     this.rowCount.dataset.testid = 'tablify-rowcount';
     this.rowCount.setAttribute('aria-live', 'polite');
+    this.fieldSep = document.createElement('span');
+    this.fieldSep.className = 'tablify__badge-sep';
+    this.fieldSep.setAttribute('aria-hidden', 'true');
+    this.fieldSep.textContent = '·';
+    this.fieldCount = document.createElement('span');
+    this.fieldCount.className = 'tablify__fieldcount';
+    this.fieldCount.dataset.testid = 'tablify-fieldcount';
+    this.fieldCount.setAttribute('aria-live', 'polite');
     badges.appendChild(this.rowCount);
+    badges.appendChild(this.fieldSep);
+    badges.appendChild(this.fieldCount);
     metaRow.appendChild(selection);
     metaRow.appendChild(badges);
     this.root.appendChild(metaRow);
@@ -438,7 +453,9 @@ export class Toolbar {
     this.opts.query = state.query;
     this.opts.queryError = state.queryError;
     this.opts.selectedCount = state.selectedCount;
+    this.opts.totalFieldCount = state.totalFieldCount;
     this.renderSelection();
+    this.renderFieldCount();
 
     if (state.theme !== this.opts.theme) {
       this.opts.theme = state.theme;
@@ -460,6 +477,7 @@ export class Toolbar {
 
     this.showQueryError(this.searchInput.value);
     this.renderRowCount();
+    this.renderFieldCount();
     this.renderOptions();
   }
 
@@ -534,6 +552,17 @@ export class Toolbar {
     this.selectionSummary.hidden = count === 0;
     const text = selectionLabel(count);
     if (this.selectedCount.textContent !== text) this.selectedCount.textContent = text;
+  }
+
+  /** SAD-113: \"N fields\" beside the row count. Hidden when no field count is supplied. */
+  private renderFieldCount(): void {
+    const n = this.opts.totalFieldCount;
+    const show = n !== undefined;
+    this.fieldSep.hidden = !show;
+    this.fieldCount.hidden = !show;
+    if (!show) return;
+    const text = `${n} ${n === 1 ? 'field' : 'fields'}`;
+    if (this.fieldCount.textContent !== text) this.fieldCount.textContent = text;
   }
 
   private renderRowCount(): void {

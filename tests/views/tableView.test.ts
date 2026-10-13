@@ -228,6 +228,15 @@ describe('TableView — search and query are wired to the session', () => {
     expect(need(el(view, '[data-testid="tablify-rowcount"]'), 'row count').textContent).toBe('1 row (of 3)');
   });
 
+  // SAD-113: the field count is every field in the table, hidden ones included.
+  it('the field-count badge counts all fields, hidden ones included', async () => {
+    const file = JSON.parse(sampleFile());
+    file.views[0].hidden = ['fld_status'];
+    const view = await openView(JSON.stringify(file));
+    expect(need(el(view, '[data-testid="tablify-fieldcount"]'), 'field count').textContent).toBe('2 fields');
+    expect(need(el(view, '[data-testid="tablify-rowcount"]'), 'row count').textContent).toBe('3 rows');
+  });
+
   it('Clear filters empties both search and query', async () => {
     const view = await openView(sampleFile());
     typeInto(el(view, '[data-testid="tablify-search"]') as HTMLInputElement, 'Alpha Status:done');

@@ -6,6 +6,10 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Field count beside the row count (SAD-113)** — the title row's badge now shows the number of
+  fields next to the row count, for example `12 rows · 7 fields`. The field count includes hidden
+  fields and updates when fields are added, removed, hidden or shown. The row count is unchanged.
+
 - **Small row height is distinct (SAD-112)** — the Small row-height setting now uses a 28px
   capsule (row pitch 44px). Before, Small and Medium both used 34px and looked the same. Medium
   (34px) and Large (40px) are unchanged. Existing files keep their saved row-height setting.

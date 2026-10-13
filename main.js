@@ -14665,6 +14665,9 @@ var Toolbar = class _Toolbar {
   optionsPanel;
   optionsButton;
   rowCount;
+  /** SAD-113: field count and its separator, shown only when a field count is supplied. */
+  fieldCount;
+  fieldSep;
   selectionSummary;
   selectedCount;
   searchTimer = null;
@@ -14750,7 +14753,17 @@ var Toolbar = class _Toolbar {
     this.rowCount.className = "tablify__rowcount";
     this.rowCount.dataset.testid = "tablify-rowcount";
     this.rowCount.setAttribute("aria-live", "polite");
+    this.fieldSep = document.createElement("span");
+    this.fieldSep.className = "tablify__badge-sep";
+    this.fieldSep.setAttribute("aria-hidden", "true");
+    this.fieldSep.textContent = "\xB7";
+    this.fieldCount = document.createElement("span");
+    this.fieldCount.className = "tablify__fieldcount";
+    this.fieldCount.dataset.testid = "tablify-fieldcount";
+    this.fieldCount.setAttribute("aria-live", "polite");
     badges.appendChild(this.rowCount);
+    badges.appendChild(this.fieldSep);
+    badges.appendChild(this.fieldCount);
     metaRow.appendChild(selection);
     metaRow.appendChild(badges);
     this.root.appendChild(metaRow);
@@ -14905,7 +14918,9 @@ var Toolbar = class _Toolbar {
     this.opts.query = state.query;
     this.opts.queryError = state.queryError;
     this.opts.selectedCount = state.selectedCount;
+    this.opts.totalFieldCount = state.totalFieldCount;
     this.renderSelection();
+    this.renderFieldCount();
     if (state.theme !== this.opts.theme) {
       this.opts.theme = state.theme;
       applyTheme(this.root, state.theme);
@@ -14918,6 +14933,7 @@ var Toolbar = class _Toolbar {
     }
     this.showQueryError(this.searchInput.value);
     this.renderRowCount();
+    this.renderFieldCount();
     this.renderOptions();
   }
   /** The box's current text (including anything typed but not yet applied). */
@@ -14984,6 +15000,18 @@ var Toolbar = class _Toolbar {
     const text = selectionLabel(count);
     if (this.selectedCount.textContent !== text)
       this.selectedCount.textContent = text;
+  }
+  /** SAD-113: \"N fields\" beside the row count. Hidden when no field count is supplied. */
+  renderFieldCount() {
+    const n = this.opts.totalFieldCount;
+    const show = n !== void 0;
+    this.fieldSep.hidden = !show;
+    this.fieldCount.hidden = !show;
+    if (!show)
+      return;
+    const text = `${n} ${n === 1 ? "field" : "fields"}`;
+    if (this.fieldCount.textContent !== text)
+      this.fieldCount.textContent = text;
   }
   renderRowCount() {
     const { visibleRowCount, totalRowCount } = this.opts;
@@ -17110,6 +17138,8 @@ var TableView = class extends import_obsidian9.TextFileView {
       view: { ...view, frozenColumns: effectiveFrozenColumns(view, paneWidth) },
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
+      // SAD-113: every field, hidden ones included (the field count is about the table, not the view).
+      totalFieldCount: s.getFields().length,
       // SAD-80: only rows that still exist count (prototype selectedCount).
       selectedCount: [...this.rowSelection].filter((id) => s.store.getRow(id) !== void 0).length,
       search: view.search ?? "",

@@ -223,6 +223,8 @@ export class TableView extends TextFileView {
       view: { ...view, frozenColumns: effectiveFrozenColumns(view, paneWidth) },
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
+      // SAD-113: every field, hidden ones included (the field count is about the table, not the view).
+      totalFieldCount: s.getFields().length,
       // SAD-80: only rows that still exist count (prototype selectedCount).
       selectedCount: [...this.rowSelection].filter((id) => s.store.getRow(id) !== undefined).length,
       search: view.search ?? '',

@@ -416,6 +416,35 @@ describe('Toolbar — action buttons and row count', () => {
   });
 });
 
+// SAD-113: the field count sits beside the row count in its own element, so the row-count text
+// (and every test that reads it) is unchanged.
+describe('Toolbar — field count (SAD-113)', () => {
+  const fieldText = (root: HTMLElement) => q(root, '[data-testid="tablify-fieldcount"]');
+
+  it('shows the total field count next to the row count', () => {
+    const { toolbar } = mount({ visibleRowCount: 12, totalRowCount: 40, totalFieldCount: 7 });
+    expect(fieldText(toolbar.root)?.textContent).toBe('7 fields');
+    expect(q(toolbar.root, '[data-testid="tablify-rowcount"]')?.textContent).toBe('12 rows (of 40)');
+  });
+
+  it('uses the singular for exactly one field', () => {
+    const { toolbar } = mount({ totalFieldCount: 1 });
+    expect(fieldText(toolbar.root)?.textContent).toBe('1 field');
+  });
+
+  it('is hidden when no field count is supplied', () => {
+    const { toolbar } = mount({});
+    expect(fieldText(toolbar.root)?.hidden ?? true).toBe(true);
+  });
+
+  it('updates when the count changes, and does not change for a row filter', () => {
+    const { toolbar } = mount({ visibleRowCount: 10, totalRowCount: 10, totalFieldCount: 3 });
+    toolbar.update(makeState({ visibleRowCount: 4, totalRowCount: 10, totalFieldCount: 5 }));
+    expect(fieldText(toolbar.root)?.textContent).toBe('5 fields');
+    expect(q(toolbar.root, '[data-testid="tablify-rowcount"]')?.textContent).toBe('4 rows (of 10)');
+  });
+});
+
 describe('Toolbar — update() preserves user input', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
