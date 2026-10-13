@@ -6,6 +6,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Sync modal is readable and themed (SAD-107)** — the Airtable sync modal now uses the Tablify
+  theme tokens and the shared proto-modal styling, so its card, borders and status text no longer
+  fall back to unstyled defaults. The error text is now full-contrast body text with an accent
+  rule, not low-contrast accent-coloured text, and the secondary text no longer uses reduced
+  opacity. Sync behaviour is unchanged.
+
 - **Drag grips appear on hover (SAD-108)** — the `#` row-number grip and the column header grip
   are hidden until the pointer is over the row or column, then fade in. They stay visible on touch
   devices (no hover there) and on the row or column being dragged. Dragging works exactly as before.

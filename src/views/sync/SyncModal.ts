@@ -17,6 +17,7 @@ import { planAutoCreate, createMissingFields, type AutoCreatePlan } from '../../
 import type { ConflictItem, SyncContext, SyncReport } from '../../sync/engineTypes.js';
 import { redactSecrets } from '../../sync/redact.js';
 import { linkTable, unlinkTable, typeLabel } from './syncController.js';
+import { dressProtoModal } from '../../ui/protoModal.js';
 
 /** Creates an element under `parent`. Typed by tag name, so inputs keep their own properties. */
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -83,7 +84,9 @@ export class SyncModal extends Modal {
 
   onOpen(): void {
     this.setTitle('Airtable sync');
-    this.modalEl.addClass('tablify__modal');
+    // SAD-107: the same card, theme tokens and title glyph as the other plugin dialogs. The
+    // tokens were missing here, so the card and status colours fell back to Obsidian defaults.
+    dressProtoModal(this, { icon: 'cloud-arrow-up', size: 'md' });
     this.render();
     if (this.deps.token) void this.loadBases();
   }

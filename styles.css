@@ -2390,7 +2390,8 @@
 .tablify-sync__scopes,
 .tablify-sync__last {
   font-size: 11px;
-  opacity: 0.8;
+  /* SAD-107: full-strength muted text (no opacity dimming), so it meets AA on the card. */
+  color: var(--tablify-text-muted);
   margin-bottom: 6px;
 }
 .tablify-sync__link,
@@ -2407,12 +2408,15 @@
   font-size: 12px;
   margin: 8px 0;
 }
+/* SAD-107: error text uses the readable ink; the accent is a bar, not the text colour
+   (terracotta text is 3.3:1 on white, below AA). */
 .tablify-sync__status--error {
-  color: var(--tablify-accent-primary);
+  color: var(--tablify-text);
+  border-left: 3px solid var(--tablify-accent-primary);
+  padding-left: 8px;
 }
 .tablify-sync__progress {
-  font-size: 11px;
-  font-style: italic;
+  font-size: 12px;
   margin: 4px 0;
 }
 .tablify-sync__conflict {

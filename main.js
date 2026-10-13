@@ -20073,7 +20073,7 @@ var SyncModal = class extends import_obsidian15.Modal {
   cancelButton = null;
   onOpen() {
     this.setTitle("Airtable sync");
-    this.modalEl.addClass("tablify__modal");
+    dressProtoModal(this, { icon: "cloud-arrow-up", size: "md" });
     this.render();
     if (this.deps.token)
       void this.loadBases();
