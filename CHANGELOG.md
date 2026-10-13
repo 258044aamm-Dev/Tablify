@@ -6,6 +6,10 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Small row height is distinct (SAD-112)** — the Small row-height setting now uses a 28px
+  capsule (row pitch 44px). Before, Small and Medium both used 34px and looked the same. Medium
+  (34px) and Large (40px) are unchanged. Existing files keep their saved row-height setting.
+
 - **Sync modal is readable and themed (SAD-107)** — the Airtable sync modal now uses the Tablify
   theme tokens and the shared proto-modal styling, so its card, borders and status text no longer
   fall back to unstyled defaults. The error text is now full-contrast body text with an accent

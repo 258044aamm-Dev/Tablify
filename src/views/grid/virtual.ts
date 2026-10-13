@@ -12,8 +12,8 @@ export const OVERSCAN = 5;
  * SAD-79: the prototype's grid is a `border-separate` table with 8px vertical spacing, `py-1`
  * (4px) cells and fixed-height capsules — 34px for Short and Medium, 40px for Tall (`CAPH` in
  * Prototype/script.js). Pitch = capsule + 2×4 cell padding + 8 spacing: 50 / 50 / 56.
- * Short and Medium therefore share a pitch (the prototype changes only the capsule's inner
- * padding between them); `compact` / `tall` are the legacy model aliases of small / large.
+ * SAD-112: Small is now a 28px capsule (pitch 44), Medium stays 34px (pitch 50), Large 40px
+ * (pitch 56). `compact` / `tall` are the legacy model aliases of small / large.
  */
 export function rowHeightPx(rowHeight: string): number {
   return capsuleHeightPx(rowHeight) + ROW_CHROME_PX;
@@ -28,6 +28,10 @@ export function capsuleHeightPx(rowHeight: string): number {
     case 'tall':
     case 'large':
       return 40;
+    case 'compact':
+    case 'small':
+      // SAD-112: Small is a distinct 28px capsule (pitch 44), not the Medium 34px.
+      return 28;
     default:
       return 34;
   }

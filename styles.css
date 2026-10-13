@@ -1964,6 +1964,7 @@
 }
 
 .tablify--rh-small .tablify__capsule {
+  height: 28px;
   padding: 4px 14px;
 }
 

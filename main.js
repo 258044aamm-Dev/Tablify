@@ -12747,6 +12747,9 @@ function capsuleHeightPx(rowHeight) {
     case "tall":
     case "large":
       return 40;
+    case "compact":
+    case "small":
+      return 28;
     default:
       return 34;
   }

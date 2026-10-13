@@ -7,8 +7,9 @@ import { getVisibleRange, rowHeightPx, capsuleHeightPx, rowHeightKey, totalHeigh
 describe('P3-01 — Virtual rows', () => {
   // SAD-79: prototype pitch — 34/34/40 capsule + 2×4 cell padding + 8 row spacing.
   it('rowHeightPx maps small/medium/large (and the compact/tall aliases) to the prototype pitch', () => {
-    expect(rowHeightPx('small')).toBe(50);
-    expect(rowHeightPx('compact')).toBe(50);
+    // SAD-112: Small has a 28px capsule (pitch 44); Medium and Large keep 50 and 56.
+    expect(rowHeightPx('small')).toBe(44);
+    expect(rowHeightPx('compact')).toBe(44);
     expect(rowHeightPx('medium')).toBe(50);
     expect(rowHeightPx('large')).toBe(56);
     expect(rowHeightPx('tall')).toBe(56);
@@ -16,7 +17,7 @@ describe('P3-01 — Virtual rows', () => {
   });
 
   it('capsule heights follow the prototype CAPH table', () => {
-    expect(capsuleHeightPx('small')).toBe(34);
+    expect(capsuleHeightPx('small')).toBe(28);
     expect(capsuleHeightPx('medium')).toBe(34);
     expect(capsuleHeightPx('large')).toBe(40);
     expect(rowHeightKey('compact')).toBe('small');
