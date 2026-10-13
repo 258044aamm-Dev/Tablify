@@ -6,6 +6,10 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Drag grips appear on hover (SAD-108)** — the `#` row-number grip and the column header grip
+  are hidden until the pointer is over the row or column, then fade in. They stay visible on touch
+  devices (no hover there) and on the row or column being dragged. Dragging works exactly as before.
+
 - **Column freeze now follows the table pane width (SAD-100)** — the default freeze state is
   applied from the current viewport, not the device type: a mobile-width table pane (≤639px)
   starts unfrozen, a desktop-width pane starts with the primary column frozen, and resizing

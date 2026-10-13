@@ -2016,6 +2016,7 @@
   min-width: 0;
 }
 
+/* SAD-108: hidden at rest; revealed on hover (see the hover block near the row-drag rules). */
 .tablify__hc-grip {
   display: inline-flex;
   flex: 0 0 auto;
@@ -2023,6 +2024,8 @@
   color: var(--tablify-text-faint);
   cursor: grab;
   touch-action: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
 
 /* The prototype's grip and key are webfont characters: their advance is the glyph plus the
@@ -2222,11 +2225,15 @@
   font-weight: 400;
 }
 
+/* SAD-108: the grip is hidden at rest (opacity keeps its box, so the slot does not move) and
+   revealed by the hover rules below. */
 .tablify__lead-grip {
   display: inline-flex;
   font-size: 8px;
   margin-right: 4px;
   color: var(--tablify-text-placeholder);
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
 
 /* ---- Row selection and reorder (SAD-80) -------------------------------------------
@@ -2276,6 +2283,21 @@
 
 .tablify__lead--drag:active {
   cursor: grabbing;
+}
+
+/* SAD-108: the drag grips show on hover only. The reveal is limited to pointers that can
+   hover, so touch devices keep the grips visible at rest (they have no hover to reveal them).
+   A grip also stays visible on the row or column being dragged. */
+@media (hover: hover) {
+  .tablify__row:hover > .tablify__lead--drag .tablify__lead-grip,
+  .tablify__header-cell:hover .tablify__hc-grip {
+    opacity: 1;
+  }
+}
+
+.tablify__row--dragging > .tablify__lead--drag .tablify__lead-grip,
+.tablify__header-cell--dragging .tablify__hc-grip {
+  opacity: 1;
 }
 
 /* Prototype `body.row-dragging-active` / `tr.row-dragging td`. */
