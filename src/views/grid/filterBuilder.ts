@@ -389,7 +389,7 @@ export class FilterBuilder {
     remove.type = 'button';
     remove.className = 'tablify__fb-remove';
     remove.dataset.action = 'fb-remove';
-    remove.title = 'Remove condition';
+    // SAD-109: aria-label only (one tooltip).
     remove.setAttribute('aria-label', 'Remove condition');
     remove.innerHTML = faIcon('trash-can');
     remove.addEventListener('click', () => {

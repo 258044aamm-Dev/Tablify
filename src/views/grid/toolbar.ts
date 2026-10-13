@@ -294,7 +294,8 @@ export class Toolbar {
       text.textContent = label;
       btn.appendChild(text);
     }
-    btn.title = title;
+    // SAD-109: aria-label alone — Obsidian shows it as the tooltip. A `title` on the same
+    // element would show a second, native tooltip.
     btn.setAttribute('aria-label', title);
     btn.dataset.action = action;
     return btn;
@@ -727,10 +728,11 @@ export class Toolbar {
       } else {
         btn.textContent = 'Hide';
         btn.dataset.hideField = id;
+        // SAD-109: the disabled reason is folded into the aria-label (one tooltip, not a title too).
         btn.setAttribute('aria-label', `Hide field ${field.name}`);
         if (field.primary) {
           btn.disabled = true;
-          btn.title = 'Primary field cannot be hidden';
+          btn.setAttribute('aria-label', `Hide field ${field.name}. Primary field cannot be hidden`);
         }
       }
       row.appendChild(name);

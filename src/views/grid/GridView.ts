@@ -821,7 +821,7 @@ export class GridView {
       const menu = document.createElement('button');
       menu.type = 'button';
       menu.className = 'tablify__hc-menu';
-      menu.title = 'Field menu';
+      // SAD-109: aria-label only (one tooltip).
       menu.setAttribute('aria-label', `Field menu: ${field.name}`);
       menu.innerHTML = faIcon('ellipsis-vertical');
       menu.addEventListener('click', (e) => {

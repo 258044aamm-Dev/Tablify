@@ -13574,7 +13574,6 @@ var GridView = class {
       const menu = document.createElement("button");
       menu.type = "button";
       menu.className = "tablify__hc-menu";
-      menu.title = "Field menu";
       menu.setAttribute("aria-label", `Field menu: ${field.name}`);
       menu.innerHTML = faIcon("ellipsis-vertical");
       menu.addEventListener("click", (e) => {
@@ -14744,7 +14743,6 @@ var Toolbar = class _Toolbar {
       text.textContent = label;
       btn.appendChild(text);
     }
-    btn.title = title;
     btn.setAttribute("aria-label", title);
     btn.dataset.action = action;
     return btn;
@@ -15151,7 +15149,7 @@ var Toolbar = class _Toolbar {
         btn.setAttribute("aria-label", `Hide field ${field.name}`);
         if (field.primary) {
           btn.disabled = true;
-          btn.title = "Primary field cannot be hidden";
+          btn.setAttribute("aria-label", `Hide field ${field.name}. Primary field cannot be hidden`);
         }
       }
       row.appendChild(name);
@@ -16091,7 +16089,6 @@ var FilterBuilder = class {
     remove.type = "button";
     remove.className = "tablify__fb-remove";
     remove.dataset.action = "fb-remove";
-    remove.title = "Remove condition";
     remove.setAttribute("aria-label", "Remove condition");
     remove.innerHTML = faIcon("trash-can");
     remove.addEventListener("click", () => {
@@ -16734,7 +16731,6 @@ var OptionManagerDialog = class {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "tablify__optmgr-delete";
-    remove.title = "Delete option";
     remove.setAttribute("aria-label", `Delete ${option.name}`);
     remove.innerHTML = faIcon("trash-can", 11);
     remove.addEventListener("click", () => {
@@ -16748,7 +16744,6 @@ var OptionManagerDialog = class {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "tablify__optmgr-move";
-    button.title = label;
     button.setAttribute("aria-label", label);
     button.innerHTML = faIcon(glyph, 10);
     button.addEventListener("click", onClick);

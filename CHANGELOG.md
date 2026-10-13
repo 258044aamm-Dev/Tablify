@@ -31,6 +31,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **One tooltip per control (SAD-109)** — toolbar buttons (Sync, Undo, Redo, Filter, Add row,
+  Add field, View settings), the header `⋮` field menu, the option manager's delete and move
+  buttons, and the filter builder's Remove button showed two tooltips at once (Obsidian's and the
+  browser's). Each now shows one. The accessible names are unchanged. A hidden-field toggle for the
+  primary field keeps its "cannot be hidden" reason, now in its single tooltip.
+
 - **Cell editing is reachable the way the docs promise (SAD-96)** — double-click now opens a
   cell’s editor (inline editor, option panel, attachment panel or link picker, by field type);
   on touch, tapping the selected cell again edits it; and the cell menu gains **Edit cell**

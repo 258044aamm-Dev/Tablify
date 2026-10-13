@@ -297,7 +297,7 @@ export class OptionManagerDialog {
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'tablify__optmgr-delete';
-    remove.title = 'Delete option';
+    // SAD-109: aria-label only (one tooltip).
     remove.setAttribute('aria-label', `Delete ${option.name}`);
     remove.innerHTML = faIcon('trash-can', 11);
     remove.addEventListener('click', () => {
@@ -316,7 +316,7 @@ export class OptionManagerDialog {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'tablify__optmgr-move';
-    button.title = label;
+    // SAD-109: aria-label only (one tooltip).
     button.setAttribute('aria-label', label);
     button.innerHTML = faIcon(glyph, 10);
     button.addEventListener('click', onClick);
