@@ -6,6 +6,14 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Done rows move to the bottom (SAD-115)** — when a single-select field has an option named
+  **Done**, changing a row to Done moves it to the bottom of its group (when the table is grouped
+  by another field) or to the bottom of the table (when it is not grouped). Grouping by the same
+  field does not move rows. A checkbox named Done does not trigger a move. The move is part of
+  the same undo step as the value change. A status set to Done by an Airtable pull also moves the
+  row. The move follows the saved row order, so in a sorted view it may not show until the sort is
+  cleared.
+
 - **Field count beside the row count (SAD-113)** — the title row's badge now shows the number of
   fields next to the row count, for example `12 rows · 7 fields`. The field count includes hidden
   fields and updates when fields are added, removed, hidden or shown. The row count is unchanged.

@@ -1,5 +1,6 @@
 import type { CellValue, FieldDefinition, Row, ViewDefinition } from './types.js';
 import type { TableStore } from './tableStore.js';
+import { moveRowBefore } from './doneOrder.js';
 
 /**
  * A reversible operation on the table store.
@@ -172,6 +173,33 @@ export function createEditCellCommand(data: EditCellData): Command {
       store.updateRow(rowId, { [fieldId]: newValue });
     },
     undo(store: TableStore): void {
+      store.updateRow(rowId, { [fieldId]: oldValue });
+    },
+  };
+}
+
+/**
+ * SAD-115: a cell edit plus an optional row move, as one undo step. `plan` sees the rows in
+ * stored order after the value is set, and returns where the row goes (or null for no move).
+ * Undo restores the position and the old value together. With no move this behaves exactly
+ * like createEditCellCommand.
+ */
+export function createEditCellAndMoveCommand(
+  data: EditCellData,
+  plan: (rows: Row[]) => { beforeRowId: string | null } | null,
+): Command {
+  const { rowId, fieldId, oldValue, newValue } = data;
+  let fromIndex = -1;
+  return {
+    type: 'editCell',
+    targetKey: `editCell:${rowId}:${fieldId}`,
+    do(store: TableStore): void {
+      store.updateRow(rowId, { [fieldId]: newValue });
+      const move = plan(store.getAllRows());
+      fromIndex = move ? moveRowBefore(store, rowId, move.beforeRowId) : -1;
+    },
+    undo(store: TableStore): void {
+      if (fromIndex >= 0) store.moveRow(rowId, fromIndex);
       store.updateRow(rowId, { [fieldId]: oldValue });
     },
   };

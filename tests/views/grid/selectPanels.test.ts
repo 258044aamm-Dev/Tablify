@@ -307,7 +307,11 @@ describe('Step 11 — the grid opens the panels', () => {
       'Status field',
     );
     const doneId = need(status.options?.find((o) => o.name === 'Done'), 'Done option').id;
-    expect(data.rows[0].values[status.id]).toBe(doneId);
+    // SAD-115: a row set to Done moves to the bottom of the table, so find the edited row by its
+    // value rather than by position.
+    const edited = data.rows.findIndex((r) => r.values[status.id] === doneId);
+    expect(edited).toBeGreaterThanOrEqual(0);
+    expect(edited).toBe(data.rows.length - 1);
     // single_select sets and closes.
     expect(document.body.querySelector('[data-testid="tablify-select-panel"]')).toBeNull();
   });

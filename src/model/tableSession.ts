@@ -12,6 +12,7 @@ import {
   createDeleteRowsCommand,
   createMoveRowCommand,
   createEditCellCommand,
+  createEditCellAndMoveCommand,
   createInsertRowCommand,
   createSetViewCommand,
   createAddFieldCommand,
@@ -27,6 +28,7 @@ import { sortRows, visibleFields } from './viewOrder.js';
 import { filterRows, compileQuery } from './rowFilter.js';
 import type { QueryError } from '../query/parse.js';
 import { planTypeChange, type TypeChangePlan } from './fieldChange.js';
+import { doneMoveBefore, isDoneOption } from './doneOrder.js';
 
 /** Result of changing a formula (P8-03). */
 export type FormulaSetResult = { ok: true } | { ok: false; reason: string };
@@ -191,7 +193,19 @@ export function createSession(file: TablifyFile): TableSession {
       if (!row) return;
       const oldValue = row.values[fieldId] ?? null;
       if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
-      stack.execute(createEditCellCommand({ rowId, fieldId, oldValue, newValue: value }));
+      // SAD-115: a status change to Done also moves the row (one undo step). Any other edit
+      // keeps the original command.
+      const field = store.getFields().find((f) => f.id === fieldId);
+      if (field && isDoneOption(field, value) && !isDoneOption(field, oldValue)) {
+        const groupField = view.groupBy ? (store.getFields().find((f) => f.id === view.groupBy) ?? null) : null;
+        stack.execute(
+          createEditCellAndMoveCommand({ rowId, fieldId, oldValue, newValue: value }, (rows) =>
+            doneMoveBefore({ rows, rowId, field, oldValue, newValue: value, groupField }),
+          ),
+        );
+      } else {
+        stack.execute(createEditCellCommand({ rowId, fieldId, oldValue, newValue: value }));
+      }
       afterMutation();
     },
     addRow() {

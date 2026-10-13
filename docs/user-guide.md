@@ -199,6 +199,7 @@ Formula and link fields cannot be filtered and are not listed.
 - Each group starts with a header showing the value (a single-select value appears as its coloured option chip) and how many rows it has.
 - **Click a group header** (or focus it and press Enter or Space) to collapse or expand it. Collapsed rows are hidden from the grid but still count in the row total; row numbers keep running across groups. Which groups are collapsed is saved with the view; changing **Group by** expands them all.
 - Search, filter and sort work as usual inside groups. Reordering rows by drag is unavailable while grouped (a notice says so). Embedded tables always show the rows ungrouped.
+- **Done rows move down.** When a single-select field has an option named **Done** (ignoring case and spaces), changing a row to Done moves that row to the bottom of its group, or to the bottom of the table when the table is not grouped. Grouping by the same field does not move rows, because the groups already separate them. A checkbox field named Done does not trigger a move. The move is undone with the value change in one step. A status set to Done by an Airtable pull also moves the row (a pull is not undoable, so neither is that move). The move follows the saved row order, so in a sorted view the row may not look like it moved until the sort is cleared.
 
 ### Column headers
 

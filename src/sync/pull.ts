@@ -5,6 +5,7 @@ import type { AirtableRecord } from './airtableClient.js';
 import { classifyLinked, linkedFacts, remoteHashFor } from './rules.js';
 import { emptyReport, finishRun, requireLink, summarize, type SyncContext, type SyncReport, type ConflictItem } from './engineTypes.js';
 import { remoteValues } from './values.js';
+import { applyDoneMovesForChange } from '../model/doneOrder.js';
 
 type PlannedWrite =
   | { kind: 'update'; row: Row; values: Record<string, CellValue>; remoteHash: string }
@@ -99,7 +100,13 @@ export async function pullFromAirtable(ctx: SyncContext): Promise<SyncReport> {
         remoteHash: w.remoteHash,
       });
     } else if (w.kind === 'update') {
+      const before = ctx.session.store.getRow(w.row.id);
       const updated = ctx.session.store.updateRow(w.row.id, w.values);
+      // SAD-115: a pulled status of Done moves the row, like a manual change. The pull itself is
+      // not on the undo stack, so this move is not undoable either.
+      if (before) {
+        applyDoneMovesForChange(ctx.session.store, ctx.session.getView().groupBy, w.row.id, before.values, w.values);
+      }
       ctx.session.store.setRowSync(w.row.id, nextSync(w.row.sync!, {
         syncedRev: updated.rev,
         syncedAt,

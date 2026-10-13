@@ -10386,6 +10386,153 @@ function createTableStore(options) {
   };
 }
 
+// src/views/grid/grouping.ts
+var GROUPABLE_TYPES = ["single_select", "checkbox", "rating", "text", "date"];
+var EMPTY_GROUP_LABEL = "(empty)";
+function isGroupable(field) {
+  return GROUPABLE_TYPES.includes(field.type);
+}
+function groupKeyOf(value, field) {
+  if (field.type === "checkbox")
+    return value === true ? "true" : "false";
+  if (value === null || value === void 0)
+    return "";
+  if (Array.isArray(value))
+    return value.map((v) => typeof v === "object" ? JSON.stringify(v) : String(v)).join(", ");
+  return String(value);
+}
+function labelOf(key, value, field) {
+  if (field.type === "checkbox")
+    return { label: key, color: null };
+  if (key === "")
+    return { label: EMPTY_GROUP_LABEL, color: null };
+  if (field.type === "single_select") {
+    const option = (field.options ?? []).find((o) => o.id === key);
+    return option ? { label: option.name, color: option.color } : { label: key, color: null };
+  }
+  if (field.type === "rating") {
+    const max2 = typeof field.max === "number" ? field.max : 5;
+    return { label: `${key}/${max2}`, color: null };
+  }
+  const text = getFieldType(field.type).format(value ?? null, field);
+  return { label: text || EMPTY_GROUP_LABEL, color: null };
+}
+function groupRows(rows, field, collapsed = []) {
+  const order = [];
+  const buckets = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const value = row.values[field.id];
+    const key = groupKeyOf(value, field);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { value, rows: [] };
+      buckets.set(key, bucket);
+      order.push(key);
+    }
+    bucket.rows.push(row);
+  }
+  const closed = new Set(collapsed);
+  const visible = [];
+  const groups = [];
+  let number = 1;
+  for (const key of order) {
+    const bucket = buckets.get(key);
+    if (!bucket)
+      continue;
+    const isCollapsed = closed.has(key);
+    const { label, color } = labelOf(key, bucket.value, field);
+    groups.push({
+      key,
+      label,
+      color,
+      count: bucket.rows.length,
+      collapsed: isCollapsed,
+      firstNumber: number,
+      rowStart: visible.length
+    });
+    if (!isCollapsed)
+      visible.push(...bucket.rows);
+    number += bucket.rows.length;
+  }
+  return { rows: visible, groups };
+}
+function toggleCollapsed(collapsed, key) {
+  const list = [...collapsed ?? []];
+  const i = list.indexOf(key);
+  if (i >= 0)
+    list.splice(i, 1);
+  else
+    list.push(key);
+  return list;
+}
+
+// src/model/doneOrder.ts
+var DONE_NAME = "done";
+function isDoneOption(field, value) {
+  if (field.type !== "single_select" || typeof value !== "string")
+    return false;
+  return (field.options ?? []).some(
+    (o) => o.id === value && o.name.trim().toLowerCase() === DONE_NAME
+  );
+}
+function doneMoveBefore(input) {
+  const { rows, rowId, field, oldValue, newValue, groupField } = input;
+  if (field.type !== "single_select")
+    return null;
+  if (!isDoneOption(field, newValue) || isDoneOption(field, oldValue))
+    return null;
+  if (groupField === null)
+    return { beforeRowId: null };
+  if (groupField.id === field.id)
+    return null;
+  const me = rows.find((r) => r.id === rowId);
+  if (!me)
+    return null;
+  const key = groupKeyOf(me.values[groupField.id], groupField);
+  let last = -1;
+  rows.forEach((r, i) => {
+    if (r.id !== rowId && groupKeyOf(r.values[groupField.id], groupField) === key)
+      last = i;
+  });
+  if (last < 0)
+    return null;
+  for (let i = last + 1; i < rows.length; i++) {
+    if (rows[i].id !== rowId)
+      return { beforeRowId: rows[i].id };
+  }
+  return { beforeRowId: null };
+}
+function moveRowBefore(store, rowId, beforeRowId) {
+  const order = store.getDisplayOrder();
+  const from = order.indexOf(rowId);
+  if (from < 0)
+    return -1;
+  const rest = order.filter((id) => id !== rowId);
+  const at2 = beforeRowId === null ? rest.length : rest.indexOf(beforeRowId);
+  store.moveRow(rowId, at2 < 0 ? rest.length : at2);
+  return from;
+}
+function applyDoneMovesForChange(store, groupBy, rowId, oldValues, newValues) {
+  const fields = store.getFields();
+  const groupField = groupBy ? fields.find((f) => f.id === groupBy) ?? null : null;
+  let moved = 0;
+  for (const field of fields) {
+    if (!(field.id in newValues))
+      continue;
+    const move = doneMoveBefore({
+      rows: store.getAllRows(),
+      rowId,
+      field,
+      oldValue: oldValues[field.id],
+      newValue: newValues[field.id],
+      groupField
+    });
+    if (move && moveRowBefore(store, rowId, move.beforeRowId) >= 0)
+      moved++;
+  }
+  return moved;
+}
+
 // src/model/commands.ts
 var COALESCE_WINDOW_MS = 1e3;
 var DEFAULT_LIMIT = 100;
@@ -10481,6 +10628,24 @@ function createEditCellCommand(data) {
       store.updateRow(rowId, { [fieldId]: newValue });
     },
     undo(store) {
+      store.updateRow(rowId, { [fieldId]: oldValue });
+    }
+  };
+}
+function createEditCellAndMoveCommand(data, plan) {
+  const { rowId, fieldId, oldValue, newValue } = data;
+  let fromIndex = -1;
+  return {
+    type: "editCell",
+    targetKey: `editCell:${rowId}:${fieldId}`,
+    do(store) {
+      store.updateRow(rowId, { [fieldId]: newValue });
+      const move = plan(store.getAllRows());
+      fromIndex = move ? moveRowBefore(store, rowId, move.beforeRowId) : -1;
+    },
+    undo(store) {
+      if (fromIndex >= 0)
+        store.moveRow(rowId, fromIndex);
       store.updateRow(rowId, { [fieldId]: oldValue });
     }
   };
@@ -12475,7 +12640,18 @@ function createSession(file) {
       const oldValue = row.values[fieldId] ?? null;
       if (JSON.stringify(oldValue) === JSON.stringify(value))
         return;
-      stack.execute(createEditCellCommand({ rowId, fieldId, oldValue, newValue: value }));
+      const field = store.getFields().find((f) => f.id === fieldId);
+      if (field && isDoneOption(field, value) && !isDoneOption(field, oldValue)) {
+        const groupField = view.groupBy ? store.getFields().find((f) => f.id === view.groupBy) ?? null : null;
+        stack.execute(
+          createEditCellAndMoveCommand(
+            { rowId, fieldId, oldValue, newValue: value },
+            (rows) => doneMoveBefore({ rows, rowId, field, oldValue, newValue: value, groupField })
+          )
+        );
+      } else {
+        stack.execute(createEditCellCommand({ rowId, fieldId, oldValue, newValue: value }));
+      }
       afterMutation();
     },
     addRow() {
@@ -14309,86 +14485,6 @@ var TypePickerModal = class extends import_obsidian4.FuzzySuggestModal {
     new import_obsidian4.Notice(`Cannot change to ${TYPE_LABELS[t.type] ?? t.type}: ${t.reason ?? "not available"}`);
   }
 };
-
-// src/views/grid/grouping.ts
-var GROUPABLE_TYPES = ["single_select", "checkbox", "rating", "text", "date"];
-var EMPTY_GROUP_LABEL = "(empty)";
-function isGroupable(field) {
-  return GROUPABLE_TYPES.includes(field.type);
-}
-function groupKeyOf(value, field) {
-  if (field.type === "checkbox")
-    return value === true ? "true" : "false";
-  if (value === null || value === void 0)
-    return "";
-  if (Array.isArray(value))
-    return value.map((v) => typeof v === "object" ? JSON.stringify(v) : String(v)).join(", ");
-  return String(value);
-}
-function labelOf(key, value, field) {
-  if (field.type === "checkbox")
-    return { label: key, color: null };
-  if (key === "")
-    return { label: EMPTY_GROUP_LABEL, color: null };
-  if (field.type === "single_select") {
-    const option = (field.options ?? []).find((o) => o.id === key);
-    return option ? { label: option.name, color: option.color } : { label: key, color: null };
-  }
-  if (field.type === "rating") {
-    const max2 = typeof field.max === "number" ? field.max : 5;
-    return { label: `${key}/${max2}`, color: null };
-  }
-  const text = getFieldType(field.type).format(value ?? null, field);
-  return { label: text || EMPTY_GROUP_LABEL, color: null };
-}
-function groupRows(rows, field, collapsed = []) {
-  const order = [];
-  const buckets = /* @__PURE__ */ new Map();
-  for (const row of rows) {
-    const value = row.values[field.id];
-    const key = groupKeyOf(value, field);
-    let bucket = buckets.get(key);
-    if (!bucket) {
-      bucket = { value, rows: [] };
-      buckets.set(key, bucket);
-      order.push(key);
-    }
-    bucket.rows.push(row);
-  }
-  const closed = new Set(collapsed);
-  const visible = [];
-  const groups = [];
-  let number = 1;
-  for (const key of order) {
-    const bucket = buckets.get(key);
-    if (!bucket)
-      continue;
-    const isCollapsed = closed.has(key);
-    const { label, color } = labelOf(key, bucket.value, field);
-    groups.push({
-      key,
-      label,
-      color,
-      count: bucket.rows.length,
-      collapsed: isCollapsed,
-      firstNumber: number,
-      rowStart: visible.length
-    });
-    if (!isCollapsed)
-      visible.push(...bucket.rows);
-    number += bucket.rows.length;
-  }
-  return { rows: visible, groups };
-}
-function toggleCollapsed(collapsed, key) {
-  const list = [...collapsed ?? []];
-  const i = list.indexOf(key);
-  if (i >= 0)
-    list.splice(i, 1);
-  else
-    list.push(key);
-  return list;
-}
 
 // src/views/grid/columns.ts
 var MIN_WIDTH = 60;
@@ -19562,7 +19658,11 @@ async function pullFromAirtable(ctx) {
         remoteHash: w.remoteHash
       });
     } else if (w.kind === "update") {
+      const before = ctx.session.store.getRow(w.row.id);
       const updated = ctx.session.store.updateRow(w.row.id, w.values);
+      if (before) {
+        applyDoneMovesForChange(ctx.session.store, ctx.session.getView().groupBy, w.row.id, before.values, w.values);
+      }
       ctx.session.store.setRowSync(w.row.id, nextSync(w.row.sync, {
         syncedRev: updated.rev,
         syncedAt,
