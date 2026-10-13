@@ -17,7 +17,7 @@ import { isMoveAction, moveSelection } from './tableController.js';
 import { LongPressDetector } from './longPress.js';
 import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
 import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, rowEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
-import { createDefaultView } from '../model/view.js';
+import { createDefaultView, effectiveFrozenColumns } from '../model/view.js';
 import { cycleHeaderSort, hideField, moveColumnOnto, resizeColumn, setFrozenColumns, setGroupBy, setRowHeight, setSort } from './grid/columns.js';
 import { groupRows, toggleCollapsed, type GroupedRows } from './grid/grouping.js';
 import { pruneSelection, setVisibleRows, toggleRow } from './grid/selection.js';
@@ -214,9 +214,13 @@ export class TableView extends TextFileView {
       };
     }
     const view = s.getView();
+    // SAD-100: the Options freeze switch shows the *effective* state (the viewport default
+    // follows the pane width), so its toggle inverts exactly what the user sees. The write
+    // goes to the stored view via setFrozenColumns as an explicit 'fixed' choice.
+    const paneWidth = this.grid?.currentPaneWidth ?? (this.contentEl.clientWidth || 800);
     return {
       fields: s.getFields(),
-      view,
+      view: { ...view, frozenColumns: effectiveFrozenColumns(view, paneWidth) },
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
       // SAD-80: only rows that still exist count (prototype selectedCount).
@@ -512,6 +516,9 @@ export class TableView extends TextFileView {
         view: s.getView(),
         theme,
         viewportWidth: this.contentEl.clientWidth || 800,
+        // SAD-100: a pane-width change can flip the viewport freeze default — mirror the new
+        // effective state into the Options switch.
+        onPaneWidthChange: () => this.syncToolbar(),
         onCellClick: () => this.grid?.root.focus(),
         // SAD-96: on touch the second tap on the selected cell opens the editor — the
         // documented gesture where there is no Enter key. Mouse editing is double-click.
@@ -899,7 +906,8 @@ export class TableView extends TextFileView {
         s.setView({ ...s.getView(), sort: [{ fieldId: field.id, direction: 'desc' }] });
         break;
       case 'header.freeze':
-        s.setView({ ...s.getView(), frozenColumns: t.col + 1 });
+        // SAD-100: the header Freeze item is a deliberate choice at every pane width.
+        s.setView({ ...s.getView(), frozenColumns: t.col + 1, freezeMode: 'fixed' });
         break;
       default:
         return;

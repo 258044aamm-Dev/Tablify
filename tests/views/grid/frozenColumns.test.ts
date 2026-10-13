@@ -41,8 +41,8 @@ function rows(n: number, cols: FieldDefinition[]): Row[] {
   }));
 }
 
-function mount(f: FieldDefinition[], r: Row[], view: ViewDefinition): GridView {
-  const grid = new GridView({ rows: r, fields: f, view, theme: 'light', viewportHeight: 600, viewportWidth: 800 });
+function mount(f: FieldDefinition[], r: Row[], view: ViewDefinition, viewportWidth = 800): GridView {
+  const grid = new GridView({ rows: r, fields: f, view, theme: 'light', viewportHeight: 600, viewportWidth });
   document.body.appendChild(grid.root);
   return grid;
 }
@@ -318,6 +318,83 @@ describe('GridView — horizontal scroll keeps the header aligned', () => {
     const grid = mount(f, rows(3, f), createDefaultView(f));
     // 3 rows × 50px pitch + 8px closing spacing (prototype border-spacing-y).
     expect(grid.viewport.style.height).toBe('158px');
+    grid.destroy();
+  });
+});
+
+describe('GridView — viewport-based default freeze (SAD-100)', () => {
+  const isPinned = (grid: GridView) =>
+    [...headerCells(grid), ...bodyCells(grid)].some(
+      (c) => c.style.position === 'sticky' && c.classList.contains('tablify__cell--frozen'),
+    );
+
+  it('the viewport default freezes the primary column on a desktop-width pane', () => {
+    const f = fields(3);
+    const grid = mount(f, rows(2, f), createDefaultView(f), 1024); // no freezeMode override: 'viewport'
+    expect(isPinned(grid)).toBe(true);
+    grid.destroy();
+  });
+
+  it('the viewport default pins nothing on a mobile-width pane', () => {
+    const f = fields(3);
+    const grid = mount(f, rows(2, f), createDefaultView(f), 390);
+    for (const c of [...headerCells(grid), ...bodyCells(grid)]) {
+      expect(c.style.position).toBe('');
+      expect(c.classList.contains('tablify__cell--frozen')).toBe(false);
+    }
+    grid.destroy();
+  });
+
+  it('the 639px breakpoint is mobile; 640 is desktop', () => {
+    const f = fields(3);
+    const at639 = mount(f, rows(2, f), createDefaultView(f), 639);
+    expect(isPinned(at639)).toBe(false);
+    at639.destroy();
+    const at640 = mount(f, rows(2, f), createDefaultView(f), 640);
+    expect(isPinned(at640)).toBe(true);
+    at640.destroy();
+  });
+
+  it('an explicit fixed choice wins over the pane width', () => {
+    const f = fields(3);
+    const fixedOn = mount(
+      f,
+      rows(2, f),
+      { ...createDefaultView(f), freezeMode: 'fixed', frozenColumns: 1 },
+      390,
+    );
+    expect(isPinned(fixedOn)).toBe(true);
+    fixedOn.destroy();
+    const fixedOff = mount(
+      f,
+      rows(2, f),
+      { ...createDefaultView(f), freezeMode: 'fixed', frozenColumns: 0 },
+      1568,
+    );
+    expect(isPinned(fixedOff)).toBe(false);
+    fixedOff.destroy();
+  });
+
+  it('a legacy deliberate value (0 / multi-freeze, no key) is fixed, not viewport', () => {
+    const f = fields(3);
+    const zero = mount(f, rows(2, f), { ...createDefaultView(f), freezeMode: undefined, frozenColumns: 0 }, 1568);
+    expect(isPinned(zero)).toBe(false);
+    zero.destroy();
+    const multi = mount(f, rows(2, f), { ...createDefaultView(f), freezeMode: undefined, frozenColumns: 2 }, 390);
+    const pinned = [...headerCells(multi), ...bodyCells(multi)].filter((c) => c.style.position === 'sticky');
+    expect(pinned.length).toBeGreaterThan(0);
+    multi.destroy();
+  });
+
+  it('re-applies the viewport default when the pane width changes (live resize path)', () => {
+    const f = fields(3);
+    const grid = mount(f, rows(2, f), createDefaultView(f), 1024);
+    expect(isPinned(grid)).toBe(true);
+    // The ResizeObserver path calls measure with the current width; mirror it by re-setting
+    // the model after the host width changed (jsdom has no live ResizeObserver).
+    (grid as unknown as { opts: { viewportWidth: number } }).opts.viewportWidth = 390;
+    grid.setModel(rows(2, f), f, createDefaultView(f));
+    expect(isPinned(grid)).toBe(false);
     grid.destroy();
   });
 });

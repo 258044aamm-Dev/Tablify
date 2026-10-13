@@ -42,6 +42,15 @@ describe('P3-07 — Column and row layout', () => {
     expect(view.frozenColumns).toBe(0);
   });
 
+  it('records an explicit freeze choice (SAD-100): freezeMode becomes fixed', () => {
+    const f = fields(5);
+    // The viewport default must not survive a deliberate choice at any count.
+    expect(createDefaultView(f).freezeMode).toBe('viewport');
+    for (const n of [0, 1, 2]) {
+      expect(setFrozenColumns(createDefaultView(f), n, f).freezeMode).toBe('fixed');
+    }
+  });
+
   it('row height setting applies to all rows', () => {
     const f = fields(2);
     let view = createDefaultView(f);

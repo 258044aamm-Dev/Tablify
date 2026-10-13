@@ -6,6 +6,14 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Column freeze now follows the table pane width (SAD-100)** — the default freeze state is
+  applied from the current viewport, not the device type: a mobile-width table pane (≤639px)
+  starts unfrozen, a desktop-width pane starts with the primary column frozen, and resizing
+  across that line changes it live. Touching the **Freeze primary column** switch or the
+  header's **Freeze column** saves an explicit choice that then applies at every size. Existing
+  files that still carry the old hard default (`frozenColumns: 1`) get the viewport behaviour;
+  files with an explicit off or legacy multi-freeze keep their saved state everywhere.
+
 - **Title row keeps a single Export… button (SAD-98)** — the **Import…**, **Export CSV** and
   **Copy Markdown** links are gone from the title row, and **Export…** alone sits on the right at
   every screen width. Nothing is lost: **Import CSV / Excel as table** stays on the command

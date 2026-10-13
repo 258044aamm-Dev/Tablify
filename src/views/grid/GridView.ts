@@ -32,6 +32,7 @@ import { faIcon } from '../../ui/faIcons.js';
 import { typeIcon, typeLabel } from './fieldTypeBadge.js';
 import type { Row, FieldDefinition, CellValue } from '../../model/types.js';
 import type { ViewDefinition } from '../../model/types.js';
+import { effectiveFrozenColumns } from '../../model/view.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { GridGroup } from './grouping.js';
 
@@ -42,6 +43,11 @@ export interface GridOptions {
   theme: 'light' | 'dark';
   viewportHeight?: number; // default 600
   viewportWidth?: number; // default 800, for column measurement
+  /**
+   * SAD-100: fired when the pane width changed and geometry was re-applied (the table pane is
+   * what the viewport freeze default measures). Lets the toolbar mirror the new effective state.
+   */
+  onPaneWidthChange?: () => void;
   /** Called when a body cell is clicked. Indexes refer to the current rows and fields. */
   onCellClick?: (rowIndex: number, colIndex: number) => void;
   /**
@@ -575,6 +581,8 @@ export class GridView {
     this.measure(this.view);
     this.renderHeader();
     this.render();
+    // SAD-100: a width change can flip the viewport freeze default (639px breakpoint).
+    this.opts.onPaneWidthChange?.();
     return true;
   }
 
@@ -602,10 +610,23 @@ export class GridView {
     this.totalWidth = round2(COLUMN_GAP + x);
     this.widths = this.slotWidths.slice(LEAD_SLOTS);
     this.offsets = this.slotLefts.slice(LEAD_SLOTS);
+    // SAD-100: render the *effective* freeze — the viewport default follows the live pane
+    // width; an explicit (fixed) choice applies at every width. Clamp stays identical.
     this.frozenColumns = Math.max(
       0,
-      Math.min(this.fields.length, Math.round(view.frozenColumns ?? 0)),
+      Math.min(
+        this.fields.length,
+        Math.round(effectiveFrozenColumns(view, this.currentPaneWidth)),
+      ),
     );
+  }
+
+  /**
+   * SAD-100: the table-pane width the viewport freeze default measures — the live grid shell
+   * width, falling back to the host-provided width before first layout (and in jsdom).
+   */
+  get currentPaneWidth(): number {
+    return this.root.clientWidth > 0 ? this.root.clientWidth : (this.opts.viewportWidth ?? 800);
   }
 
   /**

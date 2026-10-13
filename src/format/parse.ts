@@ -197,6 +197,12 @@ export function parse(input: string): ParseResult {
         ...(Array.isArray((v as unknown as Record<string, unknown>).collapsedGroups)
           ? { collapsedGroups: (v as unknown as Record<string, unknown>).collapsedGroups as string[] }
           : {}),
+        // SAD-100: freezeMode, first-class like the keys above. Any other value is left out
+        // here (validateView warns); the unknown-key loop below still round-trips it raw.
+        ...((v as unknown as Record<string, unknown>).freezeMode === 'viewport' ||
+        (v as unknown as Record<string, unknown>).freezeMode === 'fixed'
+          ? { freezeMode: (v as unknown as Record<string, unknown>).freezeMode as 'viewport' | 'fixed' }
+          : {}),
       } as unknown as ViewDefinition;
       const result = validateView(viewWithDefaults, fieldsForView);
       // For file load, even if primary hidden error, auto-fix by removing primary from hidden (warnings)

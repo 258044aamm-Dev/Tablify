@@ -37,7 +37,42 @@ function cloneView(view: ViewDefinition): ViewDefinition {
     ...(view.collapsedGroups !== undefined
       ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups }
       : {}),
+    // SAD-100: same conditional-copy rule — absent means "legacy/default interpretation".
+    ...(view.freezeMode !== undefined ? { freezeMode: view.freezeMode } : {}),
   };
+}
+
+/** SAD-100: the phone-layout breakpoint (`styles.css` `@media (max-width: 639px)`). */
+export const MOBILE_PANE_MAX_WIDTH = 639;
+
+/**
+ * SAD-100: how this view's freeze setting should be read.
+ *
+ * - `'viewport'` — follow the live pane-width default (owner decision: "the viewport decides
+ *   until the user touches the switch"). The stored number is the desktop default (1).
+ * - `'fixed'` — `frozenColumns` is a deliberate choice and applies at every size.
+ *
+ * Absent `freezeMode` is the legacy interpretation: `frozenColumns === 1` was the old hard
+ * default (createDefaultView never asked), so it follows the viewport; `0` and `≥2` could only
+ * come from a deliberate action and stay fixed. Once a user touches the freeze switch or the
+ * header Freeze item, `setFrozenColumns` writes `freezeMode: 'fixed'` and the choice sticks.
+ */
+export function freezeModeOf(view: ViewDefinition): 'viewport' | 'fixed' {
+  if (view.freezeMode === 'viewport' || view.freezeMode === 'fixed') return view.freezeMode;
+  return view.frozenColumns === 1 ? 'viewport' : 'fixed';
+}
+
+/**
+ * SAD-100: the frozen-column count to render, given the current table-pane width.
+ *
+ * `paneWidth` is the width of the table pane (device type is never consulted). In viewport
+ * mode the mobile width (≤ 639px) suppresses freezing entirely; wider panes render the stored
+ * count (the desktop default is 1). Fixed views return their stored count at every width.
+ */
+export function effectiveFrozenColumns(view: ViewDefinition, paneWidth: number): number {
+  const stored = Math.max(0, Math.round(view.frozenColumns ?? 0));
+  if (freezeModeOf(view) === 'viewport' && paneWidth <= MOBILE_PANE_MAX_WIDTH) return 0;
+  return stored;
 }
 
 function createDefaultView(fields: FieldDefinition[], name = 'Default'): ViewDefinition {
@@ -49,6 +84,9 @@ function createDefaultView(fields: FieldDefinition[], name = 'Default'): ViewDef
     groupBy: null,
     hidden: [],
     frozenColumns: 1,
+    // SAD-100: new tables follow the viewport freeze default (mobile → unfrozen). Older plugin
+    // builds drop this key and fall back to their always-frozen behaviour — the safe direction.
+    freezeMode: 'viewport',
     rowHeight: 'medium',
     columnWidths: {},
     columnOrder,
@@ -269,6 +307,11 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
     groupBy: (obj.groupBy as string | null) ?? null,
     hidden: Array.isArray(obj.hidden) ? (obj.hidden as string[]) : [],
     frozenColumns: typeof obj.frozenColumns === 'number' ? obj.frozenColumns : 0,
+    // SAD-100: optional freezeMode ('viewport' | 'fixed'), same absent-means-default rule as
+    // search/query. Invalid values are dropped below with a warning.
+    ...(obj.freezeMode === 'viewport' || obj.freezeMode === 'fixed'
+      ? { freezeMode: obj.freezeMode as 'viewport' | 'fixed' }
+      : {}),
     rowHeight: (obj.rowHeight as RowHeight) ?? 'medium',
     columnWidths: typeof obj.columnWidths === 'object' && obj.columnWidths !== null ? (obj.columnWidths as Record<string, number>) : {},
     columnOrder: Array.isArray(obj.columnOrder) ? (obj.columnOrder as string[]) : fields.map((f) => f.id),
@@ -289,6 +332,10 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
   if (!Array.isArray(obj.sort)) warnings.push('view sort missing — set to []');
   if (!Array.isArray(obj.hidden)) warnings.push('view hidden missing — set to []');
   if (typeof obj.frozenColumns !== 'number') warnings.push('view frozenColumns missing — set to 0');
+  // SAD-100: absent is the legacy interpretation; only a present-but-invalid value warns.
+  if (obj.freezeMode !== undefined && obj.freezeMode !== 'viewport' && obj.freezeMode !== 'fixed') {
+    warnings.push('view freezeMode invalid — ignored');
+  }
   if (typeof obj.rowHeight !== 'string') warnings.push('view rowHeight missing — set to medium');
   // SAD-69: search/query are optional. Absent means "no filter" and must stay absent;
   // present-but-wrong-type is dropped with a warning.

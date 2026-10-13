@@ -122,6 +122,14 @@ export interface ViewDefinition {
   groupBy: string | null;
   hidden: string[];
   frozenColumns: number;
+  /**
+   * SAD-100: how `frozenColumns` should be read. 'viewport' follows the live pane-width default
+   * (≤639px → 0, wider → 1); 'fixed' means the stored count is a deliberate choice and always
+   * applies. Absent = legacy interpretation: `frozenColumns === 1` (the old hard default) is
+   * 'viewport', any other value is 'fixed'. Optional and absent by default — byte-identical
+   * round-trips (same rule as search/query/collapsedGroups).
+   */
+  freezeMode?: 'viewport' | 'fixed';
   rowHeight: RowHeight;
   columnWidths: Record<string, number>;
   columnOrder: string[];

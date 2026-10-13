@@ -5295,8 +5295,22 @@ function cloneView(view) {
     ...view.query !== void 0 && view.query !== null ? { query: view.query } : {},
     // SAD-81: same conditional-copy rule as search/query.
     // A non-array (hand-edited file) is passed through as-is; validateView drops it with a warning.
-    ...view.collapsedGroups !== void 0 ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups } : {}
+    ...view.collapsedGroups !== void 0 ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups } : {},
+    // SAD-100: same conditional-copy rule — absent means "legacy/default interpretation".
+    ...view.freezeMode !== void 0 ? { freezeMode: view.freezeMode } : {}
   };
+}
+var MOBILE_PANE_MAX_WIDTH = 639;
+function freezeModeOf(view) {
+  if (view.freezeMode === "viewport" || view.freezeMode === "fixed")
+    return view.freezeMode;
+  return view.frozenColumns === 1 ? "viewport" : "fixed";
+}
+function effectiveFrozenColumns(view, paneWidth) {
+  const stored = Math.max(0, Math.round(view.frozenColumns ?? 0));
+  if (freezeModeOf(view) === "viewport" && paneWidth <= MOBILE_PANE_MAX_WIDTH)
+    return 0;
+  return stored;
 }
 function createDefaultView(fields, name = "Default") {
   const columnOrder = fields.map((f) => f.id);
@@ -5307,6 +5321,9 @@ function createDefaultView(fields, name = "Default") {
     groupBy: null,
     hidden: [],
     frozenColumns: 1,
+    // SAD-100: new tables follow the viewport freeze default (mobile → unfrozen). Older plugin
+    // builds drop this key and fall back to their always-frozen behaviour — the safe direction.
+    freezeMode: "viewport",
     rowHeight: "medium",
     columnWidths: {},
     columnOrder,
@@ -5717,7 +5734,10 @@ function parse(input) {
         ...typeof v.query === "string" ? { query: v.query } : {},
         // SAD-81: collapsed group keys, first-class like search/query. A non-array is left to
         // the unknown-key loop below, so it still round-trips untouched.
-        ...Array.isArray(v.collapsedGroups) ? { collapsedGroups: v.collapsedGroups } : {}
+        ...Array.isArray(v.collapsedGroups) ? { collapsedGroups: v.collapsedGroups } : {},
+        // SAD-100: freezeMode, first-class like the keys above. Any other value is left out
+        // here (validateView warns); the unknown-key loop below still round-trips it raw.
+        ...v.freezeMode === "viewport" || v.freezeMode === "fixed" ? { freezeMode: v.freezeMode } : {}
       };
       const result = validateView(viewWithDefaults, fieldsForView);
       if (!result.ok && result.errors.length > 0) {
@@ -5776,7 +5796,7 @@ function formatVersionFor(file) {
 }
 var FIELD_KEYS = ["id", "name", "type", "primary", "options", "required", "unique", "min", "max", "regex", "formula", "linkTableId", "airtable"];
 var ROW_KEYS = ["id", "rev", "createdAt", "updatedAt", "values", "sync"];
-var VIEW_KEYS = ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths", "columnOrder", "warnings", "search", "query", "collapsedGroups"];
+var VIEW_KEYS = ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths", "columnOrder", "warnings", "search", "query", "collapsedGroups", "freezeMode"];
 var ROW_SYNC_KEYS = ["airtableId", "syncedRev", "syncedAt", "remoteHash", "remoteDeleted", "conflict"];
 var SYNC_LINK_KEYS = ["baseId", "tableId", "tableName", "linkedAt", "lastSync", "records"];
 var OPTION_KEYS = ["id", "name", "color"];
@@ -13346,6 +13366,7 @@ var GridView = class {
     this.measure(this.view);
     this.renderHeader();
     this.render();
+    this.opts.onPaneWidthChange?.();
     return true;
   }
   /**
@@ -13372,8 +13393,18 @@ var GridView = class {
     this.offsets = this.slotLefts.slice(LEAD_SLOTS);
     this.frozenColumns = Math.max(
       0,
-      Math.min(this.fields.length, Math.round(view.frozenColumns ?? 0))
+      Math.min(
+        this.fields.length,
+        Math.round(effectiveFrozenColumns(view, this.currentPaneWidth))
+      )
     );
+  }
+  /**
+   * SAD-100: the table-pane width the viewport freeze default measures — the live grid shell
+   * width, falling back to the host-provided width before first layout (and in jsdom).
+   */
+  get currentPaneWidth() {
+    return this.root.clientWidth > 0 ? this.root.clientWidth : this.opts.viewportWidth ?? 800;
   }
   /**
    * Width, and the sticky pin when frozen, for one slot. Slot 0 is the checkbox, slot 1 the
@@ -14349,7 +14380,7 @@ function resizeColumn(view, fieldId, newWidth, fields) {
 }
 function setFrozenColumns(view, n, fields) {
   const clamped = Math.max(0, Math.min(fields.length, Math.round(n)));
-  const next = { ...view, frozenColumns: clamped };
+  const next = { ...view, frozenColumns: clamped, freezeMode: "fixed" };
   const res = validateView(next, fields);
   return res.ok ? res.view : view;
 }
@@ -17052,9 +17083,10 @@ var TableView = class extends import_obsidian9.TextFileView {
       };
     }
     const view = s.getView();
+    const paneWidth = this.grid?.currentPaneWidth ?? (this.contentEl.clientWidth || 800);
     return {
       fields: s.getFields(),
-      view,
+      view: { ...view, frozenColumns: effectiveFrozenColumns(view, paneWidth) },
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
       // SAD-80: only rows that still exist count (prototype selectedCount).
@@ -17335,6 +17367,9 @@ var TableView = class extends import_obsidian9.TextFileView {
         view: s.getView(),
         theme,
         viewportWidth: this.contentEl.clientWidth || 800,
+        // SAD-100: a pane-width change can flip the viewport freeze default — mirror the new
+        // effective state into the Options switch.
+        onPaneWidthChange: () => this.syncToolbar(),
         onCellClick: () => this.grid?.root.focus(),
         // SAD-96: on touch the second tap on the selected cell opens the editor — the
         // documented gesture where there is no Enter key. Mouse editing is double-click.
@@ -17707,7 +17742,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         s.setView({ ...s.getView(), sort: [{ fieldId: field.id, direction: "desc" }] });
         break;
       case "header.freeze":
-        s.setView({ ...s.getView(), frozenColumns: t.col + 1 });
+        s.setView({ ...s.getView(), frozenColumns: t.col + 1, freezeMode: "fixed" });
         break;
       default:
         return;

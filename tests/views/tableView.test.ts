@@ -419,8 +419,12 @@ describe('TableView — view settings (Options)', () => {
     need(action(view, 'options'), 'options button').click();
     need(view.contentEl.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch').click();
     expect(savedView(view).frozenColumns).toBe(before >= 1 ? 0 : 1);
+    // SAD-100: touching the switch is an explicit choice — the viewport default must not
+    // override it afterwards.
+    expect(savedView(view).freezeMode).toBe('fixed');
     need(view.contentEl.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch').click();
     expect(savedView(view).frozenColumns).toBe(before >= 1 ? 1 : 0);
+    expect(savedView(view).freezeMode).toBe('fixed');
   });
 });
 

@@ -45,7 +45,9 @@ export function reorderByDrag(view: ViewDefinition, fromIdx: number, toIdx: numb
 
 export function setFrozenColumns(view: ViewDefinition, n: number, fields: FieldDefinition[]): ViewDefinition {
   const clamped = Math.max(0, Math.min(fields.length, Math.round(n)));
-  const next: ViewDefinition = { ...view, frozenColumns: clamped };
+  // SAD-100: every path through here is a deliberate choice (Options switch, header Freeze),
+  // so the viewport default must not override it afterwards.
+  const next: ViewDefinition = { ...view, frozenColumns: clamped, freezeMode: 'fixed' };
   const res = validateView(next, fields);
   return res.ok ? res.view : view;
 }

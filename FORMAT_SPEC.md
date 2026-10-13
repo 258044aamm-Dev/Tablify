@@ -278,13 +278,14 @@ Each view object has these keys **in this order**:
 | `groupBy` | string\|null | ✅ | Field ID to group by, or `null` for no grouping. |
 | `hidden` | string[] | ✅ | Array of field IDs to hide. Must not contain the primary field ID (R-D13). |
 | `frozenColumns` | integer | ✅ | Number of columns frozen from the left. At least 1 (primary column is always frozen). |
+| `freezeMode` | string (`"viewport"` \| `"fixed"`) | ❌ | SAD-100: how `frozenColumns` is read. `"viewport"` follows the pane-width default (≤639px renders unfrozen, wider renders the stored count); `"fixed"` means the stored count is a deliberate choice and applies at every width. Absent = legacy interpretation: `frozenColumns === 1` (the old hard default) behaves as `"viewport"`, any other value as `"fixed"`. |
 | `rowHeight` | string | ✅ | One of: `"small"`, `"medium"`, `"large"`. |
 | `columnWidths` | object | ✅ | Map of field ID to width in pixels (integer). Missing fields use the default width. |
 | `search` | string | ❌ | Global search text persisted with the view (SAD-69). Optional; `""` means no search. |
 | `query` | string\\|null | ❌ | P2-02 query persisted with the view (SAD-69). Optional; `null` means no query filter. |
 | `collapsedGroups` | string[] | ❌ | Keys of the groups collapsed under `groupBy` (SAD-81). Optional; absent means every group is expanded. |
 
-`search` and `query` were added by SAD-69 and appear **after** `columnWidths` (and after `warnings`, if present) so that files written before they existed keep their original key order. `collapsedGroups` (SAD-81) comes after `query` for the same reason.
+`search` and `query` were added by SAD-69 and appear **after** `columnWidths` (and after `warnings`, if present) so that files written before they existed keep their original key order. `collapsedGroups` (SAD-81) comes after `query` for the same reason; `freezeMode` (SAD-100) comes after `collapsedGroups` for the same reason.
 
 ### 5.1 View rules
 
@@ -293,6 +294,7 @@ Each view object has these keys **in this order**:
 - At least one view must exist.
 - `search` and `query` are **optional**. Absent means "no filter", and an absent key must stay absent: no reader may inject an empty default, so that files written before these keys existed still round-trip byte-identical. A present-but-wrong-typed value is dropped with a warning rather than coerced.
 - `collapsedGroups` follows the same optionality rule, and the plugin omits it when no group is collapsed. Each entry is the group's **raw-value key**, not its label, so renaming an option does not reopen its group: the option id for `single_select`, `"true"` / `"false"` for `checkbox`, the stored string for `text` and `date`, the number as a string for `rating`, and `""` for the empty group. Changing `groupBy` clears it. Non-string entries, and a value that is not an array, are dropped with a warning.
+- `freezeMode` (SAD-100) follows the same optionality rule and is only written once the user makes a deliberate choice (`"fixed"`) or a new table is created (`"viewport"`). Absent, the legacy interpretation applies: `frozenColumns === 1` — which every earlier writer hard-coded as the default — behaves as `"viewport"` (a pane ≤639px wide renders it unfrozen, wider panes render 1 frozen column); `0` and `≥ 2` could only come from a deliberate action and behave as `"fixed"`. A present-but-invalid value is dropped with a warning. Older plugin builds that do not know the key drop it on their next save, which falls back to the legacy interpretation (frozen everywhere) — the safe direction. **No `formatVersion` change**: the key is optional under the §12 precedent, and `formatVersion` 1 and 2 files may both carry it.
 
 ---
 
