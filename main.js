@@ -12989,6 +12989,24 @@ function typeLabel(type) {
   return TYPE_LABELS[t] ?? SYSTEM_LABELS[t] ?? type;
 }
 
+// src/views/grid/validationDisplay.ts
+function applyValidationState(cellEl, field, row, allRows) {
+  const violations = validateCell(field, row.values[field.id], allRows, row.id);
+  if (violations.length > 0) {
+    cellEl.classList.add("tablify__cell--invalid");
+    cellEl.setAttribute("aria-invalid", "true");
+    cellEl.title = violations[0].message;
+    cellEl.setAttribute("data-validation-message", violations[0].message);
+    return false;
+  } else {
+    cellEl.classList.remove("tablify__cell--invalid");
+    cellEl.removeAttribute("aria-invalid");
+    cellEl.removeAttribute("title");
+    cellEl.removeAttribute("data-validation-message");
+    return true;
+  }
+}
+
 // src/views/grid/GridView.ts
 var GROUP_HEADER_CHIP_PX = 40;
 var GROUP_HEADER_TEXT_PX = 34;
@@ -14003,7 +14021,9 @@ var GridView = class {
           const formulaErr = field.type === "formula" && this.opts.formulaError ? this.opts.formulaError(row.id, field.id) : null;
           const text = document.createElement("span");
           text.className = "tablify__cell-text";
+          let ownTitle = false;
           if (formulaErr) {
+            ownTitle = true;
             text.textContent = formulaErr.code;
             cell2.classList.add("tablify__cell--error");
             cell2.title = formulaErr.message;
@@ -14021,6 +14041,7 @@ var GridView = class {
               text.textContent = summary.text;
             }
             if (summary.broken > 0) {
+              ownTitle = true;
               cell2.classList.add("tablify__cell--broken-link");
               cell2.title = `${summary.broken} broken ${summary.broken === 1 ? "link" : "links"}: the linked row or table was not found.`;
               cell2.setAttribute("data-broken-links", String(summary.broken));
@@ -14030,6 +14051,8 @@ var GridView = class {
           }
           capsule.appendChild(text);
           cell2.appendChild(capsule);
+          if (!ownTitle)
+            applyValidationState(cell2, field, row, this.rows);
           cell2.setAttribute("data-field-id", field.id);
           cell2.dataset.colIndex = String(colIndex);
           cell2.setAttribute("role", "gridcell");

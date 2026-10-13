@@ -37,6 +37,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   browser's). Each now shows one. The accessible names are unchanged. A hidden-field toggle for the
   primary field keeps its "cannot be hidden" reason, now in its single tooltip.
 
+- **Invalid cells are marked and explained (SAD-109)** — a cell that breaks a field rule (an empty
+  required field, a duplicate in a unique field, a number outside min/max, or a value that fails the
+  regex) now gets the red marker and a tooltip with the rule message, as the user guide describes.
+  This applies to existing tables, so cells that already break a rule will now show the marker. A
+  formula error or a broken link keeps its own tooltip.
+
 - **Cell editing is reachable the way the docs promise (SAD-96)** — double-click now opens a
   cell’s editor (inline editor, option panel, attachment panel or link picker, by field type);
   on touch, tapping the selected cell again edits it; and the cell menu gains **Edit cell**

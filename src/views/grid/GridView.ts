@@ -35,6 +35,7 @@ import type { ViewDefinition } from '../../model/types.js';
 import { effectiveFrozenColumns } from '../../model/view.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { GridGroup } from './grouping.js';
+import { applyValidationState } from './validationDisplay.js';
 
 export interface GridOptions {
   rows: Row[];
@@ -1281,7 +1282,11 @@ export class GridView {
           // a real ellipsis; cell.textContent is unchanged for every consumer.
           const text = document.createElement('span');
           text.className = 'tablify__cell-text';
+          // SAD-109: a formula error or broken link owns this cell's tooltip; validation never
+          // overwrites it (see the applyValidationState call below).
+          let ownTitle = false;
           if (formulaErr) {
+            ownTitle = true;
             text.textContent = formulaErr.code;
             cell.classList.add('tablify__cell--error');
             cell.title = formulaErr.message;
@@ -1303,6 +1308,7 @@ export class GridView {
               text.textContent = summary.text;
             }
             if (summary.broken > 0) {
+              ownTitle = true;
               cell.classList.add('tablify__cell--broken-link');
               cell.title = `${summary.broken} broken ${summary.broken === 1 ? 'link' : 'links'}: the linked row or table was not found.`;
               cell.setAttribute('data-broken-links', String(summary.broken));
@@ -1314,6 +1320,9 @@ export class GridView {
           // textContent stays '' for every consumer.
           capsule.appendChild(text);
           cell.appendChild(capsule);
+          // SAD-109: the invalid-cell marker and rule message (P3-05), for cells whose tooltip is
+          // not already owned by a formula error or broken link.
+          if (!ownTitle) applyValidationState(cell, field, row, this.rows);
           cell.setAttribute('data-field-id', field.id);
           cell.dataset.colIndex = String(colIndex);
           cell.setAttribute('role', 'gridcell');
