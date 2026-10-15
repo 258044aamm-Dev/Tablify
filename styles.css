@@ -2074,6 +2074,7 @@
   padding: 0;
   margin: 0;
   height: auto;
+  flex: 0 1 auto;
   min-width: 0;
   font-family: 'Poppins', Arial, sans-serif;
   font-size: 12px;
@@ -2106,6 +2107,7 @@
 
 /* Read-only grids (embeds) render the name as text. */
 .tablify .tablify__hc-name--static {
+  flex: 0 1 auto;
   min-width: 0;
   font-family: 'Poppins', Arial, sans-serif;
   font-size: 12px;
@@ -2134,7 +2136,10 @@
 .tablify__hc-badge {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
+  /* Give the badge overwhelming shrink priority over the field name. */
+  flex: 0 999 auto;
+  min-width: 0;
+  overflow: hidden;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 9px;
   line-height: 16px;

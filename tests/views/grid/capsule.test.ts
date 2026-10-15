@@ -136,4 +136,21 @@ describe('SAD-71 Step 4 — capsule language in styles.css', () => {
     expect(css).toContain('attr(data-type)');
     expect(css).toContain('attr(data-sort)');
   });
+
+  it('lets the type badge yield before the field name in narrow headers', () => {
+    const buttonName = rule('.tablify button.tablify__hc-name {');
+    const staticName = rule('.tablify .tablify__hc-name--static {');
+    const badge = rule('\n.tablify__hc-badge {');
+
+    // Name labels keep normal intrinsic sizing and can still ellipsize if needed.
+    for (const name of [buttonName, staticName]) {
+      expect(name).toContain('flex: 0 1 auto;');
+      expect(name).toContain('min-width: 0;');
+      expect(name).toContain('text-overflow: ellipsis;');
+    }
+    // The high shrink weight makes the badge yield first; overflow is clipped.
+    expect(badge).toContain('flex: 0 999 auto;');
+    expect(badge).toContain('min-width: 0;');
+    expect(badge).toContain('overflow: hidden;');
+  });
 });
