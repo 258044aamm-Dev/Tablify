@@ -57,6 +57,18 @@ function sampleFile(): string {
   });
 }
 
+function sampleFileWithFormula(): string {
+  const file = JSON.parse(sampleFile()) as {
+    formatVersion: number;
+    fields: Array<Record<string, unknown>>;
+    views: Array<{ columnOrder: string[] }>;
+  };
+  file.formatVersion = 2;
+  file.fields.push({ id: 'fld_double', name: 'Double', type: 'formula', formula: '1 + 1' });
+  file.views[0].columnOrder.push('fld_double');
+  return JSON.stringify(file);
+}
+
 function tableFile(path = 'Tables/Budget.tablify'): TFile {
   const f = new TFile();
   f.path = path;
@@ -73,6 +85,21 @@ async function openView(file: TFile | null = tableFile()): Promise<TableView> {
   (view as unknown as { file: TFile | null }).file = file;
   view.setViewData(sampleFile(), false);
   return view;
+}
+
+function installFakeSavePicker(selectedName?: string) {
+  const written: Array<string | ArrayBuffer | Blob> = [];
+  const picker = vi.fn(async (options: { suggestedName: string }) => ({
+    name: selectedName ?? options.suggestedName,
+    createWritable: async () => ({
+      write: async (data: string | ArrayBuffer | Blob) => {
+        written.push(data);
+      },
+      close: async () => undefined,
+    }),
+  }));
+  Object.defineProperty(window, 'showSaveFilePicker', { value: picker, configurable: true });
+  return { picker, written };
 }
 
 const q = (view: TableView, sel: string) => view.contentEl.querySelector<HTMLElement>(sel);
@@ -94,6 +121,7 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = '';
+  Reflect.deleteProperty(window, 'showSaveFilePicker');
   vi.useRealTimers();
 });
 
@@ -201,9 +229,10 @@ describe('links', () => {
     expect(openExportModal).toHaveBeenCalledWith(view.app, view.file);
   });
 
-  it('exportCurrentViewCsv (the SAD-98 command target) writes the current view (visible fields, sorted + searched rows) next to the table', async () => {
+  it('exportCurrentViewCsv (the SAD-98 command target) saves the current view through the system picker', async () => {
     vi.useFakeTimers();
     const view = await openView();
+    const { picker, written } = installFakeSavePicker();
     const create = vi.fn(async (_p: string, _d: string) => undefined);
     (view.app.vault as unknown as { create: typeof create }).create = create;
     const search = q(view, '[data-testid="tablify-search"]') as HTMLInputElement;
@@ -212,31 +241,35 @@ describe('links', () => {
     vi.advanceTimersByTime(DEBOUNCE_MS + 1);
     vi.useRealTimers();
     await view.exportCurrentViewCsv();
-    await flush();
-    await flush();
-    expect(create).toHaveBeenCalledTimes(1);
-    const [path, csv] = create.mock.calls[0];
-    expect(path).toBe('Budget.csv');
+    const csv = written[0] as string;
     const lines = csv.replace(/^\uFEFF/, '').trim().split(/\r?\n/);
+    expect(picker.mock.calls[0][0].suggestedName).toBe('Budget.csv');
+    expect(picker.mock.calls[0][0]).toMatchObject({ startIn: 'downloads' });
     expect(lines[0]).toBe('Name,Status');
     // Search "done" drops Beta; view sort is Name desc → Gamma, Alpha.
     expect(lines.slice(1)).toEqual(['Gamma,done', 'Alpha,done']);
     expect(csv).not.toContain('s1');
-    expect(Notice.messages.at(-1)).toBe('Exported 2 rows and 2 columns to Budget.csv.');
+    expect(create).not.toHaveBeenCalled();
+    expect(Notice.messages.at(-1)).toBe('Exported 2 rows and 2 columns to Budget.csv in the selected location.');
   });
 
-  it('exportCurrentViewCsv never overwrites: an existing target gets a numbered name', async () => {
+  it('exportCurrentViewCsv includes computed formula values from the live table session', async () => {
     const view = await openView();
-    const create = vi.fn(async (_p: string, _d: string) => undefined);
-    (view.app.vault as unknown as { create: typeof create }).create = create;
-    vi.spyOn(view.app.vault, 'getAbstractFileByPath').mockImplementation(
-      (p?: string) => (p === 'Budget.csv' ? new TFile() : null) as never,
-    );
+    view.setViewData(sampleFileWithFormula(), false);
+    const { written } = installFakeSavePicker();
     await view.exportCurrentViewCsv();
-    await flush();
-    await flush();
-    expect(create.mock.calls[0][0]).not.toBe('Budget.csv');
-    expect(create.mock.calls[0][0]).toMatch(/^Budget.*\.csv$/);
+    const csv = written[0] as string;
+    expect(csv).toContain('Name,Status,Double');
+    expect(csv.split(/\r?\n/).slice(1, 4).every((line) => line.endsWith(',2'))).toBe(true);
+  });
+
+  it('exportCurrentViewCsv uses the system-selected filename when a collision is resolved there', async () => {
+    const view = await openView();
+    const { picker, written } = installFakeSavePicker('Budget 2.csv');
+    await view.exportCurrentViewCsv();
+    expect(picker.mock.calls[0][0].suggestedName).toBe('Budget.csv');
+    expect(written[0]).toContain('Name,Status');
+    expect(Notice.messages.at(-1)).toBe('Exported 3 rows and 2 columns to Budget 2.csv in the selected location.');
   });
 
   it('copyCurrentViewMarkdown (the SAD-98 command target) puts the current view on the clipboard as a Markdown table', async () => {

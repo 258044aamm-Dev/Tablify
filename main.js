@@ -7028,6 +7028,122 @@ var FolderPicker = class extends import_obsidian.FuzzySuggestModal {
 // src/commands/export.ts
 var import_obsidian2 = require("obsidian");
 
+// src/io/export/destination.ts
+function beginExportSave(fileName, mimeType, runtime) {
+  if (!runtime.showSaveFilePicker)
+    return Promise.resolve({ kind: "unavailable" });
+  const extension = fileName.includes(".") ? `.${fileName.split(".").pop()}` : "";
+  const options = {
+    suggestedName: fileName,
+    startIn: "downloads",
+    excludeAcceptAllOption: true,
+    types: [{ description: descriptionFor(mimeType), accept: { [mimeType]: [extension] } }]
+  };
+  try {
+    return runtime.showSaveFilePicker(options).then(
+      (handle) => ({ kind: "handle", handle }),
+      (error) => isAbortError(error) ? { kind: "cancelled" } : { kind: "failed", error: errorMessage(error) }
+    );
+  } catch (error) {
+    return Promise.resolve(
+      isAbortError(error) ? { kind: "cancelled" } : { kind: "failed", error: errorMessage(error) }
+    );
+  }
+}
+async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resolve({ kind: "unavailable" })) {
+  const picker = await pickerStart;
+  if (picker.kind === "cancelled")
+    return { ok: false, cancelled: true };
+  if (picker.kind === "handle") {
+    try {
+      const writer = await picker.handle.createWritable();
+      try {
+        await writer.write(artifact.data);
+        await writer.close();
+      } catch (error) {
+        try {
+          await writer.abort?.();
+        } catch {
+        }
+        throw error;
+      }
+      return { ok: true, method: "picker", fileName: picker.handle.name || artifact.fileName };
+    } catch (error) {
+      return { ok: false, error: `Could not save the file: ${errorMessage(error)}` };
+    }
+  }
+  if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile) {
+    try {
+      const file = runtime.createFile(artifact);
+      if (runtime.canShareFile(file)) {
+        await runtime.shareFile(file);
+        return { ok: true, method: "share", fileName: file.name || artifact.fileName };
+      }
+    } catch (error) {
+      if (isAbortError(error))
+        return { ok: false, cancelled: true };
+    }
+  }
+  if (runtime.downloadFile) {
+    try {
+      const blob = new Blob([artifact.data], { type: artifact.mimeType });
+      runtime.downloadFile(blob, artifact.fileName);
+      return { ok: true, method: "download", fileName: artifact.fileName };
+    } catch (error) {
+      return { ok: false, error: `Could not start the download: ${errorMessage(error)}` };
+    }
+  }
+  const pickerError = picker.kind === "failed" ? ` Save picker failed: ${picker.error}.` : "";
+  return { ok: false, error: `No supported save or download method is available.${pickerError}` };
+}
+function browserExportSaveRuntime(isMobile) {
+  const win = window;
+  const nav = navigator;
+  const runtime = {
+    isMobile,
+    downloadFile(blob, fileName) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      try {
+        link.click();
+      } finally {
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
+      }
+    }
+  };
+  if (typeof win.showSaveFilePicker === "function") {
+    runtime.showSaveFilePicker = win.showSaveFilePicker.bind(win);
+  }
+  if (typeof File !== "undefined") {
+    runtime.createFile = (artifact) => new File([artifact.data], artifact.fileName, { type: artifact.mimeType });
+  }
+  const canShare = nav.canShare;
+  if (typeof canShare === "function")
+    runtime.canShareFile = (file) => canShare.call(nav, { files: [file] });
+  const share = nav.share;
+  if (typeof share === "function")
+    runtime.shareFile = (file) => share.call(nav, { files: [file], title: file.name });
+  return runtime;
+}
+function descriptionFor(mimeType) {
+  if (mimeType === "text/csv")
+    return "CSV file";
+  if (mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return "Excel workbook";
+  return "Markdown file";
+}
+function isAbortError(error) {
+  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
+}
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 // src/query/evaluate.ts
 function offsetToLineCol2(text, offset) {
   let line = 1;
@@ -7907,2315 +8023,6 @@ function parseQuery(input) {
   }
   return { ok: true, ast: { terms, rawInput: input } };
 }
-
-// src/model/viewOrder.ts
-var collator = new Intl.Collator("en", { numeric: true, sensitivity: "variant" });
-function sortText(value, field) {
-  if (typeof value === "string")
-    return value;
-  return getFieldType(field.type).format(value, field);
-}
-function compareCells(a, b, field, dir) {
-  const aEmpty = a === null || a === void 0 || Array.isArray(a) && a.length === 0;
-  const bEmpty = b === null || b === void 0 || Array.isArray(b) && b.length === 0;
-  if (aEmpty || bEmpty)
-    return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
-  let c;
-  if (typeof a === "number" && typeof b === "number")
-    c = a - b;
-  else if (typeof a === "boolean" && typeof b === "boolean")
-    c = Number(a) - Number(b);
-  else
-    c = collator.compare(sortText(a, field), sortText(b, field));
-  return c * dir;
-}
-function sortRows(rows, sort, fields) {
-  if (sort.length === 0)
-    return rows.slice();
-  const byId = new Map(fields.map((f) => [f.id, f]));
-  const keys = sort.map((s) => ({ field: byId.get(s.fieldId), dir: s.direction === "desc" ? -1 : 1 })).filter((k) => k.field !== void 0);
-  return rows.slice().sort((r1, r2) => {
-    for (const k of keys) {
-      const c = compareCells(r1.values[k.field.id] ?? null, r2.values[k.field.id] ?? null, k.field, k.dir);
-      if (c !== 0)
-        return c;
-    }
-    return 0;
-  });
-}
-function visibleFields(fields, view) {
-  const hidden = new Set(view.hidden);
-  const byId = new Map(fields.map((f) => [f.id, f]));
-  const ordered = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const id of view.columnOrder) {
-    const f = byId.get(id);
-    if (f && !seen.has(id)) {
-      ordered.push(f);
-      seen.add(id);
-    }
-  }
-  for (const f of fields)
-    if (!seen.has(f.id))
-      ordered.push(f);
-  return ordered.filter((f) => !hidden.has(f.id));
-}
-
-// src/io/export/view.ts
-function cellText(value, field) {
-  if (value === null || value === void 0)
-    return "";
-  switch (field.type) {
-    case "checkbox":
-      return value === true ? "true" : value === false ? "false" : "";
-    case "number":
-      return typeof value === "number" ? String(value) : "";
-    case "date":
-    case "date_time":
-    case "text":
-    case "long_text":
-    case "url":
-    case "email":
-    case "phone":
-      return typeof value === "string" ? value : String(value);
-    case "single_select":
-    case "multi_select":
-      return getFieldType(field.type).format(value, field);
-    default:
-      return getFieldType(field.type).format(value, field);
-  }
-}
-function resolveExportTable(file, scope) {
-  if (scope.fullTable) {
-    return { ok: true, table: { name: file.name, fields: file.fields.slice(), rows: file.rows.slice() } };
-  }
-  const index = scope.viewIndex ?? 0;
-  const view = file.views[index];
-  if (!view)
-    return { ok: false, error: 'The table has no view to export. Use "Full table".' };
-  let rows = file.rows;
-  const query = scope.query?.trim();
-  if (query) {
-    const parsed = parseQuery(query);
-    if (!parsed.ok)
-      return { ok: false, error: `Filter error: ${parsed.error.message}` };
-    const compiled = compilePredicate(parsed.ast, file.fields);
-    if (!compiled.ok)
-      return { ok: false, error: `Filter error: ${compiled.error.message}` };
-    rows = rows.filter((r) => compiled.predicate(r));
-  }
-  const fields = visibleFields(file.fields, view);
-  rows = sortRows(rows, view.sort, file.fields);
-  return { ok: true, table: { name: file.name, fields, rows } };
-}
-
-// src/io/export/csv.ts
-var BOM = "\uFEFF";
-function csvField(text) {
-  if (/[",\r\n]/.test(text))
-    return `"${text.replace(/"/g, '""')}"`;
-  return text;
-}
-function toCsv(table) {
-  const lines = [];
-  lines.push(table.fields.map((f) => csvField(f.name)).join(","));
-  for (const row of table.rows) {
-    lines.push(table.fields.map((f) => csvField(cellText(row.values[f.id] ?? null, f))).join(","));
-  }
-  return BOM + lines.join("\r\n") + "\r\n";
-}
-
-// src/io/export/markdown.ts
-function escapeMarkdownCell(text) {
-  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r\n|\r|\n/g, "<br>");
-}
-function toMarkdown(table) {
-  const header = `| ${table.fields.map((f) => escapeMarkdownCell(f.name)).join(" | ")} |`;
-  const sep = `| ${table.fields.map(() => "---").join(" | ")} |`;
-  const body = table.rows.map(
-    (row) => `| ${table.fields.map((f) => escapeMarkdownCell(cellText(row.values[f.id] ?? null, f))).join(" | ")} |`
-  );
-  return [header, sep, ...body].join("\n") + "\n";
-}
-
-// node_modules/write-excel-file/modules/write/writeXlsxFileBrowser.js
-var import_jszip = __toESM(require_jszip_min(), 1);
-var import_file_saver = __toESM(require_FileSaver_min(), 1);
-
-// node_modules/write-excel-file/modules/write/statics/workbook.xml.js
-function generateWorkbookXml(_ref) {
-  var sheets = _ref.sheets, stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount;
-  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:mv="urn:schemas-microsoft-com:mac:vml" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main"><workbookPr/>' + (stickyRowsCount || stickyColumnsCount ? "<bookViews><workbookView/></bookViews>" : "") + "<sheets>" + sheets.map(function(_ref2) {
-    var id = _ref2.id, name = _ref2.name;
-    return '<sheet name="'.concat(name, '" sheetId="').concat(id, '" r:id="rId').concat(id, '"/>');
-  }).join("") + "</sheets><definedNames/><calcPr/></workbook>";
-}
-
-// node_modules/write-excel-file/modules/write/statics/workbook.xml.rels.js
-function generateWorkbookXmlRels(_ref) {
-  var sheets = _ref.sheets;
-  return '<?xml version="1.0" ?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map(function(_ref2) {
-    var id = _ref2.id;
-    return '<Relationship Id="rId'.concat(id, '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet').concat(id, '.xml"/>');
-  }).join("") + '<Relationship Id="rId'.concat(sheets.length + 1, '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>') + '<Relationship Id="rId'.concat(sheets.length + 2, '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>') + "</Relationships>";
-}
-
-// node_modules/write-excel-file/modules/write/statics/rels.js
-var rels_default = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
-
-// node_modules/write-excel-file/modules/write/statics/[Content_Types].xml.js
-var Content_Types_xml_default = '<?xml version="1.0" ?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default ContentType="application/xml" Extension="xml"/><Default ContentType="application/vnd.openxmlformats-package.relationships+xml" Extension="rels"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" PartName="/xl/worksheets/sheet1.xml"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" PartName="/xl/workbook.xml"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml" PartName="/xl/sharedStrings.xml"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml" PartName="/xl/styles.xml"/></Types>';
-
-// node_modules/write-excel-file/modules/xml/escapeXmlCharacters.js
-function escapeXmlCharacters(string, _ref) {
-  var attribute = _ref.attribute;
-  string = string.replace(AMPERSAND_REGEXP, "&amp;").replace(GREATER_THAN_REGEXP, "&gt;").replace(LESS_THAN_REGEXP, "&lt;");
-  if (attribute) {
-    string = string.replace(SINGLE_QUOTE_REGEXP, "&apos;").replace(DOUBLE_QUOTE_REGEXP, "&quot;");
-  }
-  return string;
-}
-var AMPERSAND_REGEXP = /&/g;
-var GREATER_THAN_REGEXP = />/g;
-var LESS_THAN_REGEXP = /</g;
-var SINGLE_QUOTE_REGEXP = /'/g;
-var DOUBLE_QUOTE_REGEXP = /"/g;
-
-// node_modules/write-excel-file/modules/xml/removeInvalidXmlCharacters.js
-var INVALID_CHARACTERS = /((?:[\0-\x08\x0B\f\x0E-\x1F\uFFFD\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]))/g;
-var DISCOURAGED_CHARACTERS = new RegExp("([\\x7F-\\x84]|[\\x86-\\x9F]|[\\uFDD0-\\uFDEF]|(?:\\uD83F[\\uDFFE\\uDFFF])|(?:\\uD87F[\\uDFFE\\uDFFF])|(?:\\uD8BF[\\uDFFE\\uDFFF])|(?:\\uD8FF[\\uDFFE\\uDFFF])|(?:\\uD93F[\\uDFFE\\uDFFF])|(?:\\uD97F[\\uDFFE\\uDFFF])|(?:\\uD9BF[\\uDFFE\\uDFFF])|(?:\\uD9FF[\\uDFFE\\uDFFF])|(?:\\uDA3F[\\uDFFE\\uDFFF])|(?:\\uDA7F[\\uDFFE\\uDFFF])|(?:\\uDABF[\\uDFFE\\uDFFF])|(?:\\uDAFF[\\uDFFE\\uDFFF])|(?:\\uDB3F[\\uDFFE\\uDFFF])|(?:\\uDB7F[\\uDFFE\\uDFFF])|(?:\\uDBBF[\\uDFFE\\uDFFF])|(?:\\uDBFF[\\uDFFE\\uDFFF])(?:[\\0-\\t\\x0B\\f\\x0E-\\u2027\\u202A-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?:[^\\uD800-\\uDBFF]|^)[\\uDC00-\\uDFFF]))", "g");
-function removeInvalidXmlCharacters(string) {
-  var _ref = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, _ref$removeDiscourage = _ref.removeDiscouragedCharacters, removeDiscouragedCharacters = _ref$removeDiscourage === void 0 ? true : _ref$removeDiscourage;
-  string = string.replace(INVALID_CHARACTERS, "");
-  if (removeDiscouragedCharacters) {
-    string = string.replace(DISCOURAGED_CHARACTERS, "");
-  }
-  return string;
-}
-
-// node_modules/write-excel-file/modules/xml/sanitizeText.js
-function sanitizeText(string) {
-  return escapeXmlCharacters(removeInvalidXmlCharacters(string), {
-    attribute: false
-  });
-}
-
-// node_modules/write-excel-file/modules/write/generateCellNumber.js
-function generateCellNumber(columnIndex, rowNumber) {
-  return "".concat(generateColumnLetter(columnIndex)).concat(rowNumber);
-}
-var LETTERS_COUNT = 26;
-function generateColumnLetter(columnIndex) {
-  if (typeof columnIndex !== "number") {
-    return "";
-  }
-  var prefix = Math.floor(columnIndex / LETTERS_COUNT);
-  var letter = String.fromCharCode(97 + columnIndex % LETTERS_COUNT).toUpperCase();
-  if (prefix === 0) {
-    return letter;
-  }
-  return generateColumnLetter(prefix - 1) + letter;
-}
-
-// node_modules/write-excel-file/modules/write/convertDateToExcelSerial.js
-var daysBeforeUnixEpoch = 70 * 365 + 19;
-var hour = 60 * 60 * 1e3;
-var day = 24 * hour;
-function convertDateToExcelSerial(date) {
-  return date.getTime() / day + daysBeforeUnixEpoch;
-}
-
-// node_modules/write-excel-file/modules/write/cell.js
-function _slicedToArray4(arr, i) {
-  return _arrayWithHoles4(arr) || _iterableToArrayLimit4(arr, i) || _unsupportedIterableToArray9(arr, i) || _nonIterableRest4();
-}
-function _nonIterableRest4() {
-  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-function _unsupportedIterableToArray9(o, minLen) {
-  if (!o)
-    return;
-  if (typeof o === "string")
-    return _arrayLikeToArray9(o, minLen);
-  var n = Object.prototype.toString.call(o).slice(8, -1);
-  if (n === "Object" && o.constructor)
-    n = o.constructor.name;
-  if (n === "Map" || n === "Set")
-    return Array.from(o);
-  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray9(o, minLen);
-}
-function _arrayLikeToArray9(arr, len) {
-  if (len == null || len > arr.length)
-    len = arr.length;
-  for (var i = 0, arr2 = new Array(len); i < len; i++) {
-    arr2[i] = arr[i];
-  }
-  return arr2;
-}
-function _iterableToArrayLimit4(arr, i) {
-  var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
-  if (_i == null)
-    return;
-  var _arr = [];
-  var _n = true;
-  var _d = false;
-  var _s, _e;
-  try {
-    for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
-      _arr.push(_s.value);
-      if (i && _arr.length === i)
-        break;
-    }
-  } catch (err3) {
-    _d = true;
-    _e = err3;
-  } finally {
-    try {
-      if (!_n && _i["return"] != null)
-        _i["return"]();
-    } finally {
-      if (_d)
-        throw _e;
-    }
-  }
-  return _arr;
-}
-function _arrayWithHoles4(arr) {
-  if (Array.isArray(arr))
-    return arr;
-}
-function generateCell(rowNumber, columnIndex, value, type, cellStyleId, getSharedString) {
-  if (value === null) {
-    if (!cellStyleId) {
-      return "";
-    }
-  }
-  var xml = '<c r="'.concat(generateCellNumber(columnIndex, rowNumber), '"');
-  if (cellStyleId) {
-    xml += ' s="'.concat(cellStyleId, '"');
-  }
-  if (value === null) {
-    return xml + "/>";
-  }
-  if (type === Date && !cellStyleId) {
-    throw new Error('No "format" has been specified for a Date cell');
-  }
-  value = getXlsxValue(type, value, getSharedString);
-  type = getXlsxType(type);
-  if (type) {
-    xml += ' t="'.concat(type, '"');
-  }
-  var _getOpeningAndClosing = getOpeningAndClosingTags(type), _getOpeningAndClosing2 = _slicedToArray4(_getOpeningAndClosing, 2), openingTags = _getOpeningAndClosing2[0], closingTags = _getOpeningAndClosing2[1];
-  return xml + ">" + openingTags + value + closingTags + "</c>";
-}
-function getXlsxType(type) {
-  switch (type) {
-    case String:
-      return "s";
-    case Number:
-      return;
-    case Date:
-      return;
-    case Boolean:
-      return "b";
-    case "Formula":
-      return "f";
-    default:
-      throw new Error("Unknown schema type: ".concat(type && type.name || type));
-  }
-}
-function getXlsxValue(type, value, getSharedString) {
-  switch (type) {
-    case String:
-      if (typeof value !== "string") {
-        throw new Error("Invalid cell value: ".concat(value, ". Expected a string"));
-      }
-      return getSharedString(value);
-    case Number:
-      if (typeof value !== "number") {
-        throw new Error("Invalid cell value: ".concat(value, ". Expected a number"));
-      }
-      return String(value);
-    case Date:
-      if (!(value instanceof Date)) {
-        throw new Error("Invalid cell value: ".concat(value, ". Expected a Date"));
-      }
-      return String(convertDateToExcelSerial(value));
-    case Boolean:
-      if (typeof value !== "boolean") {
-        throw new Error("Invalid cell value: ".concat(value, ". Expected a boolean"));
-      }
-      return value ? "1" : "0";
-    case "Formula":
-      if (typeof value !== "string") {
-        throw new Error("Invalid cell value: ".concat(value, ". Expected a string"));
-      }
-      return sanitizeText(value);
-    default:
-      throw new Error("Unknown schema type: ".concat(type && type.name || type));
-  }
-}
-var TAG_BRACKET_LEFT_REGEXP = /</g;
-function getOpeningAndClosingTags(xlsxType) {
-  var openingTags = getOpeningTags(xlsxType);
-  var closingTags = openingTags.replace(TAG_BRACKET_LEFT_REGEXP, "</");
-  return [openingTags, closingTags];
-}
-function getOpeningTags(xlsxType) {
-  switch (xlsxType) {
-    case "inlineStr":
-      return "<is><t>";
-    case "f":
-      return "<f>";
-    default:
-      return "<v>";
-  }
-}
-
-// node_modules/write-excel-file/modules/write/getCellStyleProperties.js
-function getCellStyleProperties(cell2) {
-  var align = cell2.align, alignVertical = cell2.alignVertical, textRotation = cell2.textRotation, wrap = cell2.wrap, fontFamily = cell2.fontFamily, fontSize = cell2.fontSize, fontWeight = cell2.fontWeight, fontStyle = cell2.fontStyle, color = cell2.color, backgroundColor = cell2.backgroundColor, borderColor = cell2.borderColor, borderStyle = cell2.borderStyle, leftBorderColor = cell2.leftBorderColor, leftBorderStyle = cell2.leftBorderStyle, rightBorderColor = cell2.rightBorderColor, rightBorderStyle = cell2.rightBorderStyle, topBorderColor = cell2.topBorderColor, topBorderStyle = cell2.topBorderStyle, bottomBorderColor = cell2.bottomBorderColor, bottomBorderStyle = cell2.bottomBorderStyle;
-  if (align || alignVertical || textRotation || wrap || fontFamily || fontSize || fontWeight || fontStyle || color || backgroundColor || borderColor || borderStyle || leftBorderColor || leftBorderStyle || rightBorderColor || rightBorderStyle || topBorderColor || topBorderStyle || bottomBorderColor || bottomBorderStyle) {
-    return omitUndefinedProperties({
-      align,
-      alignVertical,
-      textRotation,
-      wrap,
-      fontFamily,
-      fontSize,
-      fontWeight,
-      fontStyle,
-      color,
-      backgroundColor,
-      borderColor,
-      borderStyle,
-      leftBorderColor,
-      leftBorderStyle,
-      rightBorderColor,
-      rightBorderStyle,
-      topBorderColor,
-      topBorderStyle,
-      bottomBorderColor,
-      bottomBorderStyle
-    });
-  }
-}
-function omitUndefinedProperties(object) {
-  var filteredObject = {};
-  for (var key in object) {
-    if (object[key] !== void 0) {
-      filteredObject[key] = object[key];
-    }
-  }
-  return filteredObject;
-}
-
-// node_modules/write-excel-file/modules/write/row.js
-function _typeof2(obj) {
-  "@babel/helpers - typeof";
-  return _typeof2 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(obj2) {
-    return typeof obj2;
-  } : function(obj2) {
-    return obj2 && "function" == typeof Symbol && obj2.constructor === Symbol && obj2 !== Symbol.prototype ? "symbol" : typeof obj2;
-  }, _typeof2(obj);
-}
-function generateRow(row, rowIndex, _ref) {
-  var getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat, usesSchema = _ref.usesSchema;
-  var rowNumber = rowIndex + 1;
-  var rowHeight;
-  var rowCells = row.map(function(cell2, columnIndex) {
-    if (cell2 === void 0 || cell2 === null) {
-      return "";
-    }
-    var height = cell2.height;
-    var cellStyleProperties = getCellStyleProperties(cell2);
-    var type = cell2.type, value = cell2.value, format = cell2.format;
-    if (isEmpty(value)) {
-      value = null;
-    } else {
-      if (type === void 0) {
-        if (!usesSchema) {
-          type = detectValueType(value);
-        }
-        if (type === void 0) {
-          type = String;
-          value = String(value);
-        }
-      }
-    }
-    if (format) {
-      if (type !== Date && type !== Number && type !== "Formula") {
-        throw new Error('`format` can only be used on `Date`, `Number` or `"Formula"` cells');
-      }
-    } else {
-      if (type === Date) {
-        format = dateFormat;
-      }
-    }
-    var cellStyleId;
-    if (format || customFont || cellStyleProperties) {
-      cellStyleId = getStyle(cellStyleProperties || {}, {
-        format
-      });
-    }
-    if (height) {
-      if (rowHeight === void 0 || rowHeight < height) {
-        rowHeight = height;
-      }
-    }
-    return generateCell(rowNumber, columnIndex, value, type, cellStyleId, getSharedString);
-  }).join("");
-  return '<row r="'.concat(rowNumber, '"') + (rowHeight ? ' ht="'.concat(rowHeight, '" customHeight="1"') : "") + ">" + rowCells + "</row>";
-}
-function isEmpty(value) {
-  return value === void 0 || value === null || value === "";
-}
-function detectValueType(value) {
-  switch (_typeof2(value)) {
-    case "string":
-      return String;
-    case "number":
-      return Number;
-    case "boolean":
-      return Boolean;
-    default:
-      if (value instanceof Date) {
-        return Date;
-      }
-  }
-}
-
-// node_modules/write-excel-file/modules/write/rows.js
-function ownKeys2(object, enumerableOnly) {
-  var keys = Object.keys(object);
-  if (Object.getOwnPropertySymbols) {
-    var symbols = Object.getOwnPropertySymbols(object);
-    enumerableOnly && (symbols = symbols.filter(function(sym) {
-      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
-    })), keys.push.apply(keys, symbols);
-  }
-  return keys;
-}
-function _objectSpread2(target) {
-  for (var i = 1; i < arguments.length; i++) {
-    var source = null != arguments[i] ? arguments[i] : {};
-    i % 2 ? ownKeys2(Object(source), true).forEach(function(key) {
-      _defineProperty2(target, key, source[key]);
-    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys2(Object(source)).forEach(function(key) {
-      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
-    });
-  }
-  return target;
-}
-function _defineProperty2(obj, key, value) {
-  if (key in obj) {
-    Object.defineProperty(obj, key, { value, enumerable: true, configurable: true, writable: true });
-  } else {
-    obj[key] = value;
-  }
-  return obj;
-}
-function _createForOfIteratorHelperLoose7(o, allowArrayLike) {
-  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
-  if (it)
-    return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray10(o)) || allowArrayLike && o && typeof o.length === "number") {
-    if (it)
-      o = it;
-    var i = 0;
-    return function() {
-      if (i >= o.length)
-        return { done: true };
-      return { done: false, value: o[i++] };
-    };
-  }
-  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-function _unsupportedIterableToArray10(o, minLen) {
-  if (!o)
-    return;
-  if (typeof o === "string")
-    return _arrayLikeToArray10(o, minLen);
-  var n = Object.prototype.toString.call(o).slice(8, -1);
-  if (n === "Object" && o.constructor)
-    n = o.constructor.name;
-  if (n === "Map" || n === "Set")
-    return Array.from(o);
-  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray10(o, minLen);
-}
-function _arrayLikeToArray10(arr, len) {
-  if (len == null || len > arr.length)
-    len = arr.length;
-  for (var i = 0, arr2 = new Array(len); i < len; i++) {
-    arr2[i] = arr[i];
-  }
-  return arr2;
-}
-function generateRows(data, _ref) {
-  var schema = _ref.schema, headerStyle = _ref.headerStyle, getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat;
-  if (schema) {
-    var header = [];
-    for (var _iterator = _createForOfIteratorHelperLoose7(schema), _step; !(_step = _iterator()).done; ) {
-      var column = _step.value;
-      if (column.column) {
-        header = [schema.map(function(column2) {
-          return _objectSpread2({
-            type: String,
-            value: column2.column,
-            align: column2.align
-          }, headerStyle || DEFAULT_HEADER_STYLE);
-        })];
-        break;
-      }
-    }
-    data = header.concat(data.map(function(row) {
-      return schema.map(function(column2) {
-        return _objectSpread2(_objectSpread2({}, column2), {}, {
-          value: column2.value(row)
-        });
-      });
-    }));
-  }
-  return data.map(function(row, index) {
-    return generateRow(row, index, {
-      getStyle,
-      getSharedString,
-      customFont,
-      dateFormat,
-      usesSchema: schema !== void 0
-    });
-  }).join("");
-}
-var DEFAULT_HEADER_STYLE = {
-  fontWeight: "bold"
-};
-
-// node_modules/write-excel-file/modules/write/column.js
-var DATE_COLUMN_DEFAULT_WIDTH = 14;
-function generateColumnDescription(column, index) {
-  if (!column) {
-    return "";
-  }
-  if (column.type === Date && !column.width) {
-    column.width = DATE_COLUMN_DEFAULT_WIDTH;
-  }
-  if (!column.width) {
-    return "";
-  }
-  var columnNumber = index + 1;
-  return '<col min="'.concat(columnNumber, '" max="').concat(columnNumber, '" width="').concat(column.width, '" customWidth="1"/>');
-}
-
-// node_modules/write-excel-file/modules/write/columns.js
-function generateColumnsDescription(_ref) {
-  var schema = _ref.schema, columns = _ref.columns;
-  if (schema || columns) {
-    var description = (schema || columns).map(generateColumnDescription).join("");
-    if (description) {
-      return "<cols>".concat(description, "</cols>");
-    }
-  }
-  return "";
-}
-
-// node_modules/write-excel-file/modules/write/processMergedCells.js
-function processMergedCells(data, _ref) {
-  var schema = _ref.schema;
-  var mergedCells = [];
-  if (schema) {
-    return {
-      data,
-      mergedCells
-    };
-  }
-  var _cloneData = function cloneData() {
-    data = data.slice();
-    var i = 0;
-    while (i < data.length) {
-      data[i] = data[i].slice();
-      i++;
-    }
-    _cloneData = function cloneData2() {
-      return data;
-    };
-    return data;
-  };
-  var rowIndex = 0;
-  while (rowIndex < data.length) {
-    var row = data[rowIndex];
-    var columnIndex = 0;
-    while (columnIndex < row.length) {
-      var cell2 = row[columnIndex];
-      if (cell2) {
-        var _cell$span = cell2.span, span = _cell$span === void 0 ? 1 : _cell$span, _cell$rowSpan = cell2.rowSpan, rowSpan = _cell$rowSpan === void 0 ? 1 : _cell$rowSpan;
-        if (span > 1 || rowSpan > 1) {
-          processSpanningCells({
-            data,
-            rowIndex,
-            columnIndex,
-            span,
-            rowSpan,
-            cloneData: _cloneData
-          });
-          mergedCells.push([[rowIndex, columnIndex], [rowIndex + (rowSpan ? rowSpan - 1 : 0), columnIndex + (span ? span - 1 : 0)]]);
-        }
-      }
-      columnIndex++;
-    }
-    rowIndex++;
-  }
-  return {
-    data,
-    mergedCells
-  };
-}
-function processSpanningCells(_ref2) {
-  var data = _ref2.data, rowIndex = _ref2.rowIndex, columnIndex = _ref2.columnIndex, span = _ref2.span, rowSpan = _ref2.rowSpan, cloneData = _ref2.cloneData;
-  var cellStyleProperties = getCellStyleProperties(data[rowIndex][columnIndex]);
-  if (cellStyleProperties) {
-    data = cloneData();
-  }
-  var i = rowIndex;
-  while (i <= rowIndex + (rowSpan - 1)) {
-    var j = columnIndex;
-    while (j <= columnIndex + (span - 1)) {
-      var cell2 = data[i][j];
-      if (i > rowIndex || j > columnIndex) {
-        if (cell2 !== null && cell2 !== void 0) {
-          throw new Error("[write-excel-file] When using `span` or `rowSpan` parameters, all hidden overlapped cells should be represented by `null`s or `undefined`s. Cell at row ".concat(rowIndex + 1, " and column ").concat(columnIndex + 1, " is configured with `span` ").concat(span, " and `rowSpan` ").concat(rowSpan, ". Cell at row ").concat(i + 1, " and column ").concat(j + 1, " is neither `null` nor `undefined`: ").concat(JSON.stringify(cell2)));
-        }
-        if (cellStyleProperties) {
-          data[i][j] = cellStyleProperties;
-        }
-      }
-      j++;
-    }
-    i++;
-  }
-}
-
-// node_modules/write-excel-file/modules/write/generateMergedCellsDescription.js
-function _slicedToArray5(arr, i) {
-  return _arrayWithHoles5(arr) || _iterableToArrayLimit5(arr, i) || _unsupportedIterableToArray11(arr, i) || _nonIterableRest5();
-}
-function _nonIterableRest5() {
-  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-function _unsupportedIterableToArray11(o, minLen) {
-  if (!o)
-    return;
-  if (typeof o === "string")
-    return _arrayLikeToArray11(o, minLen);
-  var n = Object.prototype.toString.call(o).slice(8, -1);
-  if (n === "Object" && o.constructor)
-    n = o.constructor.name;
-  if (n === "Map" || n === "Set")
-    return Array.from(o);
-  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray11(o, minLen);
-}
-function _arrayLikeToArray11(arr, len) {
-  if (len == null || len > arr.length)
-    len = arr.length;
-  for (var i = 0, arr2 = new Array(len); i < len; i++) {
-    arr2[i] = arr[i];
-  }
-  return arr2;
-}
-function _iterableToArrayLimit5(arr, i) {
-  var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
-  if (_i == null)
-    return;
-  var _arr = [];
-  var _n = true;
-  var _d = false;
-  var _s, _e;
-  try {
-    for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
-      _arr.push(_s.value);
-      if (i && _arr.length === i)
-        break;
-    }
-  } catch (err3) {
-    _d = true;
-    _e = err3;
-  } finally {
-    try {
-      if (!_n && _i["return"] != null)
-        _i["return"]();
-    } finally {
-      if (_d)
-        throw _e;
-    }
-  }
-  return _arr;
-}
-function _arrayWithHoles5(arr) {
-  if (Array.isArray(arr))
-    return arr;
-}
-function generateMergedCellsDescription(mergedCells) {
-  if (mergedCells.length === 0) {
-    return "";
-  }
-  return '<mergeCells count="'.concat(mergedCells.length, '">') + mergedCells.map(function(_ref) {
-    var _ref2 = _slicedToArray5(_ref, 2), from = _ref2[0], to = _ref2[1];
-    var coordinates = generateCellNumber(from[1], from[0] + 1) + ":" + generateCellNumber(to[1], to[0] + 1);
-    return '<mergeCell ref="'.concat(coordinates, '"/>');
-  }).join("") + "</mergeCells>";
-}
-
-// node_modules/write-excel-file/modules/xml/sanitizeAttributeValue.js
-function sanitizeAttributeValue(string) {
-  return escapeXmlCharacters(removeInvalidXmlCharacters(string), {
-    attribute: true
-  });
-}
-
-// node_modules/write-excel-file/modules/write/layout.js
-function generateLayout(_ref) {
-  var sheetId = _ref.sheetId, orientation = _ref.orientation;
-  var layout = "";
-  if (orientation) {
-    var marginLeft = 0.7;
-    var marginRight = 0.7;
-    var marginTop = 0.75;
-    var marginBottom = 0.75;
-    var header = 0.3;
-    var footer = 0.3;
-    layout += "<pageMargins";
-    layout += ' left="'.concat(marginLeft, '"');
-    layout += ' right="'.concat(marginRight, '"');
-    layout += ' top="'.concat(marginTop, '"');
-    layout += ' bottom="'.concat(marginBottom, '"');
-    layout += ' header="'.concat(header, '"');
-    layout += ' footer="'.concat(footer, '"');
-    layout += "/>";
-  }
-  if (orientation) {
-    var paperSize = 9;
-    layout += "<pageSetup";
-    layout += ' paperSize="'.concat(paperSize, '"');
-    layout += ' orientation="'.concat(sanitizeAttributeValue(orientation), '"');
-    layout += ' r:id="rId'.concat(sheetId, '"');
-    layout += "/>";
-  }
-  return layout;
-}
-
-// node_modules/write-excel-file/modules/write/views.js
-function generateViews(_ref) {
-  var stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount;
-  if (!stickyRowsCount && !stickyColumnsCount) {
-    return "";
-  }
-  var views = "";
-  views += "<sheetViews>";
-  views += '<sheetView tabSelected="1" workbookViewId="0">';
-  views += '<pane ySplit="'.concat(stickyRowsCount || 0, '" xSplit="').concat(stickyColumnsCount || 0, '" topLeftCell="').concat(generateCellNumber(stickyColumnsCount || 0, (stickyRowsCount || 0) + 1), '" activePane="bottomRight" state="frozen"/>');
-  views += "</sheetView>";
-  views += "</sheetViews>";
-  return views;
-}
-
-// node_modules/write-excel-file/modules/write/worksheet.js
-var WORKSHEET_TEMPLATE = '<?xml version="1.0" ?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:mv="urn:schemas-microsoft-com:mac:vml" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main">{views}{columnsDescription}<sheetData>{data}</sheetData>{mergedCellsDescription}{layout}</worksheet>';
-function generateWorksheet(data_, _ref) {
-  var schema = _ref.schema, columns = _ref.columns, headerStyle = _ref.headerStyle, getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat, orientation = _ref.orientation, stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount, sheetId = _ref.sheetId;
-  validateData(data_, {
-    schema
-  });
-  var _processMergedCells = processMergedCells(data_, {
-    schema
-  }), data = _processMergedCells.data, mergedCells = _processMergedCells.mergedCells;
-  return WORKSHEET_TEMPLATE.replace("{data}", generateRows(data, {
-    schema,
-    headerStyle,
-    getStyle,
-    getSharedString,
-    customFont,
-    dateFormat
-  })).replace("{views}", generateViews({
-    stickyRowsCount,
-    stickyColumnsCount
-  })).replace("{columnsDescription}", generateColumnsDescription({
-    schema,
-    columns
-  })).replace("{mergedCellsDescription}", generateMergedCellsDescription(mergedCells)).replace("{layout}", generateLayout({
-    sheetId,
-    orientation
-  }));
-}
-function validateData(data, _ref2) {
-  var schema = _ref2.schema;
-  if (schema) {
-    if (!Array.isArray(data)) {
-      throw new TypeError("Expected an array of objects");
-    }
-  } else {
-    if (!Array.isArray(data)) {
-      throw new TypeError("Expected an array of arrays");
-    }
-    if (data.length > 0) {
-      if (!Array.isArray(data[0])) {
-        throw new TypeError("Expected an array of arrays");
-      }
-    }
-  }
-}
-
-// node_modules/write-excel-file/modules/write/styles.js
-function _createForOfIteratorHelperLoose8(o, allowArrayLike) {
-  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
-  if (it)
-    return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray12(o)) || allowArrayLike && o && typeof o.length === "number") {
-    if (it)
-      o = it;
-    var i = 0;
-    return function() {
-      if (i >= o.length)
-        return { done: true };
-      return { done: false, value: o[i++] };
-    };
-  }
-  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-function _unsupportedIterableToArray12(o, minLen) {
-  if (!o)
-    return;
-  if (typeof o === "string")
-    return _arrayLikeToArray12(o, minLen);
-  var n = Object.prototype.toString.call(o).slice(8, -1);
-  if (n === "Object" && o.constructor)
-    n = o.constructor.name;
-  if (n === "Map" || n === "Set")
-    return Array.from(o);
-  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray12(o, minLen);
-}
-function _arrayLikeToArray12(arr, len) {
-  if (len == null || len > arr.length)
-    len = arr.length;
-  for (var i = 0, arr2 = new Array(len); i < len; i++) {
-    arr2[i] = arr[i];
-  }
-  return arr2;
-}
-var FORMAT_ID_STARTS_FROM = 100;
-function initStyles(_ref) {
-  var defaultFontFamily = _ref.fontFamily, defaultFontSize = _ref.fontSize;
-  var customFont = Boolean(defaultFontFamily || defaultFontSize);
-  if (defaultFontFamily === void 0) {
-    defaultFontFamily = "Calibri";
-  }
-  if (defaultFontSize === void 0) {
-    defaultFontSize = 12;
-  }
-  var formats = [];
-  var formatsIndex = {};
-  var styles = [];
-  var stylesIndex = {};
-  var fonts = [];
-  var fontsIndex = {};
-  var fills = [];
-  var fillsIndex = {};
-  var borders = [];
-  var bordersIndex = {};
-  fonts.push({
-    size: defaultFontSize,
-    family: defaultFontFamily,
-    custom: customFont
-  });
-  fontsIndex["-:-"] = 0;
-  fills.push({});
-  fillsIndex["-"] = 0;
-  borders.push({
-    left: {},
-    right: {},
-    top: {},
-    bottom: {}
-  });
-  bordersIndex["-:-/-:-/-:-/-:-"] = 0;
-  fills.push({
-    gray125: true
-  });
-  function getStyle(_ref2, _ref3) {
-    var align = _ref2.align, alignVertical = _ref2.alignVertical, textRotation = _ref2.textRotation, wrap = _ref2.wrap, fontFamily = _ref2.fontFamily, fontSize = _ref2.fontSize, fontWeight = _ref2.fontWeight, fontStyle = _ref2.fontStyle, color = _ref2.color, backgroundColor = _ref2.backgroundColor, borderColor = _ref2.borderColor, borderStyle = _ref2.borderStyle, leftBorderColor = _ref2.leftBorderColor, leftBorderStyle = _ref2.leftBorderStyle, rightBorderColor = _ref2.rightBorderColor, rightBorderStyle = _ref2.rightBorderStyle, topBorderColor = _ref2.topBorderColor, topBorderStyle = _ref2.topBorderStyle, bottomBorderColor = _ref2.bottomBorderColor, bottomBorderStyle = _ref2.bottomBorderStyle;
-    var format = _ref3.format;
-    var border = void 0;
-    var fontKey = "".concat(fontFamily || "-", ":").concat(fontSize || "-", ":").concat(fontWeight || "-", ":").concat(fontStyle || "-", ":").concat(color || "-");
-    var fillKey = backgroundColor || "-";
-    var borderKey = "".concat(topBorderColor || borderColor || "-", ":").concat(topBorderStyle || borderStyle || "-") + "/" + "".concat(rightBorderColor || borderColor || "-", ":").concat(rightBorderStyle || borderStyle || "-") + "/" + "".concat(bottomBorderColor || borderColor || "-", ":").concat(bottomBorderStyle || borderStyle || "-") + "/" + "".concat(leftBorderColor || borderColor || "-", ":").concat(leftBorderStyle || borderStyle || "-");
-    var key = "".concat(align || "-", "/").concat(alignVertical || "-", "/").concat(textRotation || "-", "/").concat(format || "-", "/").concat(wrap || "-", "/").concat(fontKey, "/").concat(fillKey, "/").concat(borderKey);
-    var styleId = stylesIndex[key];
-    if (styleId !== void 0) {
-      return styleId;
-    }
-    var formatId;
-    if (format) {
-      formatId = formatsIndex[format];
-      if (formatId === void 0) {
-        formatId = formatsIndex[format] = String(FORMAT_ID_STARTS_FROM + formats.length);
-        formats.push(format);
-      }
-    }
-    var fontId = customFont ? 0 : void 0;
-    if (fontFamily || fontSize || fontWeight || fontStyle || color) {
-      fontId = fontsIndex[fontKey];
-      if (fontId === void 0) {
-        fontId = fontsIndex[fontKey] = String(fonts.length);
-        fonts.push({
-          custom: true,
-          size: fontSize || defaultFontSize,
-          family: fontFamily || defaultFontFamily,
-          weight: fontWeight,
-          style: fontStyle,
-          color
-        });
-      }
-    }
-    var fillId;
-    if (backgroundColor) {
-      fillId = fillsIndex[fillKey];
-      if (fillId === void 0) {
-        fillId = fillsIndex[fillKey] = String(fills.length);
-        fills.push({
-          color: backgroundColor
-        });
-      }
-    }
-    var borderId;
-    if (borderColor || borderStyle || leftBorderColor || leftBorderStyle || rightBorderColor || rightBorderStyle || topBorderColor || topBorderStyle || bottomBorderColor || bottomBorderStyle) {
-      borderId = bordersIndex[borderKey];
-      if (borderId === void 0) {
-        borderId = bordersIndex[borderKey] = String(borders.length);
-        borders.push({
-          left: {
-            style: leftBorderStyle || borderStyle,
-            color: leftBorderColor || borderColor
-          },
-          right: {
-            style: rightBorderStyle || borderStyle,
-            color: rightBorderColor || borderColor
-          },
-          top: {
-            style: topBorderStyle || borderStyle,
-            color: topBorderColor || borderColor
-          },
-          bottom: {
-            style: bottomBorderStyle || borderStyle,
-            color: bottomBorderColor || borderColor
-          }
-        });
-      }
-    }
-    styles.push({
-      fontId,
-      fillId,
-      borderId,
-      align,
-      alignVertical,
-      textRotation,
-      wrap,
-      formatId
-    });
-    return stylesIndex[key] = String(styles.length - 1);
-  }
-  getStyle({}, {});
-  return {
-    getStylesXml: function getStylesXml() {
-      return generateXml({
-        formats,
-        styles,
-        fonts,
-        fills,
-        borders
-      });
-    },
-    getStyle
-  };
-}
-function generateXml(_ref4) {
-  var formats = _ref4.formats, styles = _ref4.styles, fonts = _ref4.fonts, fills = _ref4.fills, borders = _ref4.borders;
-  var xml = '<?xml version="1.0" ?>';
-  xml += '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
-  if (formats.length > 0) {
-    xml += '<numFmts count="'.concat(formats.length, '">');
-    for (var i = 0; i < formats.length; i++) {
-      xml += '<numFmt numFmtId="'.concat(FORMAT_ID_STARTS_FROM + i, '" formatCode="').concat(sanitizeAttributeValue(formats[i]), '"/>');
-    }
-    xml += "</numFmts>";
-  }
-  xml += '<fonts count="'.concat(fonts.length, '">');
-  for (var _iterator = _createForOfIteratorHelperLoose8(fonts), _step; !(_step = _iterator()).done; ) {
-    var font = _step.value;
-    var size = font.size, family = font.family, color = font.color, weight = font.weight, style = font.style, custom = font.custom;
-    xml += "<font>";
-    xml += '<sz val="'.concat(size, '"/>');
-    xml += "<color ".concat(color ? 'rgb="' + sanitizeAttributeValue(getColor(color)) + '"' : 'theme="1"', "/>");
-    xml += '<name val="'.concat(sanitizeAttributeValue(family), '"/>');
-    xml += '<family val="2"/>';
-    if (!custom) {
-      xml += '<scheme val="minor"/>';
-    }
-    if (weight === "bold") {
-      xml += "<b/>";
-    }
-    if (style === "italic") {
-      xml += "<i/>";
-    }
-    xml += "</font>";
-  }
-  xml += "</fonts>";
-  xml += '<fills count="'.concat(fills.length, '">');
-  for (var _iterator2 = _createForOfIteratorHelperLoose8(fills), _step2; !(_step2 = _iterator2()).done; ) {
-    var fill = _step2.value;
-    var _color = fill.color, gray125 = fill.gray125;
-    xml += "<fill>";
-    if (_color) {
-      xml += '<patternFill patternType="solid">';
-      xml += '<fgColor rgb="'.concat(sanitizeAttributeValue(getColor(_color)), '"/>');
-      xml += '<bgColor indexed="64"/>';
-      xml += "</patternFill>";
-    } else if (gray125) {
-      xml += '<patternFill patternType="gray125"/>';
-    } else {
-      xml += '<patternFill patternType="none"/>';
-    }
-    xml += "</fill>";
-  }
-  xml += "</fills>";
-  xml += '<borders count="'.concat(borders.length, '">');
-  for (var _iterator3 = _createForOfIteratorHelperLoose8(borders), _step3; !(_step3 = _iterator3()).done; ) {
-    var border = _step3.value;
-    var left = border.left, right = border.right, top = border.top, bottom = border.bottom;
-    var getBorderXml = function getBorderXml2(direction, _ref5) {
-      var style2 = _ref5.style, color2 = _ref5.color;
-      if (color2 && !style2) {
-        style2 = "thin";
-      }
-      var hasChildren = color2 ? true : false;
-      return "<".concat(direction) + (style2 ? ' style="'.concat(sanitizeAttributeValue(style2), '"') : "") + (hasChildren ? ">" : "/>") + (color2 ? '<color rgb="'.concat(sanitizeAttributeValue(getColor(color2)), '"/>') : "") + (hasChildren ? "</".concat(direction, ">") : "");
-    };
-    xml += "<border>";
-    xml += getBorderXml("left", left);
-    xml += getBorderXml("right", right);
-    xml += getBorderXml("top", top);
-    xml += getBorderXml("bottom", bottom);
-    xml += "<diagonal/>";
-    xml += "</border>";
-  }
-  xml += "</borders>";
-  xml += '<cellXfs count="'.concat(styles.length, '">');
-  for (var _iterator4 = _createForOfIteratorHelperLoose8(styles), _step4; !(_step4 = _iterator4()).done; ) {
-    var cellStyle = _step4.value;
-    var fontId = cellStyle.fontId, fillId = cellStyle.fillId, borderId = cellStyle.borderId, align = cellStyle.align, alignVertical = cellStyle.alignVertical, textRotation = cellStyle.textRotation, wrap = cellStyle.wrap, formatId = cellStyle.formatId;
-    xml += "<xf " + [
-      formatId !== void 0 ? 'numFmtId="'.concat(formatId, '"') : void 0,
-      formatId !== void 0 ? 'applyNumberFormat="1"' : void 0,
-      fontId !== void 0 ? 'fontId="'.concat(fontId, '"') : void 0,
-      fontId !== void 0 ? 'applyFont="1"' : void 0,
-      fillId !== void 0 ? 'fillId="'.concat(fillId, '"') : void 0,
-      fillId !== void 0 ? 'applyFill="1"' : void 0,
-      borderId !== void 0 ? 'borderId="'.concat(borderId, '"') : void 0,
-      borderId !== void 0 ? 'applyBorder="1"' : void 0,
-      align || alignVertical || textRotation || wrap ? 'applyAlignment="1"' : void 0
-      // 'xfId="0"'
-    ].filter(function(_) {
-      return _;
-    }).join(" ") + ">" + // Possible horizontal alignment values:
-    //  left, center, right, fill, justify, center_across, distributed.
-    // Possible vertical alignment values:
-    //  top, vcenter, bottom, vjustify, vdistributed.
-    // https://xlsxwriter.readthedocs.io/format.html#set_align
-    (align || alignVertical || textRotation || wrap ? "<alignment" + (align ? ' horizontal="'.concat(sanitizeAttributeValue(align), '"') : "") + (alignVertical ? ' vertical="'.concat(sanitizeAttributeValue(alignVertical), '"') : "") + (wrap ? ' wrapText="1"' : "") + (textRotation ? ' textRotation="'.concat(getTextRotation(validateTextRotation(textRotation)), '"') : "") + "/>" : "") + "</xf>";
-  }
-  xml += "</cellXfs>";
-  xml += "</styleSheet>";
-  return xml;
-}
-function getColor(color) {
-  if (color[0] !== "#") {
-    throw new Error('Color "'.concat(color, '" must start with a "#"'));
-  }
-  return "FF".concat(color.slice("#".length).toUpperCase());
-}
-function validateTextRotation(textRotation) {
-  if (!(textRotation >= -90 && textRotation <= 90)) {
-    throw new Error("Unsupported text rotation angle: ".concat(textRotation, ". Values from -90 to 90 are supported."));
-  }
-  return textRotation;
-}
-function getTextRotation(textRotation) {
-  if (textRotation < 0) {
-    return 90 - textRotation;
-  }
-  return textRotation;
-}
-
-// node_modules/write-excel-file/modules/write/sharedStrings.js
-function _createForOfIteratorHelperLoose9(o, allowArrayLike) {
-  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
-  if (it)
-    return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray13(o)) || allowArrayLike && o && typeof o.length === "number") {
-    if (it)
-      o = it;
-    var i = 0;
-    return function() {
-      if (i >= o.length)
-        return { done: true };
-      return { done: false, value: o[i++] };
-    };
-  }
-  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-function _unsupportedIterableToArray13(o, minLen) {
-  if (!o)
-    return;
-  if (typeof o === "string")
-    return _arrayLikeToArray13(o, minLen);
-  var n = Object.prototype.toString.call(o).slice(8, -1);
-  if (n === "Object" && o.constructor)
-    n = o.constructor.name;
-  if (n === "Map" || n === "Set")
-    return Array.from(o);
-  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray13(o, minLen);
-}
-function _arrayLikeToArray13(arr, len) {
-  if (len == null || len > arr.length)
-    len = arr.length;
-  for (var i = 0, arr2 = new Array(len); i < len; i++) {
-    arr2[i] = arr[i];
-  }
-  return arr2;
-}
-function initSharedStrings() {
-  var sharedStrings = [];
-  var sharedStringsIndex = {};
-  return {
-    getSharedStringsXml: function getSharedStringsXml() {
-      return generateXml2(sharedStrings);
-    },
-    getSharedString: function getSharedString(string) {
-      var id = sharedStringsIndex[string];
-      if (id === void 0) {
-        id = String(sharedStrings.length);
-        sharedStringsIndex[string] = id;
-        sharedStrings.push(string);
-      }
-      return id;
-    }
-  };
-}
-function generateXml2(sharedStrings) {
-  var xml = '<?xml version="1.0"?>';
-  xml += '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
-  for (var _iterator = _createForOfIteratorHelperLoose9(sharedStrings), _step; !(_step = _iterator()).done; ) {
-    var string = _step.value;
-    var attributes = string.trim().length === string.length ? "" : ' xml:space="preserve"';
-    xml += "<si><t".concat(attributes, ">");
-    xml += sanitizeText(string);
-    xml += "</t></si>";
-  }
-  xml += "</sst>";
-  return xml;
-}
-
-// node_modules/write-excel-file/modules/write/validateSheetName.js
-var ILLEGAL_CHARACTERS_IN_SHEET_NAME = /[\[\]\/\\:*?]+/;
-function validateSheetName(sheetName) {
-  if (!sheetName) {
-    throw new Error("Sheet name can't be empty");
-  }
-  if (sheetName.length > 31) {
-    throw new Error('Sheet name "'.concat(sheetName, `" can't be longer than 31 characters`));
-  }
-  if (ILLEGAL_CHARACTERS_IN_SHEET_NAME.test(sheetName)) {
-    throw new Error('Sheet name "'.concat(sheetName, '" contains illegal characters: []/\\:*?'));
-  }
-}
-
-// node_modules/write-excel-file/modules/write/writeXlsxFile.common.js
-function _createForOfIteratorHelperLoose10(o, allowArrayLike) {
-  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
-  if (it)
-    return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray14(o)) || allowArrayLike && o && typeof o.length === "number") {
-    if (it)
-      o = it;
-    var i = 0;
-    return function() {
-      if (i >= o.length)
-        return { done: true };
-      return { done: false, value: o[i++] };
-    };
-  }
-  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-function _unsupportedIterableToArray14(o, minLen) {
-  if (!o)
-    return;
-  if (typeof o === "string")
-    return _arrayLikeToArray14(o, minLen);
-  var n = Object.prototype.toString.call(o).slice(8, -1);
-  if (n === "Object" && o.constructor)
-    n = o.constructor.name;
-  if (n === "Map" || n === "Set")
-    return Array.from(o);
-  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray14(o, minLen);
-}
-function _arrayLikeToArray14(arr, len) {
-  if (len == null || len > arr.length)
-    len = arr.length;
-  for (var i = 0, arr2 = new Array(len); i < len; i++) {
-    arr2[i] = arr[i];
-  }
-  return arr2;
-}
-function generateSheets(_ref) {
-  var data = _ref.data, sheetName = _ref.sheetName, sheetNames = _ref.sheetNames, schema = _ref.schema, columns = _ref.columns, headerStyle = _ref.headerStyle, fontFamily = _ref.fontFamily, fontSize = _ref.fontSize, orientation = _ref.orientation, stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount, dateFormat = _ref.dateFormat;
-  var _initSharedStrings = initSharedStrings(), getSharedStringsXml = _initSharedStrings.getSharedStringsXml, getSharedString = _initSharedStrings.getSharedString;
-  var _initStyles = initStyles({
-    fontFamily,
-    fontSize
-  }), getStylesXml = _initStyles.getStylesXml, getStyle = _initStyles.getStyle;
-  if (sheetNames) {
-    if (columns) {
-      if (!Array.isArray(columns[0])) {
-        throw new Error('In a "write multiple sheets" scenario, `columns` parameter must be an array of `columns` for each sheet.');
-      }
-    }
-  }
-  if (!sheetNames) {
-    sheetNames = [sheetName || "Sheet1"];
-    data = [data];
-    if (columns) {
-      columns = [columns];
-    }
-    if (schema) {
-      schema = [schema];
-    }
-  }
-  for (var _iterator = _createForOfIteratorHelperLoose10(sheetNames), _step; !(_step = _iterator()).done; ) {
-    var _sheetName = _step.value;
-    validateSheetName(_sheetName);
-  }
-  var worksheets = [];
-  var sheetIndex = 0;
-  for (var _iterator2 = _createForOfIteratorHelperLoose10(sheetNames), _step2; !(_step2 = _iterator2()).done; ) {
-    var sheet = _step2.value;
-    worksheets.push(generateWorksheet(data[sheetIndex], {
-      schema: schema && schema[sheetIndex],
-      columns: columns && columns[sheetIndex],
-      headerStyle,
-      getStyle,
-      getSharedString,
-      customFont: fontFamily || fontSize,
-      dateFormat,
-      orientation,
-      stickyRowsCount,
-      stickyColumnsCount,
-      sheetId: sheetIndex + 1
-    }));
-    sheetIndex++;
-  }
-  return {
-    sheets: sheetNames.map(function(sheetName2, i) {
-      return {
-        id: i + 1,
-        name: sheetName2,
-        data: worksheets[i]
-      };
-    }),
-    getSharedStringsXml,
-    getStylesXml
-  };
-}
-
-// node_modules/write-excel-file/modules/write/writeXlsxFileBrowser.js
-var _excluded = ["fileName"];
-function _createForOfIteratorHelperLoose11(o, allowArrayLike) {
-  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
-  if (it)
-    return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray15(o)) || allowArrayLike && o && typeof o.length === "number") {
-    if (it)
-      o = it;
-    var i = 0;
-    return function() {
-      if (i >= o.length)
-        return { done: true };
-      return { done: false, value: o[i++] };
-    };
-  }
-  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-}
-function _unsupportedIterableToArray15(o, minLen) {
-  if (!o)
-    return;
-  if (typeof o === "string")
-    return _arrayLikeToArray15(o, minLen);
-  var n = Object.prototype.toString.call(o).slice(8, -1);
-  if (n === "Object" && o.constructor)
-    n = o.constructor.name;
-  if (n === "Map" || n === "Set")
-    return Array.from(o);
-  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray15(o, minLen);
-}
-function _arrayLikeToArray15(arr, len) {
-  if (len == null || len > arr.length)
-    len = arr.length;
-  for (var i = 0, arr2 = new Array(len); i < len; i++) {
-    arr2[i] = arr[i];
-  }
-  return arr2;
-}
-function _objectWithoutProperties(source, excluded) {
-  if (source == null)
-    return {};
-  var target = _objectWithoutPropertiesLoose(source, excluded);
-  var key, i;
-  if (Object.getOwnPropertySymbols) {
-    var sourceSymbolKeys = Object.getOwnPropertySymbols(source);
-    for (i = 0; i < sourceSymbolKeys.length; i++) {
-      key = sourceSymbolKeys[i];
-      if (excluded.indexOf(key) >= 0)
-        continue;
-      if (!Object.prototype.propertyIsEnumerable.call(source, key))
-        continue;
-      target[key] = source[key];
-    }
-  }
-  return target;
-}
-function _objectWithoutPropertiesLoose(source, excluded) {
-  if (source == null)
-    return {};
-  var target = {};
-  var sourceKeys = Object.keys(source);
-  var key, i;
-  for (i = 0; i < sourceKeys.length; i++) {
-    key = sourceKeys[i];
-    if (excluded.indexOf(key) >= 0)
-      continue;
-    target[key] = source[key];
-  }
-  return target;
-}
-function writeXlsxFile(data) {
-  var _ref = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, fileName = _ref.fileName, rest = _objectWithoutProperties(_ref, _excluded);
-  return generateXlsxFile(data, rest).then(function(blob) {
-    if (fileName) {
-      return import_file_saver.default.saveAs(blob, fileName);
-    }
-    return blob;
-  });
-}
-function generateXlsxFile(data, _ref2) {
-  var sheetName = _ref2.sheet, sheetNames = _ref2.sheets, schema = _ref2.schema, columns = _ref2.columns, headerStyle = _ref2.headerStyle, fontFamily = _ref2.fontFamily, fontSize = _ref2.fontSize, orientation = _ref2.orientation, stickyRowsCount = _ref2.stickyRowsCount, stickyColumnsCount = _ref2.stickyColumnsCount, dateFormat = _ref2.dateFormat;
-  var zip = new import_jszip.default();
-  zip.file("_rels/.rels", rels_default);
-  zip.file("[Content_Types].xml", Content_Types_xml_default);
-  var _generateSheets = generateSheets({
-    data,
-    sheetName,
-    sheetNames,
-    schema,
-    columns,
-    headerStyle,
-    fontFamily,
-    fontSize,
-    orientation,
-    stickyRowsCount,
-    stickyColumnsCount,
-    dateFormat
-  }), sheets = _generateSheets.sheets, getSharedStringsXml = _generateSheets.getSharedStringsXml, getStylesXml = _generateSheets.getStylesXml;
-  var xl = zip.folder("xl");
-  xl.file("_rels/workbook.xml.rels", generateWorkbookXmlRels({
-    sheets
-  }));
-  xl.file("workbook.xml", generateWorkbookXml({
-    sheets,
-    stickyRowsCount,
-    stickyColumnsCount
-  }));
-  xl.file("styles.xml", getStylesXml());
-  xl.file("sharedStrings.xml", getSharedStringsXml());
-  for (var _iterator = _createForOfIteratorHelperLoose11(sheets), _step; !(_step = _iterator()).done; ) {
-    var _step$value = _step.value, id = _step$value.id, _data = _step$value.data;
-    xl.file("worksheets/sheet".concat(id, ".xml"), _data);
-  }
-  return zip.generateAsync({
-    type: "blob",
-    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  });
-}
-
-// src/io/export/xlsx.ts
-function sheetNameFor(name) {
-  const safe = name.replace(/[[\]:*?/\\]/g, " ").trim().slice(0, 31);
-  return safe === "" ? "Sheet1" : safe;
-}
-function xlsxCell(value, field) {
-  if (value === null || value === void 0)
-    return { value: null };
-  if (field.type === "checkbox" && typeof value === "boolean")
-    return { value };
-  if (field.type === "number" && typeof value === "number")
-    return { value };
-  if (field.type === "date" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const d = /* @__PURE__ */ new Date(`${value}T00:00:00Z`);
-    if (!Number.isNaN(d.getTime()))
-      return { value: d, format: "yyyy-mm-dd" };
-  }
-  const text = cellText(value, field);
-  return { value: text === "" ? null : text };
-}
-async function toXlsx(table) {
-  const header = table.fields.map((f) => ({ value: f.name, fontWeight: "bold" }));
-  const body = table.rows.map((row) => table.fields.map((f) => xlsxCell(row.values[f.id] ?? null, f)));
-  const blob = await writeXlsxFile([header, ...body], { sheet: sheetNameFor(table.name) });
-  return await blob.arrayBuffer();
-}
-
-// src/io/export/exporter.ts
-var EXTENSION = { csv: "csv", xlsx: "xlsx", md: "md" };
-async function exportTable(input) {
-  const resolved = resolveExportTable(input.file, input.scope);
-  if (!resolved.ok)
-    return { ok: false, error: resolved.error };
-  return writeExport(resolved.table, input.format, input.folder, input.baseName, input.adapter);
-}
-async function writeExport(table, format, folder, baseName2, adapter) {
-  const ext = EXTENSION[format];
-  let text = null;
-  let binary2 = null;
-  try {
-    if (format === "csv")
-      text = toCsv(table);
-    else if (format === "md")
-      text = toMarkdown(table);
-    else
-      binary2 = await toXlsx(table);
-  } catch (e) {
-    return { ok: false, error: `Export failed, no file was written: ${e instanceof Error ? e.message : String(e)}` };
-  }
-  const path = pickFreePath(folder, baseName2 || "Export", adapter.exists, ext);
-  if (path === null)
-    return { ok: false, error: "No free file name found." };
-  try {
-    if (text !== null)
-      await adapter.create(path, text);
-    else if (binary2 !== null)
-      await adapter.createBinary(path, binary2);
-  } catch (e) {
-    return { ok: false, error: `Could not write the file: ${e instanceof Error ? e.message : String(e)}` };
-  }
-  return { ok: true, path, rowCount: table.rows.length, columnCount: table.fields.length };
-}
-
-// src/commands/export.ts
-var EXPORT_COMMAND_ID = "export-table";
-var EXPORT_COMMAND_NAME = "Export table (CSV, Excel, Markdown)";
-var EXPORT_VIEW_CSV_COMMAND_ID = "export-current-view-csv";
-var EXPORT_VIEW_CSV_COMMAND_NAME = "Export current view as CSV";
-var COPY_MARKDOWN_COMMAND_ID = "copy-current-view-markdown";
-var COPY_MARKDOWN_COMMAND_NAME = "Copy current view as Markdown";
-function registerExportCommand(plugin) {
-  plugin.addCommand({
-    id: EXPORT_COMMAND_ID,
-    name: EXPORT_COMMAND_NAME,
-    callback: () => {
-      const file = plugin.app.workspace.getActiveFile();
-      if (!file || file.extension !== "tablify") {
-        new import_obsidian2.Notice("Open a .tablify table first.");
-        return;
-      }
-      new ExportModal(plugin.app, file).open();
-    }
-  });
-}
-function registerCurrentViewExportCommands(plugin, getTable) {
-  const run2 = (action) => () => {
-    const table = getTable();
-    if (!table) {
-      new import_obsidian2.Notice("Open a .tablify table first.");
-      return;
-    }
-    void action(table);
-  };
-  plugin.addCommand({
-    id: EXPORT_VIEW_CSV_COMMAND_ID,
-    name: EXPORT_VIEW_CSV_COMMAND_NAME,
-    callback: run2((table) => table.exportCurrentViewCsv())
-  });
-  plugin.addCommand({
-    id: COPY_MARKDOWN_COMMAND_ID,
-    name: COPY_MARKDOWN_COMMAND_NAME,
-    callback: run2((table) => table.copyCurrentViewMarkdown())
-  });
-}
-function openExportModal(app, file) {
-  new ExportModal(app, file).open();
-}
-function exportFolderOf(source) {
-  return source.parent && !source.parent.isRoot() ? source.parent.path : "";
-}
-function vaultExportAdapter(app) {
-  return {
-    exists: (path) => app.vault.getAbstractFileByPath(path) !== null,
-    create: async (path, data) => {
-      await app.vault.create(path, data);
-    },
-    createBinary: async (path, data) => {
-      await app.vault.createBinary(path, data);
-    }
-  };
-}
-var ExportModal = class extends import_obsidian2.Modal {
-  constructor(app, source) {
-    super(app);
-    this.source = source;
-  }
-  format = "csv";
-  fullTable = false;
-  onOpen() {
-    this.setTitle(`Export ${this.source.basename}`);
-    new import_obsidian2.Setting(this.contentEl).setName("Format").addDropdown(
-      (d) => d.addOption("csv", "CSV").addOption("xlsx", "Excel (.xlsx)").addOption("md", "Markdown table").setValue(this.format).onChange((v) => {
-        this.format = v;
-      })
-    );
-    new import_obsidian2.Setting(this.contentEl).setName("Full table").setDesc("Off: current view (saved sort, visible fields, column order). On: every field and row.").addToggle(
-      (t) => t.setValue(this.fullTable).onChange((v) => {
-        this.fullTable = v;
-      })
-    );
-    new import_obsidian2.Setting(this.contentEl).addButton(
-      (b) => b.setButtonText("Export").setCta().onClick(() => void this.run())
-    );
-  }
-  async run() {
-    const app = this.app;
-    const text = await app.vault.read(this.source);
-    const parsed = parse(text);
-    if (!parsed.ok) {
-      new import_obsidian2.Notice(`Export failed. The table file could not be read: ${parsed.error}`);
-      return;
-    }
-    const outcome = await exportTable({
-      file: parsed.data,
-      format: this.format,
-      scope: { fullTable: this.fullTable },
-      folder: exportFolderOf(this.source),
-      baseName: this.source.basename,
-      adapter: vaultExportAdapter(app)
-    });
-    if (!outcome.ok) {
-      new import_obsidian2.Notice(`Export failed. No file was written. ${outcome.error}`);
-      return;
-    }
-    new import_obsidian2.Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
-    this.close();
-  }
-};
-
-// src/commands/linkIntegrity.ts
-var import_obsidian3 = require("obsidian");
-
-// src/model/link.ts
-var UNTITLED_ROW = "Untitled row";
-var BROKEN_MESSAGES = {
-  "missing-table": "The linked table is not in this vault.",
-  "missing-row": "The linked row was deleted."
-};
-function baseName(path) {
-  const last = path.split("/").pop() ?? path;
-  return last.replace(/\.tablify$/i, "");
-}
-function primaryFieldOf(fields) {
-  return fields.find((f) => f.primary) ?? fields[0];
-}
-function isNonEmptyLinkArray(v) {
-  return Array.isArray(v) && v.length > 0;
-}
-function snapshotTable(file, path) {
-  const primary = primaryFieldOf(file.fields);
-  const linkFields = file.fields.filter((f) => f.type === "link");
-  const rows = [];
-  const linkCells = [];
-  for (const row of file.rows) {
-    const label = primary ? getFieldType(primary.type).format(row.values[primary.id] ?? null, primary) : "";
-    rows.push({ id: row.id, label });
-    for (const field of linkFields) {
-      const v = row.values[field.id];
-      if (isNonEmptyLinkArray(v)) {
-        linkCells.push({ rowId: row.id, rowLabel: label, fieldId: field.id, fieldName: field.name, refs: v });
-      }
-    }
-  }
-  return { tableId: file.tableId, name: baseName(path), path, rows, linkCells };
-}
-var LinkIndex = class {
-  byPath = /* @__PURE__ */ new Map();
-  derived = null;
-  rowMaps = /* @__PURE__ */ new WeakMap();
-  /** Add or replace the snapshot for a path. */
-  put(snapshot) {
-    this.byPath.set(snapshot.path, snapshot);
-    this.derived = null;
-  }
-  remove(path) {
-    if (this.byPath.delete(path))
-      this.derived = null;
-  }
-  has(path) {
-    return this.byPath.has(path);
-  }
-  paths() {
-    return [...this.byPath.keys()];
-  }
-  /** The snapshot for a path, or undefined. Used to compare before a write. */
-  get(path) {
-    return this.byPath.get(path);
-  }
-  /** One snapshot per table ID, sorted by path. A duplicate ID keeps the first path only. */
-  tables() {
-    return [...this.derive().byId.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-  }
-  byTableId(tableId) {
-    return this.derive().byId.get(tableId);
-  }
-  duplicates() {
-    return this.derive().duplicates.map((d) => ({ tableId: d.tableId, paths: [...d.paths] }));
-  }
-  resolve(ref) {
-    const table = this.byTableId(ref.tableId);
-    if (!table)
-      return { ok: false, reason: "missing-table" };
-    const row = this.rowMap(table).get(ref.rowId);
-    if (!row)
-      return { ok: false, reason: "missing-row", tableName: table.name };
-    return { ok: true, tableName: table.name, rowLabel: row.label.trim() || UNTITLED_ROW };
-  }
-  rowMap(table) {
-    let map2 = this.rowMaps.get(table);
-    if (!map2) {
-      map2 = new Map(table.rows.map((r) => [r.id, r]));
-      this.rowMaps.set(table, map2);
-    }
-    return map2;
-  }
-  derive() {
-    if (this.derived)
-      return this.derived;
-    const sorted = [...this.byPath.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-    const byId = /* @__PURE__ */ new Map();
-    const dupPaths = /* @__PURE__ */ new Map();
-    for (const snap of sorted) {
-      const first = byId.get(snap.tableId);
-      if (!first) {
-        byId.set(snap.tableId, snap);
-      } else {
-        const list = dupPaths.get(snap.tableId) ?? [first.path];
-        list.push(snap.path);
-        dupPaths.set(snap.tableId, list);
-      }
-    }
-    const duplicates = [...dupPaths.entries()].map(([tableId, paths]) => ({ tableId, paths }));
-    this.derived = { byId, duplicates };
-    return this.derived;
-  }
-};
-function createLinkIndex() {
-  return new LinkIndex();
-}
-function summarizeLinks(value, index) {
-  if (!isNonEmptyLinkArray(value))
-    return { text: "", broken: 0, chips: [] };
-  const chips = [];
-  let broken = 0;
-  for (const ref of value) {
-    const res = index.resolve(ref);
-    if (res.ok) {
-      chips.push({ label: res.rowLabel, broken: false });
-    } else {
-      broken++;
-      chips.push({ label: res.reason === "missing-table" ? "Missing table" : "Missing row", broken: true });
-    }
-  }
-  return { text: chips.map((c) => c.label).join(", "), broken, chips };
-}
-function checkIntegrity(index) {
-  const broken = [];
-  let checked = 0;
-  for (const table of index.tables()) {
-    for (const cell2 of table.linkCells) {
-      for (const ref of cell2.refs) {
-        checked++;
-        const res = index.resolve(ref);
-        if (res.ok)
-          continue;
-        broken.push({
-          sourcePath: table.path,
-          sourceTable: table.name,
-          rowId: cell2.rowId,
-          rowLabel: cell2.rowLabel.trim() || UNTITLED_ROW,
-          fieldName: cell2.fieldName,
-          targetTableId: ref.tableId,
-          targetRowId: ref.rowId,
-          reason: res.reason,
-          message: BROKEN_MESSAGES[res.reason]
-        });
-      }
-    }
-  }
-  return { checked, broken, duplicates: index.duplicates() };
-}
-function buildSelection(current, targetTableId, selectedRowIds) {
-  const selected = new Set(selectedRowIds);
-  const kept = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const ref of current) {
-    if (ref.tableId !== targetTableId) {
-      kept.push(ref);
-    } else if (selected.has(ref.rowId) && !seen.has(ref.rowId)) {
-      kept.push(ref);
-      seen.add(ref.rowId);
-    }
-  }
-  for (const rowId of selectedRowIds) {
-    if (!seen.has(rowId)) {
-      kept.push({ tableId: targetTableId, rowId });
-      seen.add(rowId);
-    }
-  }
-  return kept.length > 0 ? kept : null;
-}
-function countForeignRefs(value, targetTableId) {
-  if (!isNonEmptyLinkArray(value))
-    return 0;
-  return value.filter((ref) => ref.tableId !== targetTableId).length;
-}
-function removeForeignRefs(current, targetTableId) {
-  const kept = current.filter((ref) => ref.tableId === targetTableId);
-  return kept.length > 0 ? kept : null;
-}
-function filterRows(rows, query) {
-  const q = query.trim().toLowerCase();
-  if (q === "")
-    return rows.slice();
-  return rows.filter((r) => r.label.toLowerCase().includes(q));
-}
-
-// src/links/vaultLinkIndex.ts
-var DEBOUNCE_MS = 250;
-var VaultLinkIndex = class {
-  constructor(app) {
-    this.app = app;
-  }
-  index = createLinkIndex();
-  /** Paths whose file is open in a view, mapped to the live snapshot. */
-  live = /* @__PURE__ */ new Map();
-  /** mtime of the disk version last read, per path. */
-  stamps = /* @__PURE__ */ new Map();
-  listeners = /* @__PURE__ */ new Set();
-  timer = null;
-  running = Promise.resolve();
-  /** Wire the vault events and run the first refresh. Called once from the plugin's onload. */
-  start(plugin) {
-    const schedule = () => this.schedule();
-    plugin.registerEvent(this.app.vault.on("create", schedule));
-    plugin.registerEvent(this.app.vault.on("modify", schedule));
-    plugin.registerEvent(this.app.vault.on("delete", schedule));
-    plugin.registerEvent(this.app.vault.on("rename", schedule));
-    this.app.workspace.onLayoutReady(() => void this.refresh());
-  }
-  onChange(listener) {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-  /** Refresh now. Refreshes run one after another, so two never overlap. */
-  refresh() {
-    this.running = this.running.then(() => this.doRefresh(), () => this.doRefresh());
-    return this.running;
-  }
-  /** An open view publishes its state. Listeners are told only when the snapshot changed. */
-  noteLive(path, snapshot) {
-    this.live.set(path, snapshot);
-    const prev = this.index.get(path);
-    if (prev && JSON.stringify(prev) === JSON.stringify(snapshot))
-      return;
-    this.index.put(snapshot);
-    this.notify();
-  }
-  /** The view closed. The next refresh reads the file from disk again. */
-  dropLive(path) {
-    this.live.delete(path);
-    this.stamps.delete(path);
-    this.schedule();
-  }
-  schedule() {
-    if (this.timer !== null)
-      clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      void this.refresh();
-    }, DEBOUNCE_MS);
-  }
-  async doRefresh() {
-    const files = this.app.vault.getFiles().filter((f) => f.extension === "tablify");
-    const present = /* @__PURE__ */ new Set();
-    let changed = false;
-    for (const file of files) {
-      present.add(file.path);
-      if (this.live.has(file.path))
-        continue;
-      if (this.stamps.get(file.path) === file.stat.mtime)
-        continue;
-      const text = await this.app.vault.cachedRead(file);
-      this.stamps.set(file.path, file.stat.mtime);
-      const parsed = parse(text);
-      if (parsed.ok) {
-        this.index.put(snapshotTable(parsed.data, file.path));
-      } else {
-        this.index.remove(file.path);
-      }
-      changed = true;
-    }
-    for (const path of this.index.paths()) {
-      if (!present.has(path)) {
-        this.index.remove(path);
-        this.stamps.delete(path);
-        this.live.delete(path);
-        changed = true;
-      }
-    }
-    for (const path of [...this.live.keys()]) {
-      if (!present.has(path))
-        this.live.delete(path);
-    }
-    if (changed)
-      this.notify();
-  }
-  notify() {
-    for (const listener of [...this.listeners])
-      listener();
-  }
-};
-var indexes = /* @__PURE__ */ new WeakMap();
-function linkIndexFor(app) {
-  let idx = indexes.get(app);
-  if (!idx) {
-    idx = new VaultLinkIndex(app);
-    indexes.set(app, idx);
-  }
-  return idx;
-}
-function installLinkLabelResolver(app) {
-  const idx = linkIndexFor(app);
-  setLinkLabelResolver((ref) => {
-    const res = idx.index.resolve(ref);
-    return res.ok ? res.rowLabel : null;
-  });
-}
-
-// src/ui/theme/tokens.ts
-var palette = {
-  /** #181715 — dark theme background (prototype `dark`) */
-  dark: "#181715",
-  /** #FAF7F2 — light theme background (prototype `paper`) */
-  light: "#FAF7F2",
-  /** #22201D — dark card surface (prototype `dark-card`) */
-  cardDark: "#22201D",
-  /** #FFFFFF — light card surface (prototype `paper-card`) */
-  cardLight: "#FFFFFF",
-  /** #1B1A17 — dark inner surface: grid shell (prototype `dark-inner`) */
-  innerDark: "#1B1A17",
-  /** #F4EFE6 — light inner surface: grid shell (prototype `paper-inner`) */
-  innerLight: "#F4EFE6",
-  /** #262420 — dark capsule surface: cells, header capsules, popovers */
-  capsuleDark: "#262420",
-  /** #FFFFFF — light capsule surface (prototype cell/header capsules) */
-  capsuleLight: "#FFFFFF",
-  /** #38342E — dark subtle border (prototype `dark-border`) */
-  borderDark: "#38342E",
-  /** #E6E0D5 — light subtle border (prototype `paper-border`) */
-  borderLight: "#E6E0D5",
-  /** #24221E — dark pill surface: toolbar buttons, search input, float panels (prototype `.pill-btn`) */
-  pillDark: "#24221E",
-  /** #2D2A25 — dark pill hover surface (prototype `.pill-btn:hover`) */
-  pillHoverDark: "#2D2A25",
-  /** #4A453E — dark pill hover border (prototype `.pill-btn:hover`) */
-  pillBorderHoverDark: "#4A453E",
-  /** #F6F2EA — light pill hover surface (prototype `.pill-btn:hover`) */
-  pillHoverLight: "#F6F2EA",
-  /** #D3CAB9 — light pill hover border (prototype `.pill-btn:hover`) */
-  pillBorderHoverLight: "#D3CAB9",
-  /** #3A3630 — dark header/cell capsule border (prototype `.header-capsule`, `.cell-capsule`) */
-  capsuleBorderDark: "#3A3630",
-  /** #ECE7E1 — body text on dark surfaces */
-  textOnDark: "#ECE7E1",
-  /** #1E1B18 — body text on light surfaces (prototype `charcoal`) */
-  textOnLight: "#1E1B18",
-  /** #9CA3AF — muted small text on dark (prototype dark `gray-400`) */
-  mutedDark: "#9CA3AF",
-  /**
-   * #6E655C — muted small text on light. The prototype's clay (#8C827A) measures 3.55:1 on
-   * its paper background — below AA for the 11px labels it carries — so the accessible
-   * clay variant ships instead; see docs/evidence/P3-11.md (SAD-71 Step 2).
-   */
-  mutedLight: "#6E655C",
-  /** #d97757 — primary accent on dark (prototype `terracotta-dark`), focus, selection */
-  accentOrange: "#d97757",
-  /** #CC785C — primary accent on light (prototype `terracotta`), focus, selection */
-  terracotta: "#CC785C",
-  /** #6a9bcc — secondary accent (links, info) */
-  accentBlue: "#6a9bcc",
-  /** #788c5d — success and tertiary accent */
-  accentGreen: "#788c5d",
-  /** #6B7280 — dark header grip glyph (prototype dark `gray-500`) */
-  gripDark: "#6B7280",
-  /** #B7B2AE — light header grip glyph: prototype `clay/50` composited on the white capsule */
-  gripLight: "#B7B2AE",
-  /** #4B5563 — dark empty-cell dash and row-number grip (prototype dark `gray-600`) */
-  placeholderDark: "#4B5563",
-  /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
-  placeholderLight: "#C5C1BE",
-  /**
-   * #F3F4F6 — the dark ink a prototype modal card inherits when it carries no colour class:
-   * `#optMgrModal`'s card sits on `body.dark`, whose Tailwind `text-gray-100` is this value
-   * (the plugin's own dark body ink is the warmer #ECE7E1). SAD-90.
-   */
-  modalInkDark: "#F3F4F6",
-  /**
-   * #9CA3AF — placeholder ink the prototype's Tailwind preflight paints (gray-400), in both
-   * themes. The Step-11 float panels' inputs follow it exactly; the toolbar and the modals keep
-   * the accessible `muted` treatment they were verified with (SAD-71/SAD-85).
-   */
-  fieldPlaceholder: "#9CA3AF",
-  /**
-   * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
-   * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
-   * rule as mutedLight (SAD-80).
-   */
-  terracottaTextLight: "#B5573A",
-  /** #DC2626 — light Delete ink (Tailwind red-600, 4.83:1). Prototype red-500 is 3.76:1 (SAD-80). */
-  dangerLight: "#DC2626",
-  /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
-  dangerDark: "#F87171",
-  /** #D1D5DB — light switch track when off (prototype Options `bg-gray-300`, SAD-81) */
-  switchOffLight: "#D1D5DB",
-  /** #D5CEC2 — light scrollbar thumb (prototype `.light ::-webkit-scrollbar-thumb`, SAD-85) */
-  scrollThumbLight: "#D5CEC2"
-};
-var chipHues = {
-  gray: ["#6B7280", "#4B5563", "#D1D5DB"],
-  sky: ["#0EA5E9", "#0369A1", "#7DD3FC"],
-  emerald: ["#10B981", "#065F46", "#6EE7B7"],
-  rose: ["#F43F5E", "#BE123C", "#FDA4AF"],
-  amber: ["#F59E0B", "#92400E", "#FCD34D"],
-  purple: ["#A855F7", "#7E22CE", "#D8B4FE"],
-  pink: ["#EC4899", "#9D174D", "#F9A8D4"]
-};
-var chipGrayDot = "#9CA3AF";
-var chipHueFor = {
-  gray: "gray",
-  brown: "amber",
-  orange: "amber",
-  yellow: "amber",
-  green: "emerald",
-  blue: "sky",
-  purple: "purple",
-  pink: "pink",
-  red: "rose"
-};
-function withAlpha(hex, alpha) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
-}
-function optionChipHue(color) {
-  return chipHueFor[color ?? ""] ?? "gray";
-}
-function optionChipColors(color, theme) {
-  const hue = color && color in chipHues ? color : optionChipHue(color);
-  const [base, inkLight, inkDark] = chipHues[hue];
-  return {
-    background: withAlpha(base, 0.15),
-    border: withAlpha(base, 0.3),
-    text: theme === "dark" ? inkDark : inkLight,
-    dot: hue === "gray" ? chipGrayDot : base
-  };
-}
-var lightTheme = {
-  bg: palette.light,
-  bgCard: palette.cardLight,
-  bgInner: palette.innerLight,
-  bgCapsule: palette.capsuleLight,
-  bgSubtle: palette.innerLight,
-  bgStripe: palette.innerLight,
-  text: palette.textOnLight,
-  textMuted: palette.mutedLight,
-  border: palette.borderLight,
-  borderSubtle: palette.borderLight,
-  accentPrimary: palette.terracotta,
-  accentSecondary: palette.accentBlue,
-  accentSuccess: palette.accentGreen,
-  selection: palette.terracotta,
-  focus: palette.terracotta,
-  onAccent: palette.textOnLight,
-  bgPill: palette.cardLight,
-  bgPillHover: palette.pillHoverLight,
-  borderPillHover: palette.pillBorderHoverLight,
-  borderCapsule: palette.borderLight,
-  textTitle: palette.textOnLight,
-  textModal: palette.textOnLight,
-  textStrong: palette.textOnLight,
-  textFaint: palette.gripLight,
-  textPlaceholder: palette.placeholderLight,
-  fieldPlaceholder: palette.fieldPlaceholder,
-  textSelected: palette.terracottaTextLight,
-  textDanger: palette.dangerLight,
-  accentCheck: palette.terracotta,
-  accentFill: palette.terracotta,
-  switchOff: palette.switchOffLight,
-  scrollThumb: palette.scrollThumbLight,
-  switchKnob: palette.cardLight
-};
-var darkTheme = {
-  bg: palette.dark,
-  bgCard: palette.cardDark,
-  bgInner: palette.innerDark,
-  bgCapsule: palette.capsuleDark,
-  bgSubtle: palette.capsuleDark,
-  bgStripe: palette.cardDark,
-  text: palette.textOnDark,
-  textMuted: palette.mutedDark,
-  border: palette.borderDark,
-  borderSubtle: palette.borderDark,
-  accentPrimary: palette.accentOrange,
-  accentSecondary: palette.accentBlue,
-  accentSuccess: palette.accentGreen,
-  selection: palette.accentOrange,
-  focus: palette.accentOrange,
-  onAccent: palette.dark,
-  bgPill: palette.pillDark,
-  bgPillHover: palette.pillHoverDark,
-  borderPillHover: palette.pillBorderHoverDark,
-  borderCapsule: palette.capsuleBorderDark,
-  textTitle: palette.light,
-  textModal: palette.modalInkDark,
-  textStrong: palette.cardLight,
-  textFaint: palette.gripDark,
-  textPlaceholder: palette.placeholderDark,
-  fieldPlaceholder: palette.fieldPlaceholder,
-  textSelected: palette.terracotta,
-  textDanger: palette.dangerDark,
-  accentCheck: palette.terracotta,
-  accentFill: palette.terracotta,
-  switchOff: palette.placeholderDark,
-  scrollThumb: palette.capsuleBorderDark,
-  switchKnob: palette.cardLight
-};
-var themes = {
-  light: lightTheme,
-  dark: darkTheme
-};
-var cssVars = {
-  bg: "--tablify-bg",
-  bgCard: "--tablify-bg-card",
-  bgInner: "--tablify-bg-inner",
-  bgCapsule: "--tablify-bg-capsule",
-  bgSubtle: "--tablify-bg-subtle",
-  bgStripe: "--tablify-bg-stripe",
-  text: "--tablify-text",
-  textMuted: "--tablify-text-muted",
-  border: "--tablify-border",
-  borderSubtle: "--tablify-border-subtle",
-  accentPrimary: "--tablify-accent-primary",
-  accentSecondary: "--tablify-accent-secondary",
-  accentSuccess: "--tablify-accent-success",
-  selection: "--tablify-selection",
-  focus: "--tablify-focus",
-  onAccent: "--tablify-on-accent",
-  bgPill: "--tablify-bg-pill",
-  bgPillHover: "--tablify-bg-pill-hover",
-  borderPillHover: "--tablify-border-pill-hover",
-  borderCapsule: "--tablify-border-capsule",
-  textTitle: "--tablify-text-title",
-  textModal: "--tablify-text-modal",
-  textStrong: "--tablify-text-strong",
-  textFaint: "--tablify-text-faint",
-  textPlaceholder: "--tablify-text-placeholder",
-  fieldPlaceholder: "--tablify-field-placeholder",
-  textSelected: "--tablify-text-selected",
-  textDanger: "--tablify-text-danger",
-  accentCheck: "--tablify-accent-check",
-  accentFill: "--tablify-accent-fill",
-  switchOff: "--tablify-switch-off",
-  scrollThumb: "--tablify-scroll-thumb",
-  switchKnob: "--tablify-switch-knob"
-};
-function applyTheme(root, theme) {
-  root.classList.remove("tablify--light", "tablify--dark");
-  root.classList.add("tablify", `tablify--${theme}`);
-  const t = themes[theme];
-  root.style.setProperty(cssVars.bg, t.bg);
-  root.style.setProperty(cssVars.bgCard, t.bgCard);
-  root.style.setProperty(cssVars.bgInner, t.bgInner);
-  root.style.setProperty(cssVars.bgCapsule, t.bgCapsule);
-  root.style.setProperty(cssVars.bgSubtle, t.bgSubtle);
-  root.style.setProperty(cssVars.bgStripe, t.bgStripe);
-  root.style.setProperty(cssVars.text, t.text);
-  root.style.setProperty(cssVars.textMuted, t.textMuted);
-  root.style.setProperty(cssVars.border, t.border);
-  root.style.setProperty(cssVars.borderSubtle, t.borderSubtle);
-  root.style.setProperty(cssVars.accentPrimary, t.accentPrimary);
-  root.style.setProperty(cssVars.accentSecondary, t.accentSecondary);
-  root.style.setProperty(cssVars.accentSuccess, t.accentSuccess);
-  root.style.setProperty(cssVars.selection, t.selection);
-  root.style.setProperty(cssVars.focus, t.focus);
-  root.style.setProperty(cssVars.onAccent, t.onAccent);
-  root.style.setProperty(cssVars.bgPill, t.bgPill);
-  root.style.setProperty(cssVars.bgPillHover, t.bgPillHover);
-  root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
-  root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
-  root.style.setProperty(cssVars.textTitle, t.textTitle);
-  root.style.setProperty(cssVars.textModal, t.textModal);
-  root.style.setProperty(cssVars.textStrong, t.textStrong);
-  root.style.setProperty(cssVars.textFaint, t.textFaint);
-  root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
-  root.style.setProperty(cssVars.fieldPlaceholder, t.fieldPlaceholder);
-  root.style.setProperty(cssVars.textSelected, t.textSelected);
-  root.style.setProperty(cssVars.textDanger, t.textDanger);
-  root.style.setProperty(cssVars.accentCheck, t.accentCheck);
-  root.style.setProperty(cssVars.accentFill, t.accentFill);
-  root.style.setProperty(cssVars.switchOff, t.switchOff);
-  root.style.setProperty(cssVars.scrollThumb, t.scrollThumb);
-  root.style.setProperty(cssVars.switchKnob, t.switchKnob);
-}
-
-// src/ui/faIcons.ts
-var GLYPHS = {
-  "file-import": { w: 512, d: "M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z" },
-  "file-export": { w: 576, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z" },
-  "file-csv": { w: 512, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z" },
-  "copy": { w: 512, d: "M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" },
-  "magnifying-glass": { w: 512, d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" },
-  "cloud-arrow-up": { w: 640, d: "M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" },
-  "rotate-left": { w: 512, d: "M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" },
-  "rotate-right": { w: 512, d: "M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z" },
-  "filter": { w: 512, d: "M3.9 54.9C10.5 40.9 24.5 32 40 32H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L320 320.9V448c0 12.1-6.8 23.2-17.7 28.6s-23.8 4.3-33.5-3l-64-48c-8.1-6-12.8-15.5-12.8-25.6V320.9L9 97.3C-.7 85.4-2.8 68.8 3.9 54.9z" },
-  "plus": { w: 448, d: "M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" },
-  "table-columns": { w: 512, d: "M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z" },
-  "sliders": { w: 512, d: "M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" },
-  "xmark": { w: 384, d: "M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" },
-  "trash-can": { w: 448, d: "M135.2 17.7C140.6 6.8 151.7 0 163.8 0H284.2c12.1 0 23.2 6.8 28.6 17.7L320 32h96c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32h96l7.2-14.3zM32 128H416V448c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V128zm96 64c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16z" },
-  "grip-vertical": { w: 320, d: "M40 352l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zm192 0l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 320c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 192l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 160c-22.1 0-40-17.9-40-40L0 72C0 49.9 17.9 32 40 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40z" },
-  "key": { w: 512, d: "M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z" },
-  "ellipsis-vertical": { w: 128, d: "M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z" },
-  "font": { w: 448, d: "M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z" },
-  "align-left": { w: 448, d: "M288 64c0 17.7-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H256c17.7 0 32 14.3 32 32zm0 256c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H256c17.7 0 32 14.3 32 32zM0 192c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 448c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z" },
-  "hashtag": { w: 448, d: "M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H347.1L325.8 320H384c17.7 0 32 14.3 32 32s-14.3 32-32 32H315.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7H155.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8L90.2 384H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192L165.8 320h95.1l21.3-128H187.1z" },
-  "dollar-sign": { w: 320, d: "M160 0c17.7 0 32 14.3 32 32V67.7c1.6 .2 3.1 .4 4.7 .7c.4 .1 .7 .1 1.1 .2l48 8.8c17.4 3.2 28.9 19.9 25.7 37.2s-19.9 28.9-37.2 25.7l-47.5-8.7c-31.3-4.6-58.9-1.5-78.3 6.2s-27.2 18.3-29 28.1c-2 10.7-.5 16.7 1.2 20.4c1.8 3.9 5.5 8.3 12.8 13.2c16.3 10.7 41.3 17.7 73.7 26.3l2.9 .8c28.6 7.6 63.6 16.8 89.6 33.8c14.2 9.3 27.6 21.9 35.9 39.5c8.5 17.9 10.3 37.9 6.4 59.2c-6.9 38-33.1 63.4-65.6 76.7c-13.7 5.6-28.6 9.2-44.4 11V480c0 17.7-14.3 32-32 32s-32-14.3-32-32V445.1c-.4-.1-.9-.1-1.3-.2l-.2 0 0 0c-24.4-3.8-64.5-14.3-91.5-26.3c-16.1-7.2-23.4-26.1-16.2-42.2s26.1-23.4 42.2-16.2c20.9 9.3 55.3 18.5 75.2 21.6c31.9 4.7 58.2 2 76-5.3c16.9-6.9 24.6-16.9 26.8-28.9c1.9-10.6 .4-16.7-1.3-20.4c-1.9-4-5.6-8.4-13-13.3c-16.4-10.7-41.5-17.7-74-26.3l-2.8-.7 0 0C119.4 279.3 84.4 270 58.4 253c-14.2-9.3-27.5-22-35.8-39.6c-8.4-17.9-10.1-37.9-6.1-59.2C23.7 116 52.3 91.2 84.8 78.3c13.3-5.3 27.9-8.9 43.2-11V32c0-17.7 14.3-32 32-32z" },
-  "percent": { w: 384, d: "M374.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-320 320c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l320-320zM128 128A64 64 0 1 0 0 128a64 64 0 1 0 128 0zM384 384a64 64 0 1 0 -128 0 64 64 0 1 0 128 0z" },
-  "stopwatch": { w: 448, d: "M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-41.8-12.3-80.7-33.5-113.2l24.1-24.1c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L355.7 143c-28.1-23-62.2-38.8-99.7-44.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H224 176zm72 192V320c0 13.3-10.7 24-24 24s-24-10.7-24-24V192c0-13.3 10.7-24 24-24s24 10.7 24 24z" },
-  "star": { w: 576, d: "M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z" },
-  "square-check": { w: 448, d: "M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM337 209L209 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L303 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z" },
-  "calendar": { w: 448, d: "M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z" },
-  "clock": { w: 512, d: "M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z" },
-  "link": { w: 640, d: "M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z" },
-  "envelope": { w: 512, d: "M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z" },
-  "phone": { w: 512, d: "M164.9 24.6c-7.7-18.6-28-28.5-47.4-23.2l-88 24C12.1 30.2 0 46 0 64C0 311.4 200.6 512 448 512c18 0 33.8-12.1 38.6-29.5l24-88c5.3-19.4-4.6-39.7-23.2-47.4l-96-40c-16.3-6.8-35.2-2.1-46.3 11.6L304.7 368C234.3 334.7 177.3 277.7 144 207.3L193.3 167c13.7-11.2 18.4-30 11.6-46.3l-40-96z" },
-  "circle-dot": { w: 512, d: "M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-352a96 96 0 1 1 0 192 96 96 0 1 1 0-192z" },
-  "list-check": { w: 512, d: "M152.1 38.2c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 113C-2.3 103.6-2.3 88.4 7 79s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zm0 160c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zM224 96c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H192c-17.7 0-32-14.3-32-32zM48 368a48 48 0 1 1 0 96 48 48 0 1 1 0-96z" },
-  "paperclip": { w: 448, d: "M364.2 83.8c-24.4-24.4-64-24.4-88.4 0l-184 184c-42.1 42.1-42.1 110.3 0 152.4s110.3 42.1 152.4 0l152-152c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-152 152c-64 64-167.6 64-231.6 0s-64-167.6 0-231.6l184-184c46.3-46.3 121.3-46.3 167.6 0s46.3 121.3 0 167.6l-176 176c-28.6 28.6-75 28.6-103.6 0s-28.6-75 0-103.6l144-144c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-144 144c-6.7 6.7-6.7 17.7 0 24.4s17.7 6.7 24.4 0l176-176c24.4-24.4 24.4-64 0-88.4z" },
-  "square-root-variable": { w: 576, d: "M282.6 78.1c8-27.3 33-46.1 61.4-46.1H544c17.7 0 32 14.3 32 32s-14.3 32-32 32H344L238.7 457c-3.6 12.3-14.1 21.2-26.8 22.8s-25.1-4.6-31.5-15.6L77.6 288H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H77.6c22.8 0 43.8 12.1 55.3 31.8l65.2 111.8L282.6 78.1zM393.4 233.4c12.5-12.5 32.8-12.5 45.3 0L480 274.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3L525.3 320l41.4 41.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L480 365.3l-41.4 41.4c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L434.7 320l-41.4-41.4c-12.5-12.5-12.5-32.8 0-45.3z" },
-  "diagram-project": { w: 576, d: "M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z" },
-  "arrow-down-1-9": { w: 576, d: "M450.7 38c-8.3-6-19.1-7.7-28.8-4.4l-48 16c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l5.9-2V160H384c-17.7 0-32 14.3-32 32s14.3 32 32 32h48 48c17.7 0 32-14.3 32-32s-14.3-32-32-32H464V64c0-10.3-4.9-19.9-13.3-26zM160 480c9 0 17.5-3.8 23.6-10.4l88-96c11.9-13 11.1-33.3-2-45.2s-33.3-11.1-45.2 2L192 365.7V64c0-17.7-14.3-32-32-32s-32 14.3-32 32V365.7L95.6 330.4c-11.9-13-32.2-13.9-45.2-2s-13.9 32.2-2 45.2l88 96C142.5 476.2 151 480 160 480zM418.3 307a32 32 0 1 1 27.4 57.9A32 32 0 1 1 418.3 307zM405.1 419.8l-6.8 9.2c-10.5 14.2-7.5 34.2 6.7 44.8s34.2 7.5 44.8-6.7l48.8-65.8c14-18.9 21.5-41.7 21.5-65.2c0-48.6-39.4-88-88-88s-88 39.4-88 88c0 39.2 25.6 72.4 61.1 83.8z" },
-  "calendar-plus": { w: 512, d: "M128 32V64H80c-26.5 0-48 21.5-48 48v48H480V112c0-26.5-21.5-48-48-48H384V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H192V32c0-17.7-14.3-32-32-32s-32 14.3-32 32zM480 192H32V464c0 26.5 21.5 48 48 48H432c26.5 0 48-21.5 48-48V192zM256 248c13.3 0 24 10.7 24 24v56h56c13.3 0 24 10.7 24 24s-10.7 24-24 24H280v56c0 13.3-10.7 24-24 24s-24-10.7-24-24V376H176c-13.3 0-24-10.7-24-24s10.7-24 24-24h56V272c0-13.3 10.7-24 24-24z" },
-  "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" },
-  "filter-circle-xmark": { w: 576, d: "M3.9 22.9C10.5 8.9 24.5 0 40 0H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L396.4 195.6C316.2 212.1 256 283 256 368c0 27.4 6.3 53.4 17.5 76.5c-1.6-.8-3.2-1.8-4.7-2.9l-64-48c-8.1-6-12.8-15.5-12.8-25.6V288.9L9 65.3C-.7 53.4-2.8 36.8 3.9 22.9zM432 224a144 144 0 1 1 0 288 144 144 0 1 1 0-288zm59.3 107.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L432 345.4l-36.7-36.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6L409.4 368l-36.7 36.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L432 390.6l36.7 36.7c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L454.6 368l36.7-36.7z" },
-  "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
-  "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" },
-  "check": { w: 448, d: "M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z" },
-  "palette": { w: 512, d: "M512 256c0 .9 0 1.8 0 2.7c-.4 36.5-33.6 61.3-70.1 61.3H344c-26.5 0-48 21.5-48 48c0 3.4 .4 6.7 1 9.9c2.1 10.2 6.5 20 10.8 29.9c6.1 13.8 12.1 27.5 12.1 42c0 31.8-21.6 60.7-53.4 62c-3.5 .1-7 .2-10.6 .2C114.6 512 0 397.4 0 256S114.6 0 256 0S512 114.6 512 256zM128 288a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm0-96a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm96 96a32 32 0 1 0 0-64 32 32 0 1 0 0 64z" },
-  "arrow-up": { w: 384, d: "M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z" },
-  "arrow-down": { w: 384, d: "M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z" }
-};
-function faIcon(name, sizePx) {
-  const g = GLYPHS[name];
-  const box = sizePx ? { width: `${Math.round(g.w / 512 * sizePx)}`, height: `${sizePx}` } : { width: `${(g.w / 512).toFixed(4)}em`, height: "1em" };
-  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${box.width}" height="${box.height}" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
-}
-
-// src/ui/protoModal.ts
-function dressProtoModal(modal, options = {}) {
-  const { modalEl, titleEl } = modal;
-  modalEl.classList.add("tablify__modal", "tablify__pmodal", `tablify__pmodal--${options.size ?? "sm"}`);
-  applyTheme(modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
-  if (options.icon && !titleEl.querySelector(":scope > .tablify__pmodal-icon")) {
-    titleEl.insertAdjacentHTML("afterbegin", `<span class="tablify__pmodal-icon" aria-hidden="true">${faIcon(options.icon)}</span>`);
-  }
-}
-
-// src/commands/linkIntegrity.ts
-var LINK_INTEGRITY_COMMAND_ID = "tablify-link-integrity";
-var LINK_INTEGRITY_COMMAND_NAME = "Check link integrity (all tables)";
-function registerLinkIntegrityCommand(plugin) {
-  plugin.addCommand({
-    id: LINK_INTEGRITY_COMMAND_ID,
-    name: LINK_INTEGRITY_COMMAND_NAME,
-    callback: () => void runLinkIntegrityCheck(plugin.app)
-  });
-}
-async function runLinkIntegrityCheck(app) {
-  const idx = linkIndexFor(app);
-  await idx.refresh();
-  new LinkIntegrityModal(app, checkIntegrity(idx.index)).open();
-}
-var LinkIntegrityModal = class extends import_obsidian3.Modal {
-  constructor(app, report) {
-    super(app);
-    this.report = report;
-  }
-  onOpen() {
-    const r = this.report;
-    this.setTitle("Link integrity");
-    dressProtoModal(this, { icon: "link", size: "md" });
-    const summary = r.broken.length === 0 ? `No broken links. ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.` : `${r.broken.length} broken of ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.`;
-    this.contentEl.createEl("p", { text: summary, cls: "tablify-link-integrity__summary" });
-    if (r.broken.length > 0) {
-      const list = this.contentEl.createEl("ul", { cls: "tablify-link-integrity__list" });
-      for (const b of r.broken) {
-        const item = list.createEl("li");
-        item.createSpan({ text: `${b.sourceTable} (${b.sourcePath})`, cls: "tablify-link-integrity__where" });
-        item.createSpan({ text: ` \xB7 ${b.fieldName} \xB7 ${b.rowLabel}: ${b.message}` });
-        item.createDiv({ text: `Target: table ${b.targetTableId}, row ${b.targetRowId}`, cls: "tablify-link-integrity__target" });
-      }
-    }
-    if (r.duplicates.length > 0) {
-      this.contentEl.createEl("p", {
-        text: 'Some files share a table ID. Only the first file is used for links. To give a copy its own ID, close its tab and use "Give this copy a new table ID" in the file menu.',
-        cls: "tablify-link-integrity__summary"
-      });
-      const list = this.contentEl.createEl("ul", { cls: "tablify-link-integrity__list" });
-      for (const d of r.duplicates) {
-        list.createEl("li", { text: `${d.tableId}: ${d.paths.join(", ")}` });
-      }
-    }
-  }
-};
-
-// src/views/tableView.ts
-var import_obsidian9 = require("obsidian");
 
 // src/model/tableStore.ts
 function createTableStore(options) {
@@ -12474,6 +10281,59 @@ function getNextColor(field) {
   return OPTION_COLORS[colorIndex];
 }
 
+// src/model/viewOrder.ts
+var collator = new Intl.Collator("en", { numeric: true, sensitivity: "variant" });
+function sortText(value, field) {
+  if (typeof value === "string")
+    return value;
+  return getFieldType(field.type).format(value, field);
+}
+function compareCells(a, b, field, dir) {
+  const aEmpty = a === null || a === void 0 || Array.isArray(a) && a.length === 0;
+  const bEmpty = b === null || b === void 0 || Array.isArray(b) && b.length === 0;
+  if (aEmpty || bEmpty)
+    return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
+  let c;
+  if (typeof a === "number" && typeof b === "number")
+    c = a - b;
+  else if (typeof a === "boolean" && typeof b === "boolean")
+    c = Number(a) - Number(b);
+  else
+    c = collator.compare(sortText(a, field), sortText(b, field));
+  return c * dir;
+}
+function sortRows(rows, sort, fields) {
+  if (sort.length === 0)
+    return rows.slice();
+  const byId = new Map(fields.map((f) => [f.id, f]));
+  const keys = sort.map((s) => ({ field: byId.get(s.fieldId), dir: s.direction === "desc" ? -1 : 1 })).filter((k) => k.field !== void 0);
+  return rows.slice().sort((r1, r2) => {
+    for (const k of keys) {
+      const c = compareCells(r1.values[k.field.id] ?? null, r2.values[k.field.id] ?? null, k.field, k.dir);
+      if (c !== 0)
+        return c;
+    }
+    return 0;
+  });
+}
+function visibleFields(fields, view) {
+  const hidden = new Set(view.hidden);
+  const byId = new Map(fields.map((f) => [f.id, f]));
+  const ordered = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const id of view.columnOrder) {
+    const f = byId.get(id);
+    if (f && !seen.has(id)) {
+      ordered.push(f);
+      seen.add(id);
+    }
+  }
+  for (const f of fields)
+    if (!seen.has(f.id))
+      ordered.push(f);
+  return ordered.filter((f) => !hidden.has(f.id));
+}
+
 // src/model/rowFilter.ts
 function searchableText(value, field) {
   if (value === null || value === void 0)
@@ -12503,7 +10363,7 @@ function compileQuery(query, fields) {
     return { ok: false, error: compiled.error };
   return { ok: true, predicate: compiled.predicate };
 }
-function filterRows2(rows, fields, search, query) {
+function filterRows(rows, fields, search, query) {
   const searched = searchRows(rows, fields, search);
   const compiled = compileQuery(query, fields);
   if (!compiled.ok)
@@ -12521,7 +10381,7 @@ var NOT_A_TARGET = {
   formula: "Formula fields are created with Add field",
   link: "Link fields are created with Add field"
 };
-function isEmpty2(v) {
+function isEmpty(v) {
   return v === null || v === void 0 || v === "" || Array.isArray(v) && v.length === 0;
 }
 function planTypeChange(rows, field, target) {
@@ -12549,7 +10409,7 @@ function planTypeChange(rows, field, target) {
   let blocked = 0;
   for (const row of rows) {
     const old = row.values[field.id];
-    if (isEmpty2(old)) {
+    if (isEmpty(old)) {
       valuesByRow[row.id] = null;
       continue;
     }
@@ -12600,7 +10460,7 @@ function createSession(file) {
       formulas.sync();
       const fields = store.getFields();
       const sorted = sortRows(store.getAllRows(), view.sort, fields);
-      const rows = filterRows2(sorted, fields, view.search, view.query).rows;
+      const rows = filterRows(sorted, fields, view.search, view.query).rows;
       const formulaIds = fields.filter((f) => f.type === "formula").map((f) => f.id);
       if (formulaIds.length === 0)
         return rows;
@@ -12806,6 +10666,2333 @@ function applyNewFieldExtras(field, extras) {
   if (extras.regex)
     field.regex = extras.regex;
 }
+
+// src/io/export/view.ts
+function cellText(value, field) {
+  if (value === null || value === void 0)
+    return "";
+  switch (field.type) {
+    case "checkbox":
+      return value === true ? "true" : value === false ? "false" : "";
+    case "number":
+      return typeof value === "number" ? String(value) : "";
+    case "date":
+    case "date_time":
+    case "text":
+    case "long_text":
+    case "url":
+    case "email":
+    case "phone":
+      return typeof value === "string" ? value : String(value);
+    case "single_select":
+    case "multi_select":
+      return getFieldType(field.type).format(value, field);
+    default:
+      return getFieldType(field.type).format(value, field);
+  }
+}
+function resolveExportTable(file, scope) {
+  if (scope.fullTable) {
+    const view2 = file.views[0] ?? createDefaultView(file.fields);
+    const session2 = createExportSession(file, view2);
+    session2.patchView({ search: "", query: "" });
+    const rowsById = new Map(session2.getDisplayRows().map((row) => [row.id, row]));
+    return {
+      ok: true,
+      table: {
+        name: file.name,
+        fields: file.fields.slice(),
+        rows: file.rows.map((row) => rowsById.get(row.id) ?? row)
+      }
+    };
+  }
+  const index = scope.viewIndex ?? 0;
+  const view = file.views[index];
+  if (!view)
+    return { ok: false, error: 'The table has no view to export. Use "Full table".' };
+  if (scope.query !== void 0) {
+    const query = scope.query.trim();
+    if (query) {
+      const parsed = parseQuery(query);
+      if (!parsed.ok)
+        return { ok: false, error: `Filter error: ${parsed.error.message}` };
+      const compiled = compilePredicate(parsed.ast, file.fields);
+      if (!compiled.ok)
+        return { ok: false, error: `Filter error: ${compiled.error.message}` };
+    }
+  }
+  const session = createExportSession(file, view);
+  if (scope.query !== void 0)
+    session.patchView({ query: scope.query });
+  return {
+    ok: true,
+    table: {
+      name: file.name,
+      fields: session.getVisibleFields(),
+      rows: session.getDisplayRows()
+    }
+  };
+}
+function createExportSession(file, view) {
+  return createSession({ ...file, views: [view] });
+}
+
+// src/io/export/csv.ts
+var BOM = "\uFEFF";
+function csvField(text) {
+  if (/[",\r\n]/.test(text))
+    return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+function toCsv(table) {
+  const lines = [];
+  lines.push(table.fields.map((f) => csvField(f.name)).join(","));
+  for (const row of table.rows) {
+    lines.push(table.fields.map((f) => csvField(cellText(row.values[f.id] ?? null, f))).join(","));
+  }
+  return BOM + lines.join("\r\n") + "\r\n";
+}
+
+// src/io/export/markdown.ts
+function escapeMarkdownCell(text) {
+  return text.replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r\n|\r|\n/g, "<br>");
+}
+function toMarkdown(table) {
+  const header = `| ${table.fields.map((f) => escapeMarkdownCell(f.name)).join(" | ")} |`;
+  const sep = `| ${table.fields.map(() => "---").join(" | ")} |`;
+  const body = table.rows.map(
+    (row) => `| ${table.fields.map((f) => escapeMarkdownCell(cellText(row.values[f.id] ?? null, f))).join(" | ")} |`
+  );
+  return [header, sep, ...body].join("\n") + "\n";
+}
+
+// node_modules/write-excel-file/modules/write/writeXlsxFileBrowser.js
+var import_jszip = __toESM(require_jszip_min(), 1);
+var import_file_saver = __toESM(require_FileSaver_min(), 1);
+
+// node_modules/write-excel-file/modules/write/statics/workbook.xml.js
+function generateWorkbookXml(_ref) {
+  var sheets = _ref.sheets, stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:mv="urn:schemas-microsoft-com:mac:vml" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main"><workbookPr/>' + (stickyRowsCount || stickyColumnsCount ? "<bookViews><workbookView/></bookViews>" : "") + "<sheets>" + sheets.map(function(_ref2) {
+    var id = _ref2.id, name = _ref2.name;
+    return '<sheet name="'.concat(name, '" sheetId="').concat(id, '" r:id="rId').concat(id, '"/>');
+  }).join("") + "</sheets><definedNames/><calcPr/></workbook>";
+}
+
+// node_modules/write-excel-file/modules/write/statics/workbook.xml.rels.js
+function generateWorkbookXmlRels(_ref) {
+  var sheets = _ref.sheets;
+  return '<?xml version="1.0" ?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map(function(_ref2) {
+    var id = _ref2.id;
+    return '<Relationship Id="rId'.concat(id, '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet').concat(id, '.xml"/>');
+  }).join("") + '<Relationship Id="rId'.concat(sheets.length + 1, '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>') + '<Relationship Id="rId'.concat(sheets.length + 2, '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>') + "</Relationships>";
+}
+
+// node_modules/write-excel-file/modules/write/statics/rels.js
+var rels_default = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+
+// node_modules/write-excel-file/modules/write/statics/[Content_Types].xml.js
+var Content_Types_xml_default = '<?xml version="1.0" ?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default ContentType="application/xml" Extension="xml"/><Default ContentType="application/vnd.openxmlformats-package.relationships+xml" Extension="rels"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" PartName="/xl/worksheets/sheet1.xml"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" PartName="/xl/workbook.xml"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml" PartName="/xl/sharedStrings.xml"/><Override ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml" PartName="/xl/styles.xml"/></Types>';
+
+// node_modules/write-excel-file/modules/xml/escapeXmlCharacters.js
+function escapeXmlCharacters(string, _ref) {
+  var attribute = _ref.attribute;
+  string = string.replace(AMPERSAND_REGEXP, "&amp;").replace(GREATER_THAN_REGEXP, "&gt;").replace(LESS_THAN_REGEXP, "&lt;");
+  if (attribute) {
+    string = string.replace(SINGLE_QUOTE_REGEXP, "&apos;").replace(DOUBLE_QUOTE_REGEXP, "&quot;");
+  }
+  return string;
+}
+var AMPERSAND_REGEXP = /&/g;
+var GREATER_THAN_REGEXP = />/g;
+var LESS_THAN_REGEXP = /</g;
+var SINGLE_QUOTE_REGEXP = /'/g;
+var DOUBLE_QUOTE_REGEXP = /"/g;
+
+// node_modules/write-excel-file/modules/xml/removeInvalidXmlCharacters.js
+var INVALID_CHARACTERS = /((?:[\0-\x08\x0B\f\x0E-\x1F\uFFFD\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]))/g;
+var DISCOURAGED_CHARACTERS = new RegExp("([\\x7F-\\x84]|[\\x86-\\x9F]|[\\uFDD0-\\uFDEF]|(?:\\uD83F[\\uDFFE\\uDFFF])|(?:\\uD87F[\\uDFFE\\uDFFF])|(?:\\uD8BF[\\uDFFE\\uDFFF])|(?:\\uD8FF[\\uDFFE\\uDFFF])|(?:\\uD93F[\\uDFFE\\uDFFF])|(?:\\uD97F[\\uDFFE\\uDFFF])|(?:\\uD9BF[\\uDFFE\\uDFFF])|(?:\\uD9FF[\\uDFFE\\uDFFF])|(?:\\uDA3F[\\uDFFE\\uDFFF])|(?:\\uDA7F[\\uDFFE\\uDFFF])|(?:\\uDABF[\\uDFFE\\uDFFF])|(?:\\uDAFF[\\uDFFE\\uDFFF])|(?:\\uDB3F[\\uDFFE\\uDFFF])|(?:\\uDB7F[\\uDFFE\\uDFFF])|(?:\\uDBBF[\\uDFFE\\uDFFF])|(?:\\uDBFF[\\uDFFE\\uDFFF])(?:[\\0-\\t\\x0B\\f\\x0E-\\u2027\\u202A-\\uD7FF\\uE000-\\uFFFF]|[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?:[^\\uD800-\\uDBFF]|^)[\\uDC00-\\uDFFF]))", "g");
+function removeInvalidXmlCharacters(string) {
+  var _ref = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, _ref$removeDiscourage = _ref.removeDiscouragedCharacters, removeDiscouragedCharacters = _ref$removeDiscourage === void 0 ? true : _ref$removeDiscourage;
+  string = string.replace(INVALID_CHARACTERS, "");
+  if (removeDiscouragedCharacters) {
+    string = string.replace(DISCOURAGED_CHARACTERS, "");
+  }
+  return string;
+}
+
+// node_modules/write-excel-file/modules/xml/sanitizeText.js
+function sanitizeText(string) {
+  return escapeXmlCharacters(removeInvalidXmlCharacters(string), {
+    attribute: false
+  });
+}
+
+// node_modules/write-excel-file/modules/write/generateCellNumber.js
+function generateCellNumber(columnIndex, rowNumber) {
+  return "".concat(generateColumnLetter(columnIndex)).concat(rowNumber);
+}
+var LETTERS_COUNT = 26;
+function generateColumnLetter(columnIndex) {
+  if (typeof columnIndex !== "number") {
+    return "";
+  }
+  var prefix = Math.floor(columnIndex / LETTERS_COUNT);
+  var letter = String.fromCharCode(97 + columnIndex % LETTERS_COUNT).toUpperCase();
+  if (prefix === 0) {
+    return letter;
+  }
+  return generateColumnLetter(prefix - 1) + letter;
+}
+
+// node_modules/write-excel-file/modules/write/convertDateToExcelSerial.js
+var daysBeforeUnixEpoch = 70 * 365 + 19;
+var hour = 60 * 60 * 1e3;
+var day = 24 * hour;
+function convertDateToExcelSerial(date) {
+  return date.getTime() / day + daysBeforeUnixEpoch;
+}
+
+// node_modules/write-excel-file/modules/write/cell.js
+function _slicedToArray4(arr, i) {
+  return _arrayWithHoles4(arr) || _iterableToArrayLimit4(arr, i) || _unsupportedIterableToArray9(arr, i) || _nonIterableRest4();
+}
+function _nonIterableRest4() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray9(o, minLen) {
+  if (!o)
+    return;
+  if (typeof o === "string")
+    return _arrayLikeToArray9(o, minLen);
+  var n = Object.prototype.toString.call(o).slice(8, -1);
+  if (n === "Object" && o.constructor)
+    n = o.constructor.name;
+  if (n === "Map" || n === "Set")
+    return Array.from(o);
+  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+    return _arrayLikeToArray9(o, minLen);
+}
+function _arrayLikeToArray9(arr, len) {
+  if (len == null || len > arr.length)
+    len = arr.length;
+  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+    arr2[i] = arr[i];
+  }
+  return arr2;
+}
+function _iterableToArrayLimit4(arr, i) {
+  var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
+  if (_i == null)
+    return;
+  var _arr = [];
+  var _n = true;
+  var _d = false;
+  var _s, _e;
+  try {
+    for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
+      _arr.push(_s.value);
+      if (i && _arr.length === i)
+        break;
+    }
+  } catch (err3) {
+    _d = true;
+    _e = err3;
+  } finally {
+    try {
+      if (!_n && _i["return"] != null)
+        _i["return"]();
+    } finally {
+      if (_d)
+        throw _e;
+    }
+  }
+  return _arr;
+}
+function _arrayWithHoles4(arr) {
+  if (Array.isArray(arr))
+    return arr;
+}
+function generateCell(rowNumber, columnIndex, value, type, cellStyleId, getSharedString) {
+  if (value === null) {
+    if (!cellStyleId) {
+      return "";
+    }
+  }
+  var xml = '<c r="'.concat(generateCellNumber(columnIndex, rowNumber), '"');
+  if (cellStyleId) {
+    xml += ' s="'.concat(cellStyleId, '"');
+  }
+  if (value === null) {
+    return xml + "/>";
+  }
+  if (type === Date && !cellStyleId) {
+    throw new Error('No "format" has been specified for a Date cell');
+  }
+  value = getXlsxValue(type, value, getSharedString);
+  type = getXlsxType(type);
+  if (type) {
+    xml += ' t="'.concat(type, '"');
+  }
+  var _getOpeningAndClosing = getOpeningAndClosingTags(type), _getOpeningAndClosing2 = _slicedToArray4(_getOpeningAndClosing, 2), openingTags = _getOpeningAndClosing2[0], closingTags = _getOpeningAndClosing2[1];
+  return xml + ">" + openingTags + value + closingTags + "</c>";
+}
+function getXlsxType(type) {
+  switch (type) {
+    case String:
+      return "s";
+    case Number:
+      return;
+    case Date:
+      return;
+    case Boolean:
+      return "b";
+    case "Formula":
+      return "f";
+    default:
+      throw new Error("Unknown schema type: ".concat(type && type.name || type));
+  }
+}
+function getXlsxValue(type, value, getSharedString) {
+  switch (type) {
+    case String:
+      if (typeof value !== "string") {
+        throw new Error("Invalid cell value: ".concat(value, ". Expected a string"));
+      }
+      return getSharedString(value);
+    case Number:
+      if (typeof value !== "number") {
+        throw new Error("Invalid cell value: ".concat(value, ". Expected a number"));
+      }
+      return String(value);
+    case Date:
+      if (!(value instanceof Date)) {
+        throw new Error("Invalid cell value: ".concat(value, ". Expected a Date"));
+      }
+      return String(convertDateToExcelSerial(value));
+    case Boolean:
+      if (typeof value !== "boolean") {
+        throw new Error("Invalid cell value: ".concat(value, ". Expected a boolean"));
+      }
+      return value ? "1" : "0";
+    case "Formula":
+      if (typeof value !== "string") {
+        throw new Error("Invalid cell value: ".concat(value, ". Expected a string"));
+      }
+      return sanitizeText(value);
+    default:
+      throw new Error("Unknown schema type: ".concat(type && type.name || type));
+  }
+}
+var TAG_BRACKET_LEFT_REGEXP = /</g;
+function getOpeningAndClosingTags(xlsxType) {
+  var openingTags = getOpeningTags(xlsxType);
+  var closingTags = openingTags.replace(TAG_BRACKET_LEFT_REGEXP, "</");
+  return [openingTags, closingTags];
+}
+function getOpeningTags(xlsxType) {
+  switch (xlsxType) {
+    case "inlineStr":
+      return "<is><t>";
+    case "f":
+      return "<f>";
+    default:
+      return "<v>";
+  }
+}
+
+// node_modules/write-excel-file/modules/write/getCellStyleProperties.js
+function getCellStyleProperties(cell2) {
+  var align = cell2.align, alignVertical = cell2.alignVertical, textRotation = cell2.textRotation, wrap = cell2.wrap, fontFamily = cell2.fontFamily, fontSize = cell2.fontSize, fontWeight = cell2.fontWeight, fontStyle = cell2.fontStyle, color = cell2.color, backgroundColor = cell2.backgroundColor, borderColor = cell2.borderColor, borderStyle = cell2.borderStyle, leftBorderColor = cell2.leftBorderColor, leftBorderStyle = cell2.leftBorderStyle, rightBorderColor = cell2.rightBorderColor, rightBorderStyle = cell2.rightBorderStyle, topBorderColor = cell2.topBorderColor, topBorderStyle = cell2.topBorderStyle, bottomBorderColor = cell2.bottomBorderColor, bottomBorderStyle = cell2.bottomBorderStyle;
+  if (align || alignVertical || textRotation || wrap || fontFamily || fontSize || fontWeight || fontStyle || color || backgroundColor || borderColor || borderStyle || leftBorderColor || leftBorderStyle || rightBorderColor || rightBorderStyle || topBorderColor || topBorderStyle || bottomBorderColor || bottomBorderStyle) {
+    return omitUndefinedProperties({
+      align,
+      alignVertical,
+      textRotation,
+      wrap,
+      fontFamily,
+      fontSize,
+      fontWeight,
+      fontStyle,
+      color,
+      backgroundColor,
+      borderColor,
+      borderStyle,
+      leftBorderColor,
+      leftBorderStyle,
+      rightBorderColor,
+      rightBorderStyle,
+      topBorderColor,
+      topBorderStyle,
+      bottomBorderColor,
+      bottomBorderStyle
+    });
+  }
+}
+function omitUndefinedProperties(object) {
+  var filteredObject = {};
+  for (var key in object) {
+    if (object[key] !== void 0) {
+      filteredObject[key] = object[key];
+    }
+  }
+  return filteredObject;
+}
+
+// node_modules/write-excel-file/modules/write/row.js
+function _typeof2(obj) {
+  "@babel/helpers - typeof";
+  return _typeof2 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(obj2) {
+    return typeof obj2;
+  } : function(obj2) {
+    return obj2 && "function" == typeof Symbol && obj2.constructor === Symbol && obj2 !== Symbol.prototype ? "symbol" : typeof obj2;
+  }, _typeof2(obj);
+}
+function generateRow(row, rowIndex, _ref) {
+  var getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat, usesSchema = _ref.usesSchema;
+  var rowNumber = rowIndex + 1;
+  var rowHeight;
+  var rowCells = row.map(function(cell2, columnIndex) {
+    if (cell2 === void 0 || cell2 === null) {
+      return "";
+    }
+    var height = cell2.height;
+    var cellStyleProperties = getCellStyleProperties(cell2);
+    var type = cell2.type, value = cell2.value, format = cell2.format;
+    if (isEmpty2(value)) {
+      value = null;
+    } else {
+      if (type === void 0) {
+        if (!usesSchema) {
+          type = detectValueType(value);
+        }
+        if (type === void 0) {
+          type = String;
+          value = String(value);
+        }
+      }
+    }
+    if (format) {
+      if (type !== Date && type !== Number && type !== "Formula") {
+        throw new Error('`format` can only be used on `Date`, `Number` or `"Formula"` cells');
+      }
+    } else {
+      if (type === Date) {
+        format = dateFormat;
+      }
+    }
+    var cellStyleId;
+    if (format || customFont || cellStyleProperties) {
+      cellStyleId = getStyle(cellStyleProperties || {}, {
+        format
+      });
+    }
+    if (height) {
+      if (rowHeight === void 0 || rowHeight < height) {
+        rowHeight = height;
+      }
+    }
+    return generateCell(rowNumber, columnIndex, value, type, cellStyleId, getSharedString);
+  }).join("");
+  return '<row r="'.concat(rowNumber, '"') + (rowHeight ? ' ht="'.concat(rowHeight, '" customHeight="1"') : "") + ">" + rowCells + "</row>";
+}
+function isEmpty2(value) {
+  return value === void 0 || value === null || value === "";
+}
+function detectValueType(value) {
+  switch (_typeof2(value)) {
+    case "string":
+      return String;
+    case "number":
+      return Number;
+    case "boolean":
+      return Boolean;
+    default:
+      if (value instanceof Date) {
+        return Date;
+      }
+  }
+}
+
+// node_modules/write-excel-file/modules/write/rows.js
+function ownKeys2(object, enumerableOnly) {
+  var keys = Object.keys(object);
+  if (Object.getOwnPropertySymbols) {
+    var symbols = Object.getOwnPropertySymbols(object);
+    enumerableOnly && (symbols = symbols.filter(function(sym) {
+      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+    })), keys.push.apply(keys, symbols);
+  }
+  return keys;
+}
+function _objectSpread2(target) {
+  for (var i = 1; i < arguments.length; i++) {
+    var source = null != arguments[i] ? arguments[i] : {};
+    i % 2 ? ownKeys2(Object(source), true).forEach(function(key) {
+      _defineProperty2(target, key, source[key]);
+    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys2(Object(source)).forEach(function(key) {
+      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+    });
+  }
+  return target;
+}
+function _defineProperty2(obj, key, value) {
+  if (key in obj) {
+    Object.defineProperty(obj, key, { value, enumerable: true, configurable: true, writable: true });
+  } else {
+    obj[key] = value;
+  }
+  return obj;
+}
+function _createForOfIteratorHelperLoose7(o, allowArrayLike) {
+  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
+  if (it)
+    return (it = it.call(o)).next.bind(it);
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray10(o)) || allowArrayLike && o && typeof o.length === "number") {
+    if (it)
+      o = it;
+    var i = 0;
+    return function() {
+      if (i >= o.length)
+        return { done: true };
+      return { done: false, value: o[i++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray10(o, minLen) {
+  if (!o)
+    return;
+  if (typeof o === "string")
+    return _arrayLikeToArray10(o, minLen);
+  var n = Object.prototype.toString.call(o).slice(8, -1);
+  if (n === "Object" && o.constructor)
+    n = o.constructor.name;
+  if (n === "Map" || n === "Set")
+    return Array.from(o);
+  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+    return _arrayLikeToArray10(o, minLen);
+}
+function _arrayLikeToArray10(arr, len) {
+  if (len == null || len > arr.length)
+    len = arr.length;
+  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+    arr2[i] = arr[i];
+  }
+  return arr2;
+}
+function generateRows(data, _ref) {
+  var schema = _ref.schema, headerStyle = _ref.headerStyle, getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat;
+  if (schema) {
+    var header = [];
+    for (var _iterator = _createForOfIteratorHelperLoose7(schema), _step; !(_step = _iterator()).done; ) {
+      var column = _step.value;
+      if (column.column) {
+        header = [schema.map(function(column2) {
+          return _objectSpread2({
+            type: String,
+            value: column2.column,
+            align: column2.align
+          }, headerStyle || DEFAULT_HEADER_STYLE);
+        })];
+        break;
+      }
+    }
+    data = header.concat(data.map(function(row) {
+      return schema.map(function(column2) {
+        return _objectSpread2(_objectSpread2({}, column2), {}, {
+          value: column2.value(row)
+        });
+      });
+    }));
+  }
+  return data.map(function(row, index) {
+    return generateRow(row, index, {
+      getStyle,
+      getSharedString,
+      customFont,
+      dateFormat,
+      usesSchema: schema !== void 0
+    });
+  }).join("");
+}
+var DEFAULT_HEADER_STYLE = {
+  fontWeight: "bold"
+};
+
+// node_modules/write-excel-file/modules/write/column.js
+var DATE_COLUMN_DEFAULT_WIDTH = 14;
+function generateColumnDescription(column, index) {
+  if (!column) {
+    return "";
+  }
+  if (column.type === Date && !column.width) {
+    column.width = DATE_COLUMN_DEFAULT_WIDTH;
+  }
+  if (!column.width) {
+    return "";
+  }
+  var columnNumber = index + 1;
+  return '<col min="'.concat(columnNumber, '" max="').concat(columnNumber, '" width="').concat(column.width, '" customWidth="1"/>');
+}
+
+// node_modules/write-excel-file/modules/write/columns.js
+function generateColumnsDescription(_ref) {
+  var schema = _ref.schema, columns = _ref.columns;
+  if (schema || columns) {
+    var description = (schema || columns).map(generateColumnDescription).join("");
+    if (description) {
+      return "<cols>".concat(description, "</cols>");
+    }
+  }
+  return "";
+}
+
+// node_modules/write-excel-file/modules/write/processMergedCells.js
+function processMergedCells(data, _ref) {
+  var schema = _ref.schema;
+  var mergedCells = [];
+  if (schema) {
+    return {
+      data,
+      mergedCells
+    };
+  }
+  var _cloneData = function cloneData() {
+    data = data.slice();
+    var i = 0;
+    while (i < data.length) {
+      data[i] = data[i].slice();
+      i++;
+    }
+    _cloneData = function cloneData2() {
+      return data;
+    };
+    return data;
+  };
+  var rowIndex = 0;
+  while (rowIndex < data.length) {
+    var row = data[rowIndex];
+    var columnIndex = 0;
+    while (columnIndex < row.length) {
+      var cell2 = row[columnIndex];
+      if (cell2) {
+        var _cell$span = cell2.span, span = _cell$span === void 0 ? 1 : _cell$span, _cell$rowSpan = cell2.rowSpan, rowSpan = _cell$rowSpan === void 0 ? 1 : _cell$rowSpan;
+        if (span > 1 || rowSpan > 1) {
+          processSpanningCells({
+            data,
+            rowIndex,
+            columnIndex,
+            span,
+            rowSpan,
+            cloneData: _cloneData
+          });
+          mergedCells.push([[rowIndex, columnIndex], [rowIndex + (rowSpan ? rowSpan - 1 : 0), columnIndex + (span ? span - 1 : 0)]]);
+        }
+      }
+      columnIndex++;
+    }
+    rowIndex++;
+  }
+  return {
+    data,
+    mergedCells
+  };
+}
+function processSpanningCells(_ref2) {
+  var data = _ref2.data, rowIndex = _ref2.rowIndex, columnIndex = _ref2.columnIndex, span = _ref2.span, rowSpan = _ref2.rowSpan, cloneData = _ref2.cloneData;
+  var cellStyleProperties = getCellStyleProperties(data[rowIndex][columnIndex]);
+  if (cellStyleProperties) {
+    data = cloneData();
+  }
+  var i = rowIndex;
+  while (i <= rowIndex + (rowSpan - 1)) {
+    var j = columnIndex;
+    while (j <= columnIndex + (span - 1)) {
+      var cell2 = data[i][j];
+      if (i > rowIndex || j > columnIndex) {
+        if (cell2 !== null && cell2 !== void 0) {
+          throw new Error("[write-excel-file] When using `span` or `rowSpan` parameters, all hidden overlapped cells should be represented by `null`s or `undefined`s. Cell at row ".concat(rowIndex + 1, " and column ").concat(columnIndex + 1, " is configured with `span` ").concat(span, " and `rowSpan` ").concat(rowSpan, ". Cell at row ").concat(i + 1, " and column ").concat(j + 1, " is neither `null` nor `undefined`: ").concat(JSON.stringify(cell2)));
+        }
+        if (cellStyleProperties) {
+          data[i][j] = cellStyleProperties;
+        }
+      }
+      j++;
+    }
+    i++;
+  }
+}
+
+// node_modules/write-excel-file/modules/write/generateMergedCellsDescription.js
+function _slicedToArray5(arr, i) {
+  return _arrayWithHoles5(arr) || _iterableToArrayLimit5(arr, i) || _unsupportedIterableToArray11(arr, i) || _nonIterableRest5();
+}
+function _nonIterableRest5() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray11(o, minLen) {
+  if (!o)
+    return;
+  if (typeof o === "string")
+    return _arrayLikeToArray11(o, minLen);
+  var n = Object.prototype.toString.call(o).slice(8, -1);
+  if (n === "Object" && o.constructor)
+    n = o.constructor.name;
+  if (n === "Map" || n === "Set")
+    return Array.from(o);
+  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+    return _arrayLikeToArray11(o, minLen);
+}
+function _arrayLikeToArray11(arr, len) {
+  if (len == null || len > arr.length)
+    len = arr.length;
+  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+    arr2[i] = arr[i];
+  }
+  return arr2;
+}
+function _iterableToArrayLimit5(arr, i) {
+  var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
+  if (_i == null)
+    return;
+  var _arr = [];
+  var _n = true;
+  var _d = false;
+  var _s, _e;
+  try {
+    for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
+      _arr.push(_s.value);
+      if (i && _arr.length === i)
+        break;
+    }
+  } catch (err3) {
+    _d = true;
+    _e = err3;
+  } finally {
+    try {
+      if (!_n && _i["return"] != null)
+        _i["return"]();
+    } finally {
+      if (_d)
+        throw _e;
+    }
+  }
+  return _arr;
+}
+function _arrayWithHoles5(arr) {
+  if (Array.isArray(arr))
+    return arr;
+}
+function generateMergedCellsDescription(mergedCells) {
+  if (mergedCells.length === 0) {
+    return "";
+  }
+  return '<mergeCells count="'.concat(mergedCells.length, '">') + mergedCells.map(function(_ref) {
+    var _ref2 = _slicedToArray5(_ref, 2), from = _ref2[0], to = _ref2[1];
+    var coordinates = generateCellNumber(from[1], from[0] + 1) + ":" + generateCellNumber(to[1], to[0] + 1);
+    return '<mergeCell ref="'.concat(coordinates, '"/>');
+  }).join("") + "</mergeCells>";
+}
+
+// node_modules/write-excel-file/modules/xml/sanitizeAttributeValue.js
+function sanitizeAttributeValue(string) {
+  return escapeXmlCharacters(removeInvalidXmlCharacters(string), {
+    attribute: true
+  });
+}
+
+// node_modules/write-excel-file/modules/write/layout.js
+function generateLayout(_ref) {
+  var sheetId = _ref.sheetId, orientation = _ref.orientation;
+  var layout = "";
+  if (orientation) {
+    var marginLeft = 0.7;
+    var marginRight = 0.7;
+    var marginTop = 0.75;
+    var marginBottom = 0.75;
+    var header = 0.3;
+    var footer = 0.3;
+    layout += "<pageMargins";
+    layout += ' left="'.concat(marginLeft, '"');
+    layout += ' right="'.concat(marginRight, '"');
+    layout += ' top="'.concat(marginTop, '"');
+    layout += ' bottom="'.concat(marginBottom, '"');
+    layout += ' header="'.concat(header, '"');
+    layout += ' footer="'.concat(footer, '"');
+    layout += "/>";
+  }
+  if (orientation) {
+    var paperSize = 9;
+    layout += "<pageSetup";
+    layout += ' paperSize="'.concat(paperSize, '"');
+    layout += ' orientation="'.concat(sanitizeAttributeValue(orientation), '"');
+    layout += ' r:id="rId'.concat(sheetId, '"');
+    layout += "/>";
+  }
+  return layout;
+}
+
+// node_modules/write-excel-file/modules/write/views.js
+function generateViews(_ref) {
+  var stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount;
+  if (!stickyRowsCount && !stickyColumnsCount) {
+    return "";
+  }
+  var views = "";
+  views += "<sheetViews>";
+  views += '<sheetView tabSelected="1" workbookViewId="0">';
+  views += '<pane ySplit="'.concat(stickyRowsCount || 0, '" xSplit="').concat(stickyColumnsCount || 0, '" topLeftCell="').concat(generateCellNumber(stickyColumnsCount || 0, (stickyRowsCount || 0) + 1), '" activePane="bottomRight" state="frozen"/>');
+  views += "</sheetView>";
+  views += "</sheetViews>";
+  return views;
+}
+
+// node_modules/write-excel-file/modules/write/worksheet.js
+var WORKSHEET_TEMPLATE = '<?xml version="1.0" ?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:mv="urn:schemas-microsoft-com:mac:vml" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main">{views}{columnsDescription}<sheetData>{data}</sheetData>{mergedCellsDescription}{layout}</worksheet>';
+function generateWorksheet(data_, _ref) {
+  var schema = _ref.schema, columns = _ref.columns, headerStyle = _ref.headerStyle, getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat, orientation = _ref.orientation, stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount, sheetId = _ref.sheetId;
+  validateData(data_, {
+    schema
+  });
+  var _processMergedCells = processMergedCells(data_, {
+    schema
+  }), data = _processMergedCells.data, mergedCells = _processMergedCells.mergedCells;
+  return WORKSHEET_TEMPLATE.replace("{data}", generateRows(data, {
+    schema,
+    headerStyle,
+    getStyle,
+    getSharedString,
+    customFont,
+    dateFormat
+  })).replace("{views}", generateViews({
+    stickyRowsCount,
+    stickyColumnsCount
+  })).replace("{columnsDescription}", generateColumnsDescription({
+    schema,
+    columns
+  })).replace("{mergedCellsDescription}", generateMergedCellsDescription(mergedCells)).replace("{layout}", generateLayout({
+    sheetId,
+    orientation
+  }));
+}
+function validateData(data, _ref2) {
+  var schema = _ref2.schema;
+  if (schema) {
+    if (!Array.isArray(data)) {
+      throw new TypeError("Expected an array of objects");
+    }
+  } else {
+    if (!Array.isArray(data)) {
+      throw new TypeError("Expected an array of arrays");
+    }
+    if (data.length > 0) {
+      if (!Array.isArray(data[0])) {
+        throw new TypeError("Expected an array of arrays");
+      }
+    }
+  }
+}
+
+// node_modules/write-excel-file/modules/write/styles.js
+function _createForOfIteratorHelperLoose8(o, allowArrayLike) {
+  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
+  if (it)
+    return (it = it.call(o)).next.bind(it);
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray12(o)) || allowArrayLike && o && typeof o.length === "number") {
+    if (it)
+      o = it;
+    var i = 0;
+    return function() {
+      if (i >= o.length)
+        return { done: true };
+      return { done: false, value: o[i++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray12(o, minLen) {
+  if (!o)
+    return;
+  if (typeof o === "string")
+    return _arrayLikeToArray12(o, minLen);
+  var n = Object.prototype.toString.call(o).slice(8, -1);
+  if (n === "Object" && o.constructor)
+    n = o.constructor.name;
+  if (n === "Map" || n === "Set")
+    return Array.from(o);
+  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+    return _arrayLikeToArray12(o, minLen);
+}
+function _arrayLikeToArray12(arr, len) {
+  if (len == null || len > arr.length)
+    len = arr.length;
+  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+    arr2[i] = arr[i];
+  }
+  return arr2;
+}
+var FORMAT_ID_STARTS_FROM = 100;
+function initStyles(_ref) {
+  var defaultFontFamily = _ref.fontFamily, defaultFontSize = _ref.fontSize;
+  var customFont = Boolean(defaultFontFamily || defaultFontSize);
+  if (defaultFontFamily === void 0) {
+    defaultFontFamily = "Calibri";
+  }
+  if (defaultFontSize === void 0) {
+    defaultFontSize = 12;
+  }
+  var formats = [];
+  var formatsIndex = {};
+  var styles = [];
+  var stylesIndex = {};
+  var fonts = [];
+  var fontsIndex = {};
+  var fills = [];
+  var fillsIndex = {};
+  var borders = [];
+  var bordersIndex = {};
+  fonts.push({
+    size: defaultFontSize,
+    family: defaultFontFamily,
+    custom: customFont
+  });
+  fontsIndex["-:-"] = 0;
+  fills.push({});
+  fillsIndex["-"] = 0;
+  borders.push({
+    left: {},
+    right: {},
+    top: {},
+    bottom: {}
+  });
+  bordersIndex["-:-/-:-/-:-/-:-"] = 0;
+  fills.push({
+    gray125: true
+  });
+  function getStyle(_ref2, _ref3) {
+    var align = _ref2.align, alignVertical = _ref2.alignVertical, textRotation = _ref2.textRotation, wrap = _ref2.wrap, fontFamily = _ref2.fontFamily, fontSize = _ref2.fontSize, fontWeight = _ref2.fontWeight, fontStyle = _ref2.fontStyle, color = _ref2.color, backgroundColor = _ref2.backgroundColor, borderColor = _ref2.borderColor, borderStyle = _ref2.borderStyle, leftBorderColor = _ref2.leftBorderColor, leftBorderStyle = _ref2.leftBorderStyle, rightBorderColor = _ref2.rightBorderColor, rightBorderStyle = _ref2.rightBorderStyle, topBorderColor = _ref2.topBorderColor, topBorderStyle = _ref2.topBorderStyle, bottomBorderColor = _ref2.bottomBorderColor, bottomBorderStyle = _ref2.bottomBorderStyle;
+    var format = _ref3.format;
+    var border = void 0;
+    var fontKey = "".concat(fontFamily || "-", ":").concat(fontSize || "-", ":").concat(fontWeight || "-", ":").concat(fontStyle || "-", ":").concat(color || "-");
+    var fillKey = backgroundColor || "-";
+    var borderKey = "".concat(topBorderColor || borderColor || "-", ":").concat(topBorderStyle || borderStyle || "-") + "/" + "".concat(rightBorderColor || borderColor || "-", ":").concat(rightBorderStyle || borderStyle || "-") + "/" + "".concat(bottomBorderColor || borderColor || "-", ":").concat(bottomBorderStyle || borderStyle || "-") + "/" + "".concat(leftBorderColor || borderColor || "-", ":").concat(leftBorderStyle || borderStyle || "-");
+    var key = "".concat(align || "-", "/").concat(alignVertical || "-", "/").concat(textRotation || "-", "/").concat(format || "-", "/").concat(wrap || "-", "/").concat(fontKey, "/").concat(fillKey, "/").concat(borderKey);
+    var styleId = stylesIndex[key];
+    if (styleId !== void 0) {
+      return styleId;
+    }
+    var formatId;
+    if (format) {
+      formatId = formatsIndex[format];
+      if (formatId === void 0) {
+        formatId = formatsIndex[format] = String(FORMAT_ID_STARTS_FROM + formats.length);
+        formats.push(format);
+      }
+    }
+    var fontId = customFont ? 0 : void 0;
+    if (fontFamily || fontSize || fontWeight || fontStyle || color) {
+      fontId = fontsIndex[fontKey];
+      if (fontId === void 0) {
+        fontId = fontsIndex[fontKey] = String(fonts.length);
+        fonts.push({
+          custom: true,
+          size: fontSize || defaultFontSize,
+          family: fontFamily || defaultFontFamily,
+          weight: fontWeight,
+          style: fontStyle,
+          color
+        });
+      }
+    }
+    var fillId;
+    if (backgroundColor) {
+      fillId = fillsIndex[fillKey];
+      if (fillId === void 0) {
+        fillId = fillsIndex[fillKey] = String(fills.length);
+        fills.push({
+          color: backgroundColor
+        });
+      }
+    }
+    var borderId;
+    if (borderColor || borderStyle || leftBorderColor || leftBorderStyle || rightBorderColor || rightBorderStyle || topBorderColor || topBorderStyle || bottomBorderColor || bottomBorderStyle) {
+      borderId = bordersIndex[borderKey];
+      if (borderId === void 0) {
+        borderId = bordersIndex[borderKey] = String(borders.length);
+        borders.push({
+          left: {
+            style: leftBorderStyle || borderStyle,
+            color: leftBorderColor || borderColor
+          },
+          right: {
+            style: rightBorderStyle || borderStyle,
+            color: rightBorderColor || borderColor
+          },
+          top: {
+            style: topBorderStyle || borderStyle,
+            color: topBorderColor || borderColor
+          },
+          bottom: {
+            style: bottomBorderStyle || borderStyle,
+            color: bottomBorderColor || borderColor
+          }
+        });
+      }
+    }
+    styles.push({
+      fontId,
+      fillId,
+      borderId,
+      align,
+      alignVertical,
+      textRotation,
+      wrap,
+      formatId
+    });
+    return stylesIndex[key] = String(styles.length - 1);
+  }
+  getStyle({}, {});
+  return {
+    getStylesXml: function getStylesXml() {
+      return generateXml({
+        formats,
+        styles,
+        fonts,
+        fills,
+        borders
+      });
+    },
+    getStyle
+  };
+}
+function generateXml(_ref4) {
+  var formats = _ref4.formats, styles = _ref4.styles, fonts = _ref4.fonts, fills = _ref4.fills, borders = _ref4.borders;
+  var xml = '<?xml version="1.0" ?>';
+  xml += '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+  if (formats.length > 0) {
+    xml += '<numFmts count="'.concat(formats.length, '">');
+    for (var i = 0; i < formats.length; i++) {
+      xml += '<numFmt numFmtId="'.concat(FORMAT_ID_STARTS_FROM + i, '" formatCode="').concat(sanitizeAttributeValue(formats[i]), '"/>');
+    }
+    xml += "</numFmts>";
+  }
+  xml += '<fonts count="'.concat(fonts.length, '">');
+  for (var _iterator = _createForOfIteratorHelperLoose8(fonts), _step; !(_step = _iterator()).done; ) {
+    var font = _step.value;
+    var size = font.size, family = font.family, color = font.color, weight = font.weight, style = font.style, custom = font.custom;
+    xml += "<font>";
+    xml += '<sz val="'.concat(size, '"/>');
+    xml += "<color ".concat(color ? 'rgb="' + sanitizeAttributeValue(getColor(color)) + '"' : 'theme="1"', "/>");
+    xml += '<name val="'.concat(sanitizeAttributeValue(family), '"/>');
+    xml += '<family val="2"/>';
+    if (!custom) {
+      xml += '<scheme val="minor"/>';
+    }
+    if (weight === "bold") {
+      xml += "<b/>";
+    }
+    if (style === "italic") {
+      xml += "<i/>";
+    }
+    xml += "</font>";
+  }
+  xml += "</fonts>";
+  xml += '<fills count="'.concat(fills.length, '">');
+  for (var _iterator2 = _createForOfIteratorHelperLoose8(fills), _step2; !(_step2 = _iterator2()).done; ) {
+    var fill = _step2.value;
+    var _color = fill.color, gray125 = fill.gray125;
+    xml += "<fill>";
+    if (_color) {
+      xml += '<patternFill patternType="solid">';
+      xml += '<fgColor rgb="'.concat(sanitizeAttributeValue(getColor(_color)), '"/>');
+      xml += '<bgColor indexed="64"/>';
+      xml += "</patternFill>";
+    } else if (gray125) {
+      xml += '<patternFill patternType="gray125"/>';
+    } else {
+      xml += '<patternFill patternType="none"/>';
+    }
+    xml += "</fill>";
+  }
+  xml += "</fills>";
+  xml += '<borders count="'.concat(borders.length, '">');
+  for (var _iterator3 = _createForOfIteratorHelperLoose8(borders), _step3; !(_step3 = _iterator3()).done; ) {
+    var border = _step3.value;
+    var left = border.left, right = border.right, top = border.top, bottom = border.bottom;
+    var getBorderXml = function getBorderXml2(direction, _ref5) {
+      var style2 = _ref5.style, color2 = _ref5.color;
+      if (color2 && !style2) {
+        style2 = "thin";
+      }
+      var hasChildren = color2 ? true : false;
+      return "<".concat(direction) + (style2 ? ' style="'.concat(sanitizeAttributeValue(style2), '"') : "") + (hasChildren ? ">" : "/>") + (color2 ? '<color rgb="'.concat(sanitizeAttributeValue(getColor(color2)), '"/>') : "") + (hasChildren ? "</".concat(direction, ">") : "");
+    };
+    xml += "<border>";
+    xml += getBorderXml("left", left);
+    xml += getBorderXml("right", right);
+    xml += getBorderXml("top", top);
+    xml += getBorderXml("bottom", bottom);
+    xml += "<diagonal/>";
+    xml += "</border>";
+  }
+  xml += "</borders>";
+  xml += '<cellXfs count="'.concat(styles.length, '">');
+  for (var _iterator4 = _createForOfIteratorHelperLoose8(styles), _step4; !(_step4 = _iterator4()).done; ) {
+    var cellStyle = _step4.value;
+    var fontId = cellStyle.fontId, fillId = cellStyle.fillId, borderId = cellStyle.borderId, align = cellStyle.align, alignVertical = cellStyle.alignVertical, textRotation = cellStyle.textRotation, wrap = cellStyle.wrap, formatId = cellStyle.formatId;
+    xml += "<xf " + [
+      formatId !== void 0 ? 'numFmtId="'.concat(formatId, '"') : void 0,
+      formatId !== void 0 ? 'applyNumberFormat="1"' : void 0,
+      fontId !== void 0 ? 'fontId="'.concat(fontId, '"') : void 0,
+      fontId !== void 0 ? 'applyFont="1"' : void 0,
+      fillId !== void 0 ? 'fillId="'.concat(fillId, '"') : void 0,
+      fillId !== void 0 ? 'applyFill="1"' : void 0,
+      borderId !== void 0 ? 'borderId="'.concat(borderId, '"') : void 0,
+      borderId !== void 0 ? 'applyBorder="1"' : void 0,
+      align || alignVertical || textRotation || wrap ? 'applyAlignment="1"' : void 0
+      // 'xfId="0"'
+    ].filter(function(_) {
+      return _;
+    }).join(" ") + ">" + // Possible horizontal alignment values:
+    //  left, center, right, fill, justify, center_across, distributed.
+    // Possible vertical alignment values:
+    //  top, vcenter, bottom, vjustify, vdistributed.
+    // https://xlsxwriter.readthedocs.io/format.html#set_align
+    (align || alignVertical || textRotation || wrap ? "<alignment" + (align ? ' horizontal="'.concat(sanitizeAttributeValue(align), '"') : "") + (alignVertical ? ' vertical="'.concat(sanitizeAttributeValue(alignVertical), '"') : "") + (wrap ? ' wrapText="1"' : "") + (textRotation ? ' textRotation="'.concat(getTextRotation(validateTextRotation(textRotation)), '"') : "") + "/>" : "") + "</xf>";
+  }
+  xml += "</cellXfs>";
+  xml += "</styleSheet>";
+  return xml;
+}
+function getColor(color) {
+  if (color[0] !== "#") {
+    throw new Error('Color "'.concat(color, '" must start with a "#"'));
+  }
+  return "FF".concat(color.slice("#".length).toUpperCase());
+}
+function validateTextRotation(textRotation) {
+  if (!(textRotation >= -90 && textRotation <= 90)) {
+    throw new Error("Unsupported text rotation angle: ".concat(textRotation, ". Values from -90 to 90 are supported."));
+  }
+  return textRotation;
+}
+function getTextRotation(textRotation) {
+  if (textRotation < 0) {
+    return 90 - textRotation;
+  }
+  return textRotation;
+}
+
+// node_modules/write-excel-file/modules/write/sharedStrings.js
+function _createForOfIteratorHelperLoose9(o, allowArrayLike) {
+  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
+  if (it)
+    return (it = it.call(o)).next.bind(it);
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray13(o)) || allowArrayLike && o && typeof o.length === "number") {
+    if (it)
+      o = it;
+    var i = 0;
+    return function() {
+      if (i >= o.length)
+        return { done: true };
+      return { done: false, value: o[i++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray13(o, minLen) {
+  if (!o)
+    return;
+  if (typeof o === "string")
+    return _arrayLikeToArray13(o, minLen);
+  var n = Object.prototype.toString.call(o).slice(8, -1);
+  if (n === "Object" && o.constructor)
+    n = o.constructor.name;
+  if (n === "Map" || n === "Set")
+    return Array.from(o);
+  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+    return _arrayLikeToArray13(o, minLen);
+}
+function _arrayLikeToArray13(arr, len) {
+  if (len == null || len > arr.length)
+    len = arr.length;
+  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+    arr2[i] = arr[i];
+  }
+  return arr2;
+}
+function initSharedStrings() {
+  var sharedStrings = [];
+  var sharedStringsIndex = {};
+  return {
+    getSharedStringsXml: function getSharedStringsXml() {
+      return generateXml2(sharedStrings);
+    },
+    getSharedString: function getSharedString(string) {
+      var id = sharedStringsIndex[string];
+      if (id === void 0) {
+        id = String(sharedStrings.length);
+        sharedStringsIndex[string] = id;
+        sharedStrings.push(string);
+      }
+      return id;
+    }
+  };
+}
+function generateXml2(sharedStrings) {
+  var xml = '<?xml version="1.0"?>';
+  xml += '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+  for (var _iterator = _createForOfIteratorHelperLoose9(sharedStrings), _step; !(_step = _iterator()).done; ) {
+    var string = _step.value;
+    var attributes = string.trim().length === string.length ? "" : ' xml:space="preserve"';
+    xml += "<si><t".concat(attributes, ">");
+    xml += sanitizeText(string);
+    xml += "</t></si>";
+  }
+  xml += "</sst>";
+  return xml;
+}
+
+// node_modules/write-excel-file/modules/write/validateSheetName.js
+var ILLEGAL_CHARACTERS_IN_SHEET_NAME = /[\[\]\/\\:*?]+/;
+function validateSheetName(sheetName) {
+  if (!sheetName) {
+    throw new Error("Sheet name can't be empty");
+  }
+  if (sheetName.length > 31) {
+    throw new Error('Sheet name "'.concat(sheetName, `" can't be longer than 31 characters`));
+  }
+  if (ILLEGAL_CHARACTERS_IN_SHEET_NAME.test(sheetName)) {
+    throw new Error('Sheet name "'.concat(sheetName, '" contains illegal characters: []/\\:*?'));
+  }
+}
+
+// node_modules/write-excel-file/modules/write/writeXlsxFile.common.js
+function _createForOfIteratorHelperLoose10(o, allowArrayLike) {
+  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
+  if (it)
+    return (it = it.call(o)).next.bind(it);
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray14(o)) || allowArrayLike && o && typeof o.length === "number") {
+    if (it)
+      o = it;
+    var i = 0;
+    return function() {
+      if (i >= o.length)
+        return { done: true };
+      return { done: false, value: o[i++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray14(o, minLen) {
+  if (!o)
+    return;
+  if (typeof o === "string")
+    return _arrayLikeToArray14(o, minLen);
+  var n = Object.prototype.toString.call(o).slice(8, -1);
+  if (n === "Object" && o.constructor)
+    n = o.constructor.name;
+  if (n === "Map" || n === "Set")
+    return Array.from(o);
+  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+    return _arrayLikeToArray14(o, minLen);
+}
+function _arrayLikeToArray14(arr, len) {
+  if (len == null || len > arr.length)
+    len = arr.length;
+  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+    arr2[i] = arr[i];
+  }
+  return arr2;
+}
+function generateSheets(_ref) {
+  var data = _ref.data, sheetName = _ref.sheetName, sheetNames = _ref.sheetNames, schema = _ref.schema, columns = _ref.columns, headerStyle = _ref.headerStyle, fontFamily = _ref.fontFamily, fontSize = _ref.fontSize, orientation = _ref.orientation, stickyRowsCount = _ref.stickyRowsCount, stickyColumnsCount = _ref.stickyColumnsCount, dateFormat = _ref.dateFormat;
+  var _initSharedStrings = initSharedStrings(), getSharedStringsXml = _initSharedStrings.getSharedStringsXml, getSharedString = _initSharedStrings.getSharedString;
+  var _initStyles = initStyles({
+    fontFamily,
+    fontSize
+  }), getStylesXml = _initStyles.getStylesXml, getStyle = _initStyles.getStyle;
+  if (sheetNames) {
+    if (columns) {
+      if (!Array.isArray(columns[0])) {
+        throw new Error('In a "write multiple sheets" scenario, `columns` parameter must be an array of `columns` for each sheet.');
+      }
+    }
+  }
+  if (!sheetNames) {
+    sheetNames = [sheetName || "Sheet1"];
+    data = [data];
+    if (columns) {
+      columns = [columns];
+    }
+    if (schema) {
+      schema = [schema];
+    }
+  }
+  for (var _iterator = _createForOfIteratorHelperLoose10(sheetNames), _step; !(_step = _iterator()).done; ) {
+    var _sheetName = _step.value;
+    validateSheetName(_sheetName);
+  }
+  var worksheets = [];
+  var sheetIndex = 0;
+  for (var _iterator2 = _createForOfIteratorHelperLoose10(sheetNames), _step2; !(_step2 = _iterator2()).done; ) {
+    var sheet = _step2.value;
+    worksheets.push(generateWorksheet(data[sheetIndex], {
+      schema: schema && schema[sheetIndex],
+      columns: columns && columns[sheetIndex],
+      headerStyle,
+      getStyle,
+      getSharedString,
+      customFont: fontFamily || fontSize,
+      dateFormat,
+      orientation,
+      stickyRowsCount,
+      stickyColumnsCount,
+      sheetId: sheetIndex + 1
+    }));
+    sheetIndex++;
+  }
+  return {
+    sheets: sheetNames.map(function(sheetName2, i) {
+      return {
+        id: i + 1,
+        name: sheetName2,
+        data: worksheets[i]
+      };
+    }),
+    getSharedStringsXml,
+    getStylesXml
+  };
+}
+
+// node_modules/write-excel-file/modules/write/writeXlsxFileBrowser.js
+var _excluded = ["fileName"];
+function _createForOfIteratorHelperLoose11(o, allowArrayLike) {
+  var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
+  if (it)
+    return (it = it.call(o)).next.bind(it);
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray15(o)) || allowArrayLike && o && typeof o.length === "number") {
+    if (it)
+      o = it;
+    var i = 0;
+    return function() {
+      if (i >= o.length)
+        return { done: true };
+      return { done: false, value: o[i++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray15(o, minLen) {
+  if (!o)
+    return;
+  if (typeof o === "string")
+    return _arrayLikeToArray15(o, minLen);
+  var n = Object.prototype.toString.call(o).slice(8, -1);
+  if (n === "Object" && o.constructor)
+    n = o.constructor.name;
+  if (n === "Map" || n === "Set")
+    return Array.from(o);
+  if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+    return _arrayLikeToArray15(o, minLen);
+}
+function _arrayLikeToArray15(arr, len) {
+  if (len == null || len > arr.length)
+    len = arr.length;
+  for (var i = 0, arr2 = new Array(len); i < len; i++) {
+    arr2[i] = arr[i];
+  }
+  return arr2;
+}
+function _objectWithoutProperties(source, excluded) {
+  if (source == null)
+    return {};
+  var target = _objectWithoutPropertiesLoose(source, excluded);
+  var key, i;
+  if (Object.getOwnPropertySymbols) {
+    var sourceSymbolKeys = Object.getOwnPropertySymbols(source);
+    for (i = 0; i < sourceSymbolKeys.length; i++) {
+      key = sourceSymbolKeys[i];
+      if (excluded.indexOf(key) >= 0)
+        continue;
+      if (!Object.prototype.propertyIsEnumerable.call(source, key))
+        continue;
+      target[key] = source[key];
+    }
+  }
+  return target;
+}
+function _objectWithoutPropertiesLoose(source, excluded) {
+  if (source == null)
+    return {};
+  var target = {};
+  var sourceKeys = Object.keys(source);
+  var key, i;
+  for (i = 0; i < sourceKeys.length; i++) {
+    key = sourceKeys[i];
+    if (excluded.indexOf(key) >= 0)
+      continue;
+    target[key] = source[key];
+  }
+  return target;
+}
+function writeXlsxFile(data) {
+  var _ref = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, fileName = _ref.fileName, rest = _objectWithoutProperties(_ref, _excluded);
+  return generateXlsxFile(data, rest).then(function(blob) {
+    if (fileName) {
+      return import_file_saver.default.saveAs(blob, fileName);
+    }
+    return blob;
+  });
+}
+function generateXlsxFile(data, _ref2) {
+  var sheetName = _ref2.sheet, sheetNames = _ref2.sheets, schema = _ref2.schema, columns = _ref2.columns, headerStyle = _ref2.headerStyle, fontFamily = _ref2.fontFamily, fontSize = _ref2.fontSize, orientation = _ref2.orientation, stickyRowsCount = _ref2.stickyRowsCount, stickyColumnsCount = _ref2.stickyColumnsCount, dateFormat = _ref2.dateFormat;
+  var zip = new import_jszip.default();
+  zip.file("_rels/.rels", rels_default);
+  zip.file("[Content_Types].xml", Content_Types_xml_default);
+  var _generateSheets = generateSheets({
+    data,
+    sheetName,
+    sheetNames,
+    schema,
+    columns,
+    headerStyle,
+    fontFamily,
+    fontSize,
+    orientation,
+    stickyRowsCount,
+    stickyColumnsCount,
+    dateFormat
+  }), sheets = _generateSheets.sheets, getSharedStringsXml = _generateSheets.getSharedStringsXml, getStylesXml = _generateSheets.getStylesXml;
+  var xl = zip.folder("xl");
+  xl.file("_rels/workbook.xml.rels", generateWorkbookXmlRels({
+    sheets
+  }));
+  xl.file("workbook.xml", generateWorkbookXml({
+    sheets,
+    stickyRowsCount,
+    stickyColumnsCount
+  }));
+  xl.file("styles.xml", getStylesXml());
+  xl.file("sharedStrings.xml", getSharedStringsXml());
+  for (var _iterator = _createForOfIteratorHelperLoose11(sheets), _step; !(_step = _iterator()).done; ) {
+    var _step$value = _step.value, id = _step$value.id, _data = _step$value.data;
+    xl.file("worksheets/sheet".concat(id, ".xml"), _data);
+  }
+  return zip.generateAsync({
+    type: "blob",
+    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+}
+
+// src/io/export/xlsx.ts
+function sheetNameFor(name) {
+  const safe = name.replace(/[[\]:*?/\\]/g, " ").trim().slice(0, 31);
+  return safe === "" ? "Sheet1" : safe;
+}
+function xlsxCell(value, field) {
+  if (value === null || value === void 0)
+    return { value: null };
+  if (field.type === "checkbox" && typeof value === "boolean")
+    return { value };
+  if (field.type === "number" && typeof value === "number")
+    return { value };
+  if (field.type === "formula" && (typeof value === "number" || typeof value === "boolean"))
+    return { value };
+  if (field.type === "date" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const d = /* @__PURE__ */ new Date(`${value}T00:00:00Z`);
+    if (!Number.isNaN(d.getTime()))
+      return { value: d, format: "yyyy-mm-dd" };
+  }
+  const text = cellText(value, field);
+  return { value: text === "" ? null : text };
+}
+async function toXlsx(table) {
+  const header = table.fields.map((f) => ({ value: f.name, fontWeight: "bold" }));
+  const body = table.rows.map((row) => table.fields.map((f) => xlsxCell(row.values[f.id] ?? null, f)));
+  const blob = await writeXlsxFile([header, ...body], { sheet: sheetNameFor(table.name) });
+  return await blob.arrayBuffer();
+}
+
+// src/io/export/exporter.ts
+var EXTENSION = { csv: "csv", xlsx: "xlsx", md: "md" };
+var MIME_TYPE = {
+  csv: "text/csv",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  md: "text/markdown"
+};
+function exportFileName(baseName2, format) {
+  const safeBase = baseName2.trim() || "Export";
+  return `${safeBase}.${EXTENSION[format]}`;
+}
+function exportMimeType(format) {
+  return MIME_TYPE[format];
+}
+async function buildExportArtifact(table, format, baseName2) {
+  let data;
+  if (format === "csv")
+    data = toCsv(table);
+  else if (format === "md")
+    data = toMarkdown(table);
+  else
+    data = await toXlsx(table);
+  return { fileName: exportFileName(baseName2, format), mimeType: MIME_TYPE[format], data };
+}
+
+// src/io/export/prepare.ts
+async function prepareExportFile(read, baseName2, format, scope) {
+  let text;
+  try {
+    text = await read();
+  } catch (error) {
+    return { ok: false, error: `Could not read the table file: ${errorMessage2(error)}` };
+  }
+  let parsed;
+  try {
+    parsed = parse(text);
+  } catch (error) {
+    return { ok: false, error: `The table file could not be read: ${errorMessage2(error)}` };
+  }
+  if (!parsed.ok) {
+    return { ok: false, error: `The table file could not be read: ${parsed.error ?? "Invalid .tablify data."}` };
+  }
+  let resolved;
+  try {
+    resolved = resolveExportTable(parsed.data, scope);
+  } catch (error) {
+    return { ok: false, error: `Could not prepare the table for export: ${errorMessage2(error)}` };
+  }
+  if (!resolved.ok)
+    return { ok: false, error: resolved.error };
+  try {
+    const artifact = await buildExportArtifact(resolved.table, format, baseName2);
+    return {
+      ok: true,
+      artifact,
+      rowCount: resolved.table.rows.length,
+      columnCount: resolved.table.fields.length
+    };
+  } catch (error) {
+    return { ok: false, error: `Export failed before saving: ${errorMessage2(error)}` };
+  }
+}
+function errorMessage2(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+// src/commands/export.ts
+var EXPORT_COMMAND_ID = "export-table";
+var EXPORT_COMMAND_NAME = "Export table (CSV, Excel, Markdown)";
+var EXPORT_VIEW_CSV_COMMAND_ID = "export-current-view-csv";
+var EXPORT_VIEW_CSV_COMMAND_NAME = "Export current view as CSV";
+var COPY_MARKDOWN_COMMAND_ID = "copy-current-view-markdown";
+var COPY_MARKDOWN_COMMAND_NAME = "Copy current view as Markdown";
+function registerExportCommand(plugin) {
+  plugin.addCommand({
+    id: EXPORT_COMMAND_ID,
+    name: EXPORT_COMMAND_NAME,
+    callback: () => {
+      const file = plugin.app.workspace.getActiveFile();
+      if (!file || file.extension !== "tablify") {
+        new import_obsidian2.Notice("Open a .tablify table first.");
+        return;
+      }
+      new ExportModal(plugin.app, file).open();
+    }
+  });
+}
+function registerCurrentViewExportCommands(plugin, getTable) {
+  const run2 = (action) => () => {
+    const table = getTable();
+    if (!table) {
+      new import_obsidian2.Notice("Open a .tablify table first.");
+      return;
+    }
+    void action(table);
+  };
+  plugin.addCommand({
+    id: EXPORT_VIEW_CSV_COMMAND_ID,
+    name: EXPORT_VIEW_CSV_COMMAND_NAME,
+    callback: run2((table) => table.exportCurrentViewCsv())
+  });
+  plugin.addCommand({
+    id: COPY_MARKDOWN_COMMAND_ID,
+    name: COPY_MARKDOWN_COMMAND_NAME,
+    callback: run2((table) => table.copyCurrentViewMarkdown())
+  });
+}
+function openExportModal(app, file) {
+  new ExportModal(app, file).open();
+}
+async function flushPendingExportEdits(app, source) {
+  const active = app.workspace.activeLeaf?.view;
+  const candidates = [
+    ...active ? [active] : [],
+    ...app.workspace.getLeavesOfType("tablify").map((leaf) => leaf.view)
+  ];
+  const view = candidates.find((candidate) => candidate.file?.path === source.path && typeof candidate.save === "function");
+  if (view?.save)
+    await view.save();
+}
+function exportSuccessMessage(method, fileName, rowCount, columnCount) {
+  if (method === "picker")
+    return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
+  if (method === "share")
+    return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
+  return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
+}
+var ExportModal = class extends import_obsidian2.Modal {
+  constructor(app, source) {
+    super(app);
+    this.source = source;
+  }
+  format = "csv";
+  fullTable = false;
+  onOpen() {
+    this.setTitle(`Export ${this.source.basename}`);
+    new import_obsidian2.Setting(this.contentEl).setName("Format").addDropdown(
+      (d) => d.addOption("csv", "CSV").addOption("xlsx", "Excel (.xlsx)").addOption("md", "Markdown table").setValue(this.format).onChange((v) => {
+        this.format = v;
+      })
+    );
+    new import_obsidian2.Setting(this.contentEl).setName("Full table").setDesc("Off: current view (saved filters, sort, visible fields and order). On: every field and row.").addToggle(
+      (t) => t.setValue(this.fullTable).onChange((v) => {
+        this.fullTable = v;
+      })
+    );
+    new import_obsidian2.Setting(this.contentEl).addButton(
+      (b) => b.setButtonText("Export").setCta().onClick(() => void this.run())
+    );
+  }
+  async run() {
+    const format = this.format;
+    const baseName2 = this.source.basename;
+    const runtime = browserExportSaveRuntime(typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile);
+    const pickerStart = beginExportSave(exportFileName(baseName2, format), exportMimeType(format), runtime);
+    const picker = await pickerStart;
+    if (picker.kind === "cancelled") {
+      new import_obsidian2.Notice("Export cancelled. No file was saved.");
+      return;
+    }
+    try {
+      await flushPendingExportEdits(this.app, this.source);
+    } catch (error) {
+      new import_obsidian2.Notice(`Export failed. Pending table edits could not be saved, so no file was saved. ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    const prepared = await prepareExportFile(
+      () => this.app.vault.read(this.source),
+      baseName2,
+      format,
+      { fullTable: this.fullTable }
+    );
+    if (!prepared.ok) {
+      new import_obsidian2.Notice(`Export failed. No file was saved. ${prepared.error}`);
+      return;
+    }
+    const saved = await saveExportArtifact(prepared.artifact, runtime, Promise.resolve(picker));
+    if (!saved.ok) {
+      if (!saved.cancelled)
+        new import_obsidian2.Notice(`Export failed. No file was saved. ${saved.error}`);
+      else
+        new import_obsidian2.Notice("Export cancelled. No file was saved.");
+      return;
+    }
+    new import_obsidian2.Notice(exportSuccessMessage(saved.method, saved.fileName, prepared.rowCount, prepared.columnCount));
+    this.close();
+  }
+};
+
+// src/commands/linkIntegrity.ts
+var import_obsidian3 = require("obsidian");
+
+// src/model/link.ts
+var UNTITLED_ROW = "Untitled row";
+var BROKEN_MESSAGES = {
+  "missing-table": "The linked table is not in this vault.",
+  "missing-row": "The linked row was deleted."
+};
+function baseName(path) {
+  const last = path.split("/").pop() ?? path;
+  return last.replace(/\.tablify$/i, "");
+}
+function primaryFieldOf(fields) {
+  return fields.find((f) => f.primary) ?? fields[0];
+}
+function isNonEmptyLinkArray(v) {
+  return Array.isArray(v) && v.length > 0;
+}
+function snapshotTable(file, path) {
+  const primary = primaryFieldOf(file.fields);
+  const linkFields = file.fields.filter((f) => f.type === "link");
+  const rows = [];
+  const linkCells = [];
+  for (const row of file.rows) {
+    const label = primary ? getFieldType(primary.type).format(row.values[primary.id] ?? null, primary) : "";
+    rows.push({ id: row.id, label });
+    for (const field of linkFields) {
+      const v = row.values[field.id];
+      if (isNonEmptyLinkArray(v)) {
+        linkCells.push({ rowId: row.id, rowLabel: label, fieldId: field.id, fieldName: field.name, refs: v });
+      }
+    }
+  }
+  return { tableId: file.tableId, name: baseName(path), path, rows, linkCells };
+}
+var LinkIndex = class {
+  byPath = /* @__PURE__ */ new Map();
+  derived = null;
+  rowMaps = /* @__PURE__ */ new WeakMap();
+  /** Add or replace the snapshot for a path. */
+  put(snapshot) {
+    this.byPath.set(snapshot.path, snapshot);
+    this.derived = null;
+  }
+  remove(path) {
+    if (this.byPath.delete(path))
+      this.derived = null;
+  }
+  has(path) {
+    return this.byPath.has(path);
+  }
+  paths() {
+    return [...this.byPath.keys()];
+  }
+  /** The snapshot for a path, or undefined. Used to compare before a write. */
+  get(path) {
+    return this.byPath.get(path);
+  }
+  /** One snapshot per table ID, sorted by path. A duplicate ID keeps the first path only. */
+  tables() {
+    return [...this.derive().byId.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  }
+  byTableId(tableId) {
+    return this.derive().byId.get(tableId);
+  }
+  duplicates() {
+    return this.derive().duplicates.map((d) => ({ tableId: d.tableId, paths: [...d.paths] }));
+  }
+  resolve(ref) {
+    const table = this.byTableId(ref.tableId);
+    if (!table)
+      return { ok: false, reason: "missing-table" };
+    const row = this.rowMap(table).get(ref.rowId);
+    if (!row)
+      return { ok: false, reason: "missing-row", tableName: table.name };
+    return { ok: true, tableName: table.name, rowLabel: row.label.trim() || UNTITLED_ROW };
+  }
+  rowMap(table) {
+    let map2 = this.rowMaps.get(table);
+    if (!map2) {
+      map2 = new Map(table.rows.map((r) => [r.id, r]));
+      this.rowMaps.set(table, map2);
+    }
+    return map2;
+  }
+  derive() {
+    if (this.derived)
+      return this.derived;
+    const sorted = [...this.byPath.values()].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+    const byId = /* @__PURE__ */ new Map();
+    const dupPaths = /* @__PURE__ */ new Map();
+    for (const snap of sorted) {
+      const first = byId.get(snap.tableId);
+      if (!first) {
+        byId.set(snap.tableId, snap);
+      } else {
+        const list = dupPaths.get(snap.tableId) ?? [first.path];
+        list.push(snap.path);
+        dupPaths.set(snap.tableId, list);
+      }
+    }
+    const duplicates = [...dupPaths.entries()].map(([tableId, paths]) => ({ tableId, paths }));
+    this.derived = { byId, duplicates };
+    return this.derived;
+  }
+};
+function createLinkIndex() {
+  return new LinkIndex();
+}
+function summarizeLinks(value, index) {
+  if (!isNonEmptyLinkArray(value))
+    return { text: "", broken: 0, chips: [] };
+  const chips = [];
+  let broken = 0;
+  for (const ref of value) {
+    const res = index.resolve(ref);
+    if (res.ok) {
+      chips.push({ label: res.rowLabel, broken: false });
+    } else {
+      broken++;
+      chips.push({ label: res.reason === "missing-table" ? "Missing table" : "Missing row", broken: true });
+    }
+  }
+  return { text: chips.map((c) => c.label).join(", "), broken, chips };
+}
+function checkIntegrity(index) {
+  const broken = [];
+  let checked = 0;
+  for (const table of index.tables()) {
+    for (const cell2 of table.linkCells) {
+      for (const ref of cell2.refs) {
+        checked++;
+        const res = index.resolve(ref);
+        if (res.ok)
+          continue;
+        broken.push({
+          sourcePath: table.path,
+          sourceTable: table.name,
+          rowId: cell2.rowId,
+          rowLabel: cell2.rowLabel.trim() || UNTITLED_ROW,
+          fieldName: cell2.fieldName,
+          targetTableId: ref.tableId,
+          targetRowId: ref.rowId,
+          reason: res.reason,
+          message: BROKEN_MESSAGES[res.reason]
+        });
+      }
+    }
+  }
+  return { checked, broken, duplicates: index.duplicates() };
+}
+function buildSelection(current, targetTableId, selectedRowIds) {
+  const selected = new Set(selectedRowIds);
+  const kept = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const ref of current) {
+    if (ref.tableId !== targetTableId) {
+      kept.push(ref);
+    } else if (selected.has(ref.rowId) && !seen.has(ref.rowId)) {
+      kept.push(ref);
+      seen.add(ref.rowId);
+    }
+  }
+  for (const rowId of selectedRowIds) {
+    if (!seen.has(rowId)) {
+      kept.push({ tableId: targetTableId, rowId });
+      seen.add(rowId);
+    }
+  }
+  return kept.length > 0 ? kept : null;
+}
+function countForeignRefs(value, targetTableId) {
+  if (!isNonEmptyLinkArray(value))
+    return 0;
+  return value.filter((ref) => ref.tableId !== targetTableId).length;
+}
+function removeForeignRefs(current, targetTableId) {
+  const kept = current.filter((ref) => ref.tableId === targetTableId);
+  return kept.length > 0 ? kept : null;
+}
+function filterRows2(rows, query) {
+  const q = query.trim().toLowerCase();
+  if (q === "")
+    return rows.slice();
+  return rows.filter((r) => r.label.toLowerCase().includes(q));
+}
+
+// src/links/vaultLinkIndex.ts
+var DEBOUNCE_MS = 250;
+var VaultLinkIndex = class {
+  constructor(app) {
+    this.app = app;
+  }
+  index = createLinkIndex();
+  /** Paths whose file is open in a view, mapped to the live snapshot. */
+  live = /* @__PURE__ */ new Map();
+  /** mtime of the disk version last read, per path. */
+  stamps = /* @__PURE__ */ new Map();
+  listeners = /* @__PURE__ */ new Set();
+  timer = null;
+  running = Promise.resolve();
+  /** Wire the vault events and run the first refresh. Called once from the plugin's onload. */
+  start(plugin) {
+    const schedule = () => this.schedule();
+    plugin.registerEvent(this.app.vault.on("create", schedule));
+    plugin.registerEvent(this.app.vault.on("modify", schedule));
+    plugin.registerEvent(this.app.vault.on("delete", schedule));
+    plugin.registerEvent(this.app.vault.on("rename", schedule));
+    this.app.workspace.onLayoutReady(() => void this.refresh());
+  }
+  onChange(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  /** Refresh now. Refreshes run one after another, so two never overlap. */
+  refresh() {
+    this.running = this.running.then(() => this.doRefresh(), () => this.doRefresh());
+    return this.running;
+  }
+  /** An open view publishes its state. Listeners are told only when the snapshot changed. */
+  noteLive(path, snapshot) {
+    this.live.set(path, snapshot);
+    const prev = this.index.get(path);
+    if (prev && JSON.stringify(prev) === JSON.stringify(snapshot))
+      return;
+    this.index.put(snapshot);
+    this.notify();
+  }
+  /** The view closed. The next refresh reads the file from disk again. */
+  dropLive(path) {
+    this.live.delete(path);
+    this.stamps.delete(path);
+    this.schedule();
+  }
+  schedule() {
+    if (this.timer !== null)
+      clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.refresh();
+    }, DEBOUNCE_MS);
+  }
+  async doRefresh() {
+    const files = this.app.vault.getFiles().filter((f) => f.extension === "tablify");
+    const present = /* @__PURE__ */ new Set();
+    let changed = false;
+    for (const file of files) {
+      present.add(file.path);
+      if (this.live.has(file.path))
+        continue;
+      if (this.stamps.get(file.path) === file.stat.mtime)
+        continue;
+      const text = await this.app.vault.cachedRead(file);
+      this.stamps.set(file.path, file.stat.mtime);
+      const parsed = parse(text);
+      if (parsed.ok) {
+        this.index.put(snapshotTable(parsed.data, file.path));
+      } else {
+        this.index.remove(file.path);
+      }
+      changed = true;
+    }
+    for (const path of this.index.paths()) {
+      if (!present.has(path)) {
+        this.index.remove(path);
+        this.stamps.delete(path);
+        this.live.delete(path);
+        changed = true;
+      }
+    }
+    for (const path of [...this.live.keys()]) {
+      if (!present.has(path))
+        this.live.delete(path);
+    }
+    if (changed)
+      this.notify();
+  }
+  notify() {
+    for (const listener of [...this.listeners])
+      listener();
+  }
+};
+var indexes = /* @__PURE__ */ new WeakMap();
+function linkIndexFor(app) {
+  let idx = indexes.get(app);
+  if (!idx) {
+    idx = new VaultLinkIndex(app);
+    indexes.set(app, idx);
+  }
+  return idx;
+}
+function installLinkLabelResolver(app) {
+  const idx = linkIndexFor(app);
+  setLinkLabelResolver((ref) => {
+    const res = idx.index.resolve(ref);
+    return res.ok ? res.rowLabel : null;
+  });
+}
+
+// src/ui/theme/tokens.ts
+var palette = {
+  /** #181715 — dark theme background (prototype `dark`) */
+  dark: "#181715",
+  /** #FAF7F2 — light theme background (prototype `paper`) */
+  light: "#FAF7F2",
+  /** #22201D — dark card surface (prototype `dark-card`) */
+  cardDark: "#22201D",
+  /** #FFFFFF — light card surface (prototype `paper-card`) */
+  cardLight: "#FFFFFF",
+  /** #1B1A17 — dark inner surface: grid shell (prototype `dark-inner`) */
+  innerDark: "#1B1A17",
+  /** #F4EFE6 — light inner surface: grid shell (prototype `paper-inner`) */
+  innerLight: "#F4EFE6",
+  /** #262420 — dark capsule surface: cells, header capsules, popovers */
+  capsuleDark: "#262420",
+  /** #FFFFFF — light capsule surface (prototype cell/header capsules) */
+  capsuleLight: "#FFFFFF",
+  /** #38342E — dark subtle border (prototype `dark-border`) */
+  borderDark: "#38342E",
+  /** #E6E0D5 — light subtle border (prototype `paper-border`) */
+  borderLight: "#E6E0D5",
+  /** #24221E — dark pill surface: toolbar buttons, search input, float panels (prototype `.pill-btn`) */
+  pillDark: "#24221E",
+  /** #2D2A25 — dark pill hover surface (prototype `.pill-btn:hover`) */
+  pillHoverDark: "#2D2A25",
+  /** #4A453E — dark pill hover border (prototype `.pill-btn:hover`) */
+  pillBorderHoverDark: "#4A453E",
+  /** #F6F2EA — light pill hover surface (prototype `.pill-btn:hover`) */
+  pillHoverLight: "#F6F2EA",
+  /** #D3CAB9 — light pill hover border (prototype `.pill-btn:hover`) */
+  pillBorderHoverLight: "#D3CAB9",
+  /** #3A3630 — dark header/cell capsule border (prototype `.header-capsule`, `.cell-capsule`) */
+  capsuleBorderDark: "#3A3630",
+  /** #ECE7E1 — body text on dark surfaces */
+  textOnDark: "#ECE7E1",
+  /** #1E1B18 — body text on light surfaces (prototype `charcoal`) */
+  textOnLight: "#1E1B18",
+  /** #9CA3AF — muted small text on dark (prototype dark `gray-400`) */
+  mutedDark: "#9CA3AF",
+  /**
+   * #6E655C — muted small text on light. The prototype's clay (#8C827A) measures 3.55:1 on
+   * its paper background — below AA for the 11px labels it carries — so the accessible
+   * clay variant ships instead; see docs/evidence/P3-11.md (SAD-71 Step 2).
+   */
+  mutedLight: "#6E655C",
+  /** #d97757 — primary accent on dark (prototype `terracotta-dark`), focus, selection */
+  accentOrange: "#d97757",
+  /** #CC785C — primary accent on light (prototype `terracotta`), focus, selection */
+  terracotta: "#CC785C",
+  /** #6a9bcc — secondary accent (links, info) */
+  accentBlue: "#6a9bcc",
+  /** #788c5d — success and tertiary accent */
+  accentGreen: "#788c5d",
+  /** #6B7280 — dark header grip glyph (prototype dark `gray-500`) */
+  gripDark: "#6B7280",
+  /** #B7B2AE — light header grip glyph: prototype `clay/50` composited on the white capsule */
+  gripLight: "#B7B2AE",
+  /** #4B5563 — dark empty-cell dash and row-number grip (prototype dark `gray-600`) */
+  placeholderDark: "#4B5563",
+  /** #C5C1BE — light empty-cell dash: prototype `clay/40` composited on the white capsule */
+  placeholderLight: "#C5C1BE",
+  /**
+   * #F3F4F6 — the dark ink a prototype modal card inherits when it carries no colour class:
+   * `#optMgrModal`'s card sits on `body.dark`, whose Tailwind `text-gray-100` is this value
+   * (the plugin's own dark body ink is the warmer #ECE7E1). SAD-90.
+   */
+  modalInkDark: "#F3F4F6",
+  /**
+   * #9CA3AF — placeholder ink the prototype's Tailwind preflight paints (gray-400), in both
+   * themes. The Step-11 float panels' inputs follow it exactly; the toolbar and the modals keep
+   * the accessible `muted` treatment they were verified with (SAD-71/SAD-85).
+   */
+  fieldPlaceholder: "#9CA3AF",
+  /**
+   * #B5573A — light "N selected" ink. The prototype's terracotta (#CC785C) is 3.28:1 on the
+   * white card, below AA for its 11px text; this is the nearest AA shade (4.78:1), the same
+   * rule as mutedLight (SAD-80).
+   */
+  terracottaTextLight: "#B5573A",
+  /** #DC2626 — light Delete ink (Tailwind red-600, 4.83:1). Prototype red-500 is 3.76:1 (SAD-80). */
+  dangerLight: "#DC2626",
+  /** #F87171 — dark Delete ink (Tailwind red-400, 5.87:1). Prototype red-500 is 4.32:1 (SAD-80). */
+  dangerDark: "#F87171",
+  /** #D1D5DB — light switch track when off (prototype Options `bg-gray-300`, SAD-81) */
+  switchOffLight: "#D1D5DB",
+  /** #D5CEC2 — light scrollbar thumb (prototype `.light ::-webkit-scrollbar-thumb`, SAD-85) */
+  scrollThumbLight: "#D5CEC2"
+};
+var chipHues = {
+  gray: ["#6B7280", "#4B5563", "#D1D5DB"],
+  sky: ["#0EA5E9", "#0369A1", "#7DD3FC"],
+  emerald: ["#10B981", "#065F46", "#6EE7B7"],
+  rose: ["#F43F5E", "#BE123C", "#FDA4AF"],
+  amber: ["#F59E0B", "#92400E", "#FCD34D"],
+  purple: ["#A855F7", "#7E22CE", "#D8B4FE"],
+  pink: ["#EC4899", "#9D174D", "#F9A8D4"]
+};
+var chipGrayDot = "#9CA3AF";
+var chipHueFor = {
+  gray: "gray",
+  brown: "amber",
+  orange: "amber",
+  yellow: "amber",
+  green: "emerald",
+  blue: "sky",
+  purple: "purple",
+  pink: "pink",
+  red: "rose"
+};
+function withAlpha(hex, alpha) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${n >> 16 & 255}, ${n >> 8 & 255}, ${n & 255}, ${alpha})`;
+}
+function optionChipHue(color) {
+  return chipHueFor[color ?? ""] ?? "gray";
+}
+function optionChipColors(color, theme) {
+  const hue = color && color in chipHues ? color : optionChipHue(color);
+  const [base, inkLight, inkDark] = chipHues[hue];
+  return {
+    background: withAlpha(base, 0.15),
+    border: withAlpha(base, 0.3),
+    text: theme === "dark" ? inkDark : inkLight,
+    dot: hue === "gray" ? chipGrayDot : base
+  };
+}
+var lightTheme = {
+  bg: palette.light,
+  bgCard: palette.cardLight,
+  bgInner: palette.innerLight,
+  bgCapsule: palette.capsuleLight,
+  bgSubtle: palette.innerLight,
+  bgStripe: palette.innerLight,
+  text: palette.textOnLight,
+  textMuted: palette.mutedLight,
+  border: palette.borderLight,
+  borderSubtle: palette.borderLight,
+  accentPrimary: palette.terracotta,
+  accentSecondary: palette.accentBlue,
+  accentSuccess: palette.accentGreen,
+  selection: palette.terracotta,
+  focus: palette.terracotta,
+  onAccent: palette.textOnLight,
+  bgPill: palette.cardLight,
+  bgPillHover: palette.pillHoverLight,
+  borderPillHover: palette.pillBorderHoverLight,
+  borderCapsule: palette.borderLight,
+  textTitle: palette.textOnLight,
+  textModal: palette.textOnLight,
+  textStrong: palette.textOnLight,
+  textFaint: palette.gripLight,
+  textPlaceholder: palette.placeholderLight,
+  fieldPlaceholder: palette.fieldPlaceholder,
+  textSelected: palette.terracottaTextLight,
+  textDanger: palette.dangerLight,
+  accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.switchOffLight,
+  scrollThumb: palette.scrollThumbLight,
+  switchKnob: palette.cardLight
+};
+var darkTheme = {
+  bg: palette.dark,
+  bgCard: palette.cardDark,
+  bgInner: palette.innerDark,
+  bgCapsule: palette.capsuleDark,
+  bgSubtle: palette.capsuleDark,
+  bgStripe: palette.cardDark,
+  text: palette.textOnDark,
+  textMuted: palette.mutedDark,
+  border: palette.borderDark,
+  borderSubtle: palette.borderDark,
+  accentPrimary: palette.accentOrange,
+  accentSecondary: palette.accentBlue,
+  accentSuccess: palette.accentGreen,
+  selection: palette.accentOrange,
+  focus: palette.accentOrange,
+  onAccent: palette.dark,
+  bgPill: palette.pillDark,
+  bgPillHover: palette.pillHoverDark,
+  borderPillHover: palette.pillBorderHoverDark,
+  borderCapsule: palette.capsuleBorderDark,
+  textTitle: palette.light,
+  textModal: palette.modalInkDark,
+  textStrong: palette.cardLight,
+  textFaint: palette.gripDark,
+  textPlaceholder: palette.placeholderDark,
+  fieldPlaceholder: palette.fieldPlaceholder,
+  textSelected: palette.terracotta,
+  textDanger: palette.dangerDark,
+  accentCheck: palette.terracotta,
+  accentFill: palette.terracotta,
+  switchOff: palette.placeholderDark,
+  scrollThumb: palette.capsuleBorderDark,
+  switchKnob: palette.cardLight
+};
+var themes = {
+  light: lightTheme,
+  dark: darkTheme
+};
+var cssVars = {
+  bg: "--tablify-bg",
+  bgCard: "--tablify-bg-card",
+  bgInner: "--tablify-bg-inner",
+  bgCapsule: "--tablify-bg-capsule",
+  bgSubtle: "--tablify-bg-subtle",
+  bgStripe: "--tablify-bg-stripe",
+  text: "--tablify-text",
+  textMuted: "--tablify-text-muted",
+  border: "--tablify-border",
+  borderSubtle: "--tablify-border-subtle",
+  accentPrimary: "--tablify-accent-primary",
+  accentSecondary: "--tablify-accent-secondary",
+  accentSuccess: "--tablify-accent-success",
+  selection: "--tablify-selection",
+  focus: "--tablify-focus",
+  onAccent: "--tablify-on-accent",
+  bgPill: "--tablify-bg-pill",
+  bgPillHover: "--tablify-bg-pill-hover",
+  borderPillHover: "--tablify-border-pill-hover",
+  borderCapsule: "--tablify-border-capsule",
+  textTitle: "--tablify-text-title",
+  textModal: "--tablify-text-modal",
+  textStrong: "--tablify-text-strong",
+  textFaint: "--tablify-text-faint",
+  textPlaceholder: "--tablify-text-placeholder",
+  fieldPlaceholder: "--tablify-field-placeholder",
+  textSelected: "--tablify-text-selected",
+  textDanger: "--tablify-text-danger",
+  accentCheck: "--tablify-accent-check",
+  accentFill: "--tablify-accent-fill",
+  switchOff: "--tablify-switch-off",
+  scrollThumb: "--tablify-scroll-thumb",
+  switchKnob: "--tablify-switch-knob"
+};
+function applyTheme(root, theme) {
+  root.classList.remove("tablify--light", "tablify--dark");
+  root.classList.add("tablify", `tablify--${theme}`);
+  const t = themes[theme];
+  root.style.setProperty(cssVars.bg, t.bg);
+  root.style.setProperty(cssVars.bgCard, t.bgCard);
+  root.style.setProperty(cssVars.bgInner, t.bgInner);
+  root.style.setProperty(cssVars.bgCapsule, t.bgCapsule);
+  root.style.setProperty(cssVars.bgSubtle, t.bgSubtle);
+  root.style.setProperty(cssVars.bgStripe, t.bgStripe);
+  root.style.setProperty(cssVars.text, t.text);
+  root.style.setProperty(cssVars.textMuted, t.textMuted);
+  root.style.setProperty(cssVars.border, t.border);
+  root.style.setProperty(cssVars.borderSubtle, t.borderSubtle);
+  root.style.setProperty(cssVars.accentPrimary, t.accentPrimary);
+  root.style.setProperty(cssVars.accentSecondary, t.accentSecondary);
+  root.style.setProperty(cssVars.accentSuccess, t.accentSuccess);
+  root.style.setProperty(cssVars.selection, t.selection);
+  root.style.setProperty(cssVars.focus, t.focus);
+  root.style.setProperty(cssVars.onAccent, t.onAccent);
+  root.style.setProperty(cssVars.bgPill, t.bgPill);
+  root.style.setProperty(cssVars.bgPillHover, t.bgPillHover);
+  root.style.setProperty(cssVars.borderPillHover, t.borderPillHover);
+  root.style.setProperty(cssVars.borderCapsule, t.borderCapsule);
+  root.style.setProperty(cssVars.textTitle, t.textTitle);
+  root.style.setProperty(cssVars.textModal, t.textModal);
+  root.style.setProperty(cssVars.textStrong, t.textStrong);
+  root.style.setProperty(cssVars.textFaint, t.textFaint);
+  root.style.setProperty(cssVars.textPlaceholder, t.textPlaceholder);
+  root.style.setProperty(cssVars.fieldPlaceholder, t.fieldPlaceholder);
+  root.style.setProperty(cssVars.textSelected, t.textSelected);
+  root.style.setProperty(cssVars.textDanger, t.textDanger);
+  root.style.setProperty(cssVars.accentCheck, t.accentCheck);
+  root.style.setProperty(cssVars.accentFill, t.accentFill);
+  root.style.setProperty(cssVars.switchOff, t.switchOff);
+  root.style.setProperty(cssVars.scrollThumb, t.scrollThumb);
+  root.style.setProperty(cssVars.switchKnob, t.switchKnob);
+}
+
+// src/ui/faIcons.ts
+var GLYPHS = {
+  "file-import": { w: 512, d: "M128 64c0-35.3 28.7-64 64-64H352V128c0 17.7 14.3 32 32 32H512V448c0 35.3-28.7 64-64 64H192c-35.3 0-64-28.7-64-64V336H302.1l-39 39c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l39 39H128V64zm0 224v48H24c-13.3 0-24-10.7-24-24s10.7-24 24-24H128zM512 128H384V0L512 128z" },
+  "file-export": { w: 576, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V288H216c-13.3 0-24 10.7-24 24s10.7 24 24 24H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zM384 336V288H494.1l-39-39c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l80 80c9.4 9.4 9.4 24.6 0 33.9l-80 80c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l39-39H384zm0-208H256V0L384 128z" },
+  "file-csv": { w: 512, d: "M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V304H176c-35.3 0-64 28.7-64 64V512H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128zM200 352h16c22.1 0 40 17.9 40 40v8c0 8.8-7.2 16-16 16s-16-7.2-16-16v-8c0-4.4-3.6-8-8-8H200c-4.4 0-8 3.6-8 8v80c0 4.4 3.6 8 8 8h16c4.4 0 8-3.6 8-8v-8c0-8.8 7.2-16 16-16s16 7.2 16 16v8c0 22.1-17.9 40-40 40H200c-22.1 0-40-17.9-40-40V392c0-22.1 17.9-40 40-40zm133.1 0H368c8.8 0 16 7.2 16 16s-7.2 16-16 16H333.1c-7.2 0-13.1 5.9-13.1 13.1c0 5.2 3 9.9 7.8 12l37.4 16.6c16.3 7.2 26.8 23.4 26.8 41.2c0 24.9-20.2 45.1-45.1 45.1H304c-8.8 0-16-7.2-16-16s7.2-16 16-16h42.9c7.2 0 13.1-5.9 13.1-13.1c0-5.2-3-9.9-7.8-12l-37.4-16.6c-16.3-7.2-26.8-23.4-26.8-41.2c0-24.9 20.2-45.1 45.1-45.1zm98.9 0c8.8 0 16 7.2 16 16v31.6c0 23 5.5 45.6 16 66c10.5-20.3 16-42.9 16-66V368c0-8.8 7.2-16 16-16s16 7.2 16 16v31.6c0 34.7-10.3 68.7-29.6 97.6l-5.1 7.7c-3 4.5-8 7.1-13.3 7.1s-10.3-2.7-13.3-7.1l-5.1-7.7c-19.3-28.9-29.6-62.9-29.6-97.6V368c0-8.8 7.2-16 16-16z" },
+  "copy": { w: 512, d: "M272 0H396.1c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9V336c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V48c0-26.5 21.5-48 48-48zM48 128H192v64H64V448H256V416h64v48c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V176c0-26.5 21.5-48 48-48z" },
+  "magnifying-glass": { w: 512, d: "M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" },
+  "cloud-arrow-up": { w: 640, d: "M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-217c-9.4 9.4-9.4 24.6 0 33.9s24.6 9.4 33.9 0l39-39V392c0 13.3 10.7 24 24 24s24-10.7 24-24V257.9l39 39c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-80-80c-9.4-9.4-24.6-9.4-33.9 0l-80 80z" },
+  "rotate-left": { w: 512, d: "M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z" },
+  "rotate-right": { w: 512, d: "M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z" },
+  "filter": { w: 512, d: "M3.9 54.9C10.5 40.9 24.5 32 40 32H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L320 320.9V448c0 12.1-6.8 23.2-17.7 28.6s-23.8 4.3-33.5-3l-64-48c-8.1-6-12.8-15.5-12.8-25.6V320.9L9 97.3C-.7 85.4-2.8 68.8 3.9 54.9z" },
+  "plus": { w: 448, d: "M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z" },
+  "table-columns": { w: 512, d: "M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z" },
+  "sliders": { w: 512, d: "M0 416c0 17.7 14.3 32 32 32l54.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 448c17.7 0 32-14.3 32-32s-14.3-32-32-32l-246.7 0c-12.3-28.3-40.5-48-73.3-48s-61 19.7-73.3 48L32 384c-17.7 0-32 14.3-32 32zm128 0a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM320 256a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm32-80c-32.8 0-61 19.7-73.3 48L32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l246.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48l54.7 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l-54.7 0c-12.3-28.3-40.5-48-73.3-48zM192 128a32 32 0 1 1 0-64 32 32 0 1 1 0 64zm73.3-64C253 35.7 224.8 16 192 16s-61 19.7-73.3 48L32 64C14.3 64 0 78.3 0 96s14.3 32 32 32l86.7 0c12.3 28.3 40.5 48 73.3 48s61-19.7 73.3-48L480 128c17.7 0 32-14.3 32-32s-14.3-32-32-32L265.3 64z" },
+  "xmark": { w: 384, d: "M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z" },
+  "trash-can": { w: 448, d: "M135.2 17.7C140.6 6.8 151.7 0 163.8 0H284.2c12.1 0 23.2 6.8 28.6 17.7L320 32h96c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32h96l7.2-14.3zM32 128H416V448c0 35.3-28.7 64-64 64H96c-35.3 0-64-28.7-64-64V128zm96 64c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16zm96 0c-8.8 0-16 7.2-16 16V432c0 8.8 7.2 16 16 16s16-7.2 16-16V208c0-8.8-7.2-16-16-16z" },
+  "grip-vertical": { w: 320, d: "M40 352l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zm192 0l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 320c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 192l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40zM40 160c-22.1 0-40-17.9-40-40L0 72C0 49.9 17.9 32 40 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0zM232 32l48 0c22.1 0 40 17.9 40 40l0 48c0 22.1-17.9 40-40 40l-48 0c-22.1 0-40-17.9-40-40l0-48c0-22.1 17.9-40 40-40z" },
+  "key": { w: 512, d: "M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z" },
+  "ellipsis-vertical": { w: 128, d: "M64 360a56 56 0 1 0 0 112 56 56 0 1 0 0-112zm0-160a56 56 0 1 0 0 112 56 56 0 1 0 0-112zM120 96A56 56 0 1 0 8 96a56 56 0 1 0 112 0z" },
+  "font": { w: 448, d: "M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z" },
+  "align-left": { w: 448, d: "M288 64c0 17.7-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H256c17.7 0 32 14.3 32 32zm0 256c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H256c17.7 0 32 14.3 32 32zM0 192c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 448c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z" },
+  "hashtag": { w: 448, d: "M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H347.1L325.8 320H384c17.7 0 32 14.3 32 32s-14.3 32-32 32H315.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7H155.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8L90.2 384H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192L165.8 320h95.1l21.3-128H187.1z" },
+  "dollar-sign": { w: 320, d: "M160 0c17.7 0 32 14.3 32 32V67.7c1.6 .2 3.1 .4 4.7 .7c.4 .1 .7 .1 1.1 .2l48 8.8c17.4 3.2 28.9 19.9 25.7 37.2s-19.9 28.9-37.2 25.7l-47.5-8.7c-31.3-4.6-58.9-1.5-78.3 6.2s-27.2 18.3-29 28.1c-2 10.7-.5 16.7 1.2 20.4c1.8 3.9 5.5 8.3 12.8 13.2c16.3 10.7 41.3 17.7 73.7 26.3l2.9 .8c28.6 7.6 63.6 16.8 89.6 33.8c14.2 9.3 27.6 21.9 35.9 39.5c8.5 17.9 10.3 37.9 6.4 59.2c-6.9 38-33.1 63.4-65.6 76.7c-13.7 5.6-28.6 9.2-44.4 11V480c0 17.7-14.3 32-32 32s-32-14.3-32-32V445.1c-.4-.1-.9-.1-1.3-.2l-.2 0 0 0c-24.4-3.8-64.5-14.3-91.5-26.3c-16.1-7.2-23.4-26.1-16.2-42.2s26.1-23.4 42.2-16.2c20.9 9.3 55.3 18.5 75.2 21.6c31.9 4.7 58.2 2 76-5.3c16.9-6.9 24.6-16.9 26.8-28.9c1.9-10.6 .4-16.7-1.3-20.4c-1.9-4-5.6-8.4-13-13.3c-16.4-10.7-41.5-17.7-74-26.3l-2.8-.7 0 0C119.4 279.3 84.4 270 58.4 253c-14.2-9.3-27.5-22-35.8-39.6c-8.4-17.9-10.1-37.9-6.1-59.2C23.7 116 52.3 91.2 84.8 78.3c13.3-5.3 27.9-8.9 43.2-11V32c0-17.7 14.3-32 32-32z" },
+  "percent": { w: 384, d: "M374.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-320 320c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l320-320zM128 128A64 64 0 1 0 0 128a64 64 0 1 0 128 0zM384 384a64 64 0 1 0 -128 0 64 64 0 1 0 128 0z" },
+  "stopwatch": { w: 448, d: "M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-41.8-12.3-80.7-33.5-113.2l24.1-24.1c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L355.7 143c-28.1-23-62.2-38.8-99.7-44.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H224 176zm72 192V320c0 13.3-10.7 24-24 24s-24-10.7-24-24V192c0-13.3 10.7-24 24-24s24 10.7 24 24z" },
+  "star": { w: 576, d: "M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z" },
+  "square-check": { w: 448, d: "M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM337 209L209 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L303 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z" },
+  "calendar": { w: 448, d: "M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z" },
+  "clock": { w: 512, d: "M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z" },
+  "link": { w: 640, d: "M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z" },
+  "envelope": { w: 512, d: "M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z" },
+  "phone": { w: 512, d: "M164.9 24.6c-7.7-18.6-28-28.5-47.4-23.2l-88 24C12.1 30.2 0 46 0 64C0 311.4 200.6 512 448 512c18 0 33.8-12.1 38.6-29.5l24-88c5.3-19.4-4.6-39.7-23.2-47.4l-96-40c-16.3-6.8-35.2-2.1-46.3 11.6L304.7 368C234.3 334.7 177.3 277.7 144 207.3L193.3 167c13.7-11.2 18.4-30 11.6-46.3l-40-96z" },
+  "circle-dot": { w: 512, d: "M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-352a96 96 0 1 1 0 192 96 96 0 1 1 0-192z" },
+  "list-check": { w: 512, d: "M152.1 38.2c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 113C-2.3 103.6-2.3 88.4 7 79s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zm0 160c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zM224 96c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H192c-17.7 0-32-14.3-32-32zM48 368a48 48 0 1 1 0 96 48 48 0 1 1 0-96z" },
+  "paperclip": { w: 448, d: "M364.2 83.8c-24.4-24.4-64-24.4-88.4 0l-184 184c-42.1 42.1-42.1 110.3 0 152.4s110.3 42.1 152.4 0l152-152c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-152 152c-64 64-167.6 64-231.6 0s-64-167.6 0-231.6l184-184c46.3-46.3 121.3-46.3 167.6 0s46.3 121.3 0 167.6l-176 176c-28.6 28.6-75 28.6-103.6 0s-28.6-75 0-103.6l144-144c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-144 144c-6.7 6.7-6.7 17.7 0 24.4s17.7 6.7 24.4 0l176-176c24.4-24.4 24.4-64 0-88.4z" },
+  "square-root-variable": { w: 576, d: "M282.6 78.1c8-27.3 33-46.1 61.4-46.1H544c17.7 0 32 14.3 32 32s-14.3 32-32 32H344L238.7 457c-3.6 12.3-14.1 21.2-26.8 22.8s-25.1-4.6-31.5-15.6L77.6 288H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H77.6c22.8 0 43.8 12.1 55.3 31.8l65.2 111.8L282.6 78.1zM393.4 233.4c12.5-12.5 32.8-12.5 45.3 0L480 274.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3L525.3 320l41.4 41.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L480 365.3l-41.4 41.4c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L434.7 320l-41.4-41.4c-12.5-12.5-12.5-32.8 0-45.3z" },
+  "diagram-project": { w: 576, d: "M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z" },
+  "arrow-down-1-9": { w: 576, d: "M450.7 38c-8.3-6-19.1-7.7-28.8-4.4l-48 16c-16.8 5.6-25.8 23.7-20.2 40.5s23.7 25.8 40.5 20.2l5.9-2V160H384c-17.7 0-32 14.3-32 32s14.3 32 32 32h48 48c17.7 0 32-14.3 32-32s-14.3-32-32-32H464V64c0-10.3-4.9-19.9-13.3-26zM160 480c9 0 17.5-3.8 23.6-10.4l88-96c11.9-13 11.1-33.3-2-45.2s-33.3-11.1-45.2 2L192 365.7V64c0-17.7-14.3-32-32-32s-32 14.3-32 32V365.7L95.6 330.4c-11.9-13-32.2-13.9-45.2-2s-13.9 32.2-2 45.2l88 96C142.5 476.2 151 480 160 480zM418.3 307a32 32 0 1 1 27.4 57.9A32 32 0 1 1 418.3 307zM405.1 419.8l-6.8 9.2c-10.5 14.2-7.5 34.2 6.7 44.8s34.2 7.5 44.8-6.7l48.8-65.8c14-18.9 21.5-41.7 21.5-65.2c0-48.6-39.4-88-88-88s-88 39.4-88 88c0 39.2 25.6 72.4 61.1 83.8z" },
+  "calendar-plus": { w: 512, d: "M128 32V64H80c-26.5 0-48 21.5-48 48v48H480V112c0-26.5-21.5-48-48-48H384V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H192V32c0-17.7-14.3-32-32-32s-32 14.3-32 32zM480 192H32V464c0 26.5 21.5 48 48 48H432c26.5 0 48-21.5 48-48V192zM256 248c13.3 0 24 10.7 24 24v56h56c13.3 0 24 10.7 24 24s-10.7 24-24 24H280v56c0 13.3-10.7 24-24 24s-24-10.7-24-24V376H176c-13.3 0-24-10.7-24-24s10.7-24 24-24h56V272c0-13.3 10.7-24 24-24z" },
+  "calendar-check": { w: 448, d: "M128 0c17.7 0 32 14.3 32 32V64H288V32c0-17.7 14.3-32 32-32s32 14.3 32 32V64h48c26.5 0 48 21.5 48 48v48H0V112C0 85.5 21.5 64 48 64H96V32c0-17.7 14.3-32 32-32zM0 192H448V464c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V192zM329 305c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-95 95-47-47c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9l64 64c9.4 9.4 24.6 9.4 33.9 0L329 305z" },
+  "filter-circle-xmark": { w: 576, d: "M3.9 22.9C10.5 8.9 24.5 0 40 0H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L396.4 195.6C316.2 212.1 256 283 256 368c0 27.4 6.3 53.4 17.5 76.5c-1.6-.8-3.2-1.8-4.7-2.9l-64-48c-8.1-6-12.8-15.5-12.8-25.6V288.9L9 65.3C-.7 53.4-2.8 36.8 3.9 22.9zM432 224a144 144 0 1 1 0 288 144 144 0 1 1 0-288zm59.3 107.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L432 345.4l-36.7-36.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6L409.4 368l-36.7 36.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L432 390.6l36.7 36.7c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L454.6 368l36.7-36.7z" },
+  "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
+  "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" },
+  "check": { w: 448, d: "M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z" },
+  "palette": { w: 512, d: "M512 256c0 .9 0 1.8 0 2.7c-.4 36.5-33.6 61.3-70.1 61.3H344c-26.5 0-48 21.5-48 48c0 3.4 .4 6.7 1 9.9c2.1 10.2 6.5 20 10.8 29.9c6.1 13.8 12.1 27.5 12.1 42c0 31.8-21.6 60.7-53.4 62c-3.5 .1-7 .2-10.6 .2C114.6 512 0 397.4 0 256S114.6 0 256 0S512 114.6 512 256zM128 288a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm0-96a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm96 96a32 32 0 1 0 0-64 32 32 0 1 0 0 64z" },
+  "arrow-up": { w: 384, d: "M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z" },
+  "arrow-down": { w: 384, d: "M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z" }
+};
+function faIcon(name, sizePx) {
+  const g = GLYPHS[name];
+  const box = sizePx ? { width: `${Math.round(g.w / 512 * sizePx)}`, height: `${sizePx}` } : { width: `${(g.w / 512).toFixed(4)}em`, height: "1em" };
+  return `<svg class="tablify__fa" viewBox="0 0 ${g.w} 512" width="${box.width}" height="${box.height}" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
+}
+
+// src/ui/protoModal.ts
+function dressProtoModal(modal, options = {}) {
+  const { modalEl, titleEl } = modal;
+  modalEl.classList.add("tablify__modal", "tablify__pmodal", `tablify__pmodal--${options.size ?? "sm"}`);
+  applyTheme(modalEl, document.body.classList.contains("theme-dark") ? "dark" : "light");
+  if (options.icon && !titleEl.querySelector(":scope > .tablify__pmodal-icon")) {
+    titleEl.insertAdjacentHTML("afterbegin", `<span class="tablify__pmodal-icon" aria-hidden="true">${faIcon(options.icon)}</span>`);
+  }
+}
+
+// src/commands/linkIntegrity.ts
+var LINK_INTEGRITY_COMMAND_ID = "tablify-link-integrity";
+var LINK_INTEGRITY_COMMAND_NAME = "Check link integrity (all tables)";
+function registerLinkIntegrityCommand(plugin) {
+  plugin.addCommand({
+    id: LINK_INTEGRITY_COMMAND_ID,
+    name: LINK_INTEGRITY_COMMAND_NAME,
+    callback: () => void runLinkIntegrityCheck(plugin.app)
+  });
+}
+async function runLinkIntegrityCheck(app) {
+  const idx = linkIndexFor(app);
+  await idx.refresh();
+  new LinkIntegrityModal(app, checkIntegrity(idx.index)).open();
+}
+var LinkIntegrityModal = class extends import_obsidian3.Modal {
+  constructor(app, report) {
+    super(app);
+    this.report = report;
+  }
+  onOpen() {
+    const r = this.report;
+    this.setTitle("Link integrity");
+    dressProtoModal(this, { icon: "link", size: "md" });
+    const summary = r.broken.length === 0 ? `No broken links. ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.` : `${r.broken.length} broken of ${r.checked} ${r.checked === 1 ? "link" : "links"} checked.`;
+    this.contentEl.createEl("p", { text: summary, cls: "tablify-link-integrity__summary" });
+    if (r.broken.length > 0) {
+      const list = this.contentEl.createEl("ul", { cls: "tablify-link-integrity__list" });
+      for (const b of r.broken) {
+        const item = list.createEl("li");
+        item.createSpan({ text: `${b.sourceTable} (${b.sourcePath})`, cls: "tablify-link-integrity__where" });
+        item.createSpan({ text: ` \xB7 ${b.fieldName} \xB7 ${b.rowLabel}: ${b.message}` });
+        item.createDiv({ text: `Target: table ${b.targetTableId}, row ${b.targetRowId}`, cls: "tablify-link-integrity__target" });
+      }
+    }
+    if (r.duplicates.length > 0) {
+      this.contentEl.createEl("p", {
+        text: 'Some files share a table ID. Only the first file is used for links. To give a copy its own ID, close its tab and use "Give this copy a new table ID" in the file menu.',
+        cls: "tablify-link-integrity__summary"
+      });
+      const list = this.contentEl.createEl("ul", { cls: "tablify-link-integrity__list" });
+      for (const d of r.duplicates) {
+        list.createEl("li", { text: `${d.tableId}: ${d.paths.join(", ")}` });
+      }
+    }
+  }
+};
+
+// src/views/tableView.ts
+var import_obsidian9 = require("obsidian");
 
 // src/views/grid/editors/index.ts
 var READONLY_TYPES = /* @__PURE__ */ new Set(["auto_number", "created_time", "modified_time", "formula"]);
@@ -15682,7 +15869,7 @@ var LinkPickerModal = class extends import_obsidian6.Modal {
       for (const id of missing)
         this.itemRow(list, id, "Missing row", true);
     }
-    const visible = filterRows(rows, this.query);
+    const visible = filterRows2(rows, this.query);
     if (visible.length === 0) {
       list.createDiv({ text: rows.length === 0 ? "This table has no rows yet." : "No rows match.", cls: "tablify-link-picker__note" });
     }
@@ -17251,19 +17438,38 @@ var TableView = class extends import_obsidian9.TextFileView {
   }
   /**
    * Export current view as CSV (SAD-98 command target; was the title-row Export CSV button).
-   * The current view, written next to the table through the Export modal's writer.
+   * The current view, sent to the same explicit external save destination as the Export modal.
    */
   async exportCurrentViewCsv() {
     const file = this.file;
-    const table = this.currentViewTable();
-    if (!file || !table)
+    if (!file || !this.session)
       return;
-    const outcome = await writeExport(table, "csv", exportFolderOf(file), file.basename, vaultExportAdapter(this.app));
-    if (!outcome.ok) {
-      new import_obsidian9.Notice(`Export failed. No file was written. ${outcome.error}`);
+    const runtime = browserExportSaveRuntime(typeof import_obsidian9.Platform === "undefined" ? false : import_obsidian9.Platform.isMobile);
+    const pickerStart = beginExportSave(exportFileName(file.basename, "csv"), exportMimeType("csv"), runtime);
+    const picker = await pickerStart;
+    if (picker.kind === "cancelled") {
+      new import_obsidian9.Notice("Export cancelled. No file was saved.");
       return;
     }
-    new import_obsidian9.Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
+    const table = this.currentViewTable();
+    if (!table)
+      return;
+    let artifact;
+    try {
+      artifact = await buildExportArtifact(table, "csv", file.basename);
+    } catch (error) {
+      new import_obsidian9.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    const saved = await saveExportArtifact(artifact, runtime, Promise.resolve(picker));
+    if (!saved.ok) {
+      if (!saved.cancelled)
+        new import_obsidian9.Notice(`Export failed. No file was saved. ${saved.error}`);
+      else
+        new import_obsidian9.Notice("Export cancelled. No file was saved.");
+      return;
+    }
+    new import_obsidian9.Notice(exportSuccessMessage2(saved.method, saved.fileName, table.rows.length, table.fields.length));
   }
   /**
    * Copy current view as Markdown (SAD-98 command target; was the title-row Copy Markdown
@@ -18105,6 +18311,13 @@ var TableView = class extends import_obsidian9.TextFileView {
     }).open();
   }
 };
+function exportSuccessMessage2(method, fileName, rowCount, columnCount) {
+  if (method === "picker")
+    return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
+  if (method === "share")
+    return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
+  return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
+}
 function formatValue(value, field) {
   return getFieldType(field.type).format(value ?? null, field);
 }
@@ -18122,8 +18335,8 @@ var NEW_TABLE_NAME = "Untitled table";
 var OPEN = { id: "open", label: "Open" };
 var DUPLICATE = { id: "duplicate", label: "Duplicate" };
 var EXPORT = { id: "export", label: "Export" };
-var NEW_TABLE = { id: "newTable", label: "New table" };
-var IMPORT = { id: "importTable", label: "Import CSV / Excel as table" };
+var NEW_TABLE = { id: "newTable", label: "New Tablify Table", icon: "file-plus" };
+var IMPORT = { id: "importTable", label: "Import CSV or Excel to Tablify", icon: "upload" };
 function menuItemsFor(target) {
   if (target.kind === "file")
     return target.extension === "tablify" ? [OPEN, DUPLICATE, EXPORT] : [];
@@ -18212,10 +18425,18 @@ function registerFileMenu(plugin) {
   const app = plugin.app;
   plugin.registerEvent(
     app.workspace.on("file-menu", (menu, file) => {
-      for (const item of menuItemsFor(targetOf(file))) {
+      const target = targetOf(file);
+      const items = menuItemsFor(target);
+      const isFolder = target.kind === "folder" && items.length > 0;
+      const before = menu.items.length;
+      for (const item of items) {
         menu.addItem(
-          (mi) => mi.setTitle(item.label).onClick(() => void run(app, file, item.id))
+          (mi) => mi.setTitle(item.label).setIcon(item.icon ?? "").onClick(() => void run(app, file, item.id))
         );
+      }
+      if (isFolder) {
+        const added = menu.items.splice(before);
+        menu.items.unshift(...added);
       }
       if (file instanceof import_obsidian10.TFile && file.extension === "tablify") {
         const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);

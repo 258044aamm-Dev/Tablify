@@ -48,7 +48,7 @@ The top of every table shows its **name** and a single **Export…** button on t
 - **Name**: click it, type, then press **Enter** (or click away) to rename the table *file*, in the same folder. **Esc** cancels. Names cannot be empty, cannot start with `.`, and cannot contain `\ / : * ? " < > | # ^ [ ]`. If a file with that name already exists in the folder, the rename is refused with a notice and the old name stays. Obsidian updates links to the table as usual.
 - **Export…** (right): saves pending edits, then opens the Export dialog for this table ([§13](#13-exporting-csv-excel-markdown)).
 
-The one-click current-view actions are commands instead of buttons: **Export current view as CSV** writes the **current view** (visible fields in their order, with the active sort, search and query) as `<name>.csv` next to the table, numbered if that name is taken, never overwriting; **Copy current view as Markdown** copies the same view to the clipboard as a Markdown table. **Import CSV / Excel as table** is likewise a command and a folder-menu item ([§12](#12-importing-csv-and-excel)).
+The one-click current-view actions are commands instead of buttons: **Export current view as CSV** saves the **current view** (visible fields in their order, with the active sort, search and query) through the same save-location flow described in [§13](#13-exporting-csv-excel-markdown). **Copy current view as Markdown** copies that view to the clipboard; it does not create a file. **Import CSV / Excel as table** is likewise a command and a folder-menu item ([§12](#12-importing-csv-and-excel)).
 
 ## 2. The `.tablify` file format
 
@@ -241,9 +241,11 @@ Right-click a folder → **Import CSV / Excel as table**, or run the command **I
 Run **Export table (CSV, Excel, Markdown)** from the command palette or the file-explorer menu, or click **Export…** in the table's title row. (**Export current view as CSV** and **Copy current view as Markdown** are command-palette shortcuts for the current view; see [the title row](#the-title-row).) The dialog has:
 
 - **Format** — CSV, XLSX, or Markdown.
-- **Full table** checkbox — **off (default): export the current view** (your filter, sort, visible fields, column order); **on**: every field and row.
+- **Full table** checkbox — **off (default): export the current view** (saved search and query, sort, visible fields and column order); **on**: every field and row. Formula columns contain their computed values in either scope.
 
-Export writes a new file next to the table (collision-safe naming) and never modifies the table.
+Click **Export** to open the system save-location picker with the table name and format extension prefilled. The picker starts in **Downloads** where the platform supports that location; choose another folder if needed. Exports are saved outside the vault and never modify the table. If the platform has no save picker, Tablify uses the mobile share sheet when it can share a file, otherwise it starts a browser/Electron download. These are explicit save/share/download destinations—exports are never silently written into the vault. Any overwrite or collision behavior is handled by the picker or host platform's normal download/share flow.
+
+For the format dialog, pending edits in an open copy of the table are saved before the file is read; **Export current view as CSV** uses the open table's live view. To create a Markdown file, choose **Markdown table** in the dialog; **Copy current view as Markdown** remains a separate clipboard action.
 
 ## 14. The file-explorer menu
 

@@ -2,7 +2,7 @@
 // Thin layer: load/save via TextFileView, DOM via GridView, logic via tableSession, tableController,
 // and the menu models. Every change goes through the command stack (undoable). Save follows each change.
 
-import { Notice, TextFileView, TFile, WorkspaceLeaf } from 'obsidian';
+import { Notice, Platform, TextFileView, TFile, WorkspaceLeaf } from 'obsidian';
 import { parse } from '../format/parse.js';
 import { serialize } from '../format/serialize.js';
 import { countForeignRefs, removeForeignRefs } from '../model/link.js';
@@ -30,8 +30,9 @@ import { snapshotTable, summarizeLinks } from '../model/link.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 import { TitleRow, type TitleRowCallbacks, type TitleRowState } from './titleRow.js';
-import { exportFolderOf, openExportModal, vaultExportAdapter } from '../commands/export.js';
-import { writeExport } from '../io/export/exporter.js';
+import { openExportModal } from '../commands/export.js';
+import { beginExportSave, browserExportSaveRuntime, saveExportArtifact } from '../io/export/destination.js';
+import { buildExportArtifact, exportFileName, exportMimeType } from '../io/export/exporter.js';
 import { toMarkdown } from '../io/export/markdown.js';
 import type { ExportTable } from '../io/export/view.js';
 import { FilterBuilderModal } from './grid/FilterBuilderModal.js';
@@ -288,18 +289,36 @@ export class TableView extends TextFileView {
 
   /**
    * Export current view as CSV (SAD-98 command target; was the title-row Export CSV button).
-   * The current view, written next to the table through the Export modal's writer.
+   * The current view, sent to the same explicit external save destination as the Export modal.
    */
   async exportCurrentViewCsv(): Promise<void> {
     const file = this.file;
-    const table = this.currentViewTable();
-    if (!file || !table) return;
-    const outcome = await writeExport(table, 'csv', exportFolderOf(file), file.basename, vaultExportAdapter(this.app));
-    if (!outcome.ok) {
-      new Notice(`Export failed. No file was written. ${outcome.error}`);
+    if (!file || !this.session) return;
+
+    const runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
+    const pickerStart = beginExportSave(exportFileName(file.basename, 'csv'), exportMimeType('csv'), runtime);
+    const picker = await pickerStart;
+    if (picker.kind === 'cancelled') {
+      new Notice('Export cancelled. No file was saved.');
       return;
     }
-    new Notice(`Exported ${outcome.rowCount} rows and ${outcome.columnCount} columns to ${outcome.path}.`);
+
+    const table = this.currentViewTable();
+    if (!table) return;
+    let artifact;
+    try {
+      artifact = await buildExportArtifact(table, 'csv', file.basename);
+    } catch (error) {
+      new Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    const saved = await saveExportArtifact(artifact, runtime, Promise.resolve(picker));
+    if (!saved.ok) {
+      if (!saved.cancelled) new Notice(`Export failed. No file was saved. ${saved.error}`);
+      else new Notice('Export cancelled. No file was saved.');
+      return;
+    }
+    new Notice(exportSuccessMessage(saved.method, saved.fileName, table.rows.length, table.fields.length));
   }
 
   /**
@@ -1180,6 +1199,17 @@ export class TableView extends TextFileView {
       onChanged: () => this.afterChange(),
     }).open();
   }
+}
+
+function exportSuccessMessage(
+  method: 'picker' | 'share' | 'download',
+  fileName: string,
+  rowCount: number,
+  columnCount: number,
+): string {
+  if (method === 'picker') return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
+  if (method === 'share') return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
+  return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 
 function formatValue(value: CellValue | undefined, field: FieldDefinition): string {

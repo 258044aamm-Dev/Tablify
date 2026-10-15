@@ -17,6 +17,7 @@ function xlsxCell(value: CellValue, field: FieldDefinition): XlsxCell {
   if (value === null || value === undefined) return { value: null };
   if (field.type === 'checkbox' && typeof value === 'boolean') return { value };
   if (field.type === 'number' && typeof value === 'number') return { value };
+  if (field.type === 'formula' && (typeof value === 'number' || typeof value === 'boolean')) return { value };
   if (field.type === 'date' && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const d = new Date(`${value}T00:00:00Z`);
     if (!Number.isNaN(d.getTime())) return { value: d, format: 'yyyy-mm-dd' };

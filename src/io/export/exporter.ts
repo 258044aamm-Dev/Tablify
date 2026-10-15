@@ -31,6 +31,40 @@ export type ExportOutcome = { ok: true; path: string; rowCount: number; columnCo
 
 export const EXTENSION: Record<ExportFormat, string> = { csv: 'csv', xlsx: 'xlsx', md: 'md' };
 
+const MIME_TYPE: Record<ExportFormat, string> = {
+  csv: 'text/csv',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  md: 'text/markdown',
+};
+
+export interface ExportArtifact {
+  fileName: string;
+  mimeType: string;
+  data: string | ArrayBuffer;
+}
+
+export function exportFileName(baseName: string, format: ExportFormat): string {
+  const safeBase = baseName.trim() || 'Export';
+  return `${safeBase}.${EXTENSION[format]}`;
+}
+
+export function exportMimeType(format: ExportFormat): string {
+  return MIME_TYPE[format];
+}
+
+/** Build an export in memory so a caller can send it to a vault adapter or device save picker. */
+export async function buildExportArtifact(
+  table: ExportTable,
+  format: ExportFormat,
+  baseName: string,
+): Promise<ExportArtifact> {
+  let data: string | ArrayBuffer;
+  if (format === 'csv') data = toCsv(table);
+  else if (format === 'md') data = toMarkdown(table);
+  else data = await toXlsx(table);
+  return { fileName: exportFileName(baseName, format), mimeType: MIME_TYPE[format], data };
+}
+
 export async function exportTable(input: ExportInput): Promise<ExportOutcome> {
   const resolved = resolveExportTable(input.file, input.scope);
   if (!resolved.ok) return { ok: false, error: resolved.error };
@@ -49,24 +83,19 @@ export async function writeExport(
   baseName: string,
   adapter: ExportAdapter,
 ): Promise<ExportOutcome> {
-  const ext = EXTENSION[format];
-
-  // Build the full content before anything is written.
-  let text: string | null = null;
-  let binary: ArrayBuffer | null = null;
+  let artifact: ExportArtifact;
   try {
-    if (format === 'csv') text = toCsv(table);
-    else if (format === 'md') text = toMarkdown(table);
-    else binary = await toXlsx(table);
+    // Build the full content before anything is written.
+    artifact = await buildExportArtifact(table, format, baseName);
   } catch (e) {
     return { ok: false, error: `Export failed, no file was written: ${e instanceof Error ? e.message : String(e)}` };
   }
 
-  const path = pickFreePath(folder, baseName || 'Export', adapter.exists, ext);
+  const path = pickFreePath(folder, baseName || 'Export', adapter.exists, EXTENSION[format]);
   if (path === null) return { ok: false, error: 'No free file name found.' };
   try {
-    if (text !== null) await adapter.create(path, text);
-    else if (binary !== null) await adapter.createBinary(path, binary);
+    if (typeof artifact.data === 'string') await adapter.create(path, artifact.data);
+    else await adapter.createBinary(path, artifact.data);
   } catch (e) {
     return { ok: false, error: `Could not write the file: ${e instanceof Error ? e.message : String(e)}` };
   }

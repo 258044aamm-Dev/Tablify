@@ -36,7 +36,30 @@ describe('current view (default)', () => {
     expect(r.table.rows.every((row) => row.values['fld_done'] === true)).toBe(true);
   });
 
-  it('a bad query is an error, not a silent full export', () => {
+  it('applies the persisted search and query together for the default current-view scope', () => {
+    const file = makeFile(30, 99, { ...VIEW, search: 'Item 1', query: 'Status:Done' });
+    const r = resolveExportTable(file, { fullTable: false });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.table.rows.length).toBeGreaterThan(0);
+    expect(r.table.rows.length).toBeLessThan(file.rows.length);
+    for (const row of r.table.rows) {
+      expect(String(row.values.fld_name)).toContain('Item 1');
+      expect(row.values.fld_status).toBe('opt_done');
+    }
+  });
+
+  it('matches the grid fail-open behavior for an invalid saved query while retaining search', () => {
+    const file = makeFile(30, 99, { ...VIEW, search: 'Item 1', query: 'Amount:"unclosed' });
+    const r = resolveExportTable(file, { fullTable: false });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.table.rows.length).toBeGreaterThan(0);
+    expect(r.table.rows.length).toBeLessThan(file.rows.length);
+    expect(r.table.rows.every((row) => String(row.values.fld_name).includes('Item 1'))).toBe(true);
+  });
+
+  it('a bad query override is an error, not a silent full export', () => {
     const r = resolveExportTable(makeFile(3), { fullTable: false, query: 'NoSuchField = 1' });
     expect(r.ok).toBe(false);
   });
@@ -56,6 +79,14 @@ describe('full table', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.table.fields.map((f) => f.id)).toEqual(FIELDS.map((f) => f.id));
+    expect(r.table.rows.map((row) => row.id)).toEqual(file.rows.map((row) => row.id));
+  });
+
+  it('ignores saved search and query when Full table is enabled', () => {
+    const file = makeFile(20, 99, { ...VIEW, search: 'Item 1', query: 'Status:Done' });
+    const r = resolveExportTable(file, { fullTable: true });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
     expect(r.table.rows.map((row) => row.id)).toEqual(file.rows.map((row) => row.id));
   });
 });
