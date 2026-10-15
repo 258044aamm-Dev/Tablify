@@ -16,13 +16,25 @@ export function registerFileMenu(plugin: Plugin): void {
   const app = plugin.app;
   plugin.registerEvent(
     app.workspace.on('file-menu', (menu: Menu, file: TAbstractFile) => {
-      for (const item of menuItemsFor(targetOf(file))) {
+      const target = targetOf(file);
+      const items = menuItemsFor(target);
+      const isFolder = target.kind === 'folder' && items.length > 0;
+
+      const before = menu.items.length;
+      for (const item of items) {
         menu.addItem((mi) =>
           mi
             .setTitle(item.label)
+            .setIcon(item.icon ?? '')
             .onClick(() => void run(app, file, item.id)),
         );
       }
+      // Keep the Tablify folder entries at the top of the context menu.
+      if (isFolder) {
+        const added = menu.items.splice(before);
+        menu.items.unshift(...added);
+      }
+
       if (file instanceof TFile && file.extension === 'tablify') {
         const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
         if (cached.kind === 'reissue') {

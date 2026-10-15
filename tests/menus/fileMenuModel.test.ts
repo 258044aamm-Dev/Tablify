@@ -15,8 +15,10 @@ describe('file explorer menu items (P5-01, FEATURES §2.16)', () => {
     expect(labels({ kind: 'file', extension: 'tablify' })).toEqual(['Open', 'Duplicate', 'Export']);
   });
 
-  it('folder: New table, Import CSV / Excel as table', () => {
-    expect(labels({ kind: 'folder', path: 'Projects' })).toEqual(['New table', 'Import CSV / Excel as table']);
+  it('folder: New Tablify Table, Import CSV or Excel to Tablify', () => {
+    const items = menuItemsFor({ kind: 'folder', path: 'Projects' });
+    expect(items.map((i) => i.label)).toEqual(['New Tablify Table', 'Import CSV or Excel to Tablify']);
+    expect(items.map((i) => i.icon)).toEqual(['file-plus', 'upload']);
   });
 
   it('other files and the vault root get no Tablify items', () => {

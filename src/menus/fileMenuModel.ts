@@ -18,6 +18,8 @@ export type FileMenuAction = 'open' | 'duplicate' | 'export' | 'newTable' | 'imp
 export interface FileMenuItem {
   id: FileMenuAction;
   label: string;
+  /** Obsidian/Lucide icon id rendered via MenuItem.setIcon. Optional. */
+  icon?: string;
 }
 
 /** Suffix added to a duplicated table's name (decision from the P5 questions). */
@@ -29,8 +31,8 @@ export const NEW_TABLE_NAME = 'Untitled table';
 const OPEN: FileMenuItem = { id: 'open', label: 'Open' };
 const DUPLICATE: FileMenuItem = { id: 'duplicate', label: 'Duplicate' };
 const EXPORT: FileMenuItem = { id: 'export', label: 'Export' };
-const NEW_TABLE: FileMenuItem = { id: 'newTable', label: 'New table' };
-const IMPORT: FileMenuItem = { id: 'importTable', label: 'Import CSV / Excel as table' };
+const NEW_TABLE: FileMenuItem = { id: 'newTable', label: 'New Tablify Table', icon: 'file-plus' };
+const IMPORT: FileMenuItem = { id: 'importTable', label: 'Import CSV or Excel to Tablify', icon: 'upload' };
 
 /** Items for a right-clicked file-explorer target. Empty list means no Tablify items. */
 export function menuItemsFor(target: MenuTarget): FileMenuItem[] {

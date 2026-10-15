@@ -6,6 +6,11 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **Context menu branding (SAD-125)** — the folder right-click entries are renamed to
+  "New Tablify Table" and "Import CSV or Excel to Tablify" and now carry icons
+  (`file-plus`, `upload`). They are kept at the top of the folder context menu. Command IDs,
+  behaviour and the `.tablify` file entries (Open / Duplicate / Export) are unchanged.
+
 - **Row selection moves to the menu (SAD-114)** — the always-visible row checkbox column and the
   header select-all checkbox are removed. Select a row from its menu (**Select row** / **Deselect
   row**). Shift-click selects the rows from the last selected row to the clicked row. Ctrl/Cmd-click

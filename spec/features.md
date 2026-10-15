@@ -108,7 +108,7 @@ Export the current view or full table to **CSV**, **Excel (.xlsx)**, or **Markdo
 | Target | Menu items |
 |--------|------------|
 | `.tablify` file | Open, Duplicate, Export |
-| Folder | New table, Import CSV / Excel as table |
+| Folder | New Tablify Table, Import CSV or Excel to Tablify |
 
 ### 2.17 Table right-click (Feature 17)
 
