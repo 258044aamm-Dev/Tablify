@@ -4,6 +4,8 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+## [2.0.0-beta.3] — 2026-10-16
+
 ### Changed
 
 - **Context menu branding (SAD-125)** — the folder right-click entries are renamed to
@@ -56,6 +58,8 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   every screen width. Nothing is lost: **Import CSV / Excel as table** stays on the command
   palette and the folder menu, and the two one-click current-view actions are now the commands
   **Export current view as CSV** and **Copy current view as Markdown**.
+
+- **Exports save outside the vault (SAD-129)** — the format dialog and current-view CSV use a save-location picker, starting in Downloads where supported, with explicit share/download fallbacks. The default current-view scope follows saved search/query and view settings; formula values are included in all export formats. Pending edits and source/destination failures now receive explicit handling. The separate Markdown clipboard command is unchanged.
 
 ### Removed
 

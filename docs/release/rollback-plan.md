@@ -2,6 +2,31 @@
 
 ---
 
+# 2.0.0-beta.3 — 2026-10-16
+
+**Release:** v2.0.0-beta.3 (pre-release) · **Format version 2** · export destinations (SAD-129); no file-format change
+
+## Situation
+
+Beta.3 adds external save destinations for CSV, XLSX, and file-based Markdown exports, plus explicit share/download fallbacks. It does not modify `.tablify` files or change the format version. The save picker, mobile share sheet, and overwrite/collision behavior have not been manually tested inside Obsidian desktop or mobile; this limitation is disclosed in the [release notes](2.0.0-beta.3.md).
+
+## Rolling back
+
+| Situation | Action |
+|---|---|
+| Export destination/picker behavior is unsuitable | Reinstall 2.0.0-beta.2 using its `main.js`, `manifest.json`, and `styles.css` release assets. The beta.3 export change does not alter table data. |
+| A table contains formula or link fields | Keep Tablify 2.x installed. Tablify 1.0.2 and earlier cannot open `formatVersion: 2` files. |
+| An export was saved outside the vault | The exported file is independent of the plugin install; uninstalling or downgrading Tablify does not remove it. |
+
+## Release verification checklist (2.0.0-beta.3)
+
+- [x] `npm ci` and `npm run check` passed: 111 test files / 1,658 tests; lint 0 errors (119 existing warnings), guard, docs links, icons, and build checks pass.
+- [x] Production `main.js` built twice with an identical SHA-256; production dependency audit (`npm audit --omit=dev`) reports 0 vulnerabilities.
+- [x] SHA-256 hashes for `main.js`, `manifest.json`, and `styles.css` recorded in the [release notes](2.0.0-beta.3.md).
+- [x] The native picker/share/overwrite behavior not tested in Obsidian is explicitly disclosed.
+- [ ] Owner: install the release on desktop and mobile and verify picker, share/download fallback, and destination behavior.
+- [ ] Owner: revoke/rotate the temporary GitHub credential used for publication.
+
 # 2.0.0-beta.2 — 2026-10-12
 
 **Release:** v2.0.0-beta.2 (pre-release) · **Format version 2** · prototype-parity tranche (SAD-75 to SAD-92); no file-format change since 2.0.0-beta.1
