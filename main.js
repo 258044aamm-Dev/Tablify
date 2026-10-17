@@ -18238,17 +18238,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         // SAD-96: double-click (the README's documented gesture) opens the cell's editor.
         onCellActivate: (row, col) => this.startEdit({ row, col }),
         // COD-71: a checkbox cell is a real box; one click is one undo step, saved like any edit.
-        onToggleCheckbox: (row, col) => {
-          const s2 = this.session;
-          if (!s2)
-            return;
-          const rowData = this.displayRows()[row];
-          const field = s2.getVisibleFields()[col];
-          if (!rowData || !field || field.type !== "checkbox")
-            return;
-          s2.setValue(rowData.id, field.id, rowData.values[field.id] !== true);
-          this.afterChange();
-        },
+        onToggleCheckbox: (row, col) => this.toggleCheckboxAt(row, col),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -18293,6 +18283,7 @@ var TableView = class extends import_obsidian9.TextFileView {
       this.grid.root.addEventListener("keydown", (e) => this.onKeyDown(e));
       this.grid.root.addEventListener("contextmenu", (e) => this.onContextMenu(e));
       this.wirePressEvents(this.grid.root);
+      this.wireEditSwitchPress(this.grid.root);
     } else {
       this.grid.setTheme(theme);
       this.grid.setModel(rows, fields, s.getView(), groups);
@@ -18421,6 +18412,77 @@ var TableView = class extends import_obsidian9.TextFileView {
       }
     }
     return false;
+  }
+  /**
+   * COD-71: flip a checkbox cell through the store, so the toggle is one undo step and is
+   * saved like any other edit. Shared by the grid's box control and the press that ends an
+   * editor on another cell (COD-70).
+   */
+  toggleCheckboxAt(row, col) {
+    const s = this.session;
+    if (!s)
+      return;
+    const rowData = this.displayRows()[row];
+    const field = s.getVisibleFields()[col];
+    if (!rowData || !field || field.type !== "checkbox")
+      return;
+    s.setValue(rowData.id, field.id, rowData.values[field.id] !== true);
+    this.afterChange();
+  }
+  // ---- switching cells while an editor is open (COD-70) ----
+  /**
+   * COD-70: one click on another cell while editing commits the edit *and* selects the cell.
+   *
+   * The commit itself already happened on blur, but the blur runs during `mousedown` and its
+   * re-render empties every row (`fillRow` rebuilds the cells), so the element the press began
+   * on is detached long before `mouseup`. Chromium dispatches no `click` when the pressed node
+   * is gone, and the browser's click is what selects a cell — hence the second click the ticket
+   * describes. Finishing the edit from the press keeps the browser's intended order (commit,
+   * then select) without waiting for an event that will not arrive.
+   *
+   * Only the mouse path needs this: touch presses never reach here while editing (the long
+   * press handler ignores them, and a tap's own `click` follows a still-attached cell).
+   */
+  wireEditSwitchPress(root) {
+    root.addEventListener("pointerdown", (e) => {
+      const editor = this.editing;
+      if (!editor || e.pointerType === "touch" || e.button !== 0)
+        return;
+      const target = e.target;
+      const cell2 = target?.closest?.(".tablify__cell");
+      if (!cell2)
+        return;
+      const row = Number(cell2.parentElement?.dataset.rowIndex);
+      const col = Number(cell2.dataset.colIndex);
+      if (Number.isNaN(row) || Number.isNaN(col))
+        return;
+      const sel = this.grid?.getSelection();
+      if (sel && sel.row === row && sel.col === col)
+        return;
+      if (!this.finishEditOnPress(editor)) {
+        e.preventDefault();
+        setTimeout(() => {
+          if (this.editing === editor)
+            editor.focus();
+        }, 0);
+        return;
+      }
+      e.preventDefault();
+      if (target?.closest?.(".tablify__check")) {
+        this.toggleCheckboxAt(row, col);
+      } else {
+        this.grid?.setSelection({ row, col });
+      }
+      this.grid?.root.focus();
+    });
+  }
+  /**
+   * Finish the open editor through the commit path its blur listener owns. Returns true when
+   * the editor closed — false when validation kept it open.
+   */
+  finishEditOnPress(editor) {
+    editor.dispatchEvent(new Event("blur"));
+    return this.editing === null;
   }
   // ---- touch long press (P5-03) ----
   wirePressEvents(root) {
