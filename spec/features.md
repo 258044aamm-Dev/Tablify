@@ -45,6 +45,15 @@
 ### 2.2 Typed fields (Feature 2)
 Supported types: text, long text, number, currency, percent, duration, rating, checkbox, date, date & time, URL, email, phone.
 
+> **COD-76 (2026-10-17):** the type is chosen in **the plugin's own anchored panel**, not a native
+> `<select>`. The list is `CHANGE_TARGET_TYPES` — the same 18 types this section has always meant —
+> drawn as five groups with a search box, an icon, a name and one factual line per type. In Modify
+> the window the list still holds all 18: a type `planTypeChange` would refuse is shown greyed with
+> the model's own sentence (`4 values cannot convert to text`) rather than omitted, so the list's
+> shape is the same in both modes and the reason is readable. `canPickType` still answers the
+> yes/no question; `typeBlockReason` supplies the sentence. No model, save-path or conversion rule
+> changed.
+
 ### 2.3 Selects and attachments (Feature 3)
 - Single and multi select with colored options.
 - Searchable dropdown. Typing a value that does not exist creates it (create-on-type).

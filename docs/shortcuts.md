@@ -27,6 +27,22 @@ The card takes the keys while it is open — the same rule as any editor.
 | Up / Down in `hh` / `mm` | ±1, wrapping | 23 → 0, 59 → 0 |
 | Escape | Close and discard | The cell keeps its value |
 
+## Inside the field type list (COD-76)
+
+The panel takes the keys while it is open. Nothing here reaches the Add / Modify Field window, so
+**Enter** chooses a type instead of saving the field and **Escape** closes the list, not the window.
+
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| Any letter or digit | Open the list with that letter in the search | Opens on the field type row |
+| Enter / Space / ↓ / ↑ | Open the list | When the row has focus and the list is closed |
+| ↓ / ↑ | Next / previous type | Wraps at both ends; blocked types are skipped |
+| PageDown / PageUp | Five types down / up | Clamped at the ends |
+| Home / End | First / last type | — |
+| Enter | Choose the highlighted type | A greyed type does nothing |
+| Escape | Close the list | The window stays open, focus goes back to the row |
+| Tab | Close the list and move on | The list never traps Tab |
+
 ## Mouse and touch (SAD-96)
 
 | Gesture | Action | Notes |

@@ -16,6 +16,17 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   and closes; a date-and-time cell waits for **Done**, and changing only the day keeps the time
   **to the millisecond**. Typing a time means whole minutes. The file format, the undo stack, the
   cell display and Airtable sync are untouched; an opened-and-dismissed cell still writes nothing.
+- **The field type list is the plugin's own, and says what each type does (COD-76)** — **Field
+  type** in Add New Field / Modify Field was a native dropdown: one word per row, unreadable against
+  a dark theme, and in Modify any type that would drop values simply was not there, with nothing
+  saying why. It now opens a panel the plugin draws, under the row: a search box, the five groups,
+  and for every type its icon, its name and one true line about it (*Money, shown to two decimals*),
+  with the current type ticked and ⌨ **↑ ↓ / Enter / Esc** working through it. In **Modify Field**
+  a type that would lose values keeps its place, greyed, with the count and the reason
+  (*12 values cannot convert to text*), so the list never changes shape behind your back. The
+  panel is 100 % theme-aware, flips above the row when the screen is short, and closes on
+  **Escape** without closing the window. Existing behaviour is untouched: the same 18 types, the
+  same groups, the same conversion rules, the same save path.
 
 ### Fixed
 

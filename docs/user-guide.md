@@ -70,6 +70,23 @@ Tablify supports **only its own `.tablify` extension** — see the note below.
 
 **Add Field** in the toolbar adds a column: give it a name, pick a type, and it appears at the right of the table. Adding a field is a single undo step.
 
+**Choosing a type.** **Field type** opens a panel under the row — the plugin's own list, in your
+theme, the same in Add New Field and Modify Field:
+
+- a **search box** at the top (type a word — `mo` finds Number, Currency and Phone) and the five
+  groups underneath: Basic, Date, Links & contact, Select & attachment, Computed;
+- every row has the type's **icon**, its **name** and **one line saying what it does** — *Money,
+  shown to two decimals*, *Starts a call*, *A paragraph that wraps in the cell* — with the type in
+  use ticked;
+- the keyboard works throughout: **↓ ↑** move, **PageUp / PageDown / Home / End** jump,
+  **Enter** chooses, **Esc** closes the list (and only the list — your window stays open), and a
+  printed letter opens the list with that letter already in the search.
+
+In **Modify Field** the list always shows all 18 types. A type that would not convert every existing
+value keeps its place, greyed, with the reason the table's own rules give — *12 values cannot
+convert to text* — so you can see what is possible and why the rest is not, instead of the row
+quietly missing. The field's current type is always selectable.
+
 The **Add New Field** dialog also takes, depending on the type:
 
 - **Options (one per line)** for Single select and Multi select; each line becomes an option with the next colour.
@@ -86,8 +103,9 @@ A rename carries your formulas and saved queries with it — `{Price}` becomes `
 `Price:>10` becomes `"Unit Price":>10` — and the whole edit is a single undo step, so one **Undo**
 puts the old name, the rules and every reference back.
 
-A type is offered only when **every** existing value converts cleanly — otherwise nothing changes and
-a notice says why. This protects you from silent data loss. The name must be non-empty and not
+A type can be picked only when **every** existing value converts cleanly — the types that cannot
+are greyed in the list with the reason (above), and if you still try to save one, nothing changes
+and a notice says why. This protects you from silent data loss. The name must be non-empty and not
 already used by another field in the table.
 
 For a Single select or Multi select field the window shows how many options it has and a **Manage

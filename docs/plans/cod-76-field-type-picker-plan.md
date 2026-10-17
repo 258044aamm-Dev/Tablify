@@ -65,7 +65,7 @@ model, the save path or any other dialog moves.
 | `src/views/grid/fieldTypePicker.ts` | **new** — `FIELD_TYPE_META` (icon, description, search keywords) and `FieldTypePicker` (trigger + anchored panel + search + keyboard) | ~380 lines |
 | `src/views/grid/AddFieldModal.ts` | the `<select>` block becomes `new FieldTypePicker(…)`; `TYPE_GROUPS` (and the "unlisted type still appears" fallback) move into the new module and are re-exported, so the existing test import keeps working; `canPickType` is passed straight through and also answers `typeBlockReason` | ~45 lines changed |
 | `src/views/tableView.ts` | passes `typeBlockReason: (type) => { const plan = planTypeChange(…); return plan.ok ? null : plan.reason; }` beside the existing `canPickType` | ~8 lines |
-| `styles.css` | one new `/* ---- field type picker (COD-76) ---- */` section; **no existing selector edited** | ~180 lines |
+| `styles.css` | one new `/* ---- field type picker (COD-76) ---- */` section (lines 3333–3976); **no existing selector edited** | 644 lines, comments included |
 | `src/menus/tableMenuModel.ts` | `TYPE_LABELS` gains the three system types (`Auto number`, `Created time`, `Last modified`) — today Modify shows `auto_number` raw | +3 lines |
 | `docs/plans/cod-76-field-type-picker-plan.md` + `docs/evidence/cod-76/` | **this plan and its mock** — the mock is 53 KB with the glyphs inlined, so it opens offline in Obsidian's viewer or a browser | — |
 
