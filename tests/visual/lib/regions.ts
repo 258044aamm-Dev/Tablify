@@ -36,7 +36,7 @@ export const REGIONS: Region[] = [
   { id: 'grid-shell', plugin: ['.tablify--grid'], prototype: ['#tableInnerContainer'], styles: [...BOX, ...PAD], pixels: true },
   { id: 'header-capsule', plugin: ['.tablify__header-cell[data-field-id] .tablify__header-capsule', '.tablify__header-cell[data-field-id]', '.tablify__header-cell'], prototype: ['.header-capsule'], styles: [...BOX, ...PAD], pixels: true },
   { id: 'header-name', plugin: ['.tablify__hc-name', '.tablify__hc-name--static', '.tablify__header-name', '.tablify__header-cell'], prototype: ['.header-capsule button'], styles: [...TEXT] },
-  { id: 'type-badge', plugin: ['.tablify__hc-badge', '.tablify__type-badge'], prototype: ['.header-capsule span.font-mono[title]'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
+  // COD-67: the header shows the field name only; the prototype's badge has no counterpart.
   { id: 'header-num', plugin: ['.tablify__header .tablify__lead--num'], prototype: ['#tableHeaderHead th:nth-child(2)'], styles: [...TEXT], pixels: true },
   { id: 'body-cell', plugin: ['.tablify__row .tablify__cell[data-field-id] .tablify__capsule', '.tablify__row .tablify__cell[data-field-id]', '.tablify__row .tablify__cell'], prototype: ['.cell-capsule'], styles: [...BOX, ...TEXT, ...PAD], pixels: true },
   { id: 'row-number', plugin: ['.tablify__row .tablify__lead--num'], prototype: ['#tableBody tr:first-child td:nth-child(2)'], styles: [...TEXT], pixels: true },

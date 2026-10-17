@@ -21,7 +21,6 @@ import {
   type GridOptions,
 } from '../../../src/views/grid/GridView.js';
 import { cycleHeaderSort, moveColumnOnto } from '../../../src/views/grid/columns.js';
-import { typeIcon, typeLabel } from '../../../src/views/grid/fieldTypeBadge.js';
 import { TableView } from '../../../src/views/tableView.js';
 import { createDefaultView } from '../../../src/model/view.js';
 import type { FieldDefinition, Row, ViewDefinition } from '../../../src/model/types.js';
@@ -91,7 +90,7 @@ describe('SAD-79 fill mode (prototype table-layout: fixed; width: 100%)', () => 
 });
 
 describe('SAD-79 header capsule markup', () => {
-  it('renders grip, key (primary only), name button, badge and ⋮ — textContent stays the name', () => {
+  it('renders grip, key (primary only), name button and ⋮ — textContent stays the name', () => {
     const grid = mount({ onSortClick: vi.fn(), onHeaderMenu: vi.fn(), onColumnResize: vi.fn(), onColumnMove: vi.fn() });
     const [name, status] = headerCells(grid);
     expect(name.querySelector('.tablify__hc-grip svg')).not.toBeNull();
@@ -100,8 +99,10 @@ describe('SAD-79 header capsule markup', () => {
     const btn = name.querySelector<HTMLButtonElement>('button.tablify__hc-name');
     expect(btn?.textContent).toBe('Name');
     expect(btn?.type).toBe('button');
-    expect(status.querySelector('.tablify__hc-badge')?.getAttribute('data-type')).toBe('single_select');
-    expect(status.querySelector<HTMLElement>('.tablify__hc-badge')?.title).toBe('Single select');
+    // COD-67: the header shows the field name only — no type badge anywhere in the capsule.
+    expect(name.querySelector('.tablify__hc-badge')).toBeNull();
+    expect(status.querySelector('.tablify__hc-badge')).toBeNull();
+    expect(status.getAttribute('data-field-type')).toBe('single_select');
     const menu = name.querySelector<HTMLButtonElement>('button.tablify__hc-menu');
     expect(menu?.getAttribute('aria-label')).toBe('Field menu: Name');
     expect(name.querySelector('.tablify__hc-resize')).not.toBeNull();
@@ -142,14 +143,6 @@ describe('SAD-79 header capsule markup', () => {
     multi.destroy();
   });
 
-  it('maps every field type to a prototype badge icon and label', () => {
-    expect(typeIcon('text')).toBe('font');
-    expect(typeIcon('attachment')).toBe('paperclip');
-    expect(typeIcon('auto_number')).toBe('arrow-down-1-9');
-    expect(typeIcon('nonsense')).toBe('font');
-    expect(typeLabel('long_text')).toBe('Long text');
-    expect(typeLabel('modified_time')).toBe('Last modified');
-  });
 });
 
 describe('SAD-79 header interactions', () => {
@@ -227,7 +220,8 @@ describe('SAD-79 header interactions', () => {
     const grid = mount({ onColumnMove });
     const cells = headerCells(grid);
     const original = document.elementFromPoint;
-    document.elementFromPoint = () => cells[2].querySelector('.tablify__hc-badge');
+    document.elementFromPoint = () =>
+      cells[2].querySelector('.tablify__hc-name, .tablify__hc-name--static');
     try {
       const grip = cells[0].querySelector<HTMLElement>('.tablify__hc-grip');
       grip?.dispatchEvent(pointer('pointerdown', { clientX: 10, clientY: 10 }));

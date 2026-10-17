@@ -89,13 +89,12 @@ describe('SAD-71 Step 4 — capsule cells', () => {
     grid.destroy();
   });
 
-  it('carries the field type as an attribute for the header capsule badge', () => {
+  it('keeps the field type as a cell attribute but paints no badge (COD-67)', () => {
     const grid = mount();
     const header = Array.from(grid.header.querySelectorAll<HTMLElement>('.tablify__header-cell'));
+    // The attribute stays: menus and tests still need to know the type without a badge.
     expect(header[0].getAttribute('data-field-type')).toBe('text');
-    const badge = header[0].querySelector<HTMLElement>('.tablify__hc-badge');
-    expect(badge?.getAttribute('data-type')).toBe('text');
-    expect(badge?.getAttribute('aria-hidden')).toBe('true');
+    expect(header[0].querySelector('.tablify__hc-badge')).toBeNull();
     // textContent stays exactly the field name (existing contract).
     expect(header[0].textContent).toBe('Col 0');
     grid.destroy();
@@ -131,26 +130,25 @@ describe('SAD-71 Step 4 — capsule language in styles.css', () => {
     expect(r).toContain('transparent');
   });
 
-  it('header capsules label the type via attr() so textContent stays clean', () => {
-    expect(css).toContain('.tablify__hc-badge::after');
-    expect(css).toContain('attr(data-type)');
+  it('header capsules paint the sort arrow via attr() and have no type badge rule', () => {
     expect(css).toContain('attr(data-sort)');
+    // COD-67: the badge is gone from the header, so its rules are gone too.
+    expect(css).not.toContain('.tablify__hc-badge');
+    expect(css).not.toContain('attr(data-type)');
   });
 
-  it('lets the type badge yield before the field name in narrow headers', () => {
+  it('lets the field name take the freed badge space in narrow headers', () => {
     const buttonName = rule('.tablify button.tablify__hc-name {');
     const staticName = rule('.tablify .tablify__hc-name--static {');
-    const badge = rule('\n.tablify__hc-badge {');
 
-    // Name labels keep normal intrinsic sizing and can still ellipsize if needed.
+    // Name labels keep normal intrinsic sizing and can still ellipsize if needed. With the
+    // badge gone (COD-67) the name is the only flexible part of the capsule.
     for (const name of [buttonName, staticName]) {
       expect(name).toContain('flex: 0 1 auto;');
       expect(name).toContain('min-width: 0;');
       expect(name).toContain('text-overflow: ellipsis;');
     }
-    // The high shrink weight makes the badge yield first; overflow is clipped.
-    expect(badge).toContain('flex: 0 999 auto;');
-    expect(badge).toContain('min-width: 0;');
-    expect(badge).toContain('overflow: hidden;');
+    // No element competes for the space any more.
+    expect(css).not.toContain('flex: 0 999 auto;');
   });
 });

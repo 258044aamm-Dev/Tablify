@@ -17,8 +17,8 @@
  *     checkbox slot: rows are selected from the menu or with Shift/Ctrl-click;
  *   - when the columns are narrower than the shell, every slot scales up proportionally to
  *     fill it (fill mode); wider tables keep their widths and scroll horizontally;
- *   - header cells are capsules with grip, key, sortable name, sort arrow, type badge, ⋮ and
- *     a resize handle; body cells are 34/34/40px capsules inside 4px-padded slots;
+ *   - header cells are capsules with grip, key, sortable name, sort arrow, ⋮ and a resize
+ *     handle; body cells are 34/34/40px capsules inside 4px-padded slots;
  *   - the root is the one scroll container for both axes, so the sticky header and the
  *     sticky frozen block share a single reference and no scroll mirroring is needed;
  *   - the Insert Row pill lives inside the shell, sticky to the visible width.
@@ -30,7 +30,6 @@ import { getVisibleRange, rowHeightPx, rowHeightKey, totalHeight, OVERSCAN } fro
 import { RowPool } from './rowPool.js';
 import { applyTheme, optionChipColors } from '../../ui/theme/tokens.js';
 import { faIcon } from '../../ui/faIcons.js';
-import { typeIcon, typeLabel } from './fieldTypeBadge.js';
 import type { Row, FieldDefinition, CellValue } from '../../model/types.js';
 import type { ViewDefinition } from '../../model/types.js';
 import { effectiveFrozenColumns } from '../../model/view.js';
@@ -763,9 +762,9 @@ export class GridView {
   }
 
   /**
-   * Prototype `headCellHtml` capsule. textContent stays exactly the field name (every
-   * consumer and test reads it): glyphs are text-free SVGs, and the sort arrow and badge
-   * type text are CSS `attr()` content.
+   * Prototype `headCellHtml` capsule, minus its type badge (COD-67: the header shows the field
+   * name only). textContent stays exactly the field name (every consumer and test reads it):
+   * the glyphs are text-free SVGs and the sort arrow is CSS `attr()` content.
    */
   private buildHeaderCapsule(field: FieldDefinition, colIndex: number): HTMLElement {
     const capsule = document.createElement('div');
@@ -819,14 +818,6 @@ export class GridView {
       sort.setAttribute('data-sort', arrow + (this.sortState.length > 1 ? String(sortIdx + 1) : ''));
       main.appendChild(sort);
     }
-
-    const badge = document.createElement('span');
-    badge.className = 'tablify__hc-badge';
-    badge.title = typeLabel(field.type);
-    badge.setAttribute('aria-hidden', 'true');
-    badge.setAttribute('data-type', field.type);
-    badge.innerHTML = faIcon(typeIcon(field.type));
-    main.appendChild(badge);
 
     if (this.opts.onHeaderMenu) {
       const menu = document.createElement('button');

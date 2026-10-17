@@ -2132,35 +2132,6 @@
   color: var(--tablify-accent-primary);
 }
 
-/* Type badge: icon + raw type name (attr content keeps it out of textContent). */
-.tablify__hc-badge {
-  display: inline-flex;
-  align-items: center;
-  /* Give the badge overwhelming shrink priority over the field name. */
-  flex: 0 999 auto;
-  min-width: 0;
-  overflow: hidden;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 9px;
-  line-height: 16px;
-  color: var(--tablify-text-muted);
-  background: var(--tablify-bg-inner);
-  border: 1px solid var(--tablify-border-subtle);
-  border-radius: 4px;
-  padding: 2px 6px;
-  white-space: nowrap;
-}
-
-.tablify__hc-badge::after {
-  content: attr(data-type);
-}
-
-.tablify__hc-badge > .tablify__fa {
-  /* mr-1, plus the advance the prototype's webfont glyph carries as a character (measured
-     8.56px against the SVG's 7.875px) */
-  margin-right: 4.685px;
-}
-
 .tablify button.tablify__hc-menu {
   flex: 0 0 auto;
   display: flex;

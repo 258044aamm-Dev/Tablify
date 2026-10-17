@@ -13401,170 +13401,6 @@ var RowPool = class {
   }
 };
 
-// src/menus/tableMenuModel.ts
-var SEPARATOR = { id: "sep", label: "", enabled: false, separator: true };
-var TYPE_LABELS = {
-  text: "Text",
-  long_text: "Long text",
-  number: "Number",
-  currency: "Currency",
-  percent: "Percent",
-  duration: "Duration",
-  rating: "Rating",
-  checkbox: "Checkbox",
-  date: "Date",
-  date_time: "Date and time",
-  url: "URL",
-  email: "Email",
-  phone: "Phone",
-  single_select: "Single select",
-  multi_select: "Multi select",
-  attachment: "Attachment",
-  formula: "Formula",
-  link: "Link"
-};
-var CHANGE_TARGET_TYPES = [
-  "text",
-  "long_text",
-  "number",
-  "currency",
-  "percent",
-  "duration",
-  "rating",
-  "checkbox",
-  "date",
-  "date_time",
-  "url",
-  "email",
-  "phone",
-  "single_select",
-  "multi_select",
-  "attachment",
-  "formula",
-  "link"
-];
-function cellEntries(ctx) {
-  const entries = [
-    // SAD-96: the always-available edit gesture (mobile's way into the editor).
-    {
-      id: "cell.edit",
-      label: "Edit cell",
-      enabled: !ctx.readOnly,
-      reason: ctx.readOnly ? "Read-only field" : void 0
-    },
-    { id: "cell.copy", label: "Copy", enabled: true }
-  ];
-  if (ctx.isLink) {
-    entries.push({ id: "cell.links", label: "Choose linked rows\u2026", enabled: !ctx.readOnly });
-    if ((ctx.foreignLinks ?? 0) > 0) {
-      entries.push({ id: "cell.removeForeign", label: "Remove links to other tables", enabled: !ctx.readOnly });
-    }
-  }
-  return [
-    ...entries,
-    {
-      id: "cell.paste",
-      label: "Paste",
-      enabled: !ctx.readOnly && ctx.hasClipboard && !ctx.isLink,
-      reason: ctx.readOnly ? "Read-only field" : ctx.isLink ? "Use Choose linked rows instead" : "Nothing copied yet"
-    },
-    {
-      id: "cell.clear",
-      label: "Clear",
-      enabled: !ctx.readOnly && !ctx.cellEmpty,
-      reason: ctx.readOnly ? "Read-only field" : "Cell is already empty"
-    }
-  ];
-}
-function rowEntries(rowSelected = false) {
-  return [
-    { id: "row.select", label: rowSelected ? "Deselect row" : "Select row", enabled: true },
-    { id: "row.insertAbove", label: "Insert row above", enabled: true },
-    { id: "row.insertBelow", label: "Insert row below", enabled: true },
-    { id: "row.duplicate", label: "Duplicate row", enabled: true },
-    { id: "row.copy", label: "Copy row", enabled: true },
-    { id: "row.delete", label: "Delete row", enabled: true }
-  ];
-}
-function headerEntries(ctx) {
-  const sort = ctx.view.sort;
-  const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
-  const frozenThrough = ctx.colIndex + 1;
-  return [
-    // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
-    { id: "header.type", label: "Change field type\u2026", enabled: true },
-    // P8-03: only formula fields have an expression to edit.
-    ...ctx.fieldType === "formula" ? [{ id: "header.formula", label: "Edit formula\u2026", enabled: true }] : [],
-    {
-      id: "header.hide",
-      label: "Hide field",
-      enabled: !ctx.isPrimary,
-      reason: "Primary field cannot be hidden"
-    },
-    {
-      id: "header.sortAsc",
-      label: "Sort ascending",
-      enabled: sortedThis !== "asc",
-      reason: "Already sorted ascending"
-    },
-    {
-      id: "header.sortDesc",
-      label: "Sort descending",
-      enabled: sortedThis !== "desc",
-      reason: "Already sorted descending"
-    },
-    {
-      id: "header.freeze",
-      label: "Freeze column",
-      enabled: ctx.view.frozenColumns !== frozenThrough,
-      reason: "Already frozen through this column"
-    }
-  ];
-}
-function cellMenu(cell2, rowSelected = false) {
-  return [...cellEntries(cell2), SEPARATOR, ...rowEntries(rowSelected)];
-}
-function displayTitle(entry) {
-  return entry.enabled || !entry.reason ? entry.label : `${entry.label} (${entry.reason})`;
-}
-
-// src/views/grid/fieldTypeBadge.ts
-var TYPE_ICONS = {
-  text: "font",
-  long_text: "align-left",
-  number: "hashtag",
-  currency: "dollar-sign",
-  percent: "percent",
-  duration: "stopwatch",
-  rating: "star",
-  checkbox: "square-check",
-  date: "calendar",
-  date_time: "clock",
-  url: "link",
-  email: "envelope",
-  phone: "phone",
-  single_select: "circle-dot",
-  multi_select: "list-check",
-  attachment: "paperclip",
-  formula: "square-root-variable",
-  link: "diagram-project",
-  auto_number: "arrow-down-1-9",
-  created_time: "calendar-plus",
-  modified_time: "calendar-check"
-};
-var SYSTEM_LABELS = {
-  auto_number: "Auto number",
-  created_time: "Created time",
-  modified_time: "Last modified"
-};
-function typeIcon(type) {
-  return TYPE_ICONS[type] ?? "font";
-}
-function typeLabel(type) {
-  const t = type;
-  return TYPE_LABELS[t] ?? SYSTEM_LABELS[t] ?? type;
-}
-
 // src/views/grid/validationDisplay.ts
 function applyValidationState(cellEl, field, row, allRows) {
   const violations = validateCell(field, row.values[field.id], allRows, row.id);
@@ -14115,9 +13951,9 @@ var GridView = class {
     });
   }
   /**
-   * Prototype `headCellHtml` capsule. textContent stays exactly the field name (every
-   * consumer and test reads it): glyphs are text-free SVGs, and the sort arrow and badge
-   * type text are CSS `attr()` content.
+   * Prototype `headCellHtml` capsule, minus its type badge (COD-67: the header shows the field
+   * name only). textContent stays exactly the field name (every consumer and test reads it):
+   * the glyphs are text-free SVGs and the sort arrow is CSS `attr()` content.
    */
   buildHeaderCapsule(field, colIndex) {
     const capsule = document.createElement("div");
@@ -14168,13 +14004,6 @@ var GridView = class {
       sort.setAttribute("data-sort", arrow + (this.sortState.length > 1 ? String(sortIdx + 1) : ""));
       main.appendChild(sort);
     }
-    const badge = document.createElement("span");
-    badge.className = "tablify__hc-badge";
-    badge.title = typeLabel(field.type);
-    badge.setAttribute("aria-hidden", "true");
-    badge.setAttribute("data-type", field.type);
-    badge.innerHTML = faIcon(typeIcon(field.type));
-    main.appendChild(badge);
     if (this.opts.onHeaderMenu) {
       const menu = document.createElement("button");
       menu.type = "button";
@@ -14831,6 +14660,135 @@ var LongPressDetector = class {
 
 // src/menus/tableMenu.ts
 var import_obsidian4 = require("obsidian");
+
+// src/menus/tableMenuModel.ts
+var SEPARATOR = { id: "sep", label: "", enabled: false, separator: true };
+var TYPE_LABELS = {
+  text: "Text",
+  long_text: "Long text",
+  number: "Number",
+  currency: "Currency",
+  percent: "Percent",
+  duration: "Duration",
+  rating: "Rating",
+  checkbox: "Checkbox",
+  date: "Date",
+  date_time: "Date and time",
+  url: "URL",
+  email: "Email",
+  phone: "Phone",
+  single_select: "Single select",
+  multi_select: "Multi select",
+  attachment: "Attachment",
+  formula: "Formula",
+  link: "Link"
+};
+var CHANGE_TARGET_TYPES = [
+  "text",
+  "long_text",
+  "number",
+  "currency",
+  "percent",
+  "duration",
+  "rating",
+  "checkbox",
+  "date",
+  "date_time",
+  "url",
+  "email",
+  "phone",
+  "single_select",
+  "multi_select",
+  "attachment",
+  "formula",
+  "link"
+];
+function cellEntries(ctx) {
+  const entries = [
+    // SAD-96: the always-available edit gesture (mobile's way into the editor).
+    {
+      id: "cell.edit",
+      label: "Edit cell",
+      enabled: !ctx.readOnly,
+      reason: ctx.readOnly ? "Read-only field" : void 0
+    },
+    { id: "cell.copy", label: "Copy", enabled: true }
+  ];
+  if (ctx.isLink) {
+    entries.push({ id: "cell.links", label: "Choose linked rows\u2026", enabled: !ctx.readOnly });
+    if ((ctx.foreignLinks ?? 0) > 0) {
+      entries.push({ id: "cell.removeForeign", label: "Remove links to other tables", enabled: !ctx.readOnly });
+    }
+  }
+  return [
+    ...entries,
+    {
+      id: "cell.paste",
+      label: "Paste",
+      enabled: !ctx.readOnly && ctx.hasClipboard && !ctx.isLink,
+      reason: ctx.readOnly ? "Read-only field" : ctx.isLink ? "Use Choose linked rows instead" : "Nothing copied yet"
+    },
+    {
+      id: "cell.clear",
+      label: "Clear",
+      enabled: !ctx.readOnly && !ctx.cellEmpty,
+      reason: ctx.readOnly ? "Read-only field" : "Cell is already empty"
+    }
+  ];
+}
+function rowEntries(rowSelected = false) {
+  return [
+    { id: "row.select", label: rowSelected ? "Deselect row" : "Select row", enabled: true },
+    { id: "row.insertAbove", label: "Insert row above", enabled: true },
+    { id: "row.insertBelow", label: "Insert row below", enabled: true },
+    { id: "row.duplicate", label: "Duplicate row", enabled: true },
+    { id: "row.copy", label: "Copy row", enabled: true },
+    { id: "row.delete", label: "Delete row", enabled: true }
+  ];
+}
+function headerEntries(ctx) {
+  const sort = ctx.view.sort;
+  const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
+  const frozenThrough = ctx.colIndex + 1;
+  return [
+    // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
+    { id: "header.type", label: "Change field type\u2026", enabled: true },
+    // P8-03: only formula fields have an expression to edit.
+    ...ctx.fieldType === "formula" ? [{ id: "header.formula", label: "Edit formula\u2026", enabled: true }] : [],
+    {
+      id: "header.hide",
+      label: "Hide field",
+      enabled: !ctx.isPrimary,
+      reason: "Primary field cannot be hidden"
+    },
+    {
+      id: "header.sortAsc",
+      label: "Sort ascending",
+      enabled: sortedThis !== "asc",
+      reason: "Already sorted ascending"
+    },
+    {
+      id: "header.sortDesc",
+      label: "Sort descending",
+      enabled: sortedThis !== "desc",
+      reason: "Already sorted descending"
+    },
+    {
+      id: "header.freeze",
+      label: "Freeze column",
+      enabled: ctx.view.frozenColumns !== frozenThrough,
+      reason: "Already frozen through this column"
+    }
+  ];
+}
+function cellMenu(cell2, rowSelected = false) {
+  return [...cellEntries(cell2), SEPARATOR, ...rowEntries(rowSelected)];
+}
+function displayTitle(entry) {
+  return entry.enabled || !entry.reason ? entry.label : `${entry.label} (${entry.reason})`;
+}
+
+// src/menus/tableMenu.ts
 function buildTableMenu(entries, run2) {
   const menu = new import_obsidian4.Menu();
   for (const entry of entries) {
@@ -20642,7 +20600,7 @@ function unlinkTable(session) {
   session.setSyncLink(null);
   session.stack.clear();
 }
-function typeLabel2(type) {
+function typeLabel(type) {
   return type.replace(/_/g, " ");
 }
 
@@ -20926,7 +20884,7 @@ var SyncModal = class extends import_obsidian15.Modal {
       return;
     const list = el(box, "ul", { cls: "tablify-sync__plan" });
     for (const item of plan.items) {
-      el(list, "li", { text: `${item.name} (${typeLabel2(item.tablifyType)} \u2192 ${item.airtableType})` });
+      el(list, "li", { text: `${item.name} (${typeLabel(item.tablifyType)} \u2192 ${item.airtableType})` });
     }
     for (const skip of plan.skipped) {
       el(list, "li", { cls: "tablify-sync__skipped", text: `${skip.name}: not created (${skip.reason})` });
