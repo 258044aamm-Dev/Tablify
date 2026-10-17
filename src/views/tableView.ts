@@ -505,20 +505,40 @@ export class TableView extends TextFileView {
     const s = this.session;
     const field = s.getFields().find((f) => f.id === fieldId);
     if (!field) return;
-    new FieldEditorModal(
+    const selfId = s.toFile().tableId;
+    const selfName = this.file?.basename ?? 'This table';
+    const others = linkIndexFor(this.app).index
+      .tables()
+      .filter((t) => t.tableId !== selfId)
+      .map((t) => ({ tableId: t.tableId, name: t.name }));
+    const modal = new FieldEditorModal(
       this.app,
       () => {},
       {
         mode: 'edit',
-        initial: { name: field.name, type: field.type },
+        // COD-69: the whole field, so every row the create window draws is pre-filled.
+        initial: { field },
         canPickType: (type) => planTypeChange(s.store.getAllRows(), field, type).ok,
-        onEdit: (name, type) => {
-          const result = s.editField(field.id, name, type);
+        linkTargets: [{ tableId: selfId, name: selfName }, ...others],
+        formulaPreview: (expression) => {
+          const firstId = s.store.getDisplayOrder()[0];
+          return previewFormula(
+            s.store.getFields() as FieldDefinition[],
+            firstId === undefined ? undefined : s.store.getRow(firstId),
+            expression,
+          );
+        },
+        getField: () => s.getField(fieldId),
+        onManageOptions: () =>
+          this.openOptionManager(s.getField(fieldId) ?? field, () => modal.refreshOptionSummary()),
+        onEdit: (edit) => {
+          const result = s.editField(field.id, edit);
           if (!result.ok) new Notice(result.reason);
           this.afterChange();
         },
       },
-    ).open();
+    );
+    modal.open();
   }
 
   private showError(message: string): void {
@@ -949,9 +969,8 @@ export class TableView extends TextFileView {
     const field = fields[t.col];
     if (!field) return;
     switch (id) {
-      case 'header.details': {
-        // COD-67: the header menu opens the field editor — the same window Add field uses —
-        // instead of a type-only picker, so name and type are edited together.
+      case 'header.modify': {
+        // COD-67/COD-69: the header menu opens the same window Add field uses, pre-filled.
         this.promptEditField(field.id);
         return;
       }
@@ -1201,10 +1220,11 @@ export class TableView extends TextFileView {
    * step — `apply` carries it through the command stack, the same shape as a delete-option command,
    * whose cells are cleared by `planOptionRemoval` (R-D12).
    */
-  private openOptionManager(field: FieldDefinition): void {
+  private openOptionManager(field: FieldDefinition, onClose?: () => void): void {
     const s = this.session;
     if (!s) return;
     new OptionManagerDialog(field, s.store, {
+      onClose,
       apply: (options, values) => {
         const live = s.getField(field.id) ?? field;
         const before = {
@@ -1221,7 +1241,7 @@ export class TableView extends TextFileView {
         );
       },
       onChanged: () => this.afterChange(),
-    }).open();
+    }, { stacked: onClose !== undefined }).open();
   }
 }
 

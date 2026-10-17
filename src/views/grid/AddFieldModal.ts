@@ -1,10 +1,13 @@
 /**
- * Add-field modal (SAD-70 / SAD-69 Step 5; prototype layout SAD-86).
+ * Field window (SAD-70 / SAD-69 Step 5; prototype layout SAD-86; one window since COD-67/COD-69).
  *
- * The prototype's `#addFieldModal` card (Prototype/index.html): Field name, Field type (grouped
- * as the prototype groups them), Options (one per line) for select fields, Validation rules,
- * Formula with "Preview (row 1)", Linked table, then Cancel / Save Field. The type list is shared
- * with the header menu's field editor via CHANGE_TARGET_TYPES, so both pickers offer
+ * Create mode is the prototype's `#addFieldModal`. Edit mode — opened from a column header or
+ * from ⋮ → Modify field… — draws the SAME rows and pre-fills them from the field, so a field is
+ * created and modified in one window rather than two.
+ *
+ * Rows, in order: Field name, Field type (grouped as the prototype groups them), Options for
+ * select fields, Validation rules, Formula with "Preview (row 1)", Linked table, then
+ * Cancel / Save Field. The type list comes from CHANGE_TARGET_TYPES, so create and edit offer
  * exactly the same set.
  *
  * Behaviour kept from the Setting-row dialog: Enter in a one-line box (and in the formula box)
@@ -20,7 +23,7 @@ import { App, Modal, Notice } from 'obsidian';
 import { dressProtoModal } from '../../ui/protoModal.js';
 import { CHANGE_TARGET_TYPES, TYPE_LABELS } from '../../menus/tableMenuModel.js';
 import type { FieldDefinition, FieldTypeName } from '../../model/types.js';
-import type { NewFieldExtras } from '../../model/tableSession.js';
+import type { FieldEdit, NewFieldExtras } from '../../model/tableSession.js';
 import { compileFormula } from '../../formula/index.js';
 import { EMPTY_PREVIEW } from '../../model/formulaPreview.js';
 import { parseInput } from './editors/index.js';
@@ -35,10 +38,8 @@ export interface LinkTargetChoice {
 }
 
 /**
- * COD-67: the window has two modes. 'create' is the original Add Field dialog; 'edit' is the same
- * window opened from a column header or from Field Details, showing that field's name and type.
- * Only name and type are edited here — options and validation rules belong to field settings,
- * a formula to its own editor — so those rows are not shown in edit mode.
+ * COD-67/COD-69: the window has two modes. 'create' adds a field; 'edit' opens on an existing one
+ * from a column header or from ⋮ → Modify field… and shows the same rows, pre-filled.
  */
 export type FieldEditorMode = 'create' | 'edit';
 
@@ -49,17 +50,25 @@ export interface AddFieldOptions {
   defaultLinkTableId?: string;
   /** SAD-86: evaluates an unsaved expression against row 1 for the formula preview. */
   formulaPreview?: (expression: string) => string;
-  /** COD-67: 'edit' shows an existing field's name and type. Defaults to 'create'. */
+  /** COD-67: 'edit' opens on an existing field. Defaults to 'create'. */
   mode?: FieldEditorMode;
-  /** Initial values shown in edit mode. Ignored in create mode. */
-  initial?: { name: string; type: FieldTypeName };
-  /** Edit mode: called with the edited name and type instead of the create callbacks. */
-  onEdit?: (name: string, type: FieldTypeName) => void;
+  /** Edit mode: the field being edited; every row is pre-filled from it. */
+  initial?: { field: FieldDefinition };
+  /** Edit mode: called with the patch the window collected, built from the visible rows only. */
+  onEdit?: (edit: FieldEdit) => void;
   /**
    * Edit mode: whether a type may be offered. Callers pass planTypeChange's verdict so a type
    * that would drop values is never selectable — the same rule the header menu's editor uses.
    */
   canPickType?: (type: FieldTypeName) => boolean;
+  /**
+   * Edit mode, select fields: open the option manager. Options are not edited in this window
+   * because cells store option ids — a free-text list cannot tell a rename from a delete + add,
+   * and the delete would clear the cells that used the option (see COD-69 plan §3b).
+   */
+  onManageOptions?: () => void;
+  /** Edit mode, select fields: the current field, so the options summary stays truthful. */
+  getField?: () => FieldDefinition | undefined;
 }
 
 /**
@@ -80,6 +89,8 @@ const REGEX_TYPES: readonly FieldTypeName[] = ['text', 'long_text', 'url', 'emai
 const SELECT_TYPES: readonly FieldTypeName[] = ['single_select', 'multi_select'];
 
 export class AddFieldModal extends Modal {
+  /** The field being edited, kept so the window can compare against what it opened with. */
+  private readonly edited: FieldDefinition | undefined;
   private name = '';
   private type: FieldTypeName = DEFAULT_NEW_FIELD_TYPE;
   private expression = '';
@@ -90,6 +101,8 @@ export class AddFieldModal extends Modal {
   private minText = '';
   private maxText = '';
   private regexText = '';
+  /** Edit mode: the "N options: …" line, refreshed after the option manager closes. */
+  private optionsSummary: HTMLElement | null = null;
 
   constructor(
     app: App,
@@ -103,9 +116,18 @@ export class AddFieldModal extends Modal {
     private readonly options: AddFieldOptions = {},
   ) {
     super(app);
-    this.linkTableId = options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? '';
-    this.name = options.initial?.name ?? '';
-    this.type = options.initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
+    const initial = options.initial?.field;
+    this.edited = initial;
+    this.name = initial?.name ?? '';
+    this.type = initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
+    this.expression = initial?.formula ?? '';
+    this.required = initial?.required === true;
+    this.unique = initial?.unique === true;
+    this.minText = initial?.min === null || initial?.min === undefined ? '' : String(initial.min);
+    this.maxText = initial?.max === null || initial?.max === undefined ? '' : String(initial.max);
+    this.regexText = initial?.regex ?? '';
+    this.linkTableId =
+      initial?.linkTableId ?? options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? '';
   }
 
   private get isEdit(): boolean {
@@ -113,7 +135,7 @@ export class AddFieldModal extends Modal {
   }
 
   onOpen(): void {
-    this.setTitle(this.isEdit ? 'Edit Field' : 'Add New Field');
+    this.setTitle(this.isEdit ? 'Modify Field' : 'Add New Field');
     dressProtoModal(this, { icon: 'table-columns', size: 'sm' });
     this.modalEl.addClass('tablify__af-modal');
     if (this.isEdit) this.modalEl.addClass('tablify__af-modal--edit');
@@ -155,32 +177,55 @@ export class AddFieldModal extends Modal {
       const option = typeSelect.createEl('option', { value: t }) as HTMLOptionElement;
       option.textContent = TYPE_LABELS[t] ?? t;
     }
+    // A field whose type is not a change target (auto number, created time…) still has to show
+    // its own type in edit mode rather than silently falling back to Text.
+    if (this.isEdit && !grouped.has(this.type) && !CHANGE_TARGET_TYPES.includes(this.type)) {
+      const own = typeSelect.createEl('option', { value: this.type }) as HTMLOptionElement;
+      own.textContent = TYPE_LABELS[this.type] ?? this.type;
+    }
     typeSelect.value = this.type;
     typeSelect.addEventListener('change', () => {
       this.type = typeSelect.value as FieldTypeName;
       showTypeRows();
     });
 
-    // Options (one per line) — single / multi select
+    // Options — single / multi select. Create mode takes one per line; edit mode shows what the
+    // field has and hands the real editing to the option manager, which keeps option ids.
     const optionsWrap = body.createDiv();
-    this.label(optionsWrap, 'Options (one per line)', 'tablify__af-options');
-    const optionsInput = optionsWrap.createEl('textarea', { cls: 'tablify__pmodal-input' }) as HTMLTextAreaElement;
-    optionsInput.id = 'tablify__af-options';
-    optionsInput.rows = 4;
-    optionsInput.placeholder = 'Backlog\nIn Progress\nDone';
-    optionsInput.addEventListener('input', () => {
-      this.optionsText = optionsInput.value;
-    });
+    this.label(optionsWrap, this.isEdit ? 'Options' : 'Options (one per line)', 'tablify__af-options');
+    if (this.isEdit) {
+      this.optionsSummary = optionsWrap.createDiv({ cls: 'tablify__af-options-summary' });
+      const manage = optionsWrap.createEl('button', {
+        text: 'Manage options…',
+        cls: 'tablify__pmodal-btn tablify__af-manage',
+      }) as HTMLButtonElement;
+      manage.type = 'button';
+      manage.addEventListener('click', () => {
+        this.options.onManageOptions?.();
+        this.refreshOptionSummary();
+      });
+      this.renderOptionSummary();
+    } else {
+      const box = optionsWrap.createEl('textarea', { cls: 'tablify__pmodal-input' }) as HTMLTextAreaElement;
+      box.id = 'tablify__af-options';
+      box.rows = 4;
+      box.placeholder = 'Backlog\nIn Progress\nDone';
+      box.addEventListener('input', () => {
+        this.optionsText = box.value;
+      });
+    }
 
     // Validation rules
     const rulesWrap = body.createDiv({ cls: 'tablify__af-rules' });
     rulesWrap.createDiv({ text: 'Validation rules', cls: 'tablify__pmodal-label tablify__af-rules-label' });
     const checks = rulesWrap.createDiv({ cls: 'tablify__af-grid' });
     const requiredBox = this.checkbox(checks, 'Required');
+    requiredBox.checked = this.required;
     requiredBox.addEventListener('change', () => {
       this.required = requiredBox.checked;
     });
     const uniqueBox = this.checkbox(checks, 'Unique');
+    uniqueBox.checked = this.unique;
     uniqueBox.addEventListener('change', () => {
       this.unique = uniqueBox.checked;
     });
@@ -189,6 +234,7 @@ export class AddFieldModal extends Modal {
     minInput.id = 'tablify__af-min';
     minInput.placeholder = 'Min (number / date)';
     minInput.setAttribute('aria-label', 'Minimum');
+    minInput.value = this.minText;
     minInput.addEventListener('input', () => {
       this.minText = minInput.value;
     });
@@ -196,6 +242,7 @@ export class AddFieldModal extends Modal {
     maxInput.id = 'tablify__af-max';
     maxInput.placeholder = 'Max';
     maxInput.setAttribute('aria-label', 'Maximum');
+    maxInput.value = this.maxText;
     maxInput.addEventListener('input', () => {
       this.maxText = maxInput.value;
     });
@@ -207,6 +254,7 @@ export class AddFieldModal extends Modal {
     regexInput.id = 'tablify__af-regex-input';
     regexInput.placeholder = 'Regex, e.g. ^[A-Z].*';
     regexInput.setAttribute('aria-label', 'Regex');
+    regexInput.value = this.regexText;
     regexInput.addEventListener('input', () => {
       this.regexText = regexInput.value;
     });
@@ -231,6 +279,8 @@ export class AddFieldModal extends Modal {
       this.expression = formulaInput.value;
       updatePreview();
     });
+    // A pre-filled expression shows its preview straight away, as typing it does.
+    updatePreview();
 
     // P8-04: a link field needs a target table.
     const linkWrap = body.createDiv();
@@ -247,7 +297,6 @@ export class AddFieldModal extends Modal {
     });
 
     const showTypeRows = (): void => {
-      if (this.isEdit) return;
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? '' : 'none';
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? '' : 'none';
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? '' : 'none';
@@ -255,11 +304,6 @@ export class AddFieldModal extends Modal {
       linkWrap.style.display = this.type === 'link' ? '' : 'none';
     };
     showTypeRows();
-    if (this.isEdit) {
-      // Edit mode edits the name and its type only. The other rows are dropped rather than
-      // hidden so nothing focusable is left behind; showTypeRows() above is a no-op in this mode.
-      for (const wrap of [optionsWrap, rulesWrap, formulaWrap, linkWrap]) wrap.remove();
-    }
 
     // Footer: `mt-5 flex justify-end space-x-2` — Cancel, Save Field.
     const footer = this.contentEl.createDiv({ cls: 'tablify__af-footer' });
@@ -267,7 +311,7 @@ export class AddFieldModal extends Modal {
     cancel.type = 'button';
     cancel.addEventListener('click', () => this.close());
     const save = footer.createEl('button', {
-      text: this.isEdit ? 'Save' : 'Save Field',
+      text: 'Save Field',
       cls: 'tablify__pmodal-btn tablify__pmodal-btn--primary mod-cta',
     }) as HTMLButtonElement;
     save.type = 'button';
@@ -347,6 +391,62 @@ export class AddFieldModal extends Modal {
     return this.options.canPickType ? this.options.canPickType(type) : true;
   }
 
+  /** The line under "Options" in edit mode: what the field has right now. */
+  private renderOptionSummary(): void {
+    if (!this.optionsSummary) return;
+    const live = this.options.getField?.() ?? this.edited;
+    const options = live?.options ?? [];
+    const names = options.map((o) => o.name);
+    this.optionsSummary.textContent =
+      names.length === 0 ? 'No options yet' : `${names.length} option${names.length === 1 ? '' : 's'}: ${names.join(', ')}`;
+  }
+
+  /** Called after the option manager closes, so the summary matches the saved field. */
+  refreshOptionSummary(): void {
+    this.renderOptionSummary();
+  }
+
+  /**
+   * Edit mode: collect only the rows this window actually showed and hand them over as a patch.
+   * A row hidden for the chosen type is omitted, so saving can never clear a key the window
+   * never displayed.
+   */
+  private submitEdit(name: string): void {
+    if (this.type === 'link' && !this.linkTableId) {
+      new Notice('Choose a table to link to.');
+      return;
+    }
+    if (this.type === 'formula' && !compileFormula(this.expression).ok) {
+      new Notice('The formula has a syntax error.');
+      return;
+    }
+    const edit: FieldEdit = { name, type: this.type, required: this.required, unique: this.unique };
+    if (MIN_MAX_TYPES.includes(this.type)) {
+      const min = this.ruleBound(this.minText, 'Min');
+      if (min === false) return;
+      const max = this.ruleBound(this.maxText, 'Max');
+      if (max === false) return;
+      edit.min = min;
+      edit.max = max;
+    }
+    if (REGEX_TYPES.includes(this.type)) {
+      const regex = this.regexText.trim();
+      if (regex) {
+        try {
+          new RegExp(regex);
+        } catch {
+          new Notice('The regex is not valid.');
+          return;
+        }
+      }
+      edit.regex = regex || null;
+    }
+    if (this.type === 'formula') edit.formula = this.expression;
+    if (this.type === 'link') edit.linkTableId = this.linkTableId;
+    this.close();
+    this.options.onEdit?.(edit);
+  }
+
   private submit(): void {
     const name = this.name.trim();
     if (!name) {
@@ -354,8 +454,7 @@ export class AddFieldModal extends Modal {
       return;
     }
     if (this.isEdit) {
-      this.close();
-      this.options.onEdit?.(name, this.type);
+      this.submitEdit(name);
       return;
     }
     // Validate before closing, so the modal stays open with the user's text intact.

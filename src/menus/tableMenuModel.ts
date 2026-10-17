@@ -1,7 +1,7 @@
 // Table context menu model (P5-02). Pure logic, no Obsidian or DOM imports, unit-tested in Node.
 // Spec: spec/steps/P5-02.md, FEATURES §2.17.
 // Cell: Copy, Paste, Clear. Row: Insert above, Insert below, Duplicate, Copy, Delete.
-// Header: Field details, Hide field, Sort ascending, Sort descending, Freeze column.
+// Header: Modify field, Hide field, Sort ascending, Sort descending, Freeze column.
 // Items that do not apply are disabled with a reason (never silently missing).
 
 import type { FieldTypeName, ViewDefinition } from '../model/types.js';
@@ -140,9 +140,9 @@ export function headerEntries(ctx: HeaderContext): MenuEntry[] {
   const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
   const frozenThrough = ctx.colIndex + 1;
   return [
-    // COD-67: one window edits the field — name and type — so this replaces the old
-    // type-only picker (there are no submenus in this Obsidian API version).
-    { id: 'header.details', label: 'Field details…', enabled: true },
+    // COD-69: "Modify field…" opens the same window Add field uses, pre-filled. It replaces the
+    // type-only picker this menu had before COD-67 (no submenus in this Obsidian API version).
+    { id: 'header.modify', label: 'Modify field…', enabled: true },
     // P8-03: only formula fields have an expression to edit.
     ...(ctx.fieldType === 'formula' ? [{ id: 'header.formula', label: 'Edit formula…', enabled: true }] : []),
     {

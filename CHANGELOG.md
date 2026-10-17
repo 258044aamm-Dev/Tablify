@@ -4,6 +4,27 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- **The header menu's *Field details…* is now *Modify field…*, and the window shows the whole
+  field (COD-69)** — clicking a column header or choosing **Modify field…** opens the same window
+  that creates a field, with every row the create dialog draws filled in from that field: name,
+  type, options, validation rules, formula with its preview, and linked table. Create mode is
+  unchanged. Saving is still one undo step; a save that changes nothing adds no undo entry.
+
+- **Select options are edited through *Manage options…* in that window** — cells store each
+  option's identity, so the window shows how many options the field has and opens the option
+  manager instead of a free-text list, where renaming cannot be told apart from deleting and
+  adding, and a delete clears the cells that used the option.
+
+### Added
+
+- **Validation rules and formulas can be changed from the field window (COD-69)** — Required,
+  Unique, Min, Max and Regex are pre-filled and editable for an existing field, and a formula
+  field's expression is editable there next to its live preview. An invalid regex or an
+  unparseable formula is refused before anything is written, and *Edit formula…* stays in the
+  header menu.
+
 ## [2.0.0-beta.4] — 2026-10-17
 
 ### Added

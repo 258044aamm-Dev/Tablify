@@ -2886,6 +2886,12 @@
   backdrop-filter: blur(4px);
 }
 
+/* COD-69: the field window is an Obsidian modal (its own layer above 50), so the option manager
+   opened from inside it is raised over that layer; the standalone path keeps z-index 50. */
+.tablify__optmgr-backdrop--stacked {
+  z-index: 1000;
+}
+
 .tablify__optmgr-backdrop .tablify__pmodal {
   background: var(--tablify-bg-card);
   border: 1px solid var(--tablify-border-subtle);
@@ -3058,4 +3064,16 @@
   font-size: 10px;
   line-height: 1.5;
   color: var(--tablify-text-muted);
+}
+
+/* COD-69: the Options row in edit mode — what the field has, plus the Manage options button. */
+.tablify__af-options-summary {
+  margin: 2px 0 6px;
+  font-size: 12px;
+  color: var(--tablify-text-muted);
+  word-break: break-word;
+}
+
+.tablify button.tablify__af-manage {
+  box-shadow: none;
 }

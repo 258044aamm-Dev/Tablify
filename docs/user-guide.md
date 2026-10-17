@@ -76,15 +76,24 @@ The **Add New Field** dialog also takes, depending on the type:
 - **Formula**, with a live **Preview (row 1)** computed on the first row.
 - **Linked table** for Link fields.
 
-Click a column header, or use its menu (**Field details…**), to edit the field. The **Edit Field** dialog
-is the same window as **Add New Field**: change the name, the type, or both, and press **Save**. A
-rename carries your formulas and saved queries with it — `{Price}` becomes `{Unit Price}` and
+Click a column header, or use its menu (**Modify field…**), to change a field. The **Modify Field**
+window is the **same window** as **Add New Field**, with the field's information already filled in:
+name, type, options, validation rules, formula and linked table. Change what you need and press
+**Save Field**.
+
+A rename carries your formulas and saved queries with it — `{Price}` becomes `{Unit Price}` and
 `Price:>10` becomes `"Unit Price":>10` — and the whole edit is a single undo step, so one **Undo**
-puts the old name and every reference back.
+puts the old name, the rules and every reference back.
 
 A type is offered only when **every** existing value converts cleanly — otherwise nothing changes and
 a notice says why. This protects you from silent data loss. The name must be non-empty and not
 already used by another field in the table.
+
+For a Single select or Multi select field the window shows how many options it has and a **Manage
+options…** button. Options are renamed, recoloured, reordered and deleted there rather than typed
+into a list, because cells store each option's identity: renaming there keeps every cell that used
+the option, while retyping a name in a list cannot be told apart from deleting the option and adding
+another, which clears the cells that used it.
 
 | Type | Accepts |
 |---|---|
@@ -220,9 +229,9 @@ Each column header is a capsule:
 - **Key** — marks the primary field.
 - **Name** — click to sort by the column: ascending, then descending, then off. **Shift-click** adds the column as another sort key (or flips or removes it) without dropping the others; the arrow then shows the column's position in the sort (↑2). A plain click on a multi-column sort replaces it with that column alone, ascending.
 - **⋮** — opens the header menu, the same menu as right-clicking the header.
-- **Click the header** (not the name, the ⋮, the grip or the right edge) — opens the field editor,
-  the same **Edit Field** window described in [Fields and field types](#3-fields-and-field-types).
-  Right-click → **Field details…** opens it too.
+- **Click the header** (not the name, the ⋮, the grip or the right edge) — opens the **Modify Field**
+  window described in [Fields and field types](#3-fields-and-field-types); **⋮ → Modify field…**
+  and right-click open it too.
 - **Right edge** — drag to resize.
 
 Sorting, moving and resizing from the header are saved and undoable, like the same actions in the menu. Embedded tables show the header read-only.
@@ -280,7 +289,7 @@ Right-click (or **Menu key** / **Shift+F10**) in the grid:
 |---|---|
 | Cell | Copy, Paste, Clear |
 | Row | Insert row above, Insert row below, Duplicate row, Copy row, Delete row |
-| Header | Field details…, Hide field, Sort ascending, Sort descending, Freeze |
+| Header | Modify field…, Hide field, Sort ascending, Sort descending, Freeze |
 
 Disabled items show why they are disabled. Undoable actions are undoable from here too.
 
@@ -291,7 +300,7 @@ On iOS and Android, **press and hold (~0.5 s)** a row to open the same menu as a
 ## 17. Troubleshooting
 
 - **"Broken table" file**: if a `.tablify` file contains invalid JSON, Tablify shows an error and **leaves the file unchanged on disk**. Fix the JSON (or restore from backup) and reopen.
-- **Imported column came out as text**: type inference is deliberately strict; mixed or ambiguous columns stay text. Change the type from the field editor (header click, or **⋮ → Field details…**) — it converts only when every value converts cleanly.
+- **Imported column came out as text**: type inference is deliberately strict; mixed or ambiguous columns stay text. Change the type from the **Modify Field** window (header click, or **⋮ → Modify field…**) — it converts only when every value converts cleanly.
 - **Table did not reload after I edited the JSON by hand**: close and reopen the view; Tablify re-reads and re-validates the file (schema-validated, `formatVersion: 1`).
 - **`.tabula` files**: not supported, on purpose. Tablify ignores them.
 

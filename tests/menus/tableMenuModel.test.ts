@@ -64,15 +64,17 @@ describe('header menu (P5-02)', () => {
 
   it('lists the five header items in spec order', () => {
     expect(headerEntries(base).map((e) => e.label)).toEqual([
-      'Field details…', 'Hide field', 'Sort ascending', 'Sort descending', 'Freeze column',
+      'Modify field…', 'Hide field', 'Sort ascending', 'Sort descending', 'Freeze column',
     ]);
   });
 
-  // COD-67: the menu opens the same editor that creates a field, not a type-only picker.
-  it('leads with Field details and no longer has a separate Change field type entry', () => {
-    const ids = headerEntries(base).map((e) => e.id);
-    expect(ids[0]).toBe('header.details');
+  // COD-67/COD-69: the menu opens the same window that creates a field, not a type-only picker.
+  it('leads with Modify field and no longer has a separate Change field type entry', () => {
+    const entries = headerEntries(base);
+    expect(entries[0]).toMatchObject({ id: 'header.modify', label: 'Modify field…', enabled: true });
+    const ids = entries.map((e) => e.id);
     expect(ids).not.toContain('header.type');
+    expect(ids).not.toContain('header.details');
   });
 
   it('primary field cannot be hidden: disabled with reason', () => {

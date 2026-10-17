@@ -14838,9 +14838,9 @@ function headerEntries(ctx) {
   const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
   const frozenThrough = ctx.colIndex + 1;
   return [
-    // COD-67: one window edits the field — name and type — so this replaces the old
-    // type-only picker (there are no submenus in this Obsidian API version).
-    { id: "header.details", label: "Field details\u2026", enabled: true },
+    // COD-69: "Modify field…" opens the same window Add field uses, pre-filled. It replaces the
+    // type-only picker this menu had before COD-67 (no submenus in this Obsidian API version).
+    { id: "header.modify", label: "Modify field\u2026", enabled: true },
     // P8-03: only formula fields have an expression to edit.
     ...ctx.fieldType === "formula" ? [{ id: "header.formula", label: "Edit formula\u2026", enabled: true }] : [],
     {
@@ -15834,10 +15834,20 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     super(app);
     this.onConfirm = onConfirm;
     this.options = options;
-    this.linkTableId = options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? "";
-    this.name = options.initial?.name ?? "";
-    this.type = options.initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
+    const initial = options.initial?.field;
+    this.edited = initial;
+    this.name = initial?.name ?? "";
+    this.type = initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
+    this.expression = initial?.formula ?? "";
+    this.required = initial?.required === true;
+    this.unique = initial?.unique === true;
+    this.minText = initial?.min === null || initial?.min === void 0 ? "" : String(initial.min);
+    this.maxText = initial?.max === null || initial?.max === void 0 ? "" : String(initial.max);
+    this.regexText = initial?.regex ?? "";
+    this.linkTableId = initial?.linkTableId ?? options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? "";
   }
+  /** The field being edited, kept so the window can compare against what it opened with. */
+  edited;
   name = "";
   type = DEFAULT_NEW_FIELD_TYPE;
   expression = "";
@@ -15848,11 +15858,13 @@ var AddFieldModal = class extends import_obsidian5.Modal {
   minText = "";
   maxText = "";
   regexText = "";
+  /** Edit mode: the "N options: …" line, refreshed after the option manager closes. */
+  optionsSummary = null;
   get isEdit() {
     return this.options.mode === "edit";
   }
   onOpen() {
-    this.setTitle(this.isEdit ? "Edit Field" : "Add New Field");
+    this.setTitle(this.isEdit ? "Modify Field" : "Add New Field");
     dressProtoModal(this, { icon: "table-columns", size: "sm" });
     this.modalEl.addClass("tablify__af-modal");
     if (this.isEdit)
@@ -15892,28 +15904,48 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       const option = typeSelect.createEl("option", { value: t });
       option.textContent = TYPE_LABELS[t] ?? t;
     }
+    if (this.isEdit && !grouped.has(this.type) && !CHANGE_TARGET_TYPES.includes(this.type)) {
+      const own = typeSelect.createEl("option", { value: this.type });
+      own.textContent = TYPE_LABELS[this.type] ?? this.type;
+    }
     typeSelect.value = this.type;
     typeSelect.addEventListener("change", () => {
       this.type = typeSelect.value;
       showTypeRows();
     });
     const optionsWrap = body.createDiv();
-    this.label(optionsWrap, "Options (one per line)", "tablify__af-options");
-    const optionsInput = optionsWrap.createEl("textarea", { cls: "tablify__pmodal-input" });
-    optionsInput.id = "tablify__af-options";
-    optionsInput.rows = 4;
-    optionsInput.placeholder = "Backlog\nIn Progress\nDone";
-    optionsInput.addEventListener("input", () => {
-      this.optionsText = optionsInput.value;
-    });
+    this.label(optionsWrap, this.isEdit ? "Options" : "Options (one per line)", "tablify__af-options");
+    if (this.isEdit) {
+      this.optionsSummary = optionsWrap.createDiv({ cls: "tablify__af-options-summary" });
+      const manage = optionsWrap.createEl("button", {
+        text: "Manage options\u2026",
+        cls: "tablify__pmodal-btn tablify__af-manage"
+      });
+      manage.type = "button";
+      manage.addEventListener("click", () => {
+        this.options.onManageOptions?.();
+        this.refreshOptionSummary();
+      });
+      this.renderOptionSummary();
+    } else {
+      const box = optionsWrap.createEl("textarea", { cls: "tablify__pmodal-input" });
+      box.id = "tablify__af-options";
+      box.rows = 4;
+      box.placeholder = "Backlog\nIn Progress\nDone";
+      box.addEventListener("input", () => {
+        this.optionsText = box.value;
+      });
+    }
     const rulesWrap = body.createDiv({ cls: "tablify__af-rules" });
     rulesWrap.createDiv({ text: "Validation rules", cls: "tablify__pmodal-label tablify__af-rules-label" });
     const checks = rulesWrap.createDiv({ cls: "tablify__af-grid" });
     const requiredBox = this.checkbox(checks, "Required");
+    requiredBox.checked = this.required;
     requiredBox.addEventListener("change", () => {
       this.required = requiredBox.checked;
     });
     const uniqueBox = this.checkbox(checks, "Unique");
+    uniqueBox.checked = this.unique;
     uniqueBox.addEventListener("change", () => {
       this.unique = uniqueBox.checked;
     });
@@ -15922,6 +15954,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     minInput.id = "tablify__af-min";
     minInput.placeholder = "Min (number / date)";
     minInput.setAttribute("aria-label", "Minimum");
+    minInput.value = this.minText;
     minInput.addEventListener("input", () => {
       this.minText = minInput.value;
     });
@@ -15929,6 +15962,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     maxInput.id = "tablify__af-max";
     maxInput.placeholder = "Max";
     maxInput.setAttribute("aria-label", "Maximum");
+    maxInput.value = this.maxText;
     maxInput.addEventListener("input", () => {
       this.maxText = maxInput.value;
     });
@@ -15940,6 +15974,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     regexInput.id = "tablify__af-regex-input";
     regexInput.placeholder = "Regex, e.g. ^[A-Z].*";
     regexInput.setAttribute("aria-label", "Regex");
+    regexInput.value = this.regexText;
     regexInput.addEventListener("input", () => {
       this.regexText = regexInput.value;
     });
@@ -15962,6 +15997,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       this.expression = formulaInput.value;
       updatePreview();
     });
+    updatePreview();
     const linkWrap = body.createDiv();
     this.label(linkWrap, "Linked table", "tablify__af-link");
     const linkSelect = linkWrap.createEl("select", { cls: "tablify__pmodal-input" });
@@ -15976,8 +16012,6 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       this.linkTableId = linkSelect.value;
     });
     const showTypeRows = () => {
-      if (this.isEdit)
-        return;
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? "" : "none";
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? "" : "none";
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? "" : "none";
@@ -15985,16 +16019,12 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       linkWrap.style.display = this.type === "link" ? "" : "none";
     };
     showTypeRows();
-    if (this.isEdit) {
-      for (const wrap of [optionsWrap, rulesWrap, formulaWrap, linkWrap])
-        wrap.remove();
-    }
     const footer = this.contentEl.createDiv({ cls: "tablify__af-footer" });
     const cancel = footer.createEl("button", { text: "Cancel", cls: "tablify__pmodal-btn" });
     cancel.type = "button";
     cancel.addEventListener("click", () => this.close());
     const save = footer.createEl("button", {
-      text: this.isEdit ? "Save" : "Save Field",
+      text: "Save Field",
       cls: "tablify__pmodal-btn tablify__pmodal-btn--primary mod-cta"
     });
     save.type = "button";
@@ -16074,6 +16104,63 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       return true;
     return this.options.canPickType ? this.options.canPickType(type) : true;
   }
+  /** The line under "Options" in edit mode: what the field has right now. */
+  renderOptionSummary() {
+    if (!this.optionsSummary)
+      return;
+    const live = this.options.getField?.() ?? this.edited;
+    const options = live?.options ?? [];
+    const names = options.map((o) => o.name);
+    this.optionsSummary.textContent = names.length === 0 ? "No options yet" : `${names.length} option${names.length === 1 ? "" : "s"}: ${names.join(", ")}`;
+  }
+  /** Called after the option manager closes, so the summary matches the saved field. */
+  refreshOptionSummary() {
+    this.renderOptionSummary();
+  }
+  /**
+   * Edit mode: collect only the rows this window actually showed and hand them over as a patch.
+   * A row hidden for the chosen type is omitted, so saving can never clear a key the window
+   * never displayed.
+   */
+  submitEdit(name) {
+    if (this.type === "link" && !this.linkTableId) {
+      new import_obsidian5.Notice("Choose a table to link to.");
+      return;
+    }
+    if (this.type === "formula" && !compileFormula(this.expression).ok) {
+      new import_obsidian5.Notice("The formula has a syntax error.");
+      return;
+    }
+    const edit = { name, type: this.type, required: this.required, unique: this.unique };
+    if (MIN_MAX_TYPES.includes(this.type)) {
+      const min = this.ruleBound(this.minText, "Min");
+      if (min === false)
+        return;
+      const max2 = this.ruleBound(this.maxText, "Max");
+      if (max2 === false)
+        return;
+      edit.min = min;
+      edit.max = max2;
+    }
+    if (REGEX_TYPES.includes(this.type)) {
+      const regex = this.regexText.trim();
+      if (regex) {
+        try {
+          new RegExp(regex);
+        } catch {
+          new import_obsidian5.Notice("The regex is not valid.");
+          return;
+        }
+      }
+      edit.regex = regex || null;
+    }
+    if (this.type === "formula")
+      edit.formula = this.expression;
+    if (this.type === "link")
+      edit.linkTableId = this.linkTableId;
+    this.close();
+    this.options.onEdit?.(edit);
+  }
   submit() {
     const name = this.name.trim();
     if (!name) {
@@ -16081,8 +16168,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       return;
     }
     if (this.isEdit) {
-      this.close();
-      this.options.onEdit?.(name, this.type);
+      this.submitEdit(name);
       return;
     }
     if (this.type === "link" && !this.linkTableId) {
@@ -17071,12 +17157,13 @@ var SelectDropdown = class {
 
 // src/views/grid/select/OptionManager.ts
 var OptionManagerDialog = class {
-  constructor(field, store, hooks = {}) {
+  constructor(field, store, hooks = {}, opts = {}) {
     this.field = field;
     this.store = store;
     this.hooks = hooks;
+    this.opts = opts;
     this.backdrop = document.createElement("div");
-    this.backdrop.className = "tablify__optmgr-backdrop";
+    this.backdrop.className = opts.stacked ? "tablify__optmgr-backdrop tablify__optmgr-backdrop--stacked" : "tablify__optmgr-backdrop";
     this.card = document.createElement("div");
     const header = document.createElement("div");
     header.className = "tablify__optmgr-head";
@@ -17108,6 +17195,7 @@ var OptionManagerDialog = class {
   label;
   body;
   unwire = null;
+  closed = false;
   get element() {
     return this.backdrop;
   }
@@ -17136,6 +17224,10 @@ var OptionManagerDialog = class {
     this.unwire?.();
     this.unwire = null;
     this.backdrop.remove();
+    if (this.closed)
+      return;
+    this.closed = true;
+    this.hooks.onClose?.();
   }
   // ---- public API (unchanged) ------------------------------------------------------------
   rename(optionId, newName) {
@@ -17950,22 +18042,38 @@ var TableView = class extends import_obsidian9.TextFileView {
     const field = s.getFields().find((f) => f.id === fieldId);
     if (!field)
       return;
-    new AddFieldModal(
+    const selfId = s.toFile().tableId;
+    const selfName = this.file?.basename ?? "This table";
+    const others = linkIndexFor(this.app).index.tables().filter((t) => t.tableId !== selfId).map((t) => ({ tableId: t.tableId, name: t.name }));
+    const modal = new AddFieldModal(
       this.app,
       () => {
       },
       {
         mode: "edit",
-        initial: { name: field.name, type: field.type },
+        // COD-69: the whole field, so every row the create window draws is pre-filled.
+        initial: { field },
         canPickType: (type) => planTypeChange(s.store.getAllRows(), field, type).ok,
-        onEdit: (name, type) => {
-          const result = s.editField(field.id, name, type);
+        linkTargets: [{ tableId: selfId, name: selfName }, ...others],
+        formulaPreview: (expression) => {
+          const firstId = s.store.getDisplayOrder()[0];
+          return previewFormula(
+            s.store.getFields(),
+            firstId === void 0 ? void 0 : s.store.getRow(firstId),
+            expression
+          );
+        },
+        getField: () => s.getField(fieldId),
+        onManageOptions: () => this.openOptionManager(s.getField(fieldId) ?? field, () => modal.refreshOptionSummary()),
+        onEdit: (edit) => {
+          const result = s.editField(field.id, edit);
           if (!result.ok)
             new import_obsidian9.Notice(result.reason);
           this.afterChange();
         }
       }
-    ).open();
+    );
+    modal.open();
   }
   showError(message) {
     this.clear();
@@ -18371,7 +18479,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     if (!field)
       return;
     switch (id) {
-      case "header.details": {
+      case "header.modify": {
         this.promptEditField(field.id);
         return;
       }
@@ -18609,11 +18717,12 @@ var TableView = class extends import_obsidian9.TextFileView {
    * step — `apply` carries it through the command stack, the same shape as a delete-option command,
    * whose cells are cleared by `planOptionRemoval` (R-D12).
    */
-  openOptionManager(field) {
+  openOptionManager(field, onClose) {
     const s = this.session;
     if (!s)
       return;
     new OptionManagerDialog(field, s.store, {
+      onClose,
       apply: (options, values) => {
         const live = s.getField(field.id) ?? field;
         const before = {
@@ -18630,7 +18739,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         );
       },
       onChanged: () => this.afterChange()
-    }).open();
+    }, { stacked: onClose !== void 0 }).open();
   }
 };
 function exportSuccessMessage2(method, fileName, rowCount, columnCount) {

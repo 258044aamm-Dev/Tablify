@@ -30,6 +30,16 @@ export interface OptionManagerHooks {
   apply?: (options: SelectOption[], values: Record<string, CellValue>) => void;
   /** After every applied change: re-render the grid and save. */
   onChanged?: () => void;
+  /** After the dialog closed (COD-69: refresh the field window's options summary). */
+  onClose?: () => void;
+}
+
+export interface OptionManagerOptions {
+  /**
+   * COD-69: opened from the field window, which is an Obsidian modal above this backdrop's
+   * normal z-index. Raises the backdrop over it.
+   */
+  stacked?: boolean;
 }
 
 export class OptionManagerDialog {
@@ -41,13 +51,18 @@ export class OptionManagerDialog {
   private body: HTMLElement;
   private unwire: (() => void) | null = null;
 
+  private closed = false;
+
   constructor(
     private field: FieldDefinition,
     private store: TableStore,
     private hooks: OptionManagerHooks = {},
+    private readonly opts: OptionManagerOptions = {},
   ) {
     this.backdrop = document.createElement('div');
-    this.backdrop.className = 'tablify__optmgr-backdrop';
+    this.backdrop.className = opts.stacked
+      ? 'tablify__optmgr-backdrop tablify__optmgr-backdrop--stacked'
+      : 'tablify__optmgr-backdrop';
 
     this.card = document.createElement('div');
     const header = document.createElement('div');
@@ -103,6 +118,9 @@ export class OptionManagerDialog {
     this.unwire?.();
     this.unwire = null;
     this.backdrop.remove();
+    if (this.closed) return;
+    this.closed = true;
+    this.hooks.onClose?.();
   }
 
   // ---- public API (unchanged) ------------------------------------------------------------
