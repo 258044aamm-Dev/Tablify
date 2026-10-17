@@ -13423,9 +13423,9 @@ var RowPool = class {
    */
   update(start, end) {
     const needed = end - start;
-    for (const [idx, el3] of this.active) {
+    for (const [idx, el4] of this.active) {
       if (idx < start || idx >= end) {
-        this.pool.push(el3);
+        this.pool.push(el4);
         this.active.delete(idx);
       }
     }
@@ -13435,8 +13435,8 @@ var RowPool = class {
     const result = [];
     for (let i = start; i < end; i++) {
       if (!this.active.has(i)) {
-        const el3 = this.pool.pop();
-        this.active.set(i, el3);
+        const el4 = this.pool.pop();
+        this.active.set(i, el4);
       }
       result.push(this.active.get(i));
     }
@@ -13535,25 +13535,25 @@ function renderSelectChips(host, field, value, theme) {
 function createCheckboxControl(field, value, onToggle) {
   const checked = value === true;
   const icon = faIcon(checked ? "square-check" : "square");
-  const el3 = document.createElement(onToggle ? "button" : "span");
-  el3.className = checked ? "tablify__check tablify__check--on" : "tablify__check";
-  el3.innerHTML = icon;
+  const el4 = document.createElement(onToggle ? "button" : "span");
+  el4.className = checked ? "tablify__check tablify__check--on" : "tablify__check";
+  el4.innerHTML = icon;
   if (onToggle) {
-    el3.type = "button";
-    el3.setAttribute("role", "checkbox");
-    el3.setAttribute("aria-checked", checked ? "true" : "false");
-    el3.setAttribute("aria-label", field.name);
-    el3.addEventListener("click", (e) => {
+    el4.type = "button";
+    el4.setAttribute("role", "checkbox");
+    el4.setAttribute("aria-checked", checked ? "true" : "false");
+    el4.setAttribute("aria-label", field.name);
+    el4.addEventListener("click", (e) => {
       e.stopPropagation();
       e.preventDefault();
       onToggle();
     });
-    el3.addEventListener("dblclick", (e) => e.stopPropagation());
+    el4.addEventListener("dblclick", (e) => e.stopPropagation());
   } else {
-    el3.setAttribute("role", "img");
-    el3.setAttribute("aria-label", `${field.name}: ${checked ? "checked" : "not checked"}`);
+    el4.setAttribute("role", "img");
+    el4.setAttribute("aria-label", `${field.name}: ${checked ? "checked" : "not checked"}`);
   }
-  return el3;
+  return el4;
 }
 function isNumericCellType(field) {
   switch (field.type) {
@@ -13745,11 +13745,11 @@ var GridView = class {
     if (opts.onInsertRow)
       this.buildInsertRow(opts.onInsertRow);
     this.pool = new RowPool(() => {
-      const el3 = document.createElement("div");
-      el3.className = "tablify__row";
-      el3.style.display = "flex";
-      el3.style.height = `${this.rowHeight}px`;
-      return el3;
+      const el4 = document.createElement("div");
+      el4.className = "tablify__row";
+      el4.style.display = "flex";
+      el4.style.height = `${this.rowHeight}px`;
+      return el4;
     });
     this.root.addEventListener("scroll", () => {
       this.scrollTop = this.root.scrollTop;
@@ -14113,23 +14113,23 @@ var GridView = class {
    *   '2' — the header is its own stacking context, so this only has to outrank the other
    *   header cells, while the header element itself outranks the whole body.
    */
-  placeSlot(el3, slot, frozenZIndex) {
-    el3.style.flex = "0 0 auto";
-    el3.style.boxSizing = "border-box";
-    el3.style.width = `${this.slotWidths[slot] ?? DEFAULT_COLUMN_WIDTH}px`;
+  placeSlot(el4, slot, frozenZIndex) {
+    el4.style.flex = "0 0 auto";
+    el4.style.boxSizing = "border-box";
+    el4.style.width = `${this.slotWidths[slot] ?? DEFAULT_COLUMN_WIDTH}px`;
     const frozen = this.frozenColumns > 0 && slot < LEAD_SLOTS + this.frozenColumns;
     const edge = frozen && slot === LEAD_SLOTS + this.frozenColumns - 1;
     if (frozen) {
-      el3.classList.add(slot < LEAD_SLOTS ? "tablify__lead--frozen" : "tablify__cell--frozen");
-      el3.classList.toggle("tablify__cell--frozen-edge", edge);
-      el3.style.position = "sticky";
-      el3.style.left = `${this.slotLefts[slot]}px`;
-      el3.style.zIndex = frozenZIndex;
-    } else if (el3.style.position || el3.classList.contains("tablify__cell--frozen-edge")) {
-      el3.classList.remove("tablify__lead--frozen", "tablify__cell--frozen", "tablify__cell--frozen-edge");
-      el3.style.position = "";
-      el3.style.left = "";
-      el3.style.zIndex = "";
+      el4.classList.add(slot < LEAD_SLOTS ? "tablify__lead--frozen" : "tablify__cell--frozen");
+      el4.classList.toggle("tablify__cell--frozen-edge", edge);
+      el4.style.position = "sticky";
+      el4.style.left = `${this.slotLefts[slot]}px`;
+      el4.style.zIndex = frozenZIndex;
+    } else if (el4.style.position || el4.classList.contains("tablify__cell--frozen-edge")) {
+      el4.classList.remove("tablify__lead--frozen", "tablify__cell--frozen", "tablify__cell--frozen-edge");
+      el4.style.position = "";
+      el4.style.left = "";
+      el4.style.zIndex = "";
     }
   }
   styleCell(cell2, colIndex, frozenZIndex) {
@@ -14140,7 +14140,7 @@ var GridView = class {
   restyleGeometry() {
     const apply = (container, z) => {
       container.style.width = `${this.totalWidth}px`;
-      Array.from(container.children).forEach((el3, i) => this.placeSlot(el3, i, z));
+      Array.from(container.children).forEach((el4, i) => this.placeSlot(el4, i, z));
     };
     apply(this.header, "2");
     for (const rowEl of Array.from(this.content.children))
@@ -14159,11 +14159,11 @@ var GridView = class {
     return this.rowGripTemplate;
   }
   createLead(frozenZIndex, slot) {
-    const el3 = document.createElement("div");
-    el3.className = "tablify__lead tablify__lead--num";
-    el3.setAttribute("aria-hidden", "true");
-    this.placeSlot(el3, slot, frozenZIndex);
-    return el3;
+    const el4 = document.createElement("div");
+    el4.className = "tablify__lead tablify__lead--num";
+    el4.setAttribute("aria-hidden", "true");
+    this.placeSlot(el4, slot, frozenZIndex);
+    return el4;
   }
   renderHeader() {
     this.header.innerHTML = "";
@@ -14402,7 +14402,7 @@ var GridView = class {
       if (this.rowDropIndicator)
         this.rowDropIndicator.style.display = "none";
       this.draggingRowId = null;
-      this.content.querySelectorAll(".tablify__row--dragging").forEach((el3) => el3.classList.remove("tablify__row--dragging"));
+      this.content.querySelectorAll(".tablify__row--dragging").forEach((el4) => el4.classList.remove("tablify__row--dragging"));
       this.cancelRowDrag = null;
     };
     const move = (ev) => {
@@ -14444,13 +14444,13 @@ var GridView = class {
    * (prototype), and the drop line drawn in the gap above that row — or under the last row.
    */
   dropSlotAt(clientY) {
-    const rowsEls = Array.from(this.content.children).filter((el3) => el3.dataset.rowId);
+    const rowsEls = Array.from(this.content.children).filter((el4) => el4.dataset.rowId);
     let beforeEl = null;
-    for (const el3 of rowsEls) {
-      const r = el3.getBoundingClientRect();
+    for (const el4 of rowsEls) {
+      const r = el4.getBoundingClientRect();
       const slotTop = r.top + ROW_GAP;
       if (clientY < slotTop + (r.bottom - slotTop) / 2) {
-        beforeEl = el3;
+        beforeEl = el4;
         break;
       }
     }
@@ -14590,14 +14590,14 @@ var GridView = class {
    * mono row count, in a button that collapses or expands the group.
    */
   buildGroupHeader(group, ariaRowIndex) {
-    const el3 = document.createElement("div");
-    el3.className = "tablify__group-row";
-    el3.setAttribute("role", "row");
-    el3.setAttribute("aria-rowindex", String(ariaRowIndex));
-    el3.dataset.groupKey = group.key;
-    el3.style.height = `${group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX}px`;
-    el3.style.minWidth = "100%";
-    el3.style.width = `${this.totalWidth}px`;
+    const el4 = document.createElement("div");
+    el4.className = "tablify__group-row";
+    el4.setAttribute("role", "row");
+    el4.setAttribute("aria-rowindex", String(ariaRowIndex));
+    el4.dataset.groupKey = group.key;
+    el4.style.height = `${group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX}px`;
+    el4.style.minWidth = "100%";
+    el4.style.width = `${this.totalWidth}px`;
     const cell2 = document.createElement("div");
     cell2.className = "tablify__group-cell";
     cell2.setAttribute("role", "gridcell");
@@ -14643,8 +14643,8 @@ var GridView = class {
     });
     btn.addEventListener("keydown", stopButtonKeys);
     cell2.appendChild(btn);
-    el3.appendChild(cell2);
-    return el3;
+    el4.appendChild(cell2);
+    return el4;
   }
   /**
    * Fill one pooled row element. `number` is the row's displayed number (`#`, labels) and
@@ -14773,9 +14773,9 @@ function round2(n) {
 function clampWidth(w) {
   return Math.max(RESIZE_MIN_WIDTH, Math.min(RESIZE_MAX_WIDTH, w));
 }
-function capturePointer(el3, pointerId) {
+function capturePointer(el4, pointerId) {
   try {
-    el3.setPointerCapture?.(pointerId);
+    el4.setPointerCapture?.(pointerId);
   } catch {
   }
 }
@@ -14970,7 +14970,12 @@ var TYPE_LABELS = {
   multi_select: "Multi select",
   attachment: "Attachment",
   formula: "Formula",
-  link: "Link"
+  link: "Link",
+  // COD-76: the three system types. They are never offered as a new field's type, but Modify shows
+  // the field's own type and used to render the raw key (`auto_number`).
+  auto_number: "Auto number",
+  created_time: "Created time",
+  modified_time: "Last modified"
 };
 var CHANGE_TARGET_TYPES = [
   "text",
@@ -15935,7 +15940,7 @@ var Toolbar = class _Toolbar {
     inner.appendChild(clear);
     if (focusKey) {
       const again = Array.from(panel.querySelectorAll("[data-focus-key]")).find(
-        (el3) => el3.dataset.focusKey === focusKey
+        (el4) => el4.dataset.focusKey === focusKey
       );
       again?.focus();
     }
@@ -15977,6 +15982,469 @@ var Toolbar = class _Toolbar {
 
 // src/views/grid/AddFieldModal.ts
 var import_obsidian5 = require("obsidian");
+
+// src/views/grid/fieldTypePicker.ts
+var TYPE_GROUPS = [
+  ["Basic", ["text", "long_text", "number", "currency", "percent", "duration", "rating", "checkbox"]],
+  ["Date", ["date", "date_time"]],
+  ["Links & contact", ["url", "email", "phone"]],
+  ["Select & attachment", ["single_select", "multi_select", "attachment"]],
+  ["Computed", ["formula", "link"]]
+];
+var SYSTEM_GROUP = "System";
+var FIELD_TYPE_META = {
+  text: { icon: "font", description: "One line of words", keywords: "string words name title" },
+  long_text: { icon: "align-left", description: "A paragraph that wraps in the cell", keywords: "notes paragraph body description" },
+  number: { icon: "hashtag", description: "Digits, grouped like 1,234,567", keywords: "integer decimal quantity amount" },
+  currency: { icon: "dollar-sign", description: "Money, shown to two decimals", keywords: "price cost money budget salary" },
+  percent: { icon: "percent", description: "A 0\u20131 fraction, shown as 25%", keywords: "rate share ratio" },
+  duration: { icon: "stopwatch", description: "Stored in milliseconds, shown as 1m 30s", keywords: "timer hours minutes elapsed" },
+  rating: { icon: "star", description: "Stars up to the field\u2019s Max, then 4/5", keywords: "stars score review" },
+  checkbox: { icon: "square-check", description: "A box you click", keywords: "boolean done yes no toggle" },
+  date: { icon: "calendar", description: "A day, yyyy-mm-dd", keywords: "calendar due day" },
+  date_time: { icon: "clock", description: "Your clock on screen, UTC in the file", keywords: "timestamp when schedule clock" },
+  url: { icon: "link", description: "Opens in your browser", keywords: "website http hyperlink" },
+  email: { icon: "envelope", description: "Opens your mail app", keywords: "mail contact address" },
+  phone: { icon: "phone", description: "Starts a call", keywords: "call mobile tel number" },
+  single_select: { icon: "circle-dot", description: "One chip from a list of options", keywords: "dropdown tag status option" },
+  multi_select: { icon: "list-check", description: "One chip per choice", keywords: "tags dropdown multiple status" },
+  attachment: { icon: "paperclip", description: "A file already in your vault", keywords: "file upload pdf image vault" },
+  formula: { icon: "square-root-variable", description: "Computed from other fields, read-only", keywords: "calculate expression computed" },
+  link: { icon: "diagram-project", description: "Rows in another table", keywords: "relation reference relate" },
+  // System types are never offered, but a field that already has one shows it in Modify.
+  auto_number: { icon: "arrow-down-1-9", description: "A number the table assigns, read-only", keywords: "sequence numbering row" },
+  created_time: { icon: "calendar-plus", description: "When the row was created, read-only", keywords: "timestamp created" },
+  modified_time: { icon: "calendar-check", description: "When the row last changed, read-only", keywords: "timestamp modified updated" }
+};
+function el(tag, className) {
+  const node = document.createElement(tag);
+  if (className)
+    node.className = className;
+  return node;
+}
+var LIST_MAX = 348;
+var FieldTypePicker = class {
+  opts;
+  trigger;
+  theme;
+  panel = null;
+  listEl = null;
+  searchEl = null;
+  countEl = null;
+  current;
+  activeId = null;
+  query = "";
+  unwire = null;
+  constructor(opts) {
+    this.opts = opts;
+    this.current = opts.value;
+    this.theme = opts.theme ?? (document.body.classList.contains("theme-dark") ? "dark" : "light");
+    this.trigger = this.buildTrigger();
+  }
+  /** The trigger element; the window mounts it in the Field type row. */
+  get element() {
+    return this.trigger;
+  }
+  /** The type on show. Reads back what the window would commit. */
+  get value() {
+    return this.current;
+  }
+  /** True while the list is on screen (tests and the window's Escape handling). */
+  get isOpen() {
+    return this.panel !== null;
+  }
+  // ---------------------------------------------------------------- the closed row
+  buildTrigger() {
+    const b = el("button", "tablify__tp-trigger");
+    b.type = "button";
+    if (this.opts.id)
+      b.id = this.opts.id;
+    b.setAttribute("aria-haspopup", "dialog");
+    b.setAttribute("aria-expanded", "false");
+    b.addEventListener("click", () => this.panel ? this.close() : this.open());
+    b.addEventListener("keydown", (ev) => {
+      if (this.panel)
+        return;
+      if (ev.key === "Enter" || ev.key === " " || ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+        ev.preventDefault();
+        this.open();
+        return;
+      }
+      if (ev.key.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+        ev.preventDefault();
+        this.open(ev.key);
+      }
+    });
+    this.paintTrigger(b);
+    return b;
+  }
+  paintTrigger(target = this.trigger) {
+    const meta = FIELD_TYPE_META[this.current];
+    target.innerHTML = `<span class="tablify__tp-glyph" aria-hidden="true">${faIcon(meta.icon, 13)}</span><span class="tablify__tp-name"></span><span class="tablify__tp-chevron" aria-hidden="true">${faIcon("chevron-down", 11)}</span>`;
+    const name = target.querySelector(".tablify__tp-name");
+    if (name)
+      name.textContent = TYPE_LABELS[this.current] ?? this.current;
+    target.setAttribute("aria-label", `Field type: ${TYPE_LABELS[this.current] ?? this.current}`);
+  }
+  // ---------------------------------------------------------------- open / close
+  /** Open the list. `seed` pre-fills the search (the printable-character path). */
+  open(seed = "") {
+    if (this.panel)
+      return;
+    const panel = el("div", "tablify__tp-panel");
+    panel.dataset.testid = "tablify-field-type-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "false");
+    panel.setAttribute("aria-label", "Choose a field type");
+    applyTheme(panel, this.theme);
+    const search = el("div", "tablify__tp-search");
+    search.innerHTML = `<span class="tablify__tp-search-glyph" aria-hidden="true">${faIcon("magnifying-glass", 11)}</span>`;
+    const input = el("input", "tablify__tp-input");
+    input.type = "text";
+    input.placeholder = "Search field types\u2026";
+    input.setAttribute("aria-label", "Search field types");
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-expanded", "true");
+    input.setAttribute("aria-controls", "tablify__tp-list");
+    input.setAttribute("aria-autocomplete", "list");
+    input.autocomplete = "off";
+    input.value = seed;
+    const clear = el("button", "tablify__tp-clear");
+    clear.type = "button";
+    clear.setAttribute("aria-label", "Clear search");
+    clear.innerHTML = faIcon("xmark", 8);
+    clear.hidden = seed === "";
+    search.append(input, clear);
+    const list = el("div", "tablify__tp-list");
+    list.id = "tablify__tp-list";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-label", "Field types");
+    const hint = el("div", "tablify__tp-hint");
+    hint.innerHTML = "<span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span><span><kbd>\u21B5</kbd> choose</span><span><kbd>esc</kbd> close</span>";
+    const count = el("span", "tablify__tp-count");
+    hint.append(count);
+    panel.append(search, list, hint);
+    this.panel = panel;
+    this.listEl = list;
+    this.searchEl = input;
+    this.countEl = count;
+    this.query = seed;
+    this.trigger.setAttribute("aria-expanded", "true");
+    this.trigger.setAttribute("aria-controls", `tablify__tp-list`);
+    document.body.appendChild(panel);
+    this.render();
+    this.position();
+    this.focusOnOpen();
+    input.addEventListener("input", () => {
+      this.query = input.value;
+      clear.hidden = input.value === "";
+      this.render();
+      this.setActive(this.firstPickable(), false);
+    });
+    clear.addEventListener("click", () => {
+      input.value = "";
+      this.query = "";
+      clear.hidden = true;
+      this.render();
+      this.setActive(this.firstPickable(), false);
+      input.focus();
+    });
+    panel.addEventListener("click", (ev) => {
+      const target = ev.target;
+      if (target.closest("[data-clear]")) {
+        input.value = "";
+        this.query = "";
+        clear.hidden = true;
+        this.render();
+        input.focus();
+        return;
+      }
+      const row = target.closest("[data-type]");
+      if (row)
+        this.pick(row.dataset.type);
+    });
+    panel.addEventListener("keydown", (ev) => this.onKey(ev));
+    this.unwire = this.wireDismiss();
+  }
+  close() {
+    if (!this.panel)
+      return;
+    this.unwire?.();
+    this.unwire = null;
+    this.panel.remove();
+    this.panel = null;
+    this.listEl = null;
+    this.searchEl = null;
+    this.countEl = null;
+    this.activeId = null;
+    this.trigger.setAttribute("aria-expanded", "false");
+    this.trigger.removeAttribute("aria-controls");
+  }
+  /** Close and repaint from the outside (the window closing mid-pick). */
+  setValue(type) {
+    this.current = type;
+    this.paintTrigger();
+    if (this.panel)
+      this.render();
+  }
+  // ---------------------------------------------------------------- picking
+  pick(type) {
+    if (this.blockReason(type))
+      return;
+    this.current = type;
+    this.paintTrigger();
+    this.close();
+    this.trigger.focus();
+    this.opts.onChange(type);
+  }
+  /** A row that would drop values keeps its place and says why — never silently absent. */
+  blockReason(type) {
+    if (!this.opts.edit || type === this.current)
+      return null;
+    if (this.opts.typeBlockReason)
+      return this.opts.typeBlockReason(type);
+    if (this.opts.canPickType && !this.opts.canPickType(type))
+      return "Not available for this field";
+    return null;
+  }
+  // ---------------------------------------------------------------- rendering
+  /** The groups to draw, in the model's order, with the field's own system type appended. */
+  groups() {
+    const out = TYPE_GROUPS.map(([label, types]) => [label, types.filter((t) => CHANGE_TARGET_TYPES.includes(t))]).filter(
+      ([, types]) => types.length > 0
+    );
+    if (this.opts.edit && !CHANGE_TARGET_TYPES.includes(this.current)) {
+      out.push([SYSTEM_GROUP, [this.current]]);
+    }
+    return out;
+  }
+  matches(type) {
+    const q = this.query.trim().toLowerCase();
+    if (!q)
+      return true;
+    const meta = FIELD_TYPE_META[type];
+    const label = TYPE_LABELS[type] ?? type;
+    return `${label} ${meta.description} ${meta.keywords}`.toLowerCase().includes(q);
+  }
+  rows() {
+    return this.listEl ? Array.from(this.listEl.querySelectorAll("[data-type]")) : [];
+  }
+  pickable() {
+    return this.rows().filter((r) => r.getAttribute("aria-disabled") !== "true");
+  }
+  firstPickable() {
+    const first = this.pickable()[0];
+    return first ? first.dataset.type : null;
+  }
+  render() {
+    const list = this.listEl;
+    if (!list)
+      return;
+    list.textContent = "";
+    let shown = 0;
+    for (const [label, types] of this.groups()) {
+      const visible = types.filter((t) => this.matches(t));
+      if (visible.length === 0)
+        continue;
+      const group = el("div", "tablify__tp-group");
+      const heading = el("span", "tablify__tp-group-name");
+      heading.id = `tablify__tp-group-${label.toLowerCase().replace(/\W+/g, "-")}`;
+      heading.textContent = label;
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-labelledby", heading.id);
+      group.appendChild(heading);
+      list.appendChild(group);
+      const holder = el("div", "tablify__tp-groupbody");
+      for (const type of visible) {
+        holder.appendChild(this.row(type, group.id));
+        shown += 1;
+      }
+      list.appendChild(holder);
+    }
+    if (shown === 0) {
+      const empty = el("div", "tablify__tp-empty");
+      const p = el("p");
+      p.textContent = `No field type matches \u201C${this.query.trim()}\u201D.`;
+      const button = el("button", "tablify__tp-empty-btn");
+      button.type = "button";
+      button.dataset.clear = "true";
+      button.textContent = "Clear search";
+      empty.append(p, button);
+      list.appendChild(empty);
+    }
+    if (this.countEl) {
+      this.countEl.textContent = shown === 0 ? "no match" : `${shown} type${shown === 1 ? "" : "s"}`;
+    }
+    if (this.activeId)
+      this.setActive(this.activeId, false);
+  }
+  row(type, groupId) {
+    const meta = FIELD_TYPE_META[type];
+    const reason = this.blockReason(type);
+    const row = el("button", "tablify__tp-row");
+    row.type = "button";
+    row.dataset.type = type;
+    row.id = `tablify__tp-${type}`;
+    row.setAttribute("role", "option");
+    row.setAttribute("aria-selected", String(type === this.current));
+    if (type === this.current) {
+      row.classList.add("tablify__tp-row--current");
+      row.setAttribute("aria-current", "true");
+    }
+    if (reason) {
+      row.setAttribute("aria-disabled", "true");
+      row.classList.add("tablify__tp-row--blocked");
+    }
+    row.setAttribute("aria-describedby", `${groupId}`);
+    row.innerHTML = `<span class="tablify__tp-row-glyph" aria-hidden="true">${faIcon(meta.icon, 13)}</span><span class="tablify__tp-row-text"><span class="tablify__tp-row-name"></span><span class="tablify__tp-row-desc${reason ? " tablify__tp-row-desc--blocked" : ""}"></span></span><span class="tablify__tp-row-check" aria-hidden="true">${type === this.current ? faIcon("check", 11) : ""}</span>`;
+    const name = row.querySelector(".tablify__tp-row-name");
+    if (name)
+      name.textContent = TYPE_LABELS[type] ?? type;
+    const desc = row.querySelector(".tablify__tp-row-desc");
+    if (desc)
+      desc.textContent = reason ?? meta.description;
+    if (reason)
+      row.title = reason;
+    return row;
+  }
+  setActive(type, scroll = true) {
+    this.activeId = type;
+    for (const row of this.rows())
+      row.classList.toggle("tablify__tp-row--active", row.dataset.type === type);
+    this.updateActiveDescendant();
+    if (!scroll || !type)
+      return;
+    const active = this.listEl?.querySelector(".tablify__tp-row--active");
+    if (active && typeof active.scrollIntoView === "function")
+      active.scrollIntoView({ block: "nearest" });
+  }
+  updateActiveDescendant() {
+    if (!this.searchEl)
+      return;
+    if (this.activeId)
+      this.searchEl.setAttribute("aria-activedescendant", `tablify__tp-${this.activeId}`);
+    else
+      this.searchEl.removeAttribute("aria-activedescendant");
+  }
+  // ---------------------------------------------------------------- keyboard
+  onKey(ev) {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.close();
+      this.trigger.focus();
+      return;
+    }
+    if (ev.key === "Tab") {
+      this.close();
+      this.trigger.focus();
+      ev.stopPropagation();
+      return;
+    }
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const rows = this.pickable();
+      if (rows.length === 0)
+        return;
+      const index = rows.findIndex((r) => r.dataset.type === this.activeId);
+      const next = ev.key === "ArrowDown" ? (index + 1) % rows.length : (index - 1 + rows.length) % rows.length;
+      this.setActive(rows[next < 0 ? 0 : next].dataset.type);
+      return;
+    }
+    if (ev.key === "PageDown" || ev.key === "PageUp") {
+      ev.preventDefault();
+      const rows = this.pickable();
+      if (rows.length === 0)
+        return;
+      const index = rows.findIndex((r) => r.dataset.type === this.activeId);
+      const step = ev.key === "PageDown" ? 5 : -5;
+      const next = Math.min(rows.length - 1, Math.max(0, (index < 0 ? 0 : index) + step));
+      this.setActive(rows[next].dataset.type);
+      return;
+    }
+    if (ev.key === "Home" || ev.key === "End") {
+      ev.preventDefault();
+      const rows = this.pickable();
+      if (rows.length === 0)
+        return;
+      this.setActive((ev.key === "Home" ? rows[0] : rows[rows.length - 1]).dataset.type);
+      return;
+    }
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (this.activeId)
+        this.pick(this.activeId);
+    }
+  }
+  // ---------------------------------------------------------------- placement
+  /**
+   * Anchor the panel to the trigger: trigger width, 6 px below, flipped above near the bottom edge,
+   * clamped into the viewport. z-index 1000 puts it above the host modal's layer (COD-69's value).
+   */
+  position() {
+    const panel = this.panel;
+    if (!panel)
+      return;
+    const r = this.trigger.getBoundingClientRect();
+    const vw = window.innerWidth || 1024;
+    const vh = window.innerHeight || 768;
+    const width = Math.min(r.width || 320, vw - 32);
+    const left = Math.max(8, Math.min(r.left, vw - width - 12));
+    panel.style.position = "fixed";
+    panel.style.width = `${width}px`;
+    panel.style.left = `${left}px`;
+    panel.style.zIndex = "1000";
+    const listMax = Math.max(120, Math.min(LIST_MAX, Math.floor(vh * 0.45)));
+    const list = this.listEl;
+    if (list)
+      list.style.maxHeight = `${listMax}px`;
+    const top = r.bottom + 6;
+    panel.style.top = `${top}px`;
+    const height = panel.getBoundingClientRect().height;
+    if (top + height > vh - 8)
+      panel.style.top = `${Math.max(8, r.top - height - 6)}px`;
+  }
+  /** Focus the search unless the pointer is coarse: on a phone the keyboard would cover the list. */
+  focusOnOpen() {
+    const coarse = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+    if (coarse) {
+      const current2 = this.listEl?.querySelector(".tablify__tp-row--current");
+      const group2 = current2?.closest(".tablify__tp-group");
+      if (this.listEl && group2)
+        this.listEl.scrollTop = Math.max(0, group2.offsetTop - 2);
+      this.setActive(this.current, false);
+      return;
+    }
+    this.setActive(this.current, false);
+    this.searchEl?.focus();
+    const current = this.listEl?.querySelector(".tablify__tp-row--current");
+    const group = current?.closest(".tablify__tp-group");
+    if (this.listEl && group)
+      this.listEl.scrollTop = Math.max(0, group.offsetTop - 2);
+  }
+  /** Press outside closes; resize and any scroll (the modal's own scroller included) re-anchor. */
+  wireDismiss() {
+    const onPress = (ev) => {
+      const target = ev.target;
+      if (!this.panel || this.panel.contains(target))
+        return;
+      if (this.trigger.contains(target))
+        return;
+      this.close();
+    };
+    const onMove = () => this.position();
+    document.addEventListener("pointerdown", onPress, true);
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onMove, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPress, true);
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onMove, true);
+    };
+  }
+};
 
 // src/model/formulaPreview.ts
 var PREVIEW_FIELD_ID = "fld__preview";
@@ -16021,13 +16489,6 @@ function previewFormula(fields, firstRow, expression) {
 
 // src/views/grid/AddFieldModal.ts
 var DEFAULT_NEW_FIELD_TYPE = "text";
-var TYPE_GROUPS = [
-  ["Basic", ["text", "long_text", "number", "currency", "percent", "duration", "rating", "checkbox"]],
-  ["Date", ["date", "date_time"]],
-  ["Links & contact", ["url", "email", "phone"]],
-  ["Select & attachment", ["single_select", "multi_select", "attachment"]],
-  ["Computed", ["formula", "link"]]
-];
 var MIN_MAX_TYPES = ["number", "currency", "percent", "duration", "rating", "date", "date_time"];
 var REGEX_TYPES = ["text", "long_text", "url", "email", "phone"];
 var SELECT_TYPES = ["single_select", "multi_select"];
@@ -16040,6 +16501,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     this.edited = initial;
     this.name = initial?.name ?? "";
     this.type = initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
+    this.openedType = this.type;
     this.expression = initial?.formula ?? "";
     this.required = initial?.required === true;
     this.unique = initial?.unique === true;
@@ -16052,6 +16514,11 @@ var AddFieldModal = class extends import_obsidian5.Modal {
   edited;
   name = "";
   type = DEFAULT_NEW_FIELD_TYPE;
+  /**
+   * The type the window opened with. Picking another type moves `this.type`, but the field's own
+   * type stays pickable — going back to it is never a loss, whatever the new pick is.
+   */
+  openedType;
   expression = "";
   linkTableId;
   optionsText = "";
@@ -16062,6 +16529,8 @@ var AddFieldModal = class extends import_obsidian5.Modal {
   regexText = "";
   /** Edit mode: the "N options: …" line, refreshed after the option manager closes. */
   optionsSummary = null;
+  /** COD-76: the type picker, so closing the window closes its panel too (it lives on body). */
+  typePicker = null;
   get isEdit() {
     return this.options.mode === "edit";
   }
@@ -16081,40 +16550,23 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     nameInput.addEventListener("input", () => {
       this.name = nameInput.value;
     });
-    const typeWrap = body.createDiv();
+    let showTypeRows = () => {
+    };
+    const typeWrap = body.createDiv({ cls: "tablify__typepicker" });
     this.label(typeWrap, "Field type", "tablify__af-type");
-    const typeSelect = typeWrap.createEl("select", { cls: "tablify__pmodal-input" });
-    typeSelect.id = "tablify__af-type";
-    const grouped = /* @__PURE__ */ new Set();
-    for (const [group, types] of TYPE_GROUPS) {
-      const offered = types.filter((t) => CHANGE_TARGET_TYPES.includes(t));
-      if (offered.length === 0)
-        continue;
-      const optgroup = typeSelect.createEl("optgroup");
-      optgroup.label = group;
-      for (const t of offered) {
-        if (!this.offersType(t))
-          continue;
-        grouped.add(t);
-        const option = optgroup.createEl("option", { value: t });
-        option.textContent = TYPE_LABELS[t] ?? t;
+    const typePicker = new FieldTypePicker({
+      id: "tablify__af-type",
+      value: this.type,
+      edit: this.isEdit,
+      typeBlockReason: (type) => this.blockReasonFor(type),
+      canPickType: this.options.canPickType,
+      onChange: (type) => {
+        this.type = type;
+        showTypeRows();
       }
-    }
-    for (const t of CHANGE_TARGET_TYPES) {
-      if (grouped.has(t) || !this.offersType(t))
-        continue;
-      const option = typeSelect.createEl("option", { value: t });
-      option.textContent = TYPE_LABELS[t] ?? t;
-    }
-    if (this.isEdit && !grouped.has(this.type) && !CHANGE_TARGET_TYPES.includes(this.type)) {
-      const own = typeSelect.createEl("option", { value: this.type });
-      own.textContent = TYPE_LABELS[this.type] ?? this.type;
-    }
-    typeSelect.value = this.type;
-    typeSelect.addEventListener("change", () => {
-      this.type = typeSelect.value;
-      showTypeRows();
     });
+    typeWrap.appendChild(typePicker.element);
+    this.typePicker = typePicker;
     const optionsWrap = body.createDiv();
     this.label(optionsWrap, this.isEdit ? "Options" : "Options (one per line)", "tablify__af-options");
     if (this.isEdit) {
@@ -16213,12 +16665,13 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     linkSelect.addEventListener("change", () => {
       this.linkTableId = linkSelect.value;
     });
-    const showTypeRows = () => {
+    showTypeRows = () => {
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? "" : "none";
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? "" : "none";
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? "" : "none";
       formulaWrap.style.display = this.type === "formula" ? "" : "none";
       linkWrap.style.display = this.type === "link" ? "" : "none";
+      typePicker.setValue(this.type);
     };
     showTypeRows();
     const footer = this.contentEl.createDiv({ cls: "tablify__af-footer" });
@@ -16243,6 +16696,11 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       }
     });
     nameInput.focus();
+  }
+  /** COD-76: the picker's panel is on `document.body`, so it must not outlive the window. */
+  onClose() {
+    this.typePicker?.close();
+    this.typePicker = null;
   }
   label(parent, text, forId) {
     const label = parent.createEl("label", { text, cls: "tablify__pmodal-label" });
@@ -16300,11 +16758,19 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     }
     return Object.keys(extras).length > 0 ? extras : void 0;
   }
-  /** Edit mode: only types planTypeChange accepts, plus the field's current type. */
-  offersType(type) {
-    if (!this.isEdit || type === this.type)
-      return true;
-    return this.options.canPickType ? this.options.canPickType(type) : true;
+  /**
+   * Edit mode: why a type cannot be picked, or null. The field's current type is always allowed, and
+   * create mode never blocks one. Callers that pass `typeBlockReason` get the model's own sentence;
+   * the older `canPickType` boolean still works and becomes a generic greyed row (COD-76).
+   */
+  blockReasonFor(type) {
+    if (!this.isEdit || type === this.openedType || type === this.type)
+      return null;
+    if (this.options.typeBlockReason)
+      return this.options.typeBlockReason(type);
+    if (this.options.canPickType && !this.options.canPickType(type))
+      return "Not available for this field";
+    return null;
   }
   /** The line under "Options" in edit mode: what the field has right now. */
   renderOptionSummary() {
@@ -17349,7 +17815,7 @@ var SelectDropdown = class {
   // For tests: get visible items
   getVisibleOptionNames() {
     return Array.from(this.list.querySelectorAll(".tablify__dropdown-item")).map(
-      (el3) => el3.textContent ?? ""
+      (el4) => el4.textContent ?? ""
     );
   }
   hasCreateOption() {
@@ -18089,7 +18555,7 @@ function dateTimeParts(value) {
 // src/views/grid/date/DatePicker.ts
 var uid = 0;
 var pad23 = (n) => String(n).padStart(2, "0");
-function el(tag, className) {
+function el2(tag, className) {
   const node = document.createElement(tag);
   node.className = className;
   return node;
@@ -18132,7 +18598,7 @@ var DatePicker = class {
     this.card = card;
     this.card.classList.add("tablify__date-panel");
     this.card.setAttribute("aria-label", this.type === "date" ? "Pick a date" : "Pick a date and time");
-    const field = el("div", "tablify__date-field");
+    const field = el2("div", "tablify__date-field");
     this.input = document.createElement("input");
     this.input.className = "tablify__date-input";
     this.input.type = "text";
@@ -18150,40 +18616,40 @@ var DatePicker = class {
         this.commit();
       }
     });
-    const glyph = el("span", "tablify__date-glyph");
+    const glyph = el2("span", "tablify__date-glyph");
     glyph.setAttribute("aria-hidden", "true");
     glyph.innerHTML = faIcon("calendar", 14);
     field.appendChild(this.input);
     field.appendChild(glyph);
-    this.error = el("div", "tablify__date-error");
+    this.error = el2("div", "tablify__date-error");
     this.error.id = this.ids.error;
     this.error.setAttribute("role", "status");
     this.error.hidden = true;
-    const head = el("div", "tablify__date-head");
+    const head = el2("div", "tablify__date-head");
     const prev = makeButton("tablify__date-nav", "Previous month");
     prev.innerHTML = faIcon("chevron-left", 11);
     prev.addEventListener("click", () => this.stepMonth(-1));
     const next = makeButton("tablify__date-nav", "Next month");
     next.innerHTML = faIcon("chevron-right", 11);
     next.addEventListener("click", () => this.stepMonth(1));
-    this.title = el("div", "tablify__date-month");
+    this.title = el2("div", "tablify__date-month");
     this.title.id = this.ids.title;
     this.title.setAttribute("aria-live", "polite");
     head.appendChild(prev);
     head.appendChild(this.title);
     head.appendChild(next);
-    this.grid = el("div", "tablify__date-grid");
+    this.grid = el2("div", "tablify__date-grid");
     this.grid.setAttribute("role", "grid");
     this.grid.setAttribute("aria-labelledby", this.ids.title);
     let timeRow = null;
     if (this.type === "date_time") {
-      timeRow = el("div", "tablify__date-time");
-      const label = el("span", "tablify__date-time-label");
+      timeRow = el2("div", "tablify__date-time");
+      const label = el2("span", "tablify__date-time-label");
       label.textContent = "Time";
-      const capsule = el("div", "tablify__date-clock");
+      const capsule = el2("div", "tablify__date-clock");
       this.hh = this.clockInput("Hours", 23);
       this.mm = this.clockInput("Minutes", 59);
-      const colon = el("span", "tablify__date-colon");
+      const colon = el2("span", "tablify__date-colon");
       colon.textContent = ":";
       colon.setAttribute("aria-hidden", "true");
       capsule.appendChild(this.hh);
@@ -18199,7 +18665,7 @@ var DatePicker = class {
       this.hh = null;
       this.mm = null;
     }
-    const foot = el("div", "tablify__date-foot");
+    const foot = el2("div", "tablify__date-foot");
     const today = makeButton("tablify__date-quiet", "Today");
     today.textContent = "Today";
     today.addEventListener("click", () => this.setToday());
@@ -18451,26 +18917,26 @@ var DatePicker = class {
   }
   renderCalendar() {
     this.title.textContent = "";
-    const month = el("span", "tablify__date-month-name");
+    const month = el2("span", "tablify__date-month-name");
     month.textContent = monthLabel(this.view.month);
-    const year = el("span", "tablify__date-year");
+    const year = el2("span", "tablify__date-year");
     year.textContent = String(this.view.year);
     this.title.append(month, year);
     const today = this.now();
     const todayParts = { year: today.getFullYear(), month: today.getMonth(), day: today.getDate() };
     const selected = this.draft.hasDate ? this.draft.dateParts : null;
     this.grid.textContent = "";
-    const headRow = el("div", "tablify__date-week-row");
+    const headRow = el2("div", "tablify__date-week-row");
     headRow.setAttribute("role", "row");
     for (const label of weekdayLabels(this.weekStart)) {
-      const cell2 = el("div", "tablify__date-weekday");
+      const cell2 = el2("div", "tablify__date-weekday");
       cell2.setAttribute("role", "columnheader");
       cell2.textContent = label;
       headRow.appendChild(cell2);
     }
     this.grid.appendChild(headRow);
     for (const week of gridFor(this.view.year, this.view.month, this.weekStart)) {
-      const row = el("div", "tablify__date-week");
+      const row = el2("div", "tablify__date-week");
       row.setAttribute("role", "row");
       for (const parts of week) {
         const button = document.createElement("button");
@@ -18961,6 +19427,11 @@ var TableView = class extends import_obsidian9.TextFileView {
         // COD-69: the whole field, so every row the create window draws is pre-filled.
         initial: { field },
         canPickType: (type) => planTypeChange(s.store.getAllRows(), field, type).ok,
+        // COD-76: the same verdict, with the sentence — a blocked type stays visible in the picker.
+        typeBlockReason: (type) => {
+          const plan = planTypeChange(s.store.getAllRows(), field, type);
+          return plan.ok ? null : plan.reason;
+        },
         linkTargets: [{ tableId: selfId, name: selfName }, ...others],
         formulaPreview: (expression) => {
           const firstId = s.store.getDisplayOrder()[0];
@@ -20493,14 +20964,14 @@ function registerEmbedProcessor(plugin) {
   const app = plugin.app;
   plugin.registerMarkdownCodeBlockProcessor(
     EMBED_FENCE_LANGUAGE,
-    async (source, el3, ctx) => {
+    async (source, el4, ctx) => {
       const parsed = parseEmbedSource(source);
       if (!parsed.ok) {
         const err3 = document.createElement("div");
         err3.className = "tablify__error";
         err3.dataset.testid = "tablify-embed-error";
         err3.textContent = parsed.error;
-        el3.appendChild(err3);
+        el4.appendChild(err3);
         return;
       }
       const path = parsed.path;
@@ -20513,9 +20984,9 @@ function registerEmbedProcessor(plugin) {
         },
         links: linkIndexFor(app)
       });
-      el3.appendChild(view.root);
+      el4.appendChild(view.root);
       ctx.addChild(
-        new EmbedRenderChild(el3, () => {
+        new EmbedRenderChild(el4, () => {
           view.destroy();
           registry2.release(path);
         })
@@ -21822,7 +22293,7 @@ function typeLabel(type) {
 }
 
 // src/views/sync/SyncModal.ts
-function el2(parent, tag, opts = {}) {
+function el3(parent, tag, opts = {}) {
   const node = document.createElement(tag);
   if (opts.cls)
     node.className = opts.cls;
@@ -22000,37 +22471,37 @@ var SyncModal = class extends import_obsidian15.Modal {
       root.removeChild(root.firstChild);
     const link = this.deps.session.getSyncLink();
     const busy = this.state.busy !== null;
-    el2(root, "div", {
+    el3(root, "div", {
       cls: "tablify-sync__token",
       text: this.deps.token ? "Token: stored in Tablify settings (never written to .tablify files)." : "No token. Add one in Tablify settings, under Airtable sync."
     });
-    el2(root, "div", { cls: "tablify-sync__scopes", text: `Scopes: ${SCOPES_TEXT}. ${CREATE_SCOPE_TEXT}` });
-    const linkBox = el2(root, "div", { cls: "tablify-sync__link" });
+    el3(root, "div", { cls: "tablify-sync__scopes", text: `Scopes: ${SCOPES_TEXT}. ${CREATE_SCOPE_TEXT}` });
+    const linkBox = el3(root, "div", { cls: "tablify-sync__link" });
     if (link) {
-      el2(linkBox, "span", { text: `Linked to ${link.tableName} (${link.baseId}).` });
-      const unlinkBtn = el2(linkBox, "button", { text: "Unlink" });
+      el3(linkBox, "span", { text: `Linked to ${link.tableName} (${link.baseId}).` });
+      const unlinkBtn = el3(linkBox, "button", { text: "Unlink" });
       unlinkBtn.addEventListener("click", () => this.unlink());
     } else {
       this.renderLinkForm(linkBox, busy);
     }
-    const actions = el2(root, "div", { cls: "tablify-sync__actions" });
-    const pullBtn = el2(actions, "button", { text: "Pull from Airtable" });
-    const pushBtn = el2(actions, "button", { text: "Push to Airtable" });
+    const actions = el3(root, "div", { cls: "tablify-sync__actions" });
+    const pullBtn = el3(actions, "button", { text: "Pull from Airtable" });
+    const pushBtn = el3(actions, "button", { text: "Push to Airtable" });
     const canRun = !!link && !!this.deps.token && !busy;
     pullBtn.disabled = !canRun;
     pushBtn.disabled = !canRun;
     pullBtn.addEventListener("click", () => void this.pull());
     pushBtn.addEventListener("click", () => void this.push());
     if (this.state.busy)
-      el2(root, "div", { cls: "tablify-sync__progress", text: `${this.state.busy}\u2026` });
+      el3(root, "div", { cls: "tablify-sync__progress", text: `${this.state.busy}\u2026` });
     if (this.state.status) {
-      el2(root, "div", {
+      el3(root, "div", {
         cls: this.state.status.error ? "tablify-sync__status tablify-sync__status--error" : "tablify-sync__status",
         text: this.state.status.text
       });
     }
     if (link?.lastSync) {
-      el2(root, "div", {
+      el3(root, "div", {
         cls: "tablify-sync__last",
         text: `Last ${link.lastSync.direction} ${link.lastSync.at}: ${link.lastSync.ok ? "ok" : "with problems"}. ${link.lastSync.summary}`
       });
@@ -22040,9 +22511,9 @@ var SyncModal = class extends import_obsidian15.Modal {
       this.renderFields(root, busy);
   }
   renderLinkForm(box, busy) {
-    const baseSel = el2(box, "select", { cls: "tablify-sync__base" });
+    const baseSel = el3(box, "select", { cls: "tablify-sync__base" });
     for (const b of this.state.bases) {
-      const opt = el2(baseSel, "option", { text: b.name });
+      const opt = el3(baseSel, "option", { text: b.name });
       opt.value = b.id;
       if (b.id === this.state.baseId)
         opt.selected = true;
@@ -22051,9 +22522,9 @@ var SyncModal = class extends import_obsidian15.Modal {
       this.state.baseId = baseSel.value;
       void this.run("Loading tables", () => this.loadTables());
     });
-    const tableSel = el2(box, "select", { cls: "tablify-sync__table" });
+    const tableSel = el3(box, "select", { cls: "tablify-sync__table" });
     this.state.tables.forEach((t, i) => {
-      const opt = el2(tableSel, "option", { text: t.name });
+      const opt = el3(tableSel, "option", { text: t.name });
       opt.value = String(i);
       if (i === this.state.tableIndex)
         opt.selected = true;
@@ -22061,8 +22532,8 @@ var SyncModal = class extends import_obsidian15.Modal {
     tableSel.addEventListener("change", () => {
       this.state.tableIndex = Number(tableSel.value);
     });
-    const replaceLabel = el2(box, "label");
-    const replace = el2(replaceLabel, "input");
+    const replaceLabel = el3(box, "label");
+    const replace = el3(replaceLabel, "input");
     replace.type = "checkbox";
     replace.checked = this.state.replaceColumns;
     replaceLabel.appendChild(document.createTextNode(" Replace local columns with the Airtable schema (local values in those columns are removed)"));
@@ -22070,49 +22541,49 @@ var SyncModal = class extends import_obsidian15.Modal {
       this.state.replaceColumns = replace.checked;
       this.render();
     });
-    const linkBtn = el2(box, "button", { text: this.state.replaceColumns ? "Replace columns and link" : "Link table" });
+    const linkBtn = el3(box, "button", { text: this.state.replaceColumns ? "Replace columns and link" : "Link table" });
     linkBtn.disabled = busy || !this.deps.token || this.state.tables.length === 0;
     linkBtn.addEventListener("click", () => void this.link());
   }
   renderConflicts(root, busy) {
     if (this.state.conflicts.length === 0)
       return;
-    const box = el2(root, "div", { cls: "tablify-sync__conflicts" });
-    el2(box, "div", { text: `Conflicts (${this.state.conflicts.length})` });
+    const box = el3(root, "div", { cls: "tablify-sync__conflicts" });
+    el3(box, "div", { text: `Conflicts (${this.state.conflicts.length})` });
     for (const item of this.state.conflicts) {
-      const row = el2(box, "div", { cls: "tablify-sync__conflict" });
+      const row = el3(box, "div", { cls: "tablify-sync__conflict" });
       const title = item.kind === "remote_deleted" ? "Deleted in Airtable, edited here" : "Changed here and in Airtable";
-      el2(row, "div", { text: title });
+      el3(row, "div", { text: title });
       const choices = item.kind === "remote_deleted" ? [["keep_local", "Keep local"], ["keep_remote", "Remove row"]] : [["keep_local", "Keep local"], ["keep_remote", "Keep remote"], ["keep_both", "Keep both"]];
       for (const [decision, label] of choices) {
-        const btn = el2(row, "button", { text: label });
+        const btn = el3(row, "button", { text: label });
         btn.disabled = busy;
         btn.addEventListener("click", () => void this.resolve(item, decision));
       }
     }
   }
   renderFields(root, busy) {
-    const box = el2(root, "div", { cls: "tablify-sync__fields" });
-    const check = el2(box, "button", { text: "Check fields to create" });
+    const box = el3(root, "div", { cls: "tablify-sync__fields" });
+    const check = el3(box, "button", { text: "Check fields to create" });
     check.disabled = busy || !this.deps.token;
     check.addEventListener("click", () => void this.preparePlan());
     const plan = this.state.plan;
     if (!plan)
       return;
-    const list = el2(box, "ul", { cls: "tablify-sync__plan" });
+    const list = el3(box, "ul", { cls: "tablify-sync__plan" });
     for (const item of plan.items) {
-      el2(list, "li", { text: `${item.name} (${typeLabel(item.tablifyType)} \u2192 ${item.airtableType})` });
+      el3(list, "li", { text: `${item.name} (${typeLabel(item.tablifyType)} \u2192 ${item.airtableType})` });
     }
     for (const skip of plan.skipped) {
-      el2(list, "li", { cls: "tablify-sync__skipped", text: `${skip.name}: not created (${skip.reason})` });
+      el3(list, "li", { cls: "tablify-sync__skipped", text: `${skip.name}: not created (${skip.reason})` });
     }
-    const buttons = el2(box, "div", { cls: "tablify-sync__confirm" });
-    this.cancelButton = el2(buttons, "button", { text: "Cancel" });
+    const buttons = el3(box, "div", { cls: "tablify-sync__confirm" });
+    this.cancelButton = el3(buttons, "button", { text: "Cancel" });
     this.cancelButton.addEventListener("click", () => {
       this.state.plan = null;
       this.render();
     });
-    const create = el2(buttons, "button", { text: `Create ${plan.items.length} field(s) in Airtable` });
+    const create = el3(buttons, "button", { text: `Create ${plan.items.length} field(s) in Airtable` });
     create.disabled = busy || plan.items.length === 0;
     create.addEventListener("click", () => void this.createFields());
     this.cancelButton.focus();

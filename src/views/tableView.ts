@@ -529,6 +529,11 @@ export class TableView extends TextFileView {
         // COD-69: the whole field, so every row the create window draws is pre-filled.
         initial: { field },
         canPickType: (type) => planTypeChange(s.store.getAllRows(), field, type).ok,
+        // COD-76: the same verdict, with the sentence — a blocked type stays visible in the picker.
+        typeBlockReason: (type) => {
+          const plan = planTypeChange(s.store.getAllRows(), field, type);
+          return plan.ok ? null : plan.reason;
+        },
         linkTargets: [{ tableId: selfId, name: selfName }, ...others],
         formulaPreview: (expression) => {
           const firstId = s.store.getDisplayOrder()[0];

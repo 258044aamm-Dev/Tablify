@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AddFieldModal, DEFAULT_NEW_FIELD_TYPE, TYPE_GROUPS } from '../../src/views/grid/AddFieldModal.js';
 import { App, Modal, Notice } from 'obsidian';
-import { CHANGE_TARGET_TYPES } from '../../src/menus/tableMenuModel.js';
+import { CHANGE_TARGET_TYPES, TYPE_LABELS } from '../../src/menus/tableMenuModel.js';
+import { cleanupPickers, openPicker, pickType, typeRows } from './grid/typePickerSupport.js';
 
 function open() {
   const app = new App();
@@ -27,14 +28,14 @@ function secondTextInput(modal: Modal): HTMLTextAreaElement {
   return modal.contentEl.querySelector('textarea.tablify__af-formula') as unknown as HTMLTextAreaElement;
 }
 
-function dropdown(modal: Modal): HTMLSelectElement {
-  return modal.contentEl.querySelector('select') as HTMLSelectElement;
-}
-
 /** "Save Field" — the primary footer button; Cancel comes first since SAD-86 (prototype order). */
 function addButton(modal: Modal): HTMLButtonElement {
   return modal.contentEl.querySelector('button.tablify__pmodal-btn--primary') as unknown as HTMLButtonElement;
 }
+
+// The picker's panel lives on `document.body`; a test that leaves one open must not leak into the
+// next (every panel would answer to the same selector).
+beforeEach(() => cleanupPickers());
 
 describe('AddFieldModal', () => {
   beforeEach(() => {
@@ -51,13 +52,13 @@ describe('AddFieldModal', () => {
 
   it('offers the same field types as the header menu', () => {
     const { modal } = open();
-    const options = Array.from(dropdown(modal).options).map((o) => o.value);
+    const options = typeRows(openPicker(modal.contentEl)).map((r) => r.dataset.type);
     expect(options).toEqual([...CHANGE_TARGET_TYPES]);
   });
 
   it('preselects the default type', () => {
     const { modal } = open();
-    expect(dropdown(modal).value).toBe(DEFAULT_NEW_FIELD_TYPE);
+    expect(modal.contentEl.querySelector('#tablify__af-type')?.getAttribute('aria-label')).toContain(TYPE_LABELS[DEFAULT_NEW_FIELD_TYPE]);
   });
 
   it('confirms with the typed name and chosen type', () => {
@@ -65,8 +66,7 @@ describe('AddFieldModal', () => {
     const input = textInput(modal);
     input.value = 'Score';
     input.dispatchEvent(new Event('input'));
-    dropdown(modal).value = 'number';
-    dropdown(modal).dispatchEvent(new Event('change'));
+    pickType('number', modal.contentEl);
     addButton(modal).click();
     expect(confirmed).toEqual([{ name: 'Score', type: 'number' }]);
   });
@@ -76,8 +76,7 @@ describe('AddFieldModal', () => {
     const input = textInput(modal);
     input.value = 'Double';
     input.dispatchEvent(new Event('input'));
-    dropdown(modal).value = 'formula';
-    dropdown(modal).dispatchEvent(new Event('change'));
+    pickType('formula', modal.contentEl);
     // The expression input is the second text box (after the name).
     const expr = secondTextInput(modal);
     expr.value = '{Price} * 2';
@@ -91,8 +90,7 @@ describe('AddFieldModal', () => {
     const input = textInput(modal);
     input.value = 'Broken';
     input.dispatchEvent(new Event('input'));
-    dropdown(modal).value = 'formula';
-    dropdown(modal).dispatchEvent(new Event('change'));
+    pickType('formula', modal.contentEl);
     const expr = secondTextInput(modal);
     expr.value = '{Price} * (';
     expr.dispatchEvent(new Event('input'));
@@ -157,9 +155,8 @@ describe('AddFieldModal link type (P8-04)', () => {
     modal.open();
     textInput(modal).value = 'Customer';
     textInput(modal).dispatchEvent(new Event('input'));
-    dropdown(modal).value = 'link';
-    dropdown(modal).dispatchEvent(new Event('change'));
-    const targetSelect = modal.contentEl.querySelectorAll('select')[1] as unknown as HTMLSelectElement;
+    pickType('link', modal.contentEl);
+    const targetSelect = modal.contentEl.querySelector('select') as unknown as HTMLSelectElement;
     expect(Array.from(targetSelect.options).map((o) => o.value)).toEqual(['tbl_self', 'tbl_c']);
     expect(targetSelect.value).toBe('tbl_self');
     targetSelect.value = 'tbl_c';
@@ -175,8 +172,7 @@ describe('AddFieldModal link type (P8-04)', () => {
     modal.open();
     textInput(modal).value = 'Customer';
     textInput(modal).dispatchEvent(new Event('input'));
-    dropdown(modal).value = 'link';
-    dropdown(modal).dispatchEvent(new Event('change'));
+    pickType('link', modal.contentEl);
     addButton(modal).click();
     expect(got).toHaveLength(0);
     expect((modal as unknown as { isOpen: boolean }).isOpen).toBe(true);
@@ -222,13 +218,23 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
   beforeEach(() => {
     mockNotice.reset();
     mockModal.reset();
+    cleanupPickers();
   });
 
   it('groups the types like the prototype, in the header menu order', () => {
-    const { q } = openRaw();
-    const groups = Array.from(q<HTMLSelectElement>('#tablify__af-type').querySelectorAll('optgroup')) as unknown as HTMLOptGroupElement[];
-    expect(groups.map((g) => g.label)).toEqual(TYPE_GROUPS.map(([label]) => label));
+    const { modal } = openRaw();
+    const panel = openPicker(modal.contentEl);
+    const headings = Array.from(panel.querySelectorAll('.tablify__tp-group')).map((g) => g.textContent);
+    expect(headings).toEqual(TYPE_GROUPS.map(([label]) => label));
+    // The rows are the same types, in the same order, as the model's change-target list.
+    expect(typeRows(panel).map((r) => r.dataset.type)).toEqual([...CHANGE_TARGET_TYPES]);
     expect(TYPE_GROUPS.flatMap(([, types]) => types)).toEqual([...CHANGE_TARGET_TYPES]);
+  });
+
+  it('no native select is left in the window (COD-76)', () => {
+    const { modal } = openRaw();
+    // The linked-table row still has its own native select; the TYPE row must not.
+    expect(modal.contentEl.querySelectorAll('.tablify__typepicker select')).toHaveLength(0);
   });
 
   it('has Cancel then Save Field; Cancel closes without adding', () => {
@@ -248,9 +254,9 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
   });
 
   it('shows the options box for select types only and passes the non-empty lines', () => {
-    const { calls, set, shown, save } = openRaw();
+    const { modal, calls, set, shown, save } = openRaw();
     expect(shown('#tablify__af-options')).toBe(false);
-    set('#tablify__af-type', 'single_select', 'change');
+    pickType('single_select', modal.contentEl);
     expect(shown('#tablify__af-options')).toBe(true);
     set('#tablify__af-name', 'Stage');
     set('#tablify__af-options', 'Backlog\n\n  Doing \nDone');
@@ -259,17 +265,17 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
   });
 
   it('shows Min / Max for number-like types and the regex for text-like types', () => {
-    const { set, shown } = openRaw();
+    const { modal, shown } = openRaw();
     expect([shown('#tablify__af-min'), shown('#tablify__af-regex-input')]).toEqual([false, true]);
-    set('#tablify__af-type', 'number', 'change');
+    pickType('number', modal.contentEl);
     expect([shown('#tablify__af-min'), shown('#tablify__af-regex-input')]).toEqual([true, false]);
-    set('#tablify__af-type', 'checkbox', 'change');
+    pickType('checkbox', modal.contentEl);
     expect([shown('#tablify__af-min'), shown('#tablify__af-regex-input')]).toEqual([false, false]);
   });
 
   it('passes required / unique and min / max in the type\'s stored form', () => {
-    const { calls, set, check, save } = openRaw();
-    set('#tablify__af-type', 'number', 'change');
+    const { modal, calls, set, check, save } = openRaw();
+    pickType('number', modal.contentEl);
     set('#tablify__af-name', 'Score');
     check(0);
     check(1);
@@ -280,8 +286,8 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
   });
 
   it('a date bound is stored as YYYY-MM-DD', () => {
-    const { calls, set, save } = openRaw();
-    set('#tablify__af-type', 'date', 'change');
+    const { modal, calls, set, save } = openRaw();
+    pickType('date', modal.contentEl);
     set('#tablify__af-name', 'Due');
     set('#tablify__af-min', '2026-01-05');
     save();
@@ -290,7 +296,7 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
 
   it('an invalid bound warns and keeps the dialog open', () => {
     const { modal, calls, set, save } = openRaw();
-    set('#tablify__af-type', 'number', 'change');
+    pickType('number', modal.contentEl);
     set('#tablify__af-name', 'Score');
     set('#tablify__af-max', 'lots');
     save();
@@ -312,9 +318,9 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
   });
 
   it('rules hidden for the chosen type are not passed', () => {
-    const { calls, set, save } = openRaw();
+    const { modal, calls, set, save } = openRaw();
     set('#tablify__af-regex-input', '^x');
-    set('#tablify__af-type', 'number', 'change');
+    pickType('number', modal.contentEl);
     set('#tablify__af-name', 'N');
     save();
     expect(calls).toEqual([['N', 'number']]);
@@ -322,16 +328,16 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
 
   it('previews the formula live with the supplied evaluator', () => {
     const seen: string[] = [];
-    const { q, set } = openRaw({ formulaPreview: (e) => (seen.push(e), `=${e.length}`) });
-    set('#tablify__af-type', 'formula', 'change');
+    const { modal, q, set } = openRaw({ formulaPreview: (e) => (seen.push(e), `=${e.length}`) });
+    pickType('formula', modal.contentEl);
     set('#tablify__af-formula', '1 + 2');
     expect(seen).toContain('1 + 2');
     expect(q<HTMLElement>('.tablify__af-preview').textContent).toBe('Preview (row 1): =5');
   });
 
   it('without an evaluator the preview shows a dash', () => {
-    const { q, set } = openRaw();
-    set('#tablify__af-type', 'formula', 'change');
+    const { modal, q, set } = openRaw();
+    pickType('formula', modal.contentEl);
     set('#tablify__af-formula', '1 + 2');
     expect(q<HTMLElement>('.tablify__af-preview').textContent).toBe('Preview (row 1): —');
   });

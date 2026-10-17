@@ -16,6 +16,7 @@ import { WorkspaceLeaf, Modal, Notice } from 'obsidian';
 import { FilterBuilderModal } from '../../src/views/grid/FilterBuilderModal.js';
 import { DEBOUNCE_MS } from '../../src/views/grid/toolbar.js';
 import { newTableText } from '../../src/menus/fileMenuModel.js';
+import { cleanupPickers, pickType } from './grid/typePickerSupport.js';
 
 function sampleFile(): string {
   return JSON.stringify({
@@ -92,6 +93,7 @@ describe('TableView — toolbar is mounted (the SAD-69 bug)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     Modal.reset();
+    cleanupPickers();
   });
 
   it('onOpen mounts a toolbar with every control the prototype calls for', async () => {
@@ -364,11 +366,11 @@ describe('TableView — toolbar actions', () => {
       el.value = value;
       el.dispatchEvent(new Event(event));
     };
-    set('#tablify__af-type', 'formula', 'change');
+    pickType('formula', modal.contentEl);
     set('#tablify__af-formula', '1 + 1');
     expect(modal.contentEl.querySelector('.tablify__af-preview')?.textContent).toBe('Preview (row 1): 2');
 
-    set('#tablify__af-type', 'single_select', 'change');
+    pickType('single_select', modal.contentEl);
     set('#tablify__af-name', 'Stage');
     set('#tablify__af-options', 'Todo\nDone');
     (modal.contentEl.querySelector('button.tablify__pmodal-btn--primary') as unknown as HTMLButtonElement).click();

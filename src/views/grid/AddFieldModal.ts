@@ -21,7 +21,8 @@
 
 import { App, Modal, Notice } from 'obsidian';
 import { dressProtoModal } from '../../ui/protoModal.js';
-import { CHANGE_TARGET_TYPES, TYPE_LABELS } from '../../menus/tableMenuModel.js';
+import { TYPE_LABELS } from '../../menus/tableMenuModel.js';
+import { FieldTypePicker, TYPE_GROUPS } from './fieldTypePicker.js';
 import type { FieldDefinition, FieldTypeName } from '../../model/types.js';
 import type { FieldEdit, NewFieldExtras } from '../../model/tableSession.js';
 import { compileFormula } from '../../formula/index.js';
@@ -62,6 +63,11 @@ export interface AddFieldOptions {
    */
   canPickType?: (type: FieldTypeName) => boolean;
   /**
+   * COD-76: the same verdict, with the model's own sentence. When passed, a type that would drop
+   * values is shown in the picker, greyed, with this text — instead of vanishing from the list.
+   */
+  typeBlockReason?: (type: FieldTypeName) => string | null;
+  /**
    * Edit mode, select fields: open the option manager. Options are not edited in this window
    * because cells store option ids — a free-text list cannot tell a rename from a delete + add,
    * and the delete would clear the cells that used the option (see COD-69 plan §3b).
@@ -72,16 +78,11 @@ export interface AddFieldOptions {
 }
 
 /**
- * The prototype's type groups (`FT_GROUPS`), limited to the types a new field can take. System
- * types are not offered (as when changing a type), and the prototype's "(v2)" note is dropped.
+ * COD-76: the type groups now live with the picker that draws them. Re-exported here because this
+ * module has always been their home and existing imports (`tests/views/addFieldModal.test.ts`) read
+ * them from it.
  */
-export const TYPE_GROUPS: ReadonlyArray<readonly [string, readonly FieldTypeName[]]> = [
-  ['Basic', ['text', 'long_text', 'number', 'currency', 'percent', 'duration', 'rating', 'checkbox']],
-  ['Date', ['date', 'date_time']],
-  ['Links & contact', ['url', 'email', 'phone']],
-  ['Select & attachment', ['single_select', 'multi_select', 'attachment']],
-  ['Computed', ['formula', 'link']],
-];
+export { TYPE_GROUPS };
 
 /** Types with Min / Max and with a Regex rule (prototype `onFieldTypeChange`). */
 const MIN_MAX_TYPES: readonly FieldTypeName[] = ['number', 'currency', 'percent', 'duration', 'rating', 'date', 'date_time'];
@@ -93,6 +94,11 @@ export class AddFieldModal extends Modal {
   private readonly edited: FieldDefinition | undefined;
   private name = '';
   private type: FieldTypeName = DEFAULT_NEW_FIELD_TYPE;
+  /**
+   * The type the window opened with. Picking another type moves `this.type`, but the field's own
+   * type stays pickable — going back to it is never a loss, whatever the new pick is.
+   */
+  private readonly openedType: FieldTypeName;
   private expression = '';
   private linkTableId: string;
   private optionsText = '';
@@ -103,6 +109,8 @@ export class AddFieldModal extends Modal {
   private regexText = '';
   /** Edit mode: the "N options: …" line, refreshed after the option manager closes. */
   private optionsSummary: HTMLElement | null = null;
+  /** COD-76: the type picker, so closing the window closes its panel too (it lives on body). */
+  private typePicker: FieldTypePicker | null = null;
 
   constructor(
     app: App,
@@ -120,6 +128,7 @@ export class AddFieldModal extends Modal {
     this.edited = initial;
     this.name = initial?.name ?? '';
     this.type = initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
+    this.openedType = this.type;
     this.expression = initial?.formula ?? '';
     this.required = initial?.required === true;
     this.unique = initial?.unique === true;
@@ -153,41 +162,24 @@ export class AddFieldModal extends Modal {
       this.name = nameInput.value;
     });
 
-    // Field type, grouped as in the prototype
-    const typeWrap = body.createDiv();
+    // Field type (COD-76: the plugin's own picker, not the platform's popup). The rows below the
+    // picker are built after it, so `showTypeRows` is filled in later and called on every pick.
+    let showTypeRows = (): void => {};
+    const typeWrap = body.createDiv({ cls: 'tablify__typepicker' });
     this.label(typeWrap, 'Field type', 'tablify__af-type');
-    const typeSelect = typeWrap.createEl('select', { cls: 'tablify__pmodal-input' }) as HTMLSelectElement;
-    typeSelect.id = 'tablify__af-type';
-    const grouped = new Set<FieldTypeName>();
-    for (const [group, types] of TYPE_GROUPS) {
-      const offered = types.filter((t) => CHANGE_TARGET_TYPES.includes(t));
-      if (offered.length === 0) continue;
-      const optgroup = typeSelect.createEl('optgroup') as HTMLOptGroupElement;
-      optgroup.label = group;
-      for (const t of offered) {
-        if (!this.offersType(t)) continue;
-        grouped.add(t);
-        const option = optgroup.createEl('option', { value: t }) as HTMLOptionElement;
-        option.textContent = TYPE_LABELS[t] ?? t;
-      }
-    }
-    // Any offered type the groups do not name still appears (never silently dropped).
-    for (const t of CHANGE_TARGET_TYPES) {
-      if (grouped.has(t) || !this.offersType(t)) continue;
-      const option = typeSelect.createEl('option', { value: t }) as HTMLOptionElement;
-      option.textContent = TYPE_LABELS[t] ?? t;
-    }
-    // A field whose type is not a change target (auto number, created time…) still has to show
-    // its own type in edit mode rather than silently falling back to Text.
-    if (this.isEdit && !grouped.has(this.type) && !CHANGE_TARGET_TYPES.includes(this.type)) {
-      const own = typeSelect.createEl('option', { value: this.type }) as HTMLOptionElement;
-      own.textContent = TYPE_LABELS[this.type] ?? this.type;
-    }
-    typeSelect.value = this.type;
-    typeSelect.addEventListener('change', () => {
-      this.type = typeSelect.value as FieldTypeName;
-      showTypeRows();
+    const typePicker = new FieldTypePicker({
+      id: 'tablify__af-type',
+      value: this.type,
+      edit: this.isEdit,
+      typeBlockReason: (type) => this.blockReasonFor(type),
+      canPickType: this.options.canPickType,
+      onChange: (type) => {
+        this.type = type;
+        showTypeRows();
+      },
     });
+    typeWrap.appendChild(typePicker.element);
+    this.typePicker = typePicker;
 
     // Options — single / multi select. Create mode takes one per line; edit mode shows what the
     // field has and hands the real editing to the option manager, which keeps option ids.
@@ -296,12 +288,13 @@ export class AddFieldModal extends Modal {
       this.linkTableId = linkSelect.value;
     });
 
-    const showTypeRows = (): void => {
+    showTypeRows = (): void => {
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? '' : 'none';
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? '' : 'none';
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? '' : 'none';
       formulaWrap.style.display = this.type === 'formula' ? '' : 'none';
       linkWrap.style.display = this.type === 'link' ? '' : 'none';
+      typePicker.setValue(this.type);
     };
     showTypeRows();
 
@@ -331,6 +324,12 @@ export class AddFieldModal extends Modal {
     });
 
     nameInput.focus();
+  }
+
+  /** COD-76: the picker's panel is on `document.body`, so it must not outlive the window. */
+  onClose(): void {
+    this.typePicker?.close();
+    this.typePicker = null;
   }
 
   private label(parent: HTMLElement, text: string, forId: string): void {
@@ -385,10 +384,16 @@ export class AddFieldModal extends Modal {
     return Object.keys(extras).length > 0 ? extras : undefined;
   }
 
-  /** Edit mode: only types planTypeChange accepts, plus the field's current type. */
-  private offersType(type: FieldTypeName): boolean {
-    if (!this.isEdit || type === this.type) return true;
-    return this.options.canPickType ? this.options.canPickType(type) : true;
+  /**
+   * Edit mode: why a type cannot be picked, or null. The field's current type is always allowed, and
+   * create mode never blocks one. Callers that pass `typeBlockReason` get the model's own sentence;
+   * the older `canPickType` boolean still works and becomes a generic greyed row (COD-76).
+   */
+  private blockReasonFor(type: FieldTypeName): string | null {
+    if (!this.isEdit || type === this.openedType || type === this.type) return null;
+    if (this.options.typeBlockReason) return this.options.typeBlockReason(type);
+    if (this.options.canPickType && !this.options.canPickType(type)) return 'Not available for this field';
+    return null;
   }
 
   /** The line under "Options" in edit mode: what the field has right now. */

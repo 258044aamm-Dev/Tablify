@@ -17,6 +17,7 @@ import { App, Modal, Notice } from 'obsidian';
 import { CHANGE_TARGET_TYPES } from '../../../src/menus/tableMenuModel.js';
 import type { FieldDefinition, FieldTypeName } from '../../../src/model/types.js';
 import type { FieldEdit } from '../../../src/model/tableSession.js';
+import { cleanupPickers, openPicker, pickType, typeRow, typeRows } from './typePickerSupport.js';
 
 function field(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
   return { id: 'fld_1', name: 'Price', type: 'text', ...overrides };
@@ -39,8 +40,9 @@ function openEdit(initial: FieldDefinition, extra: Record<string, unknown> = {})
 
 const textInput = (modal: Modal): HTMLInputElement =>
   modal.contentEl.querySelector('#tablify__af-name') as HTMLInputElement;
-const dropdown = (modal: Modal): HTMLSelectElement =>
-  modal.contentEl.querySelector('#tablify__af-type') as HTMLSelectElement;
+/** The picker's trigger — `#tablify__af-type` is the same id the native select carried. */
+const triggerLabel = (modal: Modal): string =>
+  modal.contentEl.querySelector('#tablify__af-type')?.getAttribute('aria-label') ?? '';
 const saveButton = (modal: Modal): HTMLButtonElement =>
   modal.contentEl.querySelector('button.tablify__pmodal-btn--primary') as unknown as HTMLButtonElement;
 const rules = (modal: Modal): HTMLElement =>
@@ -58,6 +60,7 @@ describe('FieldEditorModal (edit mode)', () => {
   beforeEach(() => {
     Modal.reset();
     Notice.reset();
+    cleanupPickers();
   });
 
   it('is the same class as AddFieldModal', () => {
@@ -68,7 +71,8 @@ describe('FieldEditorModal (edit mode)', () => {
     const { modal } = openEdit(field({ name: 'Price', type: 'currency' }));
     expect((modal as unknown as { title: string }).title).toBe('Modify Field');
     expect(textInput(modal).value).toBe('Price');
-    expect(dropdown(modal).value).toBe('currency');
+    // The field's own type shows on the trigger as soon as the window opens.
+    expect(triggerLabel(modal)).toContain('Currency');
   });
 
   it('keeps the create window’s Save Field button', () => {
@@ -181,7 +185,7 @@ describe('FieldEditorModal (edit mode)', () => {
       canPickType: () => true,
     });
     setValue(textInput(modal), '  Unit Price ');
-    setValue(dropdown(modal), 'currency');
+    pickType('currency', modal.contentEl);
     saveButton(modal).click();
 
     expect(edited[0]).toMatchObject({ name: 'Unit Price', type: 'currency' });
@@ -220,20 +224,49 @@ describe('FieldEditorModal (edit mode)', () => {
     expect(modal.isOpen).toBe(true);
   });
 
-  it('offers only types the caller allows, and always the current one', () => {
+  it('greys the types the caller refuses instead of hiding them — COD-76', () => {
     const { modal } = openEdit(field({ name: 'Amount', type: 'number' }), {
       canPickType: (t: FieldTypeName) => t === 'text',
     });
-    const options = Array.from(dropdown(modal).options).map((o) => o.value);
-    expect(options).toContain('number'); // the current type is always offered
-    expect(options).toContain('text'); // allowed by canPickType
-    expect(options).not.toContain('date');
+    const panel = openPicker(modal.contentEl);
+    const rows = typeRows(panel);
+    // Every change-target type still has a row: nothing silently vanishes from the list.
+    expect(rows.map((r) => r.dataset.type)).toEqual([...CHANGE_TARGET_TYPES]);
+    const date = typeRow('date', panel);
+    expect(date?.getAttribute('aria-disabled')).toBe('true');
+    expect(date?.textContent).toContain('Not available for this field');
+    // The current type and the allowed one stay selectable.
+    expect(typeRow('number', panel)?.getAttribute('aria-disabled')).toBeNull();
+    expect(typeRow('text', panel)?.getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('uses the model’s own sentence when the caller passes typeBlockReason', () => {
+    const { modal } = openEdit(field({ name: 'Amount', type: 'number' }), {
+      typeBlockReason: (t: FieldTypeName) => (t === 'text' ? '3 values cannot convert to text' : null),
+    });
+    const panel = openPicker(modal.contentEl);
+    expect(typeRow('text', panel)?.textContent).toContain('3 values cannot convert to text');
+    expect(typeRow('currency', panel)?.getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('keeps the type the window opened with pickable after switching away', () => {
+    const { modal } = openEdit(field({ name: 'Amount', type: 'number' }), {
+      typeBlockReason: (t: FieldTypeName) => (t === 'number' ? '5 values are numbers' : null),
+    });
+    pickType('currency', modal.contentEl);
+    const panel = openPicker(modal.contentEl);
+    // The field's own type is the one place a "would lose values" verdict cannot apply.
+    expect(typeRow('number', panel)?.getAttribute('aria-disabled')).toBeNull();
+    expect(typeRow('number', panel)?.textContent).not.toContain('5 values are numbers');
   });
 
   it('shows a read-only type (auto number) even though it is not a change target', () => {
     const { modal } = openEdit(field({ name: 'Row', type: 'auto_number' }));
-    expect(dropdown(modal).value).toBe('auto_number');
-    expect(Array.from(dropdown(modal).options).map((o) => o.value)).toContain('auto_number');
+    expect(triggerLabel(modal)).toContain('Auto number');
+    const panel = openPicker(modal.contentEl);
+    const row = typeRow('auto_number', panel);
+    expect(row).not.toBeNull();
+    expect(row?.getAttribute('aria-selected')).toBe('true');
   });
 });
 
@@ -241,13 +274,16 @@ describe('AddFieldModal (create mode, unchanged)', () => {
   beforeEach(() => {
     Modal.reset();
     Notice.reset();
+    cleanupPickers();
   });
 
   it('still offers every change-target type, an empty name and Save Field', () => {
     const modal = new AddFieldModal(new App(), () => {});
     modal.open();
-    const options = Array.from(dropdown(modal).options).map((o) => o.value);
-    expect(options).toEqual([...CHANGE_TARGET_TYPES]);
+    // Create mode offers every change-target type, and blocks none of them.
+    const rows = typeRows(openPicker(modal.contentEl));
+    expect(rows.map((r) => r.dataset.type)).toEqual([...CHANGE_TARGET_TYPES]);
+    expect(rows.every((r) => r.getAttribute('aria-disabled') === null)).toBe(true);
     expect(textInput(modal).value).toBe('');
     expect(saveButton(modal).textContent).toBe('Save Field');
     expect((modal as unknown as { title: string }).title).toBe('Add New Field');

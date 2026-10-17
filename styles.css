@@ -3330,6 +3330,436 @@
   }
 }
 
+/* ---- field type picker (COD-76) --------------------------------------------------------
+   The Field type row of the Add / Modify Field window. It used to be a native <select>: the closed
+   control was the plugin's, the open list was the platform's. Now both are the plugin's — a trigger
+   that reads as a field, and a panel on `document.body` (trigger width, 6 px below, z-index 1000 so
+   it sits above the host modal's layer).
+
+   Geometry: 39 px trigger (the native select's own box, so the card keeps its offsets);
+   10/12 search row; 42 px rows on a 14 + 1fr + 12 grid; 9/12 sticky group
+   headings; 348 px list cap (45vh on short screens); 26 px hint bar.
+
+   Colour: the panel paints --tablify-bg-pill, like the select / attachment / date panels. The
+   current row's glyph and check use --tablify-text-today (the AA terracotta COD-75 added): the raw
+   accent is 3.28:1 on the light panel and 2.99:1 on its own 9 % tint, short of the 3:1 a 13 px
+   graphical object owes. A blocked row keeps its text at textMuted / textDanger — dimming the whole
+   row would take the reason to ~2.5:1, and the reason is the point of the row. */
+
+.tablify__typepicker {
+  position: relative;
+}
+
+/* -- the closed trigger: a field, not a button -- */
+.tablify button.tablify__tp-trigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  width: 100%;
+  /* 39 px = the exact box the native select had in this window (Obsidian's select metrics), so the
+     row keeps the card's existing offsets and nothing below it moves by a pixel. */
+  height: 39px;
+  margin: 0;
+  padding: 0 14px;
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 12px;
+  box-shadow: none;
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__tp-trigger:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+}
+
+.tablify button.tablify__tp-trigger:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+.tablify button.tablify__tp-trigger[aria-expanded='true'] {
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tablify-accent-primary) 22%, transparent);
+}
+
+.tablify__tp-glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__tp-trigger[aria-expanded='true'] .tablify__tp-glyph {
+  color: var(--tablify-text-today);
+}
+
+.tablify__tp-name {
+  font-weight: 500;
+}
+
+.tablify__tp-chevron {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  color: var(--tablify-text-muted);
+  transition: transform 0.16s ease;
+}
+
+.tablify__tp-trigger[aria-expanded='true'] .tablify__tp-chevron {
+  transform: rotate(180deg);
+}
+
+/* -- the panel (on document.body; the theme variables come from applyTheme) -- */
+.tablify__tp-panel,
+.tablify__tp-panel * {
+  box-sizing: border-box;
+}
+
+.tablify__tp-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  overflow: hidden;
+  background: var(--tablify-bg-pill);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 3px 10px rgba(0, 0, 0, 0.12);
+  color: var(--tablify-text);
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+  animation: tablify-tp-in 0.13s ease-out;
+}
+
+@keyframes tablify-tp-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tablify__tp-panel {
+    animation: none;
+  }
+
+  .tablify__tp-chevron {
+    transition: none;
+  }
+}
+
+/* Search row. The placeholder is textMuted, not the float panels' lighter fieldPlaceholder: this
+   is the only line that says what the box does, and 2.5:1 is too low for that. */
+.tablify__tp-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--tablify-border-subtle);
+}
+
+.tablify__tp-search-glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__tp-panel input.tablify__tp-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--tablify-text);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tablify__tp-panel input.tablify__tp-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.tablify__tp-panel input.tablify__tp-input::placeholder {
+  color: var(--tablify-text-muted);
+  opacity: 1;
+}
+
+.tablify button.tablify__tp-clear {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  background: var(--tablify-bg-inner);
+  color: var(--tablify-text-muted);
+  border: 0;
+  border-radius: 5px;
+  box-shadow: none;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__tp-clear:hover {
+  color: var(--tablify-text);
+}
+
+.tablify button.tablify__tp-clear[hidden] {
+  display: none;
+}
+
+/* The list */
+.tablify__tp-list {
+  overflow-y: auto;
+  padding: 4px 6px 8px;
+  scrollbar-width: thin;
+}
+
+.tablify__tp-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 10px 8px 5px;
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text-muted);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 12px;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+}
+
+.tablify__tp-group-name {
+  display: block;
+}
+
+.tablify button.tablify__tp-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  margin: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--tablify-text);
+  border: 0;
+  border-radius: 9px;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify__tp-groupbody > .tablify__tp-row + .tablify__tp-row {
+  margin-top: 1px;
+}
+
+.tablify button.tablify__tp-row:hover,
+.tablify button.tablify__tp-row--active {
+  background: var(--tablify-bg-inner);
+}
+
+.tablify button.tablify__tp-row--active {
+  box-shadow: inset 0 0 0 1px var(--tablify-border-subtle);
+}
+
+.tablify button.tablify__tp-row:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: -2px;
+}
+
+.tablify button.tablify__tp-row--current {
+  background: color-mix(in srgb, var(--tablify-accent-primary) 9%, transparent);
+}
+
+.tablify__tp-row--current .tablify__tp-row-name {
+  font-weight: 600;
+}
+
+.tablify__tp-row--current .tablify__tp-row-glyph,
+.tablify__tp-row--current .tablify__tp-row-check {
+  color: var(--tablify-text-today);
+}
+
+.tablify__tp-row-glyph {
+  display: inline-flex;
+  align-items: center;
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__tp-row:hover .tablify__tp-row-glyph {
+  color: var(--tablify-text);
+}
+
+.tablify__tp-row-text {
+  display: block;
+  min-width: 0;
+}
+
+.tablify__tp-row-name {
+  display: block;
+}
+
+.tablify__tp-row-desc {
+  display: block;
+  overflow: hidden;
+  color: var(--tablify-text-muted);
+  font-size: 10.5px;
+  line-height: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tablify__tp-row-desc--blocked {
+  color: var(--tablify-text-danger);
+}
+
+.tablify__tp-row-check {
+  display: inline-flex;
+  align-items: center;
+  color: var(--tablify-text-today);
+}
+
+/* A blocked row keeps its place, its name in textMuted and its reason in textDanger; only the
+   decorative glyph fades. */
+.tablify button.tablify__tp-row--blocked {
+  cursor: not-allowed;
+}
+
+.tablify button.tablify__tp-row--blocked:hover {
+  background: transparent;
+}
+
+.tablify__tp-row--blocked .tablify__tp-row-glyph {
+  opacity: 0.45;
+}
+
+.tablify__tp-row--blocked .tablify__tp-row-name {
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__tp-row--blocked:hover .tablify__tp-row-glyph,
+.tablify button.tablify__tp-row--blocked:hover .tablify__tp-row-name {
+  color: var(--tablify-text-muted);
+}
+
+/* Empty search state */
+.tablify__tp-empty {
+  padding: 26px 16px 22px;
+  text-align: center;
+}
+
+.tablify__tp-empty p {
+  margin: 0 0 10px;
+  color: var(--tablify-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.tablify button.tablify__tp-empty-btn {
+  height: auto;
+  margin: 0;
+  padding: 5px 13px;
+  background: var(--tablify-bg-pill);
+  color: var(--tablify-text-today);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 999px;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__tp-empty-btn:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+}
+
+/* Hint bar */
+.tablify__tp-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: var(--tablify-bg-inner);
+  border-top: 1px solid var(--tablify-border-subtle);
+  color: var(--tablify-text-muted);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 9.5px;
+  line-height: 12px;
+}
+
+.tablify__tp-hint span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tablify__tp-hint kbd {
+  display: inline-block;
+  min-width: 14px;
+  padding: 1px 4px;
+  background: var(--tablify-bg-pill);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 4px;
+  box-shadow: none;
+  color: var(--tablify-text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+}
+
+.tablify__tp-count {
+  margin-left: auto;
+}
+
+/* Touch: rows are 42 px with a 6 px vertical padding — a thumb target needs 44. */
+@media (pointer: coarse) {
+  .tablify button.tablify__tp-trigger {
+    height: 44px;
+  }
+
+  .tablify button.tablify__tp-row {
+    padding: 8px;
+  }
+}
+
 /* -- option manager: `#optMgrModal` card over the blurred backdrop -- */
 .tablify__optmgr-backdrop {
   position: fixed;

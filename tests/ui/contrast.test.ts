@@ -160,3 +160,49 @@ describe('P3-11 — Contrast and visual verification', () => {
     }
   });
 });
+
+describe('COD-76 — the field type picker', () => {
+  /** Blend `ink` over `base` at `alpha` — the 9 % accent tint of the current row. */
+  function tint(base: string, ink: string, alpha: number): string {
+    const parse = (hex: string): number[] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const [br, bg, bb] = parse(base);
+    const [ir, ig, ib] = parse(ink);
+    const mix = (b: number, i: number): string => Math.round(alpha * i + (1 - alpha) * b).toString(16).padStart(2, '0');
+    return `#${mix(br, ir)}${mix(bg, ig)}${mix(bb, ib)}`;
+  }
+
+  it('every pair the panel paints passes AA in both themes', () => {
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      const row = tint(t.bgPill, t.accentPrimary, 0.09);
+      const pairs: Array<[string, string, number]> = [
+        ['type name on the panel', t.text, t.bgPill, 4.5],
+        ['description on the panel', t.textMuted, t.bgPill, 4.5],
+        ['description on the current row', t.textMuted, row, 4.5],
+        ['type name on the current row', t.text, row, 4.5],
+        // 13 px glyph + check: a graphical object owes 3:1, and clears 4.36 anyway.
+        ['current row glyph (textToday)', t.textToday, row, 4.36],
+        ['current row glyph on the panel', t.textToday, t.bgPill, 4.5],
+        ['blocked name', t.textMuted, t.bgPill, 4.5],
+        ['blocked reason', t.textDanger, t.bgPill, 4.5],
+        ['hint bar and count', t.textMuted, t.bgInner, 4.5],
+        ['search placeholder', t.textMuted, t.bgPill, 4.5],
+      ];
+      for (const [what, ink, surface, min] of pairs) {
+        const ratio = contrastRatio(ink, surface);
+        expect(ratio, `${name}: ${what} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(min);
+      }
+    }
+  });
+
+  it('the raw accent is why the current row uses textToday, not accentPrimary', () => {
+    // 3.28:1 on the light panel and 2.99:1 on its own 9 % tint — under the 3:1 a glyph owes.
+    const lightRow = tint(lightTheme.bgPill, lightTheme.accentPrimary, 0.09);
+    expect(contrastRatio(lightTheme.accentPrimary, lightTheme.bgPill)).toBeLessThan(3.3);
+    expect(contrastRatio(lightTheme.accentPrimary, lightRow)).toBeLessThan(3);
+    // textToday is the AA terracotta bought for COD-75's date panel; it clears both.
+    expect(contrastRatio(lightTheme.textToday, lightRow)).toBeGreaterThanOrEqual(3);
+  });
+});

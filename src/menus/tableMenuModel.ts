@@ -37,6 +37,11 @@ export const TYPE_LABELS: Partial<Record<FieldTypeName, string>> = {
   attachment: 'Attachment',
   formula: 'Formula',
   link: 'Link',
+  // COD-76: the three system types. They are never offered as a new field's type, but Modify shows
+  // the field's own type and used to render the raw key (`auto_number`).
+  auto_number: 'Auto number',
+  created_time: 'Created time',
+  modified_time: 'Last modified',
 };
 
 /** Types a field can be created as or changed to. System types (auto number, created/modified time) are not targets. */
