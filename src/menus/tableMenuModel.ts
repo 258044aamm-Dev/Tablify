@@ -1,7 +1,7 @@
 // Table context menu model (P5-02). Pure logic, no Obsidian or DOM imports, unit-tested in Node.
 // Spec: spec/steps/P5-02.md, FEATURES §2.17.
 // Cell: Copy, Paste, Clear. Row: Insert above, Insert below, Duplicate, Copy, Delete.
-// Header: Change field type (submenu), Hide field, Sort ascending, Sort descending, Freeze column.
+// Header: Field details, Hide field, Sort ascending, Sort descending, Freeze column.
 // Items that do not apply are disabled with a reason (never silently missing).
 
 import type { FieldTypeName, ViewDefinition } from '../model/types.js';
@@ -17,7 +17,7 @@ export interface MenuEntry {
 
 export const SEPARATOR: MenuEntry = { id: 'sep', label: '', enabled: false, separator: true };
 
-/** Display names for field types (submenu of Change field type). */
+/** Display names for field types, shown in the field editor and type pickers. */
 export const TYPE_LABELS: Partial<Record<FieldTypeName, string>> = {
   text: 'Text',
   long_text: 'Long text',
@@ -39,7 +39,7 @@ export const TYPE_LABELS: Partial<Record<FieldTypeName, string>> = {
   link: 'Link',
 };
 
-/** Types offered by Change field type. System types (auto number, created/modified time) are not targets. */
+/** Types a field can be created as or changed to. System types (auto number, created/modified time) are not targets. */
 export const CHANGE_TARGET_TYPES: FieldTypeName[] = [
   'text',
   'long_text',
@@ -125,14 +125,6 @@ export function rowEntries(rowSelected = false): MenuEntry[] {
   ];
 }
 
-/** One row of the type picker: whether the change is allowed, and why not. */
-export interface TypeTarget {
-  type: FieldTypeName;
-  ok: boolean;
-  /** Why the change is blocked (when ok is false). */
-  reason?: string;
-}
-
 export interface HeaderContext {
   fieldId: string;
   isPrimary: boolean;
@@ -148,8 +140,9 @@ export function headerEntries(ctx: HeaderContext): MenuEntry[] {
   const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
   const frozenThrough = ctx.colIndex + 1;
   return [
-    // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
-    { id: 'header.type', label: 'Change field type…', enabled: true },
+    // COD-67: one window edits the field — name and type — so this replaces the old
+    // type-only picker (there are no submenus in this Obsidian API version).
+    { id: 'header.details', label: 'Field details…', enabled: true },
     // P8-03: only formula fields have an expression to edit.
     ...(ctx.fieldType === 'formula' ? [{ id: 'header.formula', label: 'Edit formula…', enabled: true }] : []),
     {

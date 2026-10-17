@@ -162,6 +162,48 @@ describe('SAD-79 header interactions', () => {
     grid.destroy();
   });
 
+  // COD-67: clicking the field itself opens the editor; its own controls keep their jobs.
+  it('clicking the header opens the field editor, but not from its controls', () => {
+    const onHeaderActivate = vi.fn();
+    const onSortClick = vi.fn();
+    const onHeaderMenu = vi.fn();
+    const grid = mount({ onHeaderActivate, onSortClick, onHeaderMenu });
+    const cells = headerCells(grid);
+
+    cells[1].dispatchEvent(pointer('click'));
+    expect(onHeaderActivate.mock.calls).toEqual([[1]]);
+
+    // Name (sort), ⋮ (menu), grip and resize handle are not "the field".
+    onHeaderActivate.mockClear();
+    cells[1].querySelector<HTMLElement>('.tablify__hc-name')?.dispatchEvent(pointer('click'));
+    cells[1].querySelector<HTMLElement>('.tablify__hc-menu')?.click();
+    cells[1].querySelector<HTMLElement>('.tablify__hc-grip')?.dispatchEvent(pointer('click'));
+    expect(onHeaderActivate).not.toHaveBeenCalled();
+    expect(onSortClick).toHaveBeenCalledTimes(1);
+    expect(onHeaderMenu).toHaveBeenCalledTimes(1);
+    grid.destroy();
+  });
+
+  it('a column drag does not count as a click on the field', () => {
+    const onHeaderActivate = vi.fn();
+    const grid = mount({ onHeaderActivate, onColumnMove: vi.fn() });
+    const cells = headerCells(grid);
+    const original = document.elementFromPoint;
+    document.elementFromPoint = () => cells[2];
+    try {
+      const grip = cells[0].querySelector<HTMLElement>('.tablify__hc-grip');
+      grip?.dispatchEvent(pointer('pointerdown', { clientX: 10, clientY: 10 }));
+      grip?.dispatchEvent(pointer('pointermove', { clientX: 300, clientY: 12 }));
+      grip?.dispatchEvent(pointer('pointerup', { clientX: 300, clientY: 12 }));
+      // The trailing click lands on the header cell, as it does in a browser.
+      cells[0].dispatchEvent(pointer('click'));
+    } finally {
+      document.elementFromPoint = original;
+    }
+    expect(onHeaderActivate).not.toHaveBeenCalled();
+    grid.destroy();
+  });
+
   it('⋮ opens the header menu for its column, anchored under the button', () => {
     const onHeaderMenu = vi.fn();
     const grid = mount({ onHeaderMenu });

@@ -1,4 +1,4 @@
-// Change field type (P5-02). Pure logic.
+// Changing a field's type (P5-02). Pure logic.
 // Rule: a type is offered only when EVERY non-empty value converts to it without error
 // (format in the old type, parse in the new type, then validate). Nothing is lost silently.
 // Select types need an option list and attachments have their own path, so they are not targets here.

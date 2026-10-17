@@ -13947,6 +13947,18 @@ var GridView = class {
       cell2.appendChild(this.buildHeaderCapsule(field, colIndex));
       if (this.opts.onColumnResize)
         cell2.appendChild(this.buildResizeHandle(field, colIndex));
+      if (this.opts.onHeaderActivate) {
+        cell2.addEventListener("click", (e) => {
+          if (this.headerClickBlocked) {
+            this.headerClickBlocked = false;
+            return;
+          }
+          const target = e.target;
+          if (target?.closest?.("button, .tablify__hc-grip, .tablify__hc-resize"))
+            return;
+          this.opts.onHeaderActivate?.(colIndex);
+        });
+      }
       this.header.appendChild(cell2);
     });
   }
@@ -14019,6 +14031,8 @@ var GridView = class {
     }
     return capsule;
   }
+  /** Set while a column drag is finishing, so its trailing click is not read as a header click. */
+  headerClickBlocked = false;
   buildResizeHandle(field, colIndex) {
     const handle = document.createElement("div");
     handle.className = "tablify__hc-resize";
@@ -14085,6 +14099,7 @@ var GridView = class {
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD_PX)
           return;
         dragging = true;
+        this.headerClickBlocked = true;
         source?.classList.add("tablify__header-cell--dragging");
         this.root.classList.add("tablify--col-dragging");
       }
@@ -14101,6 +14116,9 @@ var GridView = class {
       this.root.classList.remove("tablify--col-dragging");
       const targetId = target?.getAttribute("data-field-id") ?? null;
       setTarget(null);
+      setTimeout(() => {
+        this.headerClickBlocked = false;
+      }, 0);
       if (dragging && ev.type === "pointerup" && targetId && targetId !== fieldId) {
         this.opts.onColumnMove?.(fieldId, targetId);
       }
@@ -14751,8 +14769,9 @@ function headerEntries(ctx) {
   const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
   const frozenThrough = ctx.colIndex + 1;
   return [
-    // Opens a type picker (no submenus in this Obsidian API version). See tableMenu.ts.
-    { id: "header.type", label: "Change field type\u2026", enabled: true },
+    // COD-67: one window edits the field — name and type — so this replaces the old
+    // type-only picker (there are no submenus in this Obsidian API version).
+    { id: "header.details", label: "Field details\u2026", enabled: true },
     // P8-03: only formula fields have an expression to edit.
     ...ctx.fieldType === "formula" ? [{ id: "header.formula", label: "Edit formula\u2026", enabled: true }] : [],
     {
@@ -14808,28 +14827,6 @@ function buildTableMenu(entries, run2) {
   }
   return menu;
 }
-var TypePickerModal = class extends import_obsidian4.FuzzySuggestModal {
-  constructor(app, targets, onPick) {
-    super(app);
-    this.targets = targets;
-    this.onPick = onPick;
-    this.setPlaceholder("Change field type to\u2026");
-  }
-  getItems() {
-    return this.targets;
-  }
-  getItemText(t) {
-    const label = TYPE_LABELS[t.type] ?? t.type;
-    return t.ok ? label : `${label} (${t.reason ?? "not available"})`;
-  }
-  onChooseItem(t) {
-    if (t.ok) {
-      this.onPick(t);
-      return;
-    }
-    new import_obsidian4.Notice(`Cannot change to ${TYPE_LABELS[t.type] ?? t.type}: ${t.reason ?? "not available"}`);
-  }
-};
 
 // src/views/grid/columns.ts
 var MIN_WIDTH = 60;
@@ -17872,6 +17869,35 @@ var TableView = class extends import_obsidian9.TextFileView {
       }
     ).open();
   }
+  /**
+   * COD-67: open the field editor on an existing field. The editor offers only types the
+   * change planner accepts, so what the window lets the user pick and what session.editField
+   * will do cannot disagree.
+   */
+  promptEditField(fieldId) {
+    if (!this.session)
+      return;
+    const s = this.session;
+    const field = s.getFields().find((f) => f.id === fieldId);
+    if (!field)
+      return;
+    new AddFieldModal(
+      this.app,
+      () => {
+      },
+      {
+        mode: "edit",
+        initial: { name: field.name, type: field.type },
+        canPickType: (type) => planTypeChange(s.store.getAllRows(), field, type).ok,
+        onEdit: (name, type) => {
+          const result = s.editField(field.id, name, type);
+          if (!result.ok)
+            new import_obsidian9.Notice(result.reason);
+          this.afterChange();
+        }
+      }
+    ).open();
+  }
   showError(message) {
     this.clear();
     this.body?.createDiv({ cls: "tablify__error", text: message });
@@ -17950,6 +17976,12 @@ var TableView = class extends import_obsidian9.TextFileView {
             this.applyViewChange((view, all) => cycleHeaderSort(view, field.id, additive, all));
         },
         onHeaderMenu: (col, pos) => this.openHeaderMenu(col, pos),
+        // COD-67: clicking the field opens its editor (the ticket's first requirement).
+        onHeaderActivate: (col) => {
+          const field = this.session?.getVisibleFields()[col];
+          if (field)
+            this.promptEditField(field.id);
+        },
         onColumnResize: (fieldId, width) => this.applyViewChange((view, all) => resizeColumn(view, fieldId, width, all)),
         onColumnMove: (fieldId, targetId) => this.applyViewChange((view, all) => moveColumnOnto(view, fieldId, targetId, all)),
         // SAD-79 (S-6): the Insert Row pill lives inside the shell (prototype #insertRowWrap)
@@ -18270,18 +18302,8 @@ var TableView = class extends import_obsidian9.TextFileView {
     if (!field)
       return;
     switch (id) {
-      case "header.type": {
-        const allRows = s.store.getAllRows();
-        const targets = CHANGE_TARGET_TYPES.map((type) => {
-          const plan = planTypeChange(allRows, field, type);
-          return plan.ok ? { type, ok: true } : { type, ok: false, reason: plan.reason };
-        });
-        new TypePickerModal(this.app, targets, (target) => {
-          const result = s.changeFieldType(field.id, target.type);
-          if (!result.ok)
-            new import_obsidian9.Notice(result.reason);
-          this.afterChange();
-        }).open();
+      case "header.details": {
+        this.promptEditField(field.id);
         return;
       }
       case "header.formula": {

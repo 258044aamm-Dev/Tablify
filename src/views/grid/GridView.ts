@@ -73,6 +73,11 @@ export interface GridOptions {
   onSortClick?: (colIndex: number, additive: boolean) => void;
   /** SAD-79: the header capsule's ⋮ button. Without it the button is not rendered. */
   onHeaderMenu?: (colIndex: number, pos: { x: number; y: number }) => void;
+  /**
+   * COD-67: the header itself was clicked — open the field editor. Clicks on the name button
+   * (sort), the ⋮, the grip and the resize handle are excluded, as is a click that ends a drag.
+   */
+  onHeaderActivate?: (colIndex: number) => void;
   /** SAD-79: commit a column resize (px, already clamped). Without it no handle is rendered. */
   onColumnResize?: (fieldId: string, width: number) => void;
   /**
@@ -757,6 +762,18 @@ export class GridView {
       cell.setAttribute('data-field-id', field.id);
       cell.appendChild(this.buildHeaderCapsule(field, colIndex));
       if (this.opts.onColumnResize) cell.appendChild(this.buildResizeHandle(field, colIndex));
+      if (this.opts.onHeaderActivate) {
+        cell.addEventListener('click', (e) => {
+          if (this.headerClickBlocked) {
+            this.headerClickBlocked = false;
+            return;
+          }
+          const target = e.target as HTMLElement | null;
+          // The interactive parts of the capsule own their clicks; this is the rest of the field.
+          if (target?.closest?.('button, .tablify__hc-grip, .tablify__hc-resize')) return;
+          this.opts.onHeaderActivate?.(colIndex);
+        });
+      }
       this.header.appendChild(cell);
     });
   }
@@ -836,6 +853,9 @@ export class GridView {
     return capsule;
   }
 
+  /** Set while a column drag is finishing, so its trailing click is not read as a header click. */
+  private headerClickBlocked = false;
+
   private buildResizeHandle(field: FieldDefinition, colIndex: number): HTMLElement {
     const handle = document.createElement('div');
     handle.className = 'tablify__hc-resize';
@@ -900,6 +920,8 @@ export class GridView {
       if (!dragging) {
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD_PX) return;
         dragging = true;
+        // A drag ends with a click on the header; that must not open the field editor.
+        this.headerClickBlocked = true;
         source?.classList.add('tablify__header-cell--dragging');
         this.root.classList.add('tablify--col-dragging');
       }
@@ -916,6 +938,11 @@ export class GridView {
       this.root.classList.remove('tablify--col-dragging');
       const targetId = target?.getAttribute('data-field-id') ?? null;
       setTarget(null);
+      // The trailing click fires before this timer, so a cancelled drag does not swallow the
+      // next real header click.
+      setTimeout(() => {
+        this.headerClickBlocked = false;
+      }, 0);
       if (dragging && ev.type === 'pointerup' && targetId && targetId !== fieldId) {
         this.opts.onColumnMove?.(fieldId, targetId);
       }

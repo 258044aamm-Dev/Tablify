@@ -176,7 +176,7 @@ export function createSession(file: TablifyFile): TableSession {
     const typeChanged = nextType !== field.type;
     if (!nameChanged && !typeChanged) return { ok: true, field, updatedFormulas: 0 };
 
-    // A type change goes through the same planner the Change field type menu uses, so the two
+    // A type change goes through the same planner the header menu's editor uses, so the two
     // paths cannot disagree about what converts.
     let retyped = field;
     let valuesByRow: Record<string, CellValue> = {};

@@ -76,7 +76,15 @@ The **Add New Field** dialog also takes, depending on the type:
 - **Formula**, with a live **Preview (row 1)** computed on the first row.
 - **Linked table** for Link fields.
 
-Use the header menu (**Change field type…**) to change a column's type. A type is offered only when **every** existing value converts cleanly — otherwise nothing changes and the menu shows the reason. This protects you from silent data loss.
+Click a column header, or use its menu (**Field details…**), to edit the field. The **Edit Field** dialog
+is the same window as **Add New Field**: change the name, the type, or both, and press **Save**. A
+rename carries your formulas and saved queries with it — `{Price}` becomes `{Unit Price}` and
+`Price:>10` becomes `"Unit Price":>10` — and the whole edit is a single undo step, so one **Undo**
+puts the old name and every reference back.
+
+A type is offered only when **every** existing value converts cleanly — otherwise nothing changes and
+a notice says why. This protects you from silent data loss. The name must be non-empty and not
+already used by another field in the table.
 
 | Type | Accepts |
 |---|---|
@@ -211,8 +219,10 @@ Each column header is a capsule:
 - **Grip** (⠿) — drag it onto another header to move the column there.
 - **Key** — marks the primary field.
 - **Name** — click to sort by the column: ascending, then descending, then off. **Shift-click** adds the column as another sort key (or flips or removes it) without dropping the others; the arrow then shows the column's position in the sort (↑2). A plain click on a multi-column sort replaces it with that column alone, ascending.
-- **Type badge** — the field type, with its icon.
 - **⋮** — opens the header menu, the same menu as right-clicking the header.
+- **Click the header** (not the name, the ⋮, the grip or the right edge) — opens the field editor,
+  the same **Edit Field** window described in [Fields and field types](#3-fields-and-field-types).
+  Right-click → **Field details…** opens it too.
 - **Right edge** — drag to resize.
 
 Sorting, moving and resizing from the header are saved and undoable, like the same actions in the menu. Embedded tables show the header read-only.
@@ -270,7 +280,7 @@ Right-click (or **Menu key** / **Shift+F10**) in the grid:
 |---|---|
 | Cell | Copy, Paste, Clear |
 | Row | Insert row above, Insert row below, Duplicate row, Copy row, Delete row |
-| Header | Change field type…, Hide field, Sort ascending, Sort descending, Freeze |
+| Header | Field details…, Hide field, Sort ascending, Sort descending, Freeze |
 
 Disabled items show why they are disabled. Undoable actions are undoable from here too.
 
@@ -281,7 +291,7 @@ On iOS and Android, **press and hold (~0.5 s)** a row to open the same menu as a
 ## 17. Troubleshooting
 
 - **"Broken table" file**: if a `.tablify` file contains invalid JSON, Tablify shows an error and **leaves the file unchanged on disk**. Fix the JSON (or restore from backup) and reopen.
-- **Imported column came out as text**: type inference is deliberately strict; mixed or ambiguous columns stay text. Change the type from the header menu — it converts only when every value converts cleanly.
+- **Imported column came out as text**: type inference is deliberately strict; mixed or ambiguous columns stay text. Change the type from the field editor (header click, or **⋮ → Field details…**) — it converts only when every value converts cleanly.
 - **Table did not reload after I edited the JSON by hand**: close and reopen the view; Tablify re-reads and re-validates the file (schema-validated, `formatVersion: 1`).
 - **`.tabula` files**: not supported, on purpose. Tablify ignores them.
 

@@ -15,14 +15,14 @@ import { GridView, type GridSelection } from './grid/GridView.js';
 import { getGridAction, shouldHandleForGrid } from './grid/keyboard.js';
 import { isMoveAction, moveSelection } from './tableController.js';
 import { LongPressDetector } from './longPress.js';
-import { buildTableMenu, TypePickerModal } from '../menus/tableMenu.js';
-import { cellMenu, CHANGE_TARGET_TYPES, headerEntries, rowEntries, type MenuEntry, type TypeTarget } from '../menus/tableMenuModel.js';
+import { buildTableMenu } from '../menus/tableMenu.js';
+import { cellMenu, headerEntries, rowEntries, type MenuEntry } from '../menus/tableMenuModel.js';
 import { createDefaultView, effectiveFrozenColumns } from '../model/view.js';
 import { cycleHeaderSort, hideField, moveColumnOnto, resizeColumn, setFrozenColumns, setGroupBy, setRowHeight, setSort } from './grid/columns.js';
 import { groupRows, toggleCollapsed, type GroupedRows } from './grid/grouping.js';
 import { addRowRange, pruneSelection, toggleRow } from './grid/selection.js';
 import { Toolbar, type ToolbarCallbacks, type ToolbarState } from './grid/toolbar.js';
-import { AddFieldModal } from './grid/AddFieldModal.js';
+import { AddFieldModal, FieldEditorModal } from './grid/AddFieldModal.js';
 import { previewFormula } from '../model/formulaPreview.js';
 import { LinkPickerModal } from './grid/LinkPickerModal.js';
 import { linkIndexFor } from '../links/vaultLinkIndex.js';
@@ -495,6 +495,32 @@ export class TableView extends TextFileView {
     ).open();
   }
 
+  /**
+   * COD-67: open the field editor on an existing field. The editor offers only types the
+   * change planner accepts, so what the window lets the user pick and what session.editField
+   * will do cannot disagree.
+   */
+  private promptEditField(fieldId: string): void {
+    if (!this.session) return;
+    const s = this.session;
+    const field = s.getFields().find((f) => f.id === fieldId);
+    if (!field) return;
+    new FieldEditorModal(
+      this.app,
+      () => {},
+      {
+        mode: 'edit',
+        initial: { name: field.name, type: field.type },
+        canPickType: (type) => planTypeChange(s.store.getAllRows(), field, type).ok,
+        onEdit: (name, type) => {
+          const result = s.editField(field.id, name, type);
+          if (!result.ok) new Notice(result.reason);
+          this.afterChange();
+        },
+      },
+    ).open();
+  }
+
   private showError(message: string): void {
     this.clear();
     this.body?.createDiv({ cls: 'tablify__error', text: message });
@@ -580,6 +606,11 @@ export class TableView extends TextFileView {
           if (field) this.applyViewChange((view, all) => cycleHeaderSort(view, field.id, additive, all));
         },
         onHeaderMenu: (col, pos) => this.openHeaderMenu(col, pos),
+        // COD-67: clicking the field opens its editor (the ticket's first requirement).
+        onHeaderActivate: (col) => {
+          const field = this.session?.getVisibleFields()[col];
+          if (field) this.promptEditField(field.id);
+        },
         onColumnResize: (fieldId, width) =>
           this.applyViewChange((view, all) => resizeColumn(view, fieldId, width, all)),
         onColumnMove: (fieldId, targetId) =>
@@ -918,17 +949,10 @@ export class TableView extends TextFileView {
     const field = fields[t.col];
     if (!field) return;
     switch (id) {
-      case 'header.type': {
-        const allRows = s.store.getAllRows();
-        const targets: TypeTarget[] = CHANGE_TARGET_TYPES.map((type) => {
-          const plan = planTypeChange(allRows, field, type);
-          return plan.ok ? { type, ok: true } : { type, ok: false, reason: plan.reason };
-        });
-        new TypePickerModal(this.app, targets, (target) => {
-          const result = s.changeFieldType(field.id, target.type);
-          if (!result.ok) new Notice(result.reason);
-          this.afterChange();
-        }).open();
+      case 'header.details': {
+        // COD-67: the header menu opens the field editor — the same window Add field uses —
+        // instead of a type-only picker, so name and type are edited together.
+        this.promptEditField(field.id);
         return;
       }
       case 'header.formula': {

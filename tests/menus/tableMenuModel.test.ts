@@ -64,8 +64,15 @@ describe('header menu (P5-02)', () => {
 
   it('lists the five header items in spec order', () => {
     expect(headerEntries(base).map((e) => e.label)).toEqual([
-      'Change field type…', 'Hide field', 'Sort ascending', 'Sort descending', 'Freeze column',
+      'Field details…', 'Hide field', 'Sort ascending', 'Sort descending', 'Freeze column',
     ]);
+  });
+
+  // COD-67: the menu opens the same editor that creates a field, not a type-only picker.
+  it('leads with Field details and no longer has a separate Change field type entry', () => {
+    const ids = headerEntries(base).map((e) => e.id);
+    expect(ids[0]).toBe('header.details');
+    expect(ids).not.toContain('header.type');
   });
 
   it('primary field cannot be hidden: disabled with reason', () => {

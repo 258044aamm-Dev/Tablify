@@ -4,7 +4,7 @@
  * The prototype's `#addFieldModal` card (Prototype/index.html): Field name, Field type (grouped
  * as the prototype groups them), Options (one per line) for select fields, Validation rules,
  * Formula with "Preview (row 1)", Linked table, then Cancel / Save Field. The type list is shared
- * with the header menu's "Change field type…" via CHANGE_TARGET_TYPES, so both pickers offer
+ * with the header menu's field editor via CHANGE_TARGET_TYPES, so both pickers offer
  * exactly the same set.
  *
  * Behaviour kept from the Setting-row dialog: Enter in a one-line box (and in the formula box)
@@ -57,14 +57,14 @@ export interface AddFieldOptions {
   onEdit?: (name: string, type: FieldTypeName) => void;
   /**
    * Edit mode: whether a type may be offered. Callers pass planTypeChange's verdict so a type
-   * that would drop values is never selectable — the same rule the Change field type menu uses.
+   * that would drop values is never selectable — the same rule the header menu's editor uses.
    */
   canPickType?: (type: FieldTypeName) => boolean;
 }
 
 /**
  * The prototype's type groups (`FT_GROUPS`), limited to the types a new field can take. System
- * types are not offered (as in Change field type), and the prototype's "(v2)" note is dropped.
+ * types are not offered (as when changing a type), and the prototype's "(v2)" note is dropped.
  */
 export const TYPE_GROUPS: ReadonlyArray<readonly [string, readonly FieldTypeName[]]> = [
   ['Basic', ['text', 'long_text', 'number', 'currency', 'percent', 'duration', 'rating', 'checkbox']],
