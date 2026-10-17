@@ -72,7 +72,7 @@ Tablify supports **only its own `.tablify` extension** — see the note below.
 The **Add New Field** dialog also takes, depending on the type:
 
 - **Options (one per line)** for Single select and Multi select; each line becomes an option with the next colour.
-- **Validation rules:** **Required** and **Unique** for every type, **Min** / **Max** for number, currency, percent, duration, rating, date and date-and-time fields (entered as you would type a cell), and a **Regex** for text, long text, URL, email and phone fields. An invalid bound or regex keeps the dialog open with a notice. The rules are saved with the field in the `.tablify` file. Cells are not checked against them yet; a rating's Max is used as the scale in its group headings (for example `3/10`).
+- **Validation rules:** **Required** and **Unique** for every type, **Min** / **Max** for number, currency, percent, duration, rating, date and date-and-time fields (entered as you would type a cell), and a **Regex** for text, long text, URL, email and phone fields. An invalid bound or regex keeps the dialog open with a notice. The rules are saved with the field in the `.tablify` file. Cells are not checked against them yet; a rating's Max is used as the scale in its cells and group headings (for example `3/10`).
 - **Formula**, with a live **Preview (row 1)** computed on the first row.
 - **Linked table** for Link fields.
 
@@ -111,9 +111,16 @@ another, which clears the cells that used it.
 
 - a **Single select** cell shows the option as a coloured chip (its **Manage options…** colour), and a **Multi select** cell shows one smaller chip per value — cells store each option's identity, so renaming an option updates every cell;
 - **Currency** shows `1234.56`, **Percent** shows `25%` and **Duration** shows `1m 30s` (the file keeps cents, the 0–1 fraction and milliseconds);
-- a **Checkbox** is a box you click to tick or clear; each click is one undo step. An empty box is the same as `false`; a table reading `true`/`false` in the file shows a ticked/empty box.
+- a **Checkbox** is a box you click to tick or clear; each click is one undo step. An empty box is the same as `false`; a table reading `true`/`false` in the file shows a ticked/empty box;
+- a **Rating** is a row of stars filled up to the value, then the label (`4/5`). The scale is the field's **Max** (5 when unset), so a rating out of 10 draws ten stars and reads `7/10`;
+- **Date and time**, **Created time** and **Last modified** show your computer's local time as `2026-10-17T14:30` — the same wall clock the editor opens with — while the file keeps the UTC instant;
+- **URL**, **Email** and **Phone** cells are links: click the address to open it in your browser, mail app or phone app;
+- **Number** cells group their digits (`1,234,567`), and the numeric columns — number, currency, percent, duration and auto number — are right-aligned;
+- an **Attachment** cell shows one paperclip chip per file, and **Long text** wraps to two lines before it is clipped.
 
-Copying a cell or a row, searching and exporting all use the same text you see.
+Copying a cell or a row and exporting use the stored value, not the display text — a number copies
+as `1234567`, a rating as `4`, a timestamp as its ISO instant — so what leaves the table can come
+back unchanged. Searching and sorting also read the stored value.
 
 ## 4. Editing cells
 
@@ -121,6 +128,7 @@ Copying a cell or a row, searching and exporting all use the same text you see.
 - Opening a cell and leaving it again without changing anything never changes the value.
 - A **Date and time** cell is edited in your computer's local time and stored as UTC, so the same moment shows correctly on any machine.
 - On a touch device, tap the selected cell again to edit it — or choose **Edit cell** from the long-press menu.
+- In a **URL**, **Email** or **Phone** cell the address itself is a link, so a click opens it. To edit the value, select the cell and press **Enter**, or use **Edit cell** in its menu.
 - System fields — **Auto number**, **Created time**, **Last modified** — are read-only and are not offered as new field types. A table imported from a file that has them shows them only when the file carries a value for the row.
 - Paste tab-separated text (e.g. copied from a spreadsheet) with **Ctrl/Cmd+V** — a rectangular range is filled; **Ctrl/Cmd+C** copies the selected range as tab-separated text.
 

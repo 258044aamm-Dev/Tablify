@@ -35,6 +35,13 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **The rest of the grid now reads like the prototype (COD-73)** — a **Rating** cell is stars plus
+  `4/5` (the scale is the field's Max), **Date and time** / **Created time** / **Last modified** show
+  your local wall clock instead of the stored ISO instant, **URL** / **Email** / **Phone** cells are
+  clickable links, **Number** cells group their digits (`1,234,567`) and the numeric columns sit
+  right, an **Attachment** is one paperclip chip per file, and **Long text** clamps to two lines.
+  Only the rendering changed: sort, search, copy and export still read the stored values.
+
 - **Validation rules and formulas can be changed from the field window (COD-69)** — Required,
   Unique, Min, Max and Regex are pre-filled and editable for an existing field, and a formula
   field's expression is editable there next to its live preview. An invalid regex or an

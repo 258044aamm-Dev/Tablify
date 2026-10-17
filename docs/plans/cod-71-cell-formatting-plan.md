@@ -199,3 +199,7 @@ Two steps, each committed, pushed and reported on COD-71:
   Linear comment with before/after shots; COD-71 → **In review**.
 
 Rollback: revert Step A — nothing on disk changes, so the old display returns with the data intact.
+
+**Follow-up (COD-73), delivered later the same day:** the seven types this plan left raw — rating,
+the three timestamps, url / email / phone, number, attachment and long text — now render too. See
+[`cod-73-cell-display-parity-plan.md`](cod-73-cell-display-parity-plan.md).
