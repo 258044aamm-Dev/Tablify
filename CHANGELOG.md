@@ -4,6 +4,34 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+## [2.0.0-beta.4] — 2026-10-17
+
+### Added
+
+- **Editing a field uses the same window that creates one (COD-67)** — clicking a column header,
+  or choosing **Field details…** in its ⋮ menu (also on right-click), opens **Edit Field**: the
+  same dialog as **Add New Field**, with the field's name and type filled in. Only the types that
+  would convert every existing value are offered, the same rule the old type picker used. Create
+  mode is unchanged.
+
+- **Fields can be renamed, and formulas and saved queries follow (COD-67)** — renaming was not
+  possible before. A rename now rewrites `{Old name}` in every formula of the table and the old
+  name in the saved view query — `Price:>10` becomes `"Unit Price":>10` — and the whole edit is a
+  single undo step. Names must be non-empty and unique within the table. Renaming and retyping at
+  once is one step too; if the type change would lose values, nothing is applied. A rename leaves
+  cell values and row revisions untouched, and Airtable sync is unaffected because it maps fields
+  by id.
+
+### Changed
+
+- **Column headers show only the field name (COD-67)** — the type badge (icon plus type label) is
+  gone from the header, freeing that width for the name. The field type is still recorded on the
+  header cell for menus and tests. This is a deliberate divergence from the prototype, which still
+  draws the badge.
+
+- **The header menu's *Change field type…* is now *Field details…* (COD-67)** — it opens the field
+  editor instead of a type-only picker. The picker had no other caller and was removed.
+
 ### Fixed
 
 - **Date-and-time cells can be edited, and opening one no longer deletes it (COD-68)** — a

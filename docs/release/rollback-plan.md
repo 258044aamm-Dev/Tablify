@@ -2,6 +2,36 @@
 
 ---
 
+# 2.0.0-beta.4 — 2026-10-17
+
+**Release:** v2.0.0-beta.4 (pre-release) · **Format version 2** · field editor, field rename with reference rewriting, header shows the name only (COD-67), plus the COD-66 and COD-68 editor fixes; no file-format change
+
+## Situation
+
+Beta.4 changes how a field is edited, not how a table is stored. Clicking a column header or using
+⋮ → **Field details…** opens the same dialog that creates a field, and renaming a field now
+rewrites `{Old}` in formulas and the old name in saved view queries. Both edits are single undo
+steps. The type badge is removed from column headers by design.
+
+Existing `.tablify` files are read and written exactly as in beta.3, and Airtable sync maps fields
+by id, so a rename does not disturb a linked table.
+
+## Rolling back
+
+| Situation | Action |
+|---|---|
+| The field editor or the badge-less header is not wanted | Reinstall 2.0.0-beta.3 using its `main.js`, `manifest.json`, and `styles.css` release assets. No table data changes. |
+| A rename was undone/redone and a formula looks wrong | One **Undo** restores the name, the formulas and the query together. If the change was already saved and the file was closed, restore the file from a backup; the rewrite is not reversible from the file alone. |
+| A table contains formula or link fields | Keep Tablify 2.x installed. Tablify 1.0.2 and earlier cannot open `formatVersion: 2` files. |
+
+## Release verification checklist (2.0.0-beta.4)
+
+- [x] `npm run check` on the release commit: 114 test files / 1,695 tests; lint 0 errors (119 existing warnings); guard, docs links, icons and build pass.
+- [x] `npm run test:fields` (Chromium, production `TableView`): 77/77 checks.
+- [x] Production `main.js` built twice with an identical SHA-256; assets hashed and recorded in the [release notes](2.0.0-beta.4.md).
+- [ ] Owner: install on desktop and mobile; verify header click, ⋮ → **Field details…**, rename with a formula and a query present, and a single Undo.
+- [ ] Owner: revoke/rotate the temporary GitHub credential used for publication.
+
 # 2.0.0-beta.3 — 2026-10-16
 
 **Release:** v2.0.0-beta.3 (pre-release) · **Format version 2** · export destinations (SAD-129); no file-format change
