@@ -729,6 +729,21 @@ export async function requestUrl(
 // ---------------------------------------------------------------------------
 
 /** Obsidian's base for a child that lives as long as a rendered block. */
+/**
+ * SAD-129 (`8acab4a`) added `Platform.isMobile` reads to `src/views/tableView.ts` and
+ * `src/commands/export.ts`, but this mock never exported `Platform`, so `buildHarness()` — and
+ * with it `npm run visual:compare` — could not bundle the view any more. Desktop defaults, as the
+ * unit tests and the harness run on a desktop host; a test can flip `isMobile` to reach the
+ * mobile branch.
+ */
+export const Platform = {
+  isMobile: false,
+  isDesktop: true,
+  isMacOS: false,
+  isWin: false,
+  isLinux: true,
+};
+
 export class Component {
   unloaded = false;
   load(): void {
