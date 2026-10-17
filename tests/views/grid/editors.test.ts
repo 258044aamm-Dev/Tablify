@@ -107,7 +107,8 @@ describe('P3-02 — Cell editors', () => {
       f.id = `fld_${type}`;
       const store = createTableStore({ fields: [f], initialRows: [{ id: 'row_1', rev: 1, values: {} }] });
       const stack = createCommandStack({ store });
-      const row = store.getRow('row_1')!;
+      const row = store.getRow('row_1');
+      if (!row) throw new Error('the fixture row is missing');
       expect(createEditor(f, row, store, stack, vi.fn()), `${type} must not build an <input type="date">`).toBeNull();
     }
   });

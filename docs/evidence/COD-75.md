@@ -80,8 +80,9 @@ cell renderers, grouping and sorting, and every other cell editor.
 | `tests/ui/contrast.test.ts` | 15 pass (+1: `textToday`) |
 | **Whole suite** | **122 files / 1863 tests** pass (was 118 / 1780 → **83 new**), 0 failures |
 
-`npm run lint` → **0 errors**, 120 warnings (119 before; no new warning was added — the first draft
-of the host test had six non-null assertions, replaced by one loud helper).
+`npm run lint` → **0 errors**, **119 warnings — the same count `main` has**, so the panel adds no
+new warning. (Two drafts did: the host test's six non-null assertions and one in `editors.test.ts`;
+both are now explicit `throw`s.)
 
 ### Browser — `npm run test:fields` (real Chromium, the production `TableView`)
 
