@@ -6,6 +6,12 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **One click on another cell while editing now selects it (COD-70)** — clicking a different cell
+  with an editor open committed the edit but left the selection behind, so the cell had to be
+  clicked twice. The commit re-rendered the rows under the pointer, and the browser never
+  delivered the click that selects a cell; the press now finishes the edit and activates the cell
+  itself. A checkbox toggles in that same click, an invalid value keeps the editor open with the
+  cursor still in it, and everything else — Enter, Escape, touch, right-click — is unchanged.
 - **Cells show what their value means, not its stored form (COD-71)** — a Single select cell shows
   the option as a coloured chip and a Multi select cell shows one chip per value, instead of the
   internal option ids (`opt_…`). Currency renders `1234.56`, percent `25%`, duration `1m 30s` (the

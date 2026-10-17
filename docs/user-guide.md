@@ -117,7 +117,7 @@ Copying a cell or a row, searching and exporting all use the same text you see.
 
 ## 4. Editing cells
 
-- Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits.
+- Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits. One click on another cell is enough: the edit is saved and that cell is selected straight away. A value the field refuses keeps the editor open, with the cursor still in it, until you fix it or press **Escape**.
 - Opening a cell and leaving it again without changing anything never changes the value.
 - A **Date and time** cell is edited in your computer's local time and stored as UTC, so the same moment shows correctly on any machine.
 - On a touch device, tap the selected cell again to edit it — or choose **Edit cell** from the long-press menu.
