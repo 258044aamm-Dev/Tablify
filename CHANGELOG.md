@@ -12,6 +12,19 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   delivered the click that selects a cell; the press now finishes the edit and activates the cell
   itself. A checkbox toggles in that same click, an invalid value keeps the editor open with the
   cursor still in it, and everything else — Enter, Escape, touch, right-click — is unchanged.
+- **Freezing now means one column, not a run of columns (COD-72)** — freezing is about the
+  **primary column** only, so the column-header menu no longer offers *Freeze column* (it could
+  only ever pin everything from the left edge, and on an already-frozen column it silently
+  unfroze the ones to its right). The **Options → Freeze primary column** switch is the single
+  control, and it is greyed out with the reason in its label on a pane too narrow to freeze
+  (≤ 639 px), where nothing is pinned so the whole width stays scrollable. The primary column is
+  now always the first column — it has no drag grip, and a column dropped onto it lands just
+  after it — so "the frozen column" and "the primary column" can never drift apart when columns
+  are reordered or hidden. The boundary is drawn: a hairline divider and a soft edge shadow mark
+  where the frozen column ends, and the padding strip beside the row-number gutter is painted so
+  scrolled cells no longer show through it. A table saved by an older build with several frozen
+  columns opens with the primary column frozen and the rest scrolling normally; the removed
+  `freezeMode` key is dropped on the next save.
 - **Cells show what their value means, not its stored form (COD-71)** — a Single select cell shows
   the option as a coloured chip and a Multi select cell shows one chip per value, instead of the
   internal option ids (`opt_…`). Currency renders `1234.56`, percent `25%`, duration `1m 30s` (the

@@ -31,7 +31,7 @@ Right-click a folder in the file explorer → **New table**. Tablify creates `Un
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| Name | Text | Primary field (frozen on the left) |
+| Name | Text | Primary field (always the first column; frozen by default) |
 | Notes | Long text | |
 | Status | Single select | Options: Todo, In progress, Done |
 | Due date | Date | |
@@ -223,7 +223,8 @@ Formula and link fields cannot be filtered and are not listed.
 - **Column width** — drag the column edge (120–520 px, stored per field); columns without a stored width are 160 px. When the columns are narrower than the pane, they stretch proportionally to fill it.
 - **Column order** — drag a header by its grip, or use the menu to move left/right.
 - **Hide field** — from the header menu, or **Hide** next to the field in **Options → Fields**. The list shows every field in column order with the hidden count; a hidden field is struck through and has a **Show** button, so a hidden column can always be brought back. The primary field cannot be hidden.
-- **Freeze** — the **Freeze primary column** switch pins the primary column on the left while the rest scroll horizontally. The default follows the **table pane width**, not the device: on a desktop-width pane (above 639px) a table starts with the primary column frozen, and on a mobile-width pane it starts unfrozen, so narrow panes keep their full width for scrolling. Resizing a pane across that line changes it live. The moment you touch the switch (or the header's **Freeze column**), your choice is saved with the table and applies at every size. A file that freezes more than one column keeps doing so and shows the switch as on; turning it off unfreezes them all.
+- **Freeze** — the **Freeze primary column** switch pins the **primary column** on the left while the rest scroll horizontally (a hairline divider and a soft shadow mark where the frozen column ends). Only the primary column can be frozen, and it is always the first column: it has no drag grip, and another column dropped on it lands just after it. New tables start with the switch on. The table pane decides whether it renders: on a pane **wider than 639 px** the frozen column is pinned, on a **narrower** pane (a phone, or a split pane) nothing is pinned and the switch is greyed out with the reason in its label, so the whole width stays scrollable. Resizing a pane across that line changes it live, and the saved switch value is not modified by it.
+- The column header menu no longer offers freezing — **Options → Freeze primary column** is the only control. A table saved by an older build with several frozen columns opens with the primary column frozen (and the extra ones scrolling normally); the next save stores the plain on/off value.
 - **Sort** — click a header name, use the menu, or **Options → Sort**: **+ Add sort…** adds a field (top of the list sorts first), **A→Z / Z→A** reverses one, **✕** removes it. The sorted column is announced to screen readers (`aria-sort`).
 - **Row height** — Short / Medium / Tall.
 
@@ -305,7 +306,7 @@ Right-click (or **Menu key** / **Shift+F10**) in the grid:
 |---|---|
 | Cell | Copy, Paste, Clear |
 | Row | Insert row above, Insert row below, Duplicate row, Copy row, Delete row |
-| Header | Modify field…, Hide field, Sort ascending, Sort descending, Freeze |
+| Header | Modify field…, Hide field, Sort ascending, Sort descending |
 
 Disabled items show why they are disabled. Undoable actions are undoable from here too.
 

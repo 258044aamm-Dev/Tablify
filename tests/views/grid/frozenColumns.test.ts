@@ -342,7 +342,7 @@ describe('GridView — primary-column freeze and the pane width (COD-72)', () =>
 
   it('the viewport default freezes the primary column on a desktop-width pane', () => {
     const f = fields(3);
-    const grid = mount(f, rows(2, f), createDefaultView(f), 1024); // no freezeMode override: 'viewport'
+    const grid = mount(f, rows(2, f), createDefaultView(f), 1024);
     expect(isPinned(grid)).toBe(true);
     grid.destroy();
   });
