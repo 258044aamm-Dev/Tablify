@@ -292,11 +292,19 @@ Right-click in the file explorer:
 
 | Target | Items |
 |---|---|
-| `.tablify` file | Open, Duplicate, Export |
-| Folder | New table, Import CSV / Excel as table |
+| `.tablify` file | Open Tablify Table, Duplicate Tablify Table, Export Tablify Table |
+| Folder | New Tablify Table, Import CSV / Excel to Tablify |
 | Other files / vault root | (no items) |
 
+Each item carries its own icon, and the Tablify items stay together in the menu. Right-clicking the
+file's **tab** opens the same menu.
+
 **Duplicate** creates `<name> copy.tablify` with a new table ID but the same rows and revisions.
+
+The table's tab shows the table glyph, so a Tablify tab is recognisable among notes and other files.
+
+**Obsidian's own items** (Open, Make a copy, Rename, Delete…) remain in that menu too — Tablify only
+adds its own three and never changes the host's entries.
 
 ## 15. The table context menu
 

@@ -6,6 +6,14 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **The file menu's Tablify items show their icons and name the plugin (COD-74)** — right-clicking
+  a `.tablify` file showed *Open*, *Duplicate* and *Export* with no icons and nothing saying
+  Tablify, while the folder items beside them were branded. The three items are now **Open Tablify
+  Table**, **Duplicate Tablify Table** and **Export Tablify Table**, each with its own icon, and
+  the *Give this copy a new table ID* item has one too. The cause was a single optional field: the
+  items simply left `icon` out, and the wiring turned the omission into `setIcon('')`, which draws
+  nothing — `icon` is now required, so it cannot happen again. The table's tab also carries the
+  table glyph instead of Obsidian's generic file icon.
 - **One click on another cell while editing now selects it (COD-70)** — clicking a different cell
   with an editor open committed the edit but left the selection behind, so the cell had to be
   clicked twice. The commit re-rendered the rows under the pointer, and the browser never

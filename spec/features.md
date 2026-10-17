@@ -110,6 +110,11 @@ Export the current view or full table to **CSV**, **Excel (.xlsx)**, or **Markdo
 | `.tablify` file | Open, Duplicate, Export |
 | Folder | New Tablify Table, Import CSV or Excel to Tablify |
 
+> **COD-74 (2026-10-17):** the three `.tablify` items are titled `Open Tablify Table`,
+> `Duplicate Tablify Table` and `Export Tablify Table`, and every item the plugin adds carries an
+> icon (`table`, `copy`, `download`; `file-plus`, `upload` on folders). The table's tab shows the
+> `table` glyph. The original row above is kept as the historical requirement.
+
 ### 2.17 Table right-click (Feature 17)
 
 | Target | Menu items |
