@@ -133,3 +133,152 @@ export function createCheckboxControl(
   }
   return el;
 }
+
+// ---- COD-73: the remaining types the grid used to print raw ----
+
+/**
+ * Numeric types sit right, like the prototype's `align: 'right'` on its field types. The cell
+ * gets `tablify__cell--numeric`; CSS does the alignment.
+ */
+export function isNumericCellType(field: FieldDefinition): boolean {
+  switch (field.type) {
+    case 'number':
+    case 'currency':
+    case 'percent':
+    case 'duration':
+    case 'auto_number':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/** Timestamp types stored as UTC ISO: the cell shows the same local wall clock the editor uses. */
+export function isTimestampCellType(field: FieldDefinition): boolean {
+  return field.type === 'date_time' || field.type === 'created_time' || field.type === 'modified_time';
+}
+
+const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/**
+ * `2026-10-17T14:30`, in the reader's own time zone — the form the `date_time` editor shows, so a
+ * value does not change shape when it is opened. A value that is not a parseable instant is shown
+ * as stored rather than as "Invalid Date".
+ */
+export function localDateTimeText(value: CellValue | undefined): string {
+  if (typeof value !== 'string' || value === '') return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/**
+ * `1,234,567` — grouping separators, the prototype's `Number(v).toLocaleString()`. Fixed to
+ * en-US so the grid reads the same on every machine (and in every test). A non-numeric value
+ * (a corrupt file) keeps its stored text.
+ */
+export function groupedNumberText(value: CellValue | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return value === undefined || value === null ? '' : String(value);
+  }
+  return value.toLocaleString('en-US');
+}
+
+/**
+ * A rating's scale: the field's Max (the same rule the group headings use), 5 when unset, and
+ * within the type's own 1–10 range. A rating out of 10 draws ten stars.
+ */
+export function ratingScale(field: FieldDefinition): number {
+  const max = typeof field.max === 'number' && Number.isFinite(field.max) ? Math.round(field.max) : 5;
+  return Math.max(1, Math.min(10, max));
+}
+
+/**
+ * A rating cell: one star per point of the scale, filled up to the value, then `4/5`.
+ *
+ * The stars are decoration (`aria-hidden`) — the text is the label, so a screen reader reads
+ * "4/5" and not five glyphs. An empty rating still draws its stars: they say what the column is,
+ * the way an empty checkbox draws its box.
+ */
+export function renderRatingStars(host: HTMLElement, field: FieldDefinition, value: CellValue | undefined): void {
+  const scale = ratingScale(field);
+  const rating = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : 0;
+  const filled = Math.max(0, Math.min(scale, rating));
+  const stars = document.createElement('span');
+  stars.className = 'tablify__stars';
+  stars.setAttribute('aria-hidden', 'true');
+  for (let i = 1; i <= scale; i += 1) {
+    const star = document.createElement('span');
+    star.className = i <= filled ? 'tablify__star tablify__star--on' : 'tablify__star';
+    star.innerHTML = faIcon('star', 11);
+    stars.appendChild(star);
+  }
+  host.appendChild(stars);
+  if (value !== undefined && value !== null && value !== '') {
+    const label = document.createElement('span');
+    label.className = 'tablify__rating-text';
+    label.textContent = `${rating}/${scale}`;
+    host.appendChild(label);
+  }
+}
+
+/** `mailto:` / `tel:` / bare `http(s)://`, or null when the value cannot be one. */
+function contactHref(field: FieldDefinition, value: string): string | null {
+  if (field.type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? `mailto:${value}` : null;
+  if (field.type === 'phone') return /\+?[\d][\d\s\-().]{4,}$/.test(value) ? `tel:${value}` : null;
+  if (field.type === 'url') return /^https?:\/\//i.test(value) ? value : null;
+  return null;
+}
+
+/**
+ * A URL, email or phone cell: a real link, so it can be opened the way the reader expects.
+ *
+ * The link owns its click (`stopPropagation`), exactly like the checkbox — clicking the text
+ * opens it instead of selecting the cell. A value that is not a usable address is not turned into
+ * a link (a corrupt `example` in a URL column must not navigate the window), and stays plain text.
+ */
+export function renderContactLink(host: HTMLElement, field: FieldDefinition, value: CellValue | undefined): void {
+  if (typeof value !== 'string' || value === '') return;
+  const href = contactHref(field, value);
+  if (!href) {
+    host.textContent = value;
+    return;
+  }
+  const link = document.createElement('a');
+  link.className = 'tablify__cell-link';
+  link.href = href;
+  link.textContent = value;
+  link.title = value;
+  link.rel = 'noopener';
+  link.target = '_blank';
+  link.addEventListener('click', (e) => e.stopPropagation());
+  host.appendChild(link);
+}
+
+/**
+ * The paths an attachment cell holds: its single path, or every entry of a legacy list value.
+ * The same rule the attachment panel uses (`AttachmentPanel.paths`).
+ */
+export function attachmentPaths(value: CellValue | undefined): string[] {
+  if (Array.isArray(value)) return value.map((entry) => String(entry)).filter((p) => p !== '');
+  return typeof value === 'string' && value !== '' ? [value] : [];
+}
+
+/** One paperclip chip per file, the prototype's `FT.attachment.fmt`. */
+export function renderAttachmentChips(host: HTMLElement, value: CellValue | undefined): void {
+  let first = true;
+  for (const path of attachmentPaths(value)) {
+    if (!first) host.appendChild(document.createTextNode(' '));
+    first = false;
+    const chip = document.createElement('span');
+    chip.className = 'tablify__chip tablify__chip--file';
+    chip.title = path;
+    const icon = document.createElement('span');
+    icon.className = 'tablify__chip-icon';
+    // Generated glyph markup (src/ui/faIcons.ts), never user text.
+    icon.innerHTML = faIcon('paperclip', 9);
+    chip.appendChild(icon);
+    chip.appendChild(document.createTextNode(path));
+    host.appendChild(chip);
+  }
+}

@@ -3142,3 +3142,123 @@
 .tablify button.tablify__af-manage {
   box-shadow: none;
 }
+
+/* ---- COD-73: the rest of the prototype's cell rendering ---- */
+
+/* A number, currency, percent, duration or auto-number cell sits right (prototype `align:right`).
+   The capsule stays a flex box; the text is pushed to its end. */
+.tablify__cell--numeric > .tablify__capsule {
+  justify-content: flex-end;
+}
+
+.tablify__cell--numeric .tablify__cell-text {
+  text-align: right;
+}
+
+/* A rating cell: the prototype's five (or ten) stars, then `4/5`. The stars are decoration —
+   the label carries the meaning for a screen reader. */
+.tablify__stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin-right: 6px;
+  color: var(--tablify-text-placeholder);
+}
+
+.tablify__star {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.tablify .tablify__star--on {
+  color: var(--tablify-accent-primary);
+}
+
+/* Prototype `text-[10px] font-mono text-tablify-clay`: the `4/5` label. */
+.tablify__rating-text {
+  flex: 0 0 auto;
+  font-family: var(--tablify-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10px;
+  color: var(--tablify-text-muted);
+}
+
+/* A URL / email / phone cell is a link. It keeps the cell's ink so the grid does not turn into
+   a page of blue, and shows it is a link on hover — the prototype's `text-sky-600` reads as a
+   browser, not as a table. */
+.tablify a.tablify__cell-link {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: inherit;
+  /* The address keeps the cell's ink — a column of terracotta URLs would shout — but a faint
+     underline says it can be opened. Hover and keyboard focus make it an obvious link. */
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 30%, transparent);
+  text-underline-offset: 2px;
+  vertical-align: bottom;
+}
+
+.tablify a.tablify__cell-link:hover,
+.tablify a.tablify__cell-link:focus-visible {
+  color: var(--tablify-accent-primary);
+  text-decoration: underline;
+}
+
+/* An attachment cell: one prototype paperclip chip per file. */
+.tablify__chip--file {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  margin-right: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--tablify-border-capsule);
+  border-radius: 6px;
+  background: var(--tablify-bg-inner, var(--tablify-bg-capsule));
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--tablify-text-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tablify__chip-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  color: var(--tablify-accent-primary);
+}
+
+/* A long-text cell keeps the prototype's `line-clamp-2`. The capsule's padding leaves room for
+   one line of the default 16px, so the two-line cells trade the vertical padding for a 14px
+   line box — the same trade select cells make for their chip. A small row (28px) has room for
+   one line only and clamps there. */
+.tablify__cell--long-text > .tablify__capsule {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  align-items: center;
+}
+
+.tablify__cell--long-text .tablify__cell-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: pre-wrap;
+  overflow: hidden;
+  text-overflow: clip;
+  line-height: 14px;
+}
+
+.tablify--rh-small .tablify__cell--long-text .tablify__cell-text {
+  -webkit-line-clamp: 1;
+}
+
+.tablify--rh-small .tablify__cell--long-text > .tablify__capsule {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}

@@ -73,7 +73,13 @@ function fixture(): string {
         createdAt: NOW,
         updatedAt: NOW,
         sync: null,
-        values: { fld_text: 'existing', fld_date: '2026-10-16', fld_dt: '2026-10-16T09:30:00.000Z' },
+        values: {
+          fld_text: 'existing',
+          fld_date: '2026-10-16',
+          fld_dt: '2026-10-16T09:30:00.000Z',
+          // COD-73: the attachment cell that already holds a path (row 0's panel is only opened).
+          fld_attach: 'Files/brief.pdf',
+        },
       },
     ],
     views: [
@@ -448,6 +454,90 @@ async function runRenderedValues(page: Page): Promise<void> {
 }
 
 /**
+ * COD-73: the types COD-71 left raw now render like the prototype.
+ *
+ * Runs after the edit pass, so each of these is a value the user just typed: the grid must show
+ * the meaning (grouped digits, stars, a local stamp, a link, a chip) while the file keeps what
+ * was stored. The types COD-71 already covered are pinned above.
+ */
+async function runCod73Rendering(page: Page): Promise<void> {
+  const cellText = (col: number) =>
+    page.evaluate(
+      (c) =>
+        document.querySelector(`.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${c}"] .tablify__cell-text`)
+          ?.textContent ?? null,
+      col,
+    );
+  const cellHasClass = (col: number, cls: string) =>
+    page.evaluate(
+      ([c, name]) =>
+        document.querySelector(`.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${c}"]`)?.classList.contains(name as string) ?? false,
+      [col, cls] as const,
+    );
+
+  // number 42.5 stays 42.5; a seven-digit number is grouped. The stored value is untouched.
+  check('number: cell renders "42.5"', (await cellText(COL.fld_num)) === '42.5', `got ${JSON.stringify(await cellText(COL.fld_num))}`);
+  check('number: cell is right-aligned', await cellHasClass(COL.fld_num, 'tablify__cell--numeric'), 'no numeric class');
+  check('number: text is not right-aligned', !(await cellHasClass(COL.fld_text, 'tablify__cell--numeric')), 'text carries the class');
+  check('number: stored value is still the number', (await stored(page, 0, 'fld_num')) === 42.5, `got ${JSON.stringify(await stored(page, 0, 'fld_num'))}`);
+  check('currency: cell is right-aligned too', await cellHasClass(COL.fld_cur, 'tablify__cell--numeric'), 'no numeric class');
+
+  // rating 7 of a default scale of 5: five stars, all filled, and the label the group heading uses.
+  const stars = await page.evaluate(
+    (c) =>
+      Array.from(
+        document.querySelectorAll(
+          `.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${c}"] .tablify__star`,
+        ),
+      ).map((el) => el.classList.contains('tablify__star--on')),
+    COL.fld_rating,
+  );
+  check('rating: five stars', stars.length === 5, `got ${stars.length}`);
+  check('rating: filled up to the value', stars.every(Boolean), `got ${JSON.stringify(stars)}`);
+  check('rating: label reads "7/5"', (await cellText(COL.fld_rating)) === '7/5', `got ${JSON.stringify(await cellText(COL.fld_rating))}`);
+
+  // date_time: the local wall clock, the same value the editor shows.
+  const localStamp = await page.evaluate((iso) => {
+    const d = new Date(iso as string);
+    // No helper declarations here: the bundler names them and the page has no `__name`.
+    const parts = [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()].map((n, i) =>
+      i === 0 ? String(n) : String(n).padStart(2, '0'),
+    );
+    return `${parts[0]}-${parts[1]}-${parts[2]}T${parts[3]}:${parts[4]}`;
+  }, String(await stored(page, 0, 'fld_dt')));
+  check('date_time: cell renders the local stamp', (await cellText(COL.fld_dt)) === localStamp, `got ${JSON.stringify(await cellText(COL.fld_dt))} want ${localStamp}`);
+
+  // url / email / phone: real links with the right scheme.
+  const hrefs = await page.evaluate(
+    (cols) =>
+      cols.map(
+        (c) =>
+          document.querySelector(`.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${c}"] a.tablify__cell-link`)
+            ?.getAttribute('href') ?? null,
+      ),
+    [COL.fld_url, COL.fld_email, COL.fld_phone] as const,
+  );
+  check('url: cell is a link to the address', hrefs[0] === 'https://example.com/a', `got ${JSON.stringify(hrefs[0])}`);
+  check('email: cell is a mailto: link', hrefs[1] === 'mailto:user@example.com', `got ${JSON.stringify(hrefs[1])}`);
+  check('phone: cell is a tel: link', hrefs[2] === 'tel:+880 1712-345678', `got ${JSON.stringify(hrefs[2])}`);
+
+  // attachment: one chip per path (row 1 carries the path; row 0's panel is only opened).
+  const chips = await page.evaluate(
+    (c) =>
+      Array.from(
+        document.querySelectorAll(
+          `.tablify__row[data-row-index="1"] .tablify__cell[data-col-index="${c}"] .tablify__chip--file`,
+        ),
+      ).map((el) => el.textContent ?? ''),
+    COL.fld_attach,
+  );
+  check('attachment: one paperclip chip per file', chips.length === 1 && chips[0] === 'Files/brief.pdf', `got ${JSON.stringify(chips)}`);
+
+  // long_text: the two-line clamp class (the capsule height decides how many lines fit).
+  check('long_text: cell carries the clamp', await cellHasClass(COL.fld_long, 'tablify__cell--long-text'), 'no clamp class');
+}
+
+/**
  * COD-71: the checkbox is a real box. One click flips the value (one undo step), the cell is not
  * selected by that click, and the toolbar's Undo puts the value straight back.
  */
@@ -502,6 +592,7 @@ async function main(): Promise<void> {
     await runEditingMatrix(session.page);
     // Before runEmptyCommit: the clearing check empties the text cell these assert on.
     await runRenderedValues(session.page);
+    await runCod73Rendering(session.page);
     await runCheckboxClick(session.page);
     await runReadOnlyRefusals(session.page);
     await runInvalidInput(session.page);

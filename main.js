@@ -13283,8 +13283,8 @@ function toLocalDateTimeInput(value) {
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime()))
     return "";
-  const pad2 = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  const pad3 = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad3(d.getMonth() + 1)}-${pad3(d.getDate())}T${pad3(d.getHours())}:${pad3(d.getMinutes())}:${pad3(d.getSeconds())}`;
 }
 function isUnchanged(field, oldValue, newValue, initial) {
   if (field.type === "checkbox")
@@ -13565,6 +13565,110 @@ function createCheckboxControl(field, value, onToggle) {
     el2.setAttribute("aria-label", `${field.name}: ${checked ? "checked" : "not checked"}`);
   }
   return el2;
+}
+function isNumericCellType(field) {
+  switch (field.type) {
+    case "number":
+    case "currency":
+    case "percent":
+    case "duration":
+    case "auto_number":
+      return true;
+    default:
+      return false;
+  }
+}
+function isTimestampCellType(field) {
+  return field.type === "date_time" || field.type === "created_time" || field.type === "modified_time";
+}
+var pad2 = (n) => String(n).padStart(2, "0");
+function localDateTimeText(value) {
+  if (typeof value !== "string" || value === "")
+    return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime()))
+    return value;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function groupedNumberText(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return value === void 0 || value === null ? "" : String(value);
+  }
+  return value.toLocaleString("en-US");
+}
+function ratingScale(field) {
+  const max2 = typeof field.max === "number" && Number.isFinite(field.max) ? Math.round(field.max) : 5;
+  return Math.max(1, Math.min(10, max2));
+}
+function renderRatingStars(host, field, value) {
+  const scale = ratingScale(field);
+  const rating = typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0;
+  const filled = Math.max(0, Math.min(scale, rating));
+  const stars = document.createElement("span");
+  stars.className = "tablify__stars";
+  stars.setAttribute("aria-hidden", "true");
+  for (let i = 1; i <= scale; i += 1) {
+    const star = document.createElement("span");
+    star.className = i <= filled ? "tablify__star tablify__star--on" : "tablify__star";
+    star.innerHTML = faIcon("star", 11);
+    stars.appendChild(star);
+  }
+  host.appendChild(stars);
+  if (value !== void 0 && value !== null && value !== "") {
+    const label = document.createElement("span");
+    label.className = "tablify__rating-text";
+    label.textContent = `${rating}/${scale}`;
+    host.appendChild(label);
+  }
+}
+function contactHref(field, value) {
+  if (field.type === "email")
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? `mailto:${value}` : null;
+  if (field.type === "phone")
+    return /\+?[\d][\d\s\-().]{4,}$/.test(value) ? `tel:${value}` : null;
+  if (field.type === "url")
+    return /^https?:\/\//i.test(value) ? value : null;
+  return null;
+}
+function renderContactLink(host, field, value) {
+  if (typeof value !== "string" || value === "")
+    return;
+  const href = contactHref(field, value);
+  if (!href) {
+    host.textContent = value;
+    return;
+  }
+  const link = document.createElement("a");
+  link.className = "tablify__cell-link";
+  link.href = href;
+  link.textContent = value;
+  link.title = value;
+  link.rel = "noopener";
+  link.target = "_blank";
+  link.addEventListener("click", (e) => e.stopPropagation());
+  host.appendChild(link);
+}
+function attachmentPaths(value) {
+  if (Array.isArray(value))
+    return value.map((entry) => String(entry)).filter((p) => p !== "");
+  return typeof value === "string" && value !== "" ? [value] : [];
+}
+function renderAttachmentChips(host, value) {
+  let first = true;
+  for (const path of attachmentPaths(value)) {
+    if (!first)
+      host.appendChild(document.createTextNode(" "));
+    first = false;
+    const chip = document.createElement("span");
+    chip.className = "tablify__chip tablify__chip--file";
+    chip.title = path;
+    const icon = document.createElement("span");
+    icon.className = "tablify__chip-icon";
+    icon.innerHTML = faIcon("paperclip", 9);
+    chip.appendChild(icon);
+    chip.appendChild(document.createTextNode(path));
+    host.appendChild(chip);
+  }
 }
 
 // src/views/grid/GridView.ts
@@ -13959,8 +14063,8 @@ var GridView = class {
     const cw = this.root.clientWidth;
     if (cw > 0) {
       const cs = typeof getComputedStyle === "function" ? getComputedStyle(this.root) : null;
-      const pad2 = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
-      w = Math.max(0, cw - pad2);
+      const pad3 = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+      w = Math.max(0, cw - pad3);
     }
     if (Math.abs(w - this.availableWidth) < 0.5)
       return false;
@@ -14631,6 +14735,16 @@ var GridView = class {
                 this.opts.onToggleCheckbox ? () => this.opts.onToggleCheckbox?.(rowIdx, colIndex) : void 0
               )
             );
+          } else if (field.type === "rating") {
+            renderRatingStars(text, field, val);
+          } else if (isTimestampCellType(field)) {
+            text.textContent = localDateTimeText(val);
+          } else if (field.type === "url" || field.type === "email" || field.type === "phone") {
+            renderContactLink(text, field, val);
+          } else if (field.type === "attachment") {
+            renderAttachmentChips(text, val);
+          } else if (field.type === "number") {
+            text.textContent = groupedNumberText(val);
           } else if (isFormattedCellType(field)) {
             text.textContent = formattedCellText(field, val);
           } else {
@@ -14640,6 +14754,10 @@ var GridView = class {
           cell2.appendChild(capsule);
           if (!ownTitle)
             applyValidationState(cell2, field, row, this.rows);
+          if (isNumericCellType(field))
+            cell2.classList.add("tablify__cell--numeric");
+          if (field.type === "long_text")
+            cell2.classList.add("tablify__cell--long-text");
           cell2.setAttribute("data-field-id", field.id);
           cell2.dataset.colIndex = String(colIndex);
           cell2.setAttribute("role", "gridcell");

@@ -39,7 +39,14 @@ import { applyValidationState } from './validationDisplay.js';
 import {
   createCheckboxControl,
   formattedCellText,
+  groupedNumberText,
   isFormattedCellType,
+  isNumericCellType,
+  isTimestampCellType,
+  localDateTimeText,
+  renderAttachmentChips,
+  renderContactLink,
+  renderRatingStars,
   renderSelectChips,
 } from './cellRender.js';
 
@@ -1359,6 +1366,21 @@ export class GridView {
                 this.opts.onToggleCheckbox ? () => this.opts.onToggleCheckbox?.(rowIdx, colIndex) : undefined,
               ),
             );
+          } else if (field.type === 'rating') {
+            // COD-73: the prototype's stars plus `4/5`, out of the field's own scale.
+            renderRatingStars(text, field, val);
+          } else if (isTimestampCellType(field)) {
+            // COD-73: a stored UTC instant reads as the local wall clock, like its editor.
+            text.textContent = localDateTimeText(val);
+          } else if (field.type === 'url' || field.type === 'email' || field.type === 'phone') {
+            // COD-73: an address is a link (and owns its click, like the checkbox).
+            renderContactLink(text, field, val);
+          } else if (field.type === 'attachment') {
+            // COD-73: one paperclip chip per file, instead of a joined path string.
+            renderAttachmentChips(text, val);
+          } else if (field.type === 'number') {
+            // COD-73: grouping separators for the reader; the stored value and export stay raw.
+            text.textContent = groupedNumberText(val);
           } else if (isFormattedCellType(field)) {
             // COD-71: currency (minor units), percent (0…1) and duration (ms) show their unit.
             text.textContent = formattedCellText(field, val);
@@ -1374,6 +1396,10 @@ export class GridView {
           // SAD-109: the invalid-cell marker and rule message (P3-05), for cells whose tooltip is
           // not already owned by a formula error or broken link.
           if (!ownTitle) applyValidationState(cell, field, row, this.rows);
+          // COD-73: numeric cells sit right, like the prototype's `align: 'right'` types.
+          if (isNumericCellType(field)) cell.classList.add('tablify__cell--numeric');
+          // COD-73: long text takes two lines (the capsule's fixed height decides how many fit).
+          if (field.type === 'long_text') cell.classList.add('tablify__cell--long-text');
           cell.setAttribute('data-field-id', field.id);
           cell.dataset.colIndex = String(colIndex);
           cell.setAttribute('role', 'gridcell');
