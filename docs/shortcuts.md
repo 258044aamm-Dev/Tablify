@@ -13,12 +13,26 @@ Grid shortcuts apply **only when the grid has focus**.
 | Ctrl/Cmd+C | Copy range | Tab-separated text for spreadsheets |
 | Ctrl/Cmd+V | Paste | Tab-separated text |
 
+## Inside the date picker (COD-75)
+
+The card takes the keys while it is open — the same rule as any editor.
+
+| Shortcut | Action | Notes |
+|----------|--------|-------|
+| Tab / Shift+Tab | Move through the card | Field → month arrows → day grid → hours → minutes → Now → Today → Clear → Done |
+| Arrow keys | Move by a day / a week | Crosses month boundaries; the calendar follows |
+| PageUp / PageDown | Previous / next month | With Shift: previous / next year |
+| Home / End | Start / end of the week | — |
+| Enter | Pick the focused day | In the value field, Enter commits the whole card |
+| Up / Down in `hh` / `mm` | ±1, wrapping | 23 → 0, 59 → 0 |
+| Escape | Close and discard | The cell keeps its value |
+
 ## Mouse and touch (SAD-96)
 
 | Gesture | Action | Notes |
 |----------|--------|-------|
 | Click / tap a cell | Select it | Shift-click extends a range |
-| Double-click a cell | Edit it | Opens the editor, option panel, attachment panel or link picker for the field's type |
+| Double-click a cell | Edit it | Opens the editor, option panel, attachment panel, date picker or link picker for the field's type |
 | Tap the selected cell again | Edit it | Touch equivalent of double-click |
 | Right-click / long-press a cell | Cell menu | **Edit cell** opens the editor from here too |
 | Double-click / tap a read-only cell | Nothing | System and formula fields cannot be edited (the menu says why) |

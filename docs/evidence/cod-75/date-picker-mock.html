@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COD-75 — date &amp; time picker, design mock</title>
+<style>
+  :root {
+    --page-light: #FAF7F2;
+    --page-dark: #181715;
+    --ink-light: #1E1B18;
+    --ink-dark: #ECE7E1;
+    --ui: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 28px 24px 56px;
+    background: #EFEAE2;
+    color: #1E1B18;
+    font-family: var(--ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  header.doc { max-width: 1120px; margin: 0 auto 22px; }
+  header.doc h1 { font-size: 19px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.doc p { margin: 0; font-size: 13px; line-height: 1.55; color: #5D554C; max-width: 760px; }
+  header.doc code { font-family: var(--mono); font-size: 11.5px; background: #E4DED4; padding: 1px 5px; border-radius: 4px; }
+
+  .board {
+    max-width: 1120px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 22px;
+    align-items: start;
+  }
+  .stage {
+    position: relative; border-radius: 18px; padding: 26px 24px 30px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+  }
+  .stage--light { background: var(--page-light); }
+  .stage--dark  { background: var(--page-dark); }
+  .stage__tag {
+    align-self: flex-start; font-size: 10px; font-weight: 600; letter-spacing: 0.09em;
+    text-transform: uppercase; opacity: 0.55;
+  }
+  .stage--light .stage__tag { color: #1E1B18; }
+  .stage--dark  .stage__tag { color: #ECE7E1; }
+
+  /* ============================ the picker card ============================ */
+  .dp {
+    --card: #FFFFFF;
+    --border: #E6E0D5;
+    --text: #1E1B18;
+    --muted: #6E655C;
+    --faint: #C5C1BE;
+    --accent: #CC785C;
+    --on-accent: #1E1B18;
+    --hover: #F6F2EA;
+    --hover-border: #D3CAB9;
+    --field-bg: #FFFFFF;
+    --focus-ring: rgba(204, 120, 92, 0.22);
+    --divider: #EFEAE2;
+    --today-ink: #B5573A;   /* terracottaTextLight: 4.78:1 on white, accent alone is 3.28:1 */
+
+    width: 320px;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+    padding: 12px;
+    font-size: 12px;
+    line-height: 1.4;
+    user-select: none;
+  }
+  .dp--dark {
+    --card: #24221E;
+    --border: #38342E;
+    --text: #ECE7E1;
+    --muted: #9CA3AF;
+    --faint: #4B5563;
+    --accent: #d97757;
+    --on-accent: #181715;
+    --hover: #2D2A25;
+    --hover-border: #4A453E;
+    --field-bg: #24221E;
+    --focus-ring: rgba(217, 119, 87, 0.28);
+    --divider: #302D28;
+    --today-ink: #d97757;   /* 5.09:1 on the dark card */
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* value field */
+  .dp-field { position: relative; display: flex; align-items: center; margin-bottom: 10px; }
+  .dp-field input {
+    width: 100%; height: 30px; margin: 0; padding: 0 32px 0 10px;
+    background: var(--field-bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.01em;
+    outline: none;
+  }
+  .dp-field input::placeholder { color: var(--muted); font-family: var(--mono); }
+  .dp-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--focus-ring); }
+  .dp-field .glyph {
+    position: absolute; right: 9px; width: 14px; height: 14px; opacity: 0.55; pointer-events: none;
+  }
+  .dp-field .glyph svg { width: 14px; height: 14px; fill: currentColor; }
+
+  /* month header */
+  .dp-head { display: flex; align-items: center; gap: 6px; height: 30px; margin-bottom: 2px; }
+  .dp-title { display: flex; align-items: baseline; gap: 5px; flex: 1; padding-left: 2px; }
+  .dp-title .m { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+  .dp-title .y { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .dp-nav {
+    width: 26px; height: 26px; display: grid; place-items: center;
+    background: transparent; border: 1px solid transparent; border-radius: 8px;
+    color: var(--muted); cursor: pointer; padding: 0;
+  }
+  .dp-nav:hover { background: var(--hover); border-color: var(--hover-border); color: var(--text); }
+  .dp-nav svg { width: 11px; height: 11px; fill: currentColor; }
+
+  /* weekday strip + grid */
+  .dp-week, .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .dp-week { margin-bottom: 4px; }
+  .dp-week span {
+    height: 20px; display: grid; place-items: center;
+    font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .dp-grid button {
+    height: 36px; display: grid; place-items: center;
+    background: transparent; border: 1px solid transparent; border-radius: 9px;
+    color: var(--text); font-family: var(--ui); font-size: 12px; font-weight: 500;
+    cursor: pointer; padding: 0; position: relative;
+  }
+  .dp-grid button:hover { background: var(--hover); border-color: var(--hover-border); }
+  .dp-grid button.out { color: var(--muted); font-weight: 400; }   /* 5.7:1 — still a target */
+  .dp-grid button.weekend { color: var(--muted); }
+  .dp-grid button.sel {
+    background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600;
+  }
+  .dp-grid button.sel:hover { background: var(--accent); }
+  .dp-grid button.today { box-shadow: inset 0 0 0 1px var(--accent); color: var(--today-ink); font-weight: 600; }
+  .dp-grid button.today.sel { color: var(--on-accent); }
+  .dp-grid button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* time row */
+  .dp-time {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--divider);
+  }
+  .dp-time .lbl { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+  .dp-clock {
+    display: flex; align-items: center; gap: 1px; height: 28px; padding: 0 8px;
+    background: var(--field-bg); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .dp-clock:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--focus-ring); }
+  .dp-clock input {
+    width: 18px; height: 24px; padding: 0; border: 0; background: transparent;
+    color: var(--text); font-family: var(--mono); font-size: 12px; text-align: center; outline: none;
+  }
+  .dp-clock .sep { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .dp-now {
+    margin-left: auto; height: 26px; padding: 0 9px;
+    background: transparent; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--muted); font-family: var(--ui); font-size: 10.5px; font-weight: 500; cursor: pointer;
+  }
+  .dp-now:hover { background: var(--hover); border-color: var(--hover-border); color: var(--text); }
+
+  /* footer */
+  .dp-foot { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+  .dp-quiet {
+    height: 26px; padding: 0 8px; border-radius: 7px; border: 1px solid transparent;
+    background: transparent; color: var(--muted); font-family: var(--ui); font-size: 11px; cursor: pointer;
+  }
+  .dp-quiet:hover { background: var(--hover); border-color: var(--hover-border); color: var(--text); }
+  .dp-quiet--danger:hover { color: #C0392B; }
+  .dp--dark .dp-quiet--danger:hover { color: #F87171; }
+  .dp-done {
+    margin-left: auto; height: 28px; padding: 0 14px;
+    background: var(--accent); border: 1px solid var(--accent); border-radius: 9px;
+    color: var(--on-accent); font-family: var(--ui); font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .dp-done:hover { filter: brightness(1.05); }
+
+  /* ---------- context strip (what it hangs under) ---------- */
+  .frame {
+    width: 100%; max-width: 380px; border-radius: 12px; padding: 10px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .frame--light { background: #F4EFE6; box-shadow: inset 0 0 0 1px #E6E0D5; }
+  .frame--dark  { background: #1B1A17; box-shadow: inset 0 0 0 1px #38342E; }
+  .cell { display: flex; align-items: center; gap: 8px; }
+  .cell .tag { font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; width: 62px; opacity: 0.6; }
+  .frame--light .cell .tag { color: #1E1B18; }
+  .frame--dark .cell .tag { color: #ECE7E1; }
+  .capsule {
+    flex: 1; height: 28px; border-radius: 14px; padding: 0 12px; display: flex; align-items: center;
+    font-family: var(--mono); font-size: 11px;
+  }
+  .frame--light .capsule { background: #FFFFFF; box-shadow: inset 0 0 0 1px #E6E0D5; color: #1E1B18; }
+  .frame--dark .capsule  { background: #262420; box-shadow: inset 0 0 0 1px #3A3630; color: #ECE7E1; }
+  .capsule.is-active { box-shadow: inset 0 0 0 2px #CC785C; }
+  .frame--dark .capsule.is-active { box-shadow: inset 0 0 0 2px #d97757; }
+
+  /* ---------- spec table ---------- */
+  section.spec { max-width: 1120px; margin: 34px auto 0; }
+  section.spec h2 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; background: #FBF8F3; border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #E9E3D9; vertical-align: top; }
+  th { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: #6E655C; background: #F4EFE6; }
+  td code { font-family: var(--mono); font-size: 11px; background: #EFEAE1; padding: 1px 4px; border-radius: 4px; }
+  tr:last-child td { border-bottom: 0; }
+
+  .note { max-width: 1120px; margin: 18px auto 0; font-size: 12px; line-height: 1.6; color: #5D554C; }
+  .note b { color: #1E1B18; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11px; margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+
+<header class="doc">
+  <h1>COD-75 — date &amp; time picker · design mock</h1>
+  <p>
+    A drawn replacement for Chromium's native picker, which cannot be themed, sized or shaped.
+    The card is the plugin's existing float-panel (16&nbsp;px radius, <code>--tablify-bg-pill</code>,
+    the same shadow and 6&nbsp;px gap under the cell), so it sits beside the select and attachment
+    panels rather than inventing a second visual language. Everything below is live: click a day,
+    step the month, edit the time.
+  </p>
+</header>
+
+<div class="board">
+
+  <!-- =================== LIGHT =================== -->
+  <div class="stage stage--light">
+    <div class="stage__tag">light theme · date &amp; time · 320 px</div>
+
+    <div class="frame frame--light">
+      <div class="cell"><span class="tag">Review at</span><div class="capsule is-active">2026-10-17T14:30</div></div>
+      <div class="cell"><span class="tag">Due</span><div class="capsule">2026-10-24</div></div>
+    </div>
+
+    <div class="dp" data-dp>
+      <div class="dp-field">
+        <input class="value" value="2026-10-17T14:30" spellcheck="false" aria-label="Date and time">
+        <span class="glyph" aria-hidden="true"><svg viewBox="0 0 448 512"><path d="M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z"/></svg></span>
+      </div>
+
+      <div class="dp-head">
+        <button class="dp-nav" data-nav="-1" aria-label="Previous month"><svg viewBox="0 0 320 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l192 192c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L73.4 256 246.6 82.8c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192z"/></svg></button>
+        <div class="dp-title"><span class="m">October</span><span class="y">2026</span></div>
+        <button class="dp-nav" data-nav="1" aria-label="Next month"><svg viewBox="0 0 320 512"><path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 82.8c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z"/></svg></button>
+      </div>
+
+      <div class="dp-week"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+      <div class="dp-grid" data-grid></div>
+
+      <div class="dp-time">
+        <span class="lbl">Time</span>
+        <div class="dp-clock">
+          <input class="hh" value="14" inputmode="numeric" maxlength="2" aria-label="Hours">
+          <span class="sep">:</span>
+          <input class="mm" value="30" inputmode="numeric" maxlength="2" aria-label="Minutes">
+        </div>
+        <button class="dp-now">Now</button>
+      </div>
+
+      <div class="dp-foot">
+        <button class="dp-quiet">Today</button>
+        <button class="dp-quiet dp-quiet--danger">Clear</button>
+        <button class="dp-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== DARK =================== -->
+  <div class="stage stage--dark">
+    <div class="stage__tag">dark theme · date &amp; time · 320 px</div>
+
+    <div class="frame frame--dark">
+      <div class="cell"><span class="tag">Review at</span><div class="capsule is-active">2026-10-17T14:30</div></div>
+      <div class="cell"><span class="tag">Due</span><div class="capsule">2026-10-24</div></div>
+    </div>
+
+    <div class="dp dp--dark" data-dp>
+      <div class="dp-field">
+        <input class="value" value="2026-10-17T14:30" spellcheck="false" aria-label="Date and time">
+        <span class="glyph" aria-hidden="true"><svg viewBox="0 0 448 512"><path d="M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z"/></svg></span>
+      </div>
+
+      <div class="dp-head">
+        <button class="dp-nav" data-nav="-1" aria-label="Previous month"><svg viewBox="0 0 320 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l192 192c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L73.4 256 246.6 82.8c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192z"/></svg></button>
+        <div class="dp-title"><span class="m">October</span><span class="y">2026</span></div>
+        <button class="dp-nav" data-nav="1" aria-label="Next month"><svg viewBox="0 0 320 512"><path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 82.8c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z"/></svg></button>
+      </div>
+
+      <div class="dp-week"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+      <div class="dp-grid" data-grid></div>
+
+      <div class="dp-time">
+        <span class="lbl">Time</span>
+        <div class="dp-clock">
+          <input class="hh" value="14" inputmode="numeric" maxlength="2" aria-label="Hours">
+          <span class="sep">:</span>
+          <input class="mm" value="30" inputmode="numeric" maxlength="2" aria-label="Minutes">
+        </div>
+        <button class="dp-now">Now</button>
+      </div>
+
+      <div class="dp-foot">
+        <button class="dp-quiet">Today</button>
+        <button class="dp-quiet dp-quiet--danger">Clear</button>
+        <button class="dp-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== DATE ONLY =================== -->
+  <div class="stage stage--light">
+    <div class="stage__tag">light theme · date only · empty state</div>
+
+    <div class="dp" data-dp data-type="date">
+      <div class="dp-field">
+        <input class="value" value="" placeholder="No date" spellcheck="false" aria-label="Date">
+        <span class="glyph" aria-hidden="true"><svg viewBox="0 0 448 512"><path d="M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z"/></svg></span>
+      </div>
+
+      <div class="dp-head">
+        <button class="dp-nav" data-nav="-1" aria-label="Previous month"><svg viewBox="0 0 320 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l192 192c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L73.4 256 246.6 82.8c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192z"/></svg></button>
+        <div class="dp-title"><span class="m">October</span><span class="y">2026</span></div>
+        <button class="dp-nav" data-nav="1" aria-label="Next month"><svg viewBox="0 0 320 512"><path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 82.8c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z"/></svg></button>
+      </div>
+
+      <div class="dp-week"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+      <div class="dp-grid" data-grid></div>
+
+      <div class="dp-foot">
+        <button class="dp-quiet">Today</button>
+        <button class="dp-quiet dp-quiet--danger">Clear</button>
+        <button class="dp-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== PHONE =================== -->
+  <div class="stage stage--dark">
+    <div class="stage__tag">dark theme · phone 390 px · same card, clamped</div>
+
+    <div style="width: 320px;">
+      <div class="dp dp--dark" data-dp style="width: 320px;">
+        <div class="dp-field">
+          <input class="value" value="2026-10-17T09:05" spellcheck="false" aria-label="Date and time">
+          <span class="glyph" aria-hidden="true"><svg viewBox="0 0 448 512"><path d="M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z"/></svg></span>
+        </div>
+        <div class="dp-head">
+          <button class="dp-nav" data-nav="-1" aria-label="Previous month"><svg viewBox="0 0 320 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l192 192c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L73.4 256 246.6 82.8c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192z"/></svg></button>
+          <div class="dp-title"><span class="m">October</span><span class="y">2026</span></div>
+          <button class="dp-nav" data-nav="1" aria-label="Next month"><svg viewBox="0 0 320 512"><path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 82.8c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z"/></svg></button>
+        </div>
+        <div class="dp-week"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+        <div class="dp-grid" data-grid></div>
+        <div class="dp-time">
+          <span class="lbl">Time</span>
+          <div class="dp-clock">
+            <input class="hh" value="09" inputmode="numeric" maxlength="2" aria-label="Hours">
+            <span class="sep">:</span>
+            <input class="mm" value="05" inputmode="numeric" maxlength="2" aria-label="Minutes">
+          </div>
+          <button class="dp-now">Now</button>
+        </div>
+        <div class="dp-foot">
+          <button class="dp-quiet">Today</button>
+          <button class="dp-quiet dp-quiet--danger">Clear</button>
+          <button class="dp-done">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="spec">
+  <h2>What this fixes, and the numbers behind it</h2>
+  <table>
+    <tr><th style="width: 210px">Today (native)</th><th>In the panel</th></tr>
+    <tr>
+      <td>Chromium draws the calendar; it ignores Obsidian's theme, so it is a bright white sheet in dark mode, with the OS's own radius, grey, and year arrows.</td>
+      <td>The plugin draws it from the same tokens as the grid — <code>--tablify-bg-pill</code>, <code>--tablify-accent-primary</code>, <code>--tablify-text</code> — so it is themed, and it matches the select/attachment cards.</td>
+    </tr>
+    <tr>
+      <td>The field is <code>datetime-local</code>: two spinners inside a 16 px capsule, pill height, no room for the value.</td>
+      <td>A 30 px field, mono 11.5 px, the value left-aligned with 10 px padding; the time lives on its own row instead of inside the field.</td>
+    </tr>
+    <tr>
+      <td>No shortcut for "today", no way to clear, no visible month once you scroll away.</td>
+      <td><b>Today</b>, <b>Clear</b>, and for date &amp; time <b>Now</b>; the month is always named in the header.</td>
+    </tr>
+    <tr>
+      <td>Clicking the tiny glyph is the only way to open a calendar, and on touch the OS picker takes over.</td>
+      <td>The whole cell opens the same panel (double-click, Enter, second tap), anchored 6 px under the cell, flipped above it when near the bottom edge.</td>
+    </tr>
+  </table>
+</section>
+
+<section class="spec">
+  <h2>Geometry &amp; type</h2>
+  <table>
+    <tr><th style="width: 210px">Item</th><th>Value</th></tr>
+    <tr><td>Card</td><td><code>width 320</code> · <code>padding 12</code> · <code>radius 16</code> · <code>border 1px --tablify-border-subtle</code> · shadow <code>0 12px 32px rgba(0,0,0,.25)</code> (same as every float panel)</td></tr>
+    <tr><td>Value field</td><td><code>height 30</code> · <code>radius 8</code> · JetBrains Mono <code>11.5px</code> · calendar glyph 14 px at 55 %</td></tr>
+    <tr><td>Month header</td><td><code>height 30</code> · month Poppins <code>13/600</code>, year JetBrains Mono <code>11</code> in <code>--tablify-text-muted</code> · nav buttons <code>26×26</code>, radius 8</td></tr>
+    <tr><td>Weekday strip</td><td>Poppins <code>9.5/600</code>, uppercase, <code>letter-spacing .08em</code>, muted · <code>20px</code> tall</td></tr>
+    <tr><td>Day cells</td><td><code>40×36</code>, gap <code>2</code>, radius 9 · Poppins <code>12/500</code> (600 when selected) · <code>44×44</code> and card <code>max-width 352</code> under <code>@media (pointer: coarse)</code></td></tr>
+    <tr><td>Selected day</td><td>fill <code>--tablify-accent-primary</code>, ink <code>--tablify-on-accent</code> (4.7:1 light, 4.6:1 dark) — the same pair the toolbar's active pill uses</td></tr>
+    <tr><td>Today</td><td>1 px inset ring in the accent, accent numeral; if today is also selected, the fill wins</td></tr>
+    <tr><td>Other month</td><td><code>--tablify-text-placeholder</code>, still clickable (jumps the month)</td></tr>
+    <tr><td>Time row</td><td>1 px divider above; capsule <code>height 28</code>, radius 8; two 18 px mono inputs (<code>12</code>) around a colon; <b>Now</b> is a 26 px ghost button</td></tr>
+    <tr><td>Footer</td><td><b>Today</b> / <b>Clear</b> ghost 26 px left, <b>Done</b> accent pill <code>28</code> right (radius 9, Poppins <code>11/600</code>)</td></tr>
+  </table>
+</section>
+
+<p class="note">
+  <b>Keyboard.</b> <code>Tab</code> walks field → chevrons → grid → time → footer. Arrows move by day/week,
+  <code>PageUp/Down</code> change month, <code>Home/End</code> jump to the week's ends, <code>Enter</code> picks,
+  <code>Escape</code> closes and discards, <code>Alt+↓</code> opens from the grid. Day cells are buttons with a
+  roving <code>tabindex</code>; the month change is announced in a polite live region.
+  <br><br>
+  <b>Commit.</b> Everything in the card edits a <i>draft</i>. <b>Done</b> or a click outside writes it as one undo
+  step; <code>Escape</code> throws the draft away; picking a day in a <i>date</i> field commits and closes
+  immediately (there is no time to add). A draft equal to the stored value writes nothing — the same
+  no-op rule COD-68 established.
+  <br><br>
+  <b>Fonts in this mock fall back to the system stacks</b> — the preview sandbox has no network. In the plugin the
+  chrome is Poppins and every value/time digit is JetBrains Mono, both embedded in <code>styles.css</code>.
+</p>
+
+<script>
+  // ---- tiny mock engine: one month grid per card, keyboard + pointer ----
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const TODAY = new Date(2026, 9, 17); // frozen for the mock: Fri 17 Oct 2026
+
+  document.querySelectorAll('[data-dp]').forEach((card) => {
+    const grid = card.querySelector('[data-grid]');
+    const titleM = card.querySelector('.dp-title .m');
+    const titleY = card.querySelector('.dp-title .y');
+    const valueInput = card.querySelector('.value');
+    const isDateOnly = card.dataset.type === 'date';
+
+    let month = new Date(2026, 9, 1);
+    let selected = isDateOnly ? null : new Date(2026, 9, 17);
+
+    const same = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+    function render() {
+      titleM.textContent = MONTHS[month.getMonth()];
+      titleY.textContent = String(month.getFullYear());
+      grid.textContent = '';
+      const first = new Date(month.getFullYear(), month.getMonth(), 1);
+      const offset = (first.getDay() + 6) % 7;           // Monday-first
+      const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      const rows = Math.ceil((offset + daysInMonth) / 7); // 5 for October 2026, not a fixed 6
+      const start = new Date(first.getFullYear(), first.getMonth(), 1 - offset);
+      for (let i = 0; i < rows * 7; i += 1) {
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+        const b = document.createElement('button');
+        b.textContent = String(d.getDate());
+        b.dataset.date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (d.getMonth() !== month.getMonth()) b.classList.add('out');
+        if ((d.getDay() === 0 || d.getDay() === 6) && d.getMonth() === month.getMonth()) b.classList.add('weekend');
+        if (same(d, TODAY)) b.classList.add('today');
+        if (same(d, selected)) b.classList.add('sel');
+        b.addEventListener('click', () => {
+          selected = d;
+          if (d.getMonth() !== month.getMonth()) month = new Date(d.getFullYear(), d.getMonth(), 1);
+          render();
+          syncValue();
+        });
+        grid.appendChild(b);
+      }
+    }
+
+    function syncValue() {
+      if (!selected) { valueInput.value = ''; return; }
+      const ymd = `${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, '0')}-${String(selected.getDate()).padStart(2, '0')}`;
+      if (isDateOnly) { valueInput.value = ymd; return; }
+      const hh = card.querySelector('.hh').value.padStart(2, '0');
+      const mm = card.querySelector('.mm').value.padStart(2, '0');
+      valueInput.value = `${ymd}T${hh}:${mm}`;
+    }
+
+    card.querySelectorAll('[data-nav]').forEach((btn) => btn.addEventListener('click', () => {
+      month = new Date(month.getFullYear(), month.getMonth() + Number(btn.dataset.nav), 1);
+      render();
+    }));
+
+    if (!isDateOnly) {
+      card.querySelectorAll('.hh, .mm').forEach((inp) => {
+        inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 2); syncValue(); });
+        inp.addEventListener('keydown', (e) => {
+          const max = inp.classList.contains('hh') ? 23 : 59;
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const n = (Number(inp.value || 0) + (e.key === 'ArrowUp' ? 1 : -1) + (max + 1)) % (max + 1);
+            inp.value = String(n).padStart(2, '0');
+            syncValue();
+          }
+        });
+      });
+      card.querySelector('.dp-now').addEventListener('click', () => {
+        card.querySelector('.hh').value = '14';
+        card.querySelector('.mm').value = '30';
+        selected = new Date(TODAY);
+        month = new Date(2026, 9, 1);
+        render(); syncValue();
+      });
+    }
+
+    card.querySelector('.dp-quiet').addEventListener('click', () => {
+      selected = new Date(TODAY);
+      month = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+      render(); syncValue();
+    });
+    card.querySelector('.dp-quiet--danger').addEventListener('click', () => {
+      selected = null; render(); syncValue();
+    });
+
+    render();
+    syncValue();
+  });
+</script>
+</body>
+</html>

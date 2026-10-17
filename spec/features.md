@@ -59,6 +59,12 @@ Supported types: text, long text, number, currency, percent, duration, rating, c
 - Spreadsheet-style grid with inline cell editing.
 - Editing a cell commits on Enter or blur and cancels on Escape.
 
+> **COD-75 (2026-10-17):** `date` and `date_time` cells are edited in **the plugin's own anchored
+> picker panel** (value field, month grid, time row, Today / Clear / Done) instead of an inline
+> `<input type="date">` — the browser's calendar cannot be themed and is the OS dialog on mobile.
+> The edit gestures, the commit rules (Enter/Done/blur commit, Escape cancels, one undo step per
+> commit) and the stored formats (`YYYY-MM-DD`, ISO 8601 UTC) are unchanged.
+
 ### 2.6 Search and filtering (Feature 6)
 
 | Pattern | Meaning |

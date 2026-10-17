@@ -4,6 +4,19 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+
+- **Date and date-and-time cells open a picker the plugin draws (COD-75)** — the window that
+  appeared was Chromium's own calendar, drawn outside the page: it ignored the theme (a white
+  sheet in dark mode), its two spinners were crammed into the cell's 16 px capsule, it had no
+  **Today**, no **Clear**, and on Android it was the operating system's dialog. The cell now opens
+  the same anchored card the select and attachment cells use — a mono value field you can type or
+  paste into, a Monday-first month grid with today ringed and the picked day filled, a `hh:mm`
+  row with **Now**, and **Today / Clear / Done** underneath. Picking a day in a date cell commits
+  and closes; a date-and-time cell waits for **Done**, and changing only the day keeps the time
+  **to the millisecond**. Typing a time means whole minutes. The file format, the undo stack, the
+  cell display and Airtable sync are untouched; an opened-and-dismissed cell still writes nothing.
+
 ### Fixed
 
 - **The file menu's Tablify items show their icons and name the plugin (COD-74)** — right-clicking

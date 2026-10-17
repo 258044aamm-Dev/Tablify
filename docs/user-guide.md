@@ -8,6 +8,7 @@ Everything in this guide covers the 1.0.0 (MVP) feature set, on desktop and mobi
 2. [The `.tablify` file format](#2-the-tablify-file-format)
 3. [Fields and field types](#3-fields-and-field-types)
 4. [Editing cells](#4-editing-cells)
+   - [Picking a date or a time](#4a-picking-a-date-or-a-time)
 5. [Keyboard use](#5-keyboard-use)
 6. [Select options](#6-select-options)
 7. [Attachments](#7-attachments)
@@ -127,10 +128,34 @@ back unchanged. Searching and sorting also read the stored value.
 - Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits. One click on another cell is enough: the edit is saved and that cell is selected straight away. A value the field refuses keeps the editor open, with the cursor still in it, until you fix it or press **Escape**.
 - Opening a cell and leaving it again without changing anything never changes the value.
 - A **Date and time** cell is edited in your computer's local time and stored as UTC, so the same moment shows correctly on any machine.
+- A **Date** or **Date and time** cell opens Tablify's own picker (section 4a) instead of the browser's calendar; the gestures above are unchanged, and a picked day in a Date cell is saved straight away.
 - On a touch device, tap the selected cell again to edit it — or choose **Edit cell** from the long-press menu.
 - In a **URL**, **Email** or **Phone** cell the address itself is a link, so a click opens it. To edit the value, select the cell and press **Enter**, or use **Edit cell** in its menu.
 - System fields — **Auto number**, **Created time**, **Last modified** — are read-only and are not offered as new field types. A table imported from a file that has them shows them only when the file carries a value for the row.
 - Paste tab-separated text (e.g. copied from a spreadsheet) with **Ctrl/Cmd+V** — a rectangular range is filled; **Ctrl/Cmd+C** copies the selected range as tab-separated text.
+
+## 4a. Picking a date or a time
+
+Double-click (or press **Enter** on the cell, or tap it again) and the picker opens under the cell —
+the same card the option and attachment panels use, so it always matches your theme:
+
+- the top field holds the value and can be typed or pasted into — `2026-10-17` for a date,
+  `2026-10-17T14:30` for a date and time; a value Tablify cannot read is marked red, and the card
+  will not close on it until you fix it or press **Escape**;
+- the month grid starts on Monday where your language says so; the arrows step a month, today is
+  ringed, the picked day is filled, and the grey days of the neighbouring month are real days —
+  picking one opens that month;
+- **Today** jumps to today's date; **Clear** empties the cell (one undo step); **Done** saves.
+
+A **Date** cell saves the moment you pick a day and closes. A **Date and time** cell keeps the card
+open so the time can follow: type `hh` and `mm`, use the arrow keys inside them, or press **Now**
+for the current time. Changing only the day **keeps the time**, down to the second — retyping the
+time means whole minutes. Nothing is written if you close the card without changing anything, and
+**Escape** throws away whatever you changed.
+
+Keyboard: **Tab** moves through the card, the arrow keys move by day and by week, **PageUp** and
+**PageDown** change the month (with **Shift**, the year), **Home** and **End** go to the ends of the
+week, **Enter** picks the focused day, and **Escape** closes.
 
 ## 5. Keyboard use
 
