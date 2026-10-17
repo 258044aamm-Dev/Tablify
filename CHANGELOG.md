@@ -6,6 +6,13 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **Date-and-time cells can be edited, and opening one no longer deletes it (COD-68)** — a
+  `date_time` cell opened with an empty field even when it held a timestamp, and clicking away
+  then erased the value. The editor now shows the stored moment in local time and accepts a date
+  and a time; the file keeps storing the same UTC timestamp. Opening a cell and leaving it without
+  typing anything changes nothing. A checkbox that was never set also stays unset instead of
+  turning into an explicit "unchecked".
+
 - **Double-clicking a cell edits it again (COD-66)** — the documented double-click did nothing,
   while Enter worked. The first click of the double-click rebuilt the grid rows, which destroyed
   the element under the pointer, so the browser never fired the `dblclick` that opens the editor.

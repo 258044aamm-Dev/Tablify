@@ -13016,11 +13016,27 @@ function parseInput(field, input) {
     return { ok: false, error: e.message };
   }
 }
+function toLocalDateTimeInput(value) {
+  if (value === null || value === void 0 || value === "")
+    return "";
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime()))
+    return "";
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+function isUnchanged(field, oldValue, newValue, initial) {
+  if (field.type === "checkbox")
+    return Boolean(oldValue) === Boolean(newValue);
+  if (field.type === "date_time")
+    return toLocalDateTimeInput(newValue) === initial;
+  return String(oldValue ?? null) === String(newValue);
+}
 function createEditor(field, row, store, stack, onDone) {
   if (isReadOnly(field))
     return null;
   const ft = getFieldType(field.type);
-  const initial = ft.format(row.values[field.id] ?? null, field);
+  const initial = field.type === "date_time" ? toLocalDateTimeInput(row.values[field.id] ?? null) : ft.format(row.values[field.id] ?? null, field);
   let input;
   const isLong = field.type === "long_text";
   const isCheckbox = field.type === "checkbox";
@@ -13042,7 +13058,9 @@ function createEditor(field, row, store, stack, onDone) {
     input = ta;
   } else {
     const inp = document.createElement("input");
-    inp.type = field.type === "date" || field.type === "date_time" ? "date" : "text";
+    inp.type = field.type === "date" ? "date" : field.type === "date_time" ? "datetime-local" : "text";
+    if (field.type === "date_time")
+      inp.step = "1";
     inp.value = initial;
     input = inp;
   }
@@ -13064,7 +13082,7 @@ function createEditor(field, row, store, stack, onDone) {
       return;
     }
     const oldValue = row.values[field.id] ?? null;
-    if (String(oldValue) === String(res.value)) {
+    if (isUnchanged(field, oldValue, res.value, initial)) {
       onDone(false);
       return;
     }
