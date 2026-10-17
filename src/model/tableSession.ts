@@ -17,7 +17,9 @@ import {
   createSetViewCommand,
   createAddFieldCommand,
   createSetFormulaCommand,
+  createFieldEditCommand,
   type CommandStack,
+  type FieldChangeEntry,
 } from './commands.js';
 import { createFormulaRuntime, ERROR_MESSAGES, type FormulaError } from './formulaRuntime.js';
 import { compileFormula } from '../formula/index.js';
@@ -28,10 +30,18 @@ import { sortRows, visibleFields } from './viewOrder.js';
 import { filterRows, compileQuery } from './rowFilter.js';
 import type { QueryError } from '../query/parse.js';
 import { planTypeChange, type TypeChangePlan } from './fieldChange.js';
+import { renameInFormula, renameInQuery } from './renameRefs.js';
 import { doneMoveBefore, isDoneOption } from './doneOrder.js';
 
 /** Result of changing a formula (P8-03). */
 export type FormulaSetResult = { ok: true } | { ok: false; reason: string };
+
+/** Result of renaming or editing a field (COD-67). */
+export type EditFieldResult =
+  | { ok: true; field: FieldDefinition; updatedFormulas: number }
+  | { ok: false; reason: string; blockedRows?: number };
+/** Renaming is editing the name only — kept as its own name because that is how it is called. */
+export type RenameFieldResult = EditFieldResult;
 
 export interface TableSession {
   readonly store: TableStore;
@@ -111,6 +121,15 @@ export interface TableSession {
   getFormulaError(rowId: string, fieldId: string): FormulaError | null;
   /** Change a field's type with value conversion. Blocked (no change) unless every value converts. */
   changeFieldType(fieldId: string, target: FieldTypeName): TypeChangePlan;
+  /**
+   * Edit a field's name and/or type (COD-67), rewriting `{Old}` in this table's formulas and the
+   * old name in the saved view query, all in one undo step. Blocked (no change) for an empty
+   * name, a name another field in the table already uses, or a type change that would lose
+   * values. A name-only edit leaves cell values and row revisions untouched.
+   */
+  editField(fieldId: string, name: string, type?: FieldTypeName): EditFieldResult;
+  /** Rename a field — editField with the type left alone. */
+  renameField(fieldId: string, name: string): EditFieldResult;
   undo(): boolean;
   redo(): boolean;
   /** Serializable file with current fields, rows, and views. Unknown top-level keys are kept. */
@@ -135,6 +154,84 @@ export function createSession(file: TablifyFile): TableSession {
 
   const setViewState = (next: ViewDefinition) => {
     view = next;
+  };
+
+  /** COD-67: shared by editField and renameField, so there is one code path for both. */
+  const editFieldImpl = (
+    fieldId: string,
+    name: string,
+    type?: FieldTypeName,
+  ): EditFieldResult => {
+    const fields = store.getFields();
+    const field = fields.find((f) => f.id === fieldId);
+    if (!field) return { ok: false, reason: 'Field not found' };
+    const nextName = name.trim();
+    if (!nextName) return { ok: false, reason: 'Field name cannot be empty' };
+    const taken = fields.some(
+      (f) => f.id !== fieldId && f.name.trim().toLowerCase() === nextName.toLowerCase(),
+    );
+    if (taken) return { ok: false, reason: `A field named "${nextName}" already exists` };
+    const nextType = type ?? field.type;
+    const nameChanged = nextName !== field.name;
+    const typeChanged = nextType !== field.type;
+    if (!nameChanged && !typeChanged) return { ok: true, field, updatedFormulas: 0 };
+
+    // A type change goes through the same planner the Change field type menu uses, so the two
+    // paths cannot disagree about what converts.
+    let retyped = field;
+    let valuesByRow: Record<string, CellValue> = {};
+    if (typeChanged) {
+      const plan = planTypeChange(store.getAllRows(), field, nextType);
+      if (!plan.ok) return { ok: false, reason: plan.reason, blockedRows: plan.blockedRows };
+      retyped = plan.field;
+      valuesByRow = plan.valuesByRow;
+    }
+    const rows = store.getAllRows();
+    const before: FieldChangeEntry[] = [
+      {
+        field: { ...field },
+        valuesByRow: typeChanged
+          ? Object.fromEntries(rows.map((r) => [r.id, (r.values[fieldId] ?? null) as CellValue]))
+          : {},
+      },
+    ];
+    const after: FieldChangeEntry[] = [
+      { field: nameChanged ? { ...retyped, name: nextName } : retyped, valuesByRow },
+    ];
+
+    if (nameChanged) {
+      for (const other of fields) {
+        if (other.type !== 'formula' || !other.formula) continue;
+        const rewritten = renameInFormula(other.formula, field.name, nextName);
+        if (rewritten === other.formula) continue;
+        before.push({ field: { ...other }, valuesByRow: {} });
+        after.push({ field: { ...other, formula: rewritten }, valuesByRow: {} });
+      }
+    }
+
+    const nextQuery =
+      nameChanged && typeof view.query === 'string'
+        ? renameInQuery(view.query, field.name, nextName)
+        : null;
+    const viewBefore = view;
+    const viewAfter: ViewDefinition =
+      nextQuery !== null && nextQuery !== view.query ? { ...view, query: nextQuery } : view;
+
+    stack.execute(
+      createFieldEditCommand({
+        before,
+        after,
+        applyView: setViewState,
+        viewBefore,
+        viewAfter,
+      }),
+    );
+    afterMutation();
+    return {
+      ok: true,
+      field: after[0].field,
+      updatedFormulas: before.length - 1,
+    };
   };
 
   return {
@@ -305,6 +402,10 @@ export function createSession(file: TablifyFile): TableSession {
       );
       afterMutation();
       return plan;
+    },
+    editField: editFieldImpl,
+    renameField(fieldId, name) {
+      return editFieldImpl(fieldId, name);
     },
     undo() {
       const changed = stack.undo();

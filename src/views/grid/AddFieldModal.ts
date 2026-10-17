@@ -34,6 +34,14 @@ export interface LinkTargetChoice {
   name: string;
 }
 
+/**
+ * COD-67: the window has two modes. 'create' is the original Add Field dialog; 'edit' is the same
+ * window opened from a column header or from Field Details, showing that field's name and type.
+ * Only name and type are edited here — options and validation rules belong to field settings,
+ * a formula to its own editor — so those rows are not shown in edit mode.
+ */
+export type FieldEditorMode = 'create' | 'edit';
+
 export interface AddFieldOptions {
   /** Tables offered for a Link field. The current table should be first. */
   linkTargets?: LinkTargetChoice[];
@@ -41,6 +49,17 @@ export interface AddFieldOptions {
   defaultLinkTableId?: string;
   /** SAD-86: evaluates an unsaved expression against row 1 for the formula preview. */
   formulaPreview?: (expression: string) => string;
+  /** COD-67: 'edit' shows an existing field's name and type. Defaults to 'create'. */
+  mode?: FieldEditorMode;
+  /** Initial values shown in edit mode. Ignored in create mode. */
+  initial?: { name: string; type: FieldTypeName };
+  /** Edit mode: called with the edited name and type instead of the create callbacks. */
+  onEdit?: (name: string, type: FieldTypeName) => void;
+  /**
+   * Edit mode: whether a type may be offered. Callers pass planTypeChange's verdict so a type
+   * that would drop values is never selectable — the same rule the Change field type menu uses.
+   */
+  canPickType?: (type: FieldTypeName) => boolean;
 }
 
 /**
@@ -85,12 +104,19 @@ export class AddFieldModal extends Modal {
   ) {
     super(app);
     this.linkTableId = options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? '';
+    this.name = options.initial?.name ?? '';
+    this.type = options.initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
+  }
+
+  private get isEdit(): boolean {
+    return this.options.mode === 'edit';
   }
 
   onOpen(): void {
-    this.setTitle('Add New Field');
+    this.setTitle(this.isEdit ? 'Edit Field' : 'Add New Field');
     dressProtoModal(this, { icon: 'table-columns', size: 'sm' });
     this.modalEl.addClass('tablify__af-modal');
+    if (this.isEdit) this.modalEl.addClass('tablify__af-modal--edit');
 
     const body = this.contentEl.createDiv({ cls: 'tablify__af-body' });
 
@@ -117,6 +143,7 @@ export class AddFieldModal extends Modal {
       const optgroup = typeSelect.createEl('optgroup') as HTMLOptGroupElement;
       optgroup.label = group;
       for (const t of offered) {
+        if (!this.offersType(t)) continue;
         grouped.add(t);
         const option = optgroup.createEl('option', { value: t }) as HTMLOptionElement;
         option.textContent = TYPE_LABELS[t] ?? t;
@@ -124,7 +151,7 @@ export class AddFieldModal extends Modal {
     }
     // Any offered type the groups do not name still appears (never silently dropped).
     for (const t of CHANGE_TARGET_TYPES) {
-      if (grouped.has(t)) continue;
+      if (grouped.has(t) || !this.offersType(t)) continue;
       const option = typeSelect.createEl('option', { value: t }) as HTMLOptionElement;
       option.textContent = TYPE_LABELS[t] ?? t;
     }
@@ -220,6 +247,7 @@ export class AddFieldModal extends Modal {
     });
 
     const showTypeRows = (): void => {
+      if (this.isEdit) return;
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? '' : 'none';
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? '' : 'none';
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? '' : 'none';
@@ -227,6 +255,11 @@ export class AddFieldModal extends Modal {
       linkWrap.style.display = this.type === 'link' ? '' : 'none';
     };
     showTypeRows();
+    if (this.isEdit) {
+      // Edit mode edits the name and its type only. The other rows are dropped rather than
+      // hidden so nothing focusable is left behind; showTypeRows() above is a no-op in this mode.
+      for (const wrap of [optionsWrap, rulesWrap, formulaWrap, linkWrap]) wrap.remove();
+    }
 
     // Footer: `mt-5 flex justify-end space-x-2` — Cancel, Save Field.
     const footer = this.contentEl.createDiv({ cls: 'tablify__af-footer' });
@@ -234,7 +267,7 @@ export class AddFieldModal extends Modal {
     cancel.type = 'button';
     cancel.addEventListener('click', () => this.close());
     const save = footer.createEl('button', {
-      text: 'Save Field',
+      text: this.isEdit ? 'Save' : 'Save Field',
       cls: 'tablify__pmodal-btn tablify__pmodal-btn--primary mod-cta',
     }) as HTMLButtonElement;
     save.type = 'button';
@@ -308,10 +341,21 @@ export class AddFieldModal extends Modal {
     return Object.keys(extras).length > 0 ? extras : undefined;
   }
 
+  /** Edit mode: only types planTypeChange accepts, plus the field's current type. */
+  private offersType(type: FieldTypeName): boolean {
+    if (!this.isEdit || type === this.type) return true;
+    return this.options.canPickType ? this.options.canPickType(type) : true;
+  }
+
   private submit(): void {
     const name = this.name.trim();
     if (!name) {
       new Notice('Field name cannot be empty.');
+      return;
+    }
+    if (this.isEdit) {
+      this.close();
+      this.options.onEdit?.(name, this.type);
       return;
     }
     // Validate before closing, so the modal stays open with the user's text intact.
@@ -334,3 +378,9 @@ export class AddFieldModal extends Modal {
     else this.onConfirm(name, this.type);
   }
 }
+
+/**
+ * COD-67: the field editor IS the Add Field window. The ticket asks for creating and editing to
+ * be one dialog, so this is an alias, not a subclass or a copy — there is exactly one layout.
+ */
+export { AddFieldModal as FieldEditorModal };

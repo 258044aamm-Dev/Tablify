@@ -418,6 +418,50 @@ export function createChangeFieldTypeCommand(data: { before: FieldSnapshot; afte
   };
 }
 
+/** One field definition plus the cell values that belong to it, for an undo step. */
+export interface FieldChangeEntry {
+  field: FieldDefinition;
+  valuesByRow: Record<string, CellValue>;
+}
+
+/**
+ * COD-67: edit one field's name and/or type, carrying every reference to its old name along with
+ * it — as ONE undo step.
+ *
+ * Formulas (`{Price}`) and saved queries (`Price:>10`) address fields by name, never by id, so a
+ * rename that left them behind would silently break the table. `before`/`after` hold the edited
+ * field plus any formula definitions whose expression was rewritten; the view carries the
+ * rewritten query. A name-only edit passes empty value maps, so cell values and row revisions
+ * stay exactly as they were.
+ */
+export interface FieldEditData {
+  /** Fields as they were: the edited field, then each formula that was rewritten. */
+  before: FieldChangeEntry[];
+  /** The same fields, renamed / retyped / rewritten. Same order as `before`. */
+  after: FieldChangeEntry[];
+  /** Applies a view definition to the session — the same seam createAddFieldCommand uses. */
+  applyView: (view: ViewDefinition) => void;
+  viewBefore: ViewDefinition;
+  viewAfter: ViewDefinition;
+}
+
+export function createFieldEditCommand(data: FieldEditData): Command {
+  const write = (store: TableStore, entries: FieldChangeEntry[]): void => {
+    for (const entry of entries) store.replaceField(entry.field, entry.valuesByRow);
+  };
+  return {
+    type: 'editField',
+    do(store: TableStore): void {
+      write(store, data.after);
+      data.applyView(data.viewAfter);
+    },
+    undo(store: TableStore): void {
+      write(store, data.before);
+      data.applyView(data.viewBefore);
+    },
+  };
+}
+
 /**
  * Replace a select field's option list (Step 11) — rename, recolor, reorder and add, plus the
  * delete path, whose `valuesByRow` carries the cells that referenced the option (R-D12).

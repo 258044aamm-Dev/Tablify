@@ -51,7 +51,8 @@ function makeError(text: string, message: string, position: number): QueryError 
   return { message, position, line, column };
 }
 
-function needsFieldQuote(name: string): boolean {
+/** Whether a field name must be double-quoted in a query. Shared with the rename rewriter. */
+export function needsFieldQuote(name: string): boolean {
   if (name.length === 0) return true;
   if (/^\s|\s$/.test(name)) return true;
   if (/[:,"]/.test(name)) return true;

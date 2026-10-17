@@ -8594,6 +8594,23 @@ function createChangeFieldTypeCommand(data) {
     }
   };
 }
+function createFieldEditCommand(data) {
+  const write = (store, entries) => {
+    for (const entry of entries)
+      store.replaceField(entry.field, entry.valuesByRow);
+  };
+  return {
+    type: "editField",
+    do(store) {
+      write(store, data.after);
+      data.applyView(data.viewAfter);
+    },
+    undo(store) {
+      write(store, data.before);
+      data.applyView(data.viewBefore);
+    }
+  };
+}
 function createSetFieldOptionsCommand(data) {
   return {
     type: "setFieldOptions",
@@ -10427,6 +10444,109 @@ function planTypeChange(rows, field, target) {
   return { ok: true, field: next, valuesByRow };
 }
 
+// src/model/renameRefs.ts
+function escapeRefName(name) {
+  return name.replace(/\\/g, "\\\\").replace(/}/g, "\\}");
+}
+function renameInFormula(src, from, to) {
+  if (from === to)
+    return src;
+  const replacement = `{${escapeRefName(to)}}`;
+  let out = "";
+  let i = 0;
+  const n = src.length;
+  while (i < n) {
+    const c = src.charAt(i);
+    if (c === '"') {
+      out += c;
+      i++;
+      while (i < n) {
+        const ch3 = src.charAt(i);
+        out += ch3;
+        i++;
+        if (ch3 === "\\") {
+          if (i < n) {
+            out += src.charAt(i);
+            i++;
+          }
+          continue;
+        }
+        if (ch3 === '"')
+          break;
+      }
+      continue;
+    }
+    if (c === "{") {
+      let j = i + 1;
+      let name = "";
+      let closed = false;
+      while (j < n) {
+        const ch3 = src.charAt(j);
+        if (ch3 === "\n" || ch3 === "\r")
+          break;
+        if (ch3 === "\\") {
+          const nx = src.charAt(j + 1);
+          if (nx !== "}" && nx !== "\\")
+            break;
+          name += nx;
+          j += 2;
+          continue;
+        }
+        if (ch3 === "}") {
+          closed = true;
+          j++;
+          break;
+        }
+        name += ch3;
+        j++;
+      }
+      if (closed && name.length > 0) {
+        out += name === from ? replacement : src.slice(i, j);
+        i = j;
+        continue;
+      }
+      out += c;
+      i++;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+function renameInQuery(query, from, to) {
+  const parsed = parseQuery(query);
+  if (!parsed.ok)
+    return query;
+  const target = from.trim().toLowerCase();
+  let out = query;
+  for (let k = parsed.ast.terms.length - 1; k >= 0; k--) {
+    const term = parsed.ast.terms[k];
+    if (term.fieldName !== target)
+      continue;
+    const start = term.position;
+    const quoted = out.charAt(start) === '"';
+    const length = quoted ? quotedSpanLength(out, start) : term.rawFieldName.length;
+    const replacement = quoted || needsFieldQuote(to) ? `"${to.replace(/"/g, '""')}"` : to;
+    out = out.slice(0, start) + replacement + out.slice(start + length);
+  }
+  return out;
+}
+function quotedSpanLength(src, start) {
+  let i = start + 1;
+  while (i < src.length) {
+    if (src.charAt(i) === '"') {
+      if (src.charAt(i + 1) === '"') {
+        i += 2;
+        continue;
+      }
+      return i - start + 1;
+    }
+    i++;
+  }
+  return src.length - start;
+}
+
 // src/model/tableSession.ts
 function createSession(file) {
   const store = createTableStore({
@@ -10440,6 +10560,73 @@ function createSession(file) {
   let syncLink = file.syncLink ?? null;
   const setViewState = (next) => {
     view = next;
+  };
+  const editFieldImpl = (fieldId, name, type) => {
+    const fields = store.getFields();
+    const field = fields.find((f) => f.id === fieldId);
+    if (!field)
+      return { ok: false, reason: "Field not found" };
+    const nextName = name.trim();
+    if (!nextName)
+      return { ok: false, reason: "Field name cannot be empty" };
+    const taken = fields.some(
+      (f) => f.id !== fieldId && f.name.trim().toLowerCase() === nextName.toLowerCase()
+    );
+    if (taken)
+      return { ok: false, reason: `A field named "${nextName}" already exists` };
+    const nextType = type ?? field.type;
+    const nameChanged = nextName !== field.name;
+    const typeChanged = nextType !== field.type;
+    if (!nameChanged && !typeChanged)
+      return { ok: true, field, updatedFormulas: 0 };
+    let retyped = field;
+    let valuesByRow = {};
+    if (typeChanged) {
+      const plan = planTypeChange(store.getAllRows(), field, nextType);
+      if (!plan.ok)
+        return { ok: false, reason: plan.reason, blockedRows: plan.blockedRows };
+      retyped = plan.field;
+      valuesByRow = plan.valuesByRow;
+    }
+    const rows = store.getAllRows();
+    const before = [
+      {
+        field: { ...field },
+        valuesByRow: typeChanged ? Object.fromEntries(rows.map((r) => [r.id, r.values[fieldId] ?? null])) : {}
+      }
+    ];
+    const after = [
+      { field: nameChanged ? { ...retyped, name: nextName } : retyped, valuesByRow }
+    ];
+    if (nameChanged) {
+      for (const other of fields) {
+        if (other.type !== "formula" || !other.formula)
+          continue;
+        const rewritten = renameInFormula(other.formula, field.name, nextName);
+        if (rewritten === other.formula)
+          continue;
+        before.push({ field: { ...other }, valuesByRow: {} });
+        after.push({ field: { ...other, formula: rewritten }, valuesByRow: {} });
+      }
+    }
+    const nextQuery = nameChanged && typeof view.query === "string" ? renameInQuery(view.query, field.name, nextName) : null;
+    const viewBefore = view;
+    const viewAfter = nextQuery !== null && nextQuery !== view.query ? { ...view, query: nextQuery } : view;
+    stack.execute(
+      createFieldEditCommand({
+        before,
+        after,
+        applyView: setViewState,
+        viewBefore,
+        viewAfter
+      })
+    );
+    afterMutation();
+    return {
+      ok: true,
+      field: after[0].field,
+      updatedFormulas: before.length - 1
+    };
   };
   return {
     store,
@@ -10616,6 +10803,10 @@ function createSession(file) {
       );
       afterMutation();
       return plan;
+    },
+    editField: editFieldImpl,
+    renameField(fieldId, name) {
+      return editFieldImpl(fieldId, name);
     },
     undo() {
       const changed = stack.undo();
@@ -15620,6 +15811,8 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     this.onConfirm = onConfirm;
     this.options = options;
     this.linkTableId = options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? "";
+    this.name = options.initial?.name ?? "";
+    this.type = options.initial?.type ?? DEFAULT_NEW_FIELD_TYPE;
   }
   name = "";
   type = DEFAULT_NEW_FIELD_TYPE;
@@ -15631,10 +15824,15 @@ var AddFieldModal = class extends import_obsidian5.Modal {
   minText = "";
   maxText = "";
   regexText = "";
+  get isEdit() {
+    return this.options.mode === "edit";
+  }
   onOpen() {
-    this.setTitle("Add New Field");
+    this.setTitle(this.isEdit ? "Edit Field" : "Add New Field");
     dressProtoModal(this, { icon: "table-columns", size: "sm" });
     this.modalEl.addClass("tablify__af-modal");
+    if (this.isEdit)
+      this.modalEl.addClass("tablify__af-modal--edit");
     const body = this.contentEl.createDiv({ cls: "tablify__af-body" });
     const nameWrap = body.createDiv();
     this.label(nameWrap, "Field name", "tablify__af-name");
@@ -15657,13 +15855,15 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       const optgroup = typeSelect.createEl("optgroup");
       optgroup.label = group;
       for (const t of offered) {
+        if (!this.offersType(t))
+          continue;
         grouped.add(t);
         const option = optgroup.createEl("option", { value: t });
         option.textContent = TYPE_LABELS[t] ?? t;
       }
     }
     for (const t of CHANGE_TARGET_TYPES) {
-      if (grouped.has(t))
+      if (grouped.has(t) || !this.offersType(t))
         continue;
       const option = typeSelect.createEl("option", { value: t });
       option.textContent = TYPE_LABELS[t] ?? t;
@@ -15752,6 +15952,8 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       this.linkTableId = linkSelect.value;
     });
     const showTypeRows = () => {
+      if (this.isEdit)
+        return;
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? "" : "none";
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? "" : "none";
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? "" : "none";
@@ -15759,12 +15961,16 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       linkWrap.style.display = this.type === "link" ? "" : "none";
     };
     showTypeRows();
+    if (this.isEdit) {
+      for (const wrap of [optionsWrap, rulesWrap, formulaWrap, linkWrap])
+        wrap.remove();
+    }
     const footer = this.contentEl.createDiv({ cls: "tablify__af-footer" });
     const cancel = footer.createEl("button", { text: "Cancel", cls: "tablify__pmodal-btn" });
     cancel.type = "button";
     cancel.addEventListener("click", () => this.close());
     const save = footer.createEl("button", {
-      text: "Save Field",
+      text: this.isEdit ? "Save" : "Save Field",
       cls: "tablify__pmodal-btn tablify__pmodal-btn--primary mod-cta"
     });
     save.type = "button";
@@ -15838,10 +16044,21 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     }
     return Object.keys(extras).length > 0 ? extras : void 0;
   }
+  /** Edit mode: only types planTypeChange accepts, plus the field's current type. */
+  offersType(type) {
+    if (!this.isEdit || type === this.type)
+      return true;
+    return this.options.canPickType ? this.options.canPickType(type) : true;
+  }
   submit() {
     const name = this.name.trim();
     if (!name) {
       new import_obsidian5.Notice("Field name cannot be empty.");
+      return;
+    }
+    if (this.isEdit) {
+      this.close();
+      this.options.onEdit?.(name, this.type);
       return;
     }
     if (this.type === "link" && !this.linkTableId) {
