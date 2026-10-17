@@ -13596,12 +13596,53 @@ var GridView = class {
   getSelection() {
     return this.selected ? { ...this.selected } : null;
   }
-  /** Select one body cell (no-op if out of range). Pass null to clear. */
+  /**
+   * Select one body cell (no-op if out of range). Pass null to clear.
+   *
+   * COD-66: the marking is painted in place, exactly like `setRowSelection` below, and the grid is
+   * only re-rendered when the target row is outside the rendered window. Re-rendering on every
+   * selection change rebuilt the row pool under the pointer, which destroyed the element that
+   * received the first click of a double-click — the browser then never produced `dblclick`, and
+   * cells could only be edited with Enter.
+   */
   setSelection(sel) {
     if (sel && (sel.row < 0 || sel.row >= this.totalRows || sel.col < 0 || sel.col >= this.fields.length))
       return;
-    this.selected = sel ? { ...sel } : null;
-    this.render();
+    const prev = this.selected;
+    const next = sel ? { ...sel } : null;
+    if (prev && next && prev.row === next.row && prev.col === next.col)
+      return;
+    this.selected = next;
+    if (prev)
+      this.paintSelection(this.cellAt(prev.row, prev.col), false);
+    if (!next)
+      return;
+    const cell2 = this.cellAt(next.row, next.col);
+    if (cell2)
+      this.paintSelection(cell2, true);
+    else
+      this.render();
+  }
+  /** The rendered cell for a grid coordinate, or null when that row is outside the pool. */
+  cellAt(row, col) {
+    return this.root.querySelector(
+      `.tablify__row[data-row-index="${row}"] .tablify__cell[data-col-index="${col}"]`
+    );
+  }
+  /** The one place that owns the selected-cell look (class, ARIA, capsule outline). */
+  paintSelection(cell2, on) {
+    if (!cell2)
+      return;
+    cell2.classList.toggle("tablify__cell--selected", on);
+    if (on)
+      cell2.setAttribute("aria-selected", "true");
+    else
+      cell2.removeAttribute("aria-selected");
+    const capsule = cell2.querySelector(".tablify__capsule");
+    if (!capsule)
+      return;
+    capsule.style.outline = on ? "2px solid var(--tablify-selection)" : "";
+    capsule.style.outlineOffset = on ? "-1px" : "";
   }
   /** Scroll so that the given row is inside the viewport. */
   scrollToRow(rowIndex) {
@@ -14384,10 +14425,7 @@ var GridView = class {
           cell2.setAttribute("aria-colindex", String(colIndex + 1));
           cell2.setAttribute("aria-description", `Row ${number}, column ${field.name}`);
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
-            cell2.classList.add("tablify__cell--selected");
-            cell2.setAttribute("aria-selected", "true");
-            capsule.style.outline = "2px solid var(--tablify-selection)";
-            capsule.style.outlineOffset = "-1px";
+            this.paintSelection(cell2, true);
           }
           rowEl.appendChild(cell2);
         });

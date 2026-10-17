@@ -137,6 +137,37 @@ describe('SAD-96 — cell edit triggers', () => {
     expect(editorIn(view), 'editor closed after commit').toBeNull();
   });
 
+  // COD-66: the dblclick listener only ever runs if the browser can produce the event, and
+  // Chromium only produces it when both clicks hit the same node. Re-rendering the row pool on
+  // the first click (the old setSelection behaviour) made that impossible, so these two tests
+  // guard the DOM identity rather than replaying a synthetic `dblclick` (which always passed).
+  it('a click keeps the cell element alive, so the browser can fire dblclick (COD-66)', async () => {
+    const view = await openView();
+    const before = need(cellAt(view, 0, 0), 'first cell');
+
+    before.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    const after = need(cellAt(view, 0, 0), 'first cell after click');
+    expect(after, 'the clicked node must survive — a rebuilt node kills dblclick').toBe(before);
+    expect(after.classList.contains('tablify__cell--selected'), 'still marked selected').toBe(true);
+    expect(after.getAttribute('aria-selected'), 'aria-selected kept').toBe('true');
+  });
+
+  it('moving the selection repaints in place: same node, exactly one selected cell', async () => {
+    const view = await openView();
+    const first = need(cellAt(view, 0, 0), 'first cell');
+    first.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    const second = need(cellAt(view, 1, 1), 'second cell');
+    second.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(cellAt(view, 1, 1), 'the second node survives its own click').toBe(second);
+    expect(second.classList.contains('tablify__cell--selected'), 'second cell selected').toBe(true);
+    expect(first.classList.contains('tablify__cell--selected'), 'first cell cleared').toBe(false);
+    expect(first.hasAttribute('aria-selected'), 'first cell aria-selected removed').toBe(false);
+    expect(view.contentEl.querySelectorAll('.tablify__cell--selected'), 'exactly one selected').toHaveLength(1);
+  });
+
   it('double-click on a select cell opens the select panel (not a text editor)', async () => {
     const view = await openView();
     // Status is the third visible field (Name, Notes, Status, …).

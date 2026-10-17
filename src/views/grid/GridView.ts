@@ -423,11 +423,50 @@ export class GridView {
     return this.selected ? { ...this.selected } : null;
   }
 
-  /** Select one body cell (no-op if out of range). Pass null to clear. */
+  /**
+   * Select one body cell (no-op if out of range). Pass null to clear.
+   *
+   * COD-66: the marking is painted in place, exactly like `setRowSelection` below, and the grid is
+   * only re-rendered when the target row is outside the rendered window. Re-rendering on every
+   * selection change rebuilt the row pool under the pointer, which destroyed the element that
+   * received the first click of a double-click — the browser then never produced `dblclick`, and
+   * cells could only be edited with Enter.
+   */
   setSelection(sel: GridSelection | null): void {
     if (sel && (sel.row < 0 || sel.row >= this.totalRows || sel.col < 0 || sel.col >= this.fields.length)) return;
-    this.selected = sel ? { ...sel } : null;
-    this.render();
+    const prev = this.selected;
+    const next = sel ? { ...sel } : null;
+    // Same cell: nothing to repaint, and — crucially — no re-render (see above).
+    if (prev && next && prev.row === next.row && prev.col === next.col) return;
+    this.selected = next;
+    if (prev) this.paintSelection(this.cellAt(prev.row, prev.col), false);
+    if (!next) return;
+    const cell = this.cellAt(next.row, next.col);
+    // The fallback keeps virtual scrolling correct: an off-window row has no cell to paint, and
+    // render() re-applies the selection from `this.selected` in fillRow().
+    if (cell) this.paintSelection(cell, true);
+    else this.render();
+  }
+
+  /** The rendered cell for a grid coordinate, or null when that row is outside the pool. */
+  private cellAt(row: number, col: number): HTMLElement | null {
+    return this.root.querySelector(
+      `.tablify__row[data-row-index="${row}"] .tablify__cell[data-col-index="${col}"]`,
+    ) as HTMLElement | null;
+  }
+
+  /** The one place that owns the selected-cell look (class, ARIA, capsule outline). */
+  private paintSelection(cell: HTMLElement | null, on: boolean): void {
+    if (!cell) return;
+    cell.classList.toggle('tablify__cell--selected', on);
+    if (on) cell.setAttribute('aria-selected', 'true');
+    else cell.removeAttribute('aria-selected');
+    const capsule = cell.querySelector<HTMLElement>('.tablify__capsule');
+    if (!capsule) return;
+    // SAD-69 D: a plugin token, never `var(--interactive-accent)`. SAD-79: drawn on
+    // the capsule (prototype `.cell-focus`: 2px, offset -1px), not the slot.
+    capsule.style.outline = on ? '2px solid var(--tablify-selection)' : '';
+    capsule.style.outlineOffset = on ? '-1px' : '';
   }
 
   /** Scroll so that the given row is inside the viewport. */
@@ -1289,13 +1328,10 @@ export class GridView {
           // P6-03 (a11y): give screen readers a stable name for each cell
           // ("RowIndex, ColumnName, value") without changing any behavior.
           cell.setAttribute('aria-description', `Row ${number}, column ${field.name}`);
+          // COD-66: one helper owns the selected-cell look, for both this render path and the
+          // in-place repaint in setSelection().
           if (this.selected && this.selected.row === rowIdx && this.selected.col === colIndex) {
-            cell.classList.add('tablify__cell--selected');
-            cell.setAttribute('aria-selected', 'true');
-            // SAD-69 D: a plugin token, never `var(--interactive-accent)`. SAD-79: drawn on
-            // the capsule (prototype `.cell-focus`: 2px, offset -1px), not the slot.
-            capsule.style.outline = '2px solid var(--tablify-selection)';
-            capsule.style.outlineOffset = '-1px';
+            this.paintSelection(cell, true);
           }
           rowEl.appendChild(cell);
         });
