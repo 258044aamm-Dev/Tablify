@@ -178,7 +178,10 @@ Number thousands separators and right alignment; rating stars; local `date_time`
 `modified_time`; clickable url/email/phone; attachment chips; long-text two-line clamp; the `''` vs
 `null` clearing inconsistency (F4); typed-cell styling beyond the six.
 
-**Draft for the follow-up issue** (to file when COD-71 ships, referencing the audit):
+**Filed:** [COD-73](https://linear.app/code-bro/issue/COD-73/cell-display-parity-rating-stars-local-timestamps-links-number) —
+Cell display parity: rating stars, local timestamps, links, number separators.
+
+**Draft that became the issue:**
 
 > **Cells still don't look like the prototype: rating, links, timestamps, numbers**
 > After COD-71 six types render real values. What remains raw or plain: `rating` shows `4` instead of

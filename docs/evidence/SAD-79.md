@@ -112,6 +112,14 @@ Both patterns stay well inside the 16.7 ms frame budget, and normal scrolling is
   - `formControlSpecificity`: header name, ⋮ and Insert Row are element-qualified.
 - **`npm run check`:** lint 0 errors (119 warnings, unchanged); vitest **1421** passing (was 1389); guard, docs and icons PASS; build OK.
 
+## Later change
+
+The "typed cell formatting" gap recorded above in the earlier steps — the body cell writes
+`String(value)` — was closed for six types by [COD-71](https://linear.app/code-bro/issue/COD-71)
+(`28b6f51`): select cells draw the option chip, currency / percent / duration render through
+`format()`, and a checkbox is a clickable box. The audit and what remains are in
+`docs/plans/cod-71-cell-rendering-audit.md`.
+
 ## Visual verification
 
 Command: `npx tsx tests/visual/capture-compare.ts --theme all --viewport all --fixture all --state default`. That is 18 combos: dark and light × owner 1568×795, desktop 1400×900 and mobile 390×844 × the new (5 fields × 3 empty rows), empty and populated fixtures. The full report is `visual-parity/sad-79/report.md`.

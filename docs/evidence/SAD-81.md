@@ -113,10 +113,7 @@ Plugin option colours map onto the prototype's hues (deviation 5).
 
 ## Out of scope, found during verification
 
-- **Select values in grid cells show the raw option id** (`opt_…`) instead of the prototype's chip. This is pre-existing: the cell renderer writes `String(value)` (`GridView.ts`, unchanged since `80433e9`).
-  - It is the "typed cell formatting" follow-up.
-  - Chips there could reuse `optionChipColors`.
-  - Changing the cell renderer would alter an existing feature, so it is not part of this step.
+- ~~**Select values in grid cells show the raw option id** (`opt_…`) instead of the prototype's chip.~~ **Fixed — COD-71 (`28b6f51`).** The cell renderer was writing `String(value)`; it now draws the option chip from `optionChipColors`, the same palette this step's group headers use. The remaining "typed cell formatting" items (rating stars, local timestamps, links, number separators, attachment chips) are still open and tracked in `docs/plans/cod-71-cell-rendering-audit.md`.
 
 ## Tests
 

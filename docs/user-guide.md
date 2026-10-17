@@ -107,6 +107,14 @@ another, which clears the cells that used it.
 | Formula | the result of an expression over other fields in the same row. Read-only (section 18) |
 | Link | rows in another table (section 18) |
 
+**What a cell shows.** The grid shows each value the way its type reads, not the way it is filed:
+
+- a **Single select** cell shows the option as a coloured chip (its **Manage options…** colour), and a **Multi select** cell shows one smaller chip per value — cells store each option's identity, so renaming an option updates every cell;
+- **Currency** shows `1234.56`, **Percent** shows `25%` and **Duration** shows `1m 30s` (the file keeps cents, the 0–1 fraction and milliseconds);
+- a **Checkbox** is a box you click to tick or clear; each click is one undo step. An empty box is the same as `false`; a table reading `true`/`false` in the file shows a ticked/empty box.
+
+Copying a cell or a row, searching and exporting all use the same text you see.
+
 ## 4. Editing cells
 
 - Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits.

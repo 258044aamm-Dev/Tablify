@@ -4,6 +4,16 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cells show what their value means, not its stored form (COD-71)** — a Single select cell shows
+  the option as a coloured chip and a Multi select cell shows one chip per value, instead of the
+  internal option ids (`opt_…`). Currency renders `1234.56`, percent `25%`, duration `1m 30s` (the
+  file still stores minor units, the 0–1 fraction and milliseconds). A Checkbox is now a box you can
+  click: one click is one undo step, and it is clickable in embeds too. Tables imported from CSV or
+  Excel were always mapped correctly — only the grid was printing the raw value, which made imported
+  select columns look like they carried fixed options.
+
 ### Changed
 
 - **The header menu's *Field details…* is now *Modify field…*, and the window shows the whole
