@@ -43,6 +43,27 @@ export type EditFieldResult =
 /** Renaming is editing the name only — kept as its own name because that is how it is called. */
 export type RenameFieldResult = EditFieldResult;
 
+/**
+ * COD-69: the patch the shared field window sends. Every key is optional and only the keys that
+ * are present are written, so a row the window did not show can never clear the value behind it.
+ * `false` / `null` / `''` on a validation rule removes that rule; `options` is deliberately absent —
+ * option ids are owned by createSetFieldOptionsCommand (the Manage options dialog).
+ */
+export interface FieldEdit {
+  name?: string;
+  type?: FieldTypeName;
+  required?: boolean;
+  unique?: boolean;
+  /** Already in the field type's stored form (number, `YYYY-MM-DD`, ISO date-time, ms). */
+  min?: number | string | null;
+  max?: number | string | null;
+  regex?: string | null;
+  /** Formula fields only; compile-checked before anything is written. */
+  formula?: string;
+  /** Link fields only. */
+  linkTableId?: string;
+}
+
 export interface TableSession {
   readonly store: TableStore;
   readonly stack: CommandStack;
@@ -127,8 +148,12 @@ export interface TableSession {
    * name, a name another field in the table already uses, or a type change that would lose
    * values. A name-only edit leaves cell values and row revisions untouched.
    */
-  editField(fieldId: string, name: string, type?: FieldTypeName): EditFieldResult;
-  /** Rename a field — editField with the type left alone. */
+  editField(
+    fieldId: string,
+    edit: FieldEdit | string,
+    type?: FieldTypeName,
+  ): EditFieldResult;
+  /** Rename a field — editField with the name alone. */
   renameField(fieldId: string, name: string): EditFieldResult;
   undo(): boolean;
   redo(): boolean;
@@ -156,25 +181,32 @@ export function createSession(file: TablifyFile): TableSession {
     view = next;
   };
 
-  /** COD-67: shared by editField and renameField, so there is one code path for both. */
+  /** COD-67/COD-69: shared by editField and renameField, so there is one code path for both. */
   const editFieldImpl = (
     fieldId: string,
-    name: string,
+    edit: FieldEdit | string,
     type?: FieldTypeName,
   ): EditFieldResult => {
+    // COD-67 callers pass (name, type); the shared window passes one patch.
+    const patch: FieldEdit =
+      typeof edit === 'string' ? { name: edit, ...(type === undefined ? {} : { type }) } : edit;
     const fields = store.getFields();
     const field = fields.find((f) => f.id === fieldId);
     if (!field) return { ok: false, reason: 'Field not found' };
-    const nextName = name.trim();
-    if (!nextName) return { ok: false, reason: 'Field name cannot be empty' };
-    const taken = fields.some(
-      (f) => f.id !== fieldId && f.name.trim().toLowerCase() === nextName.toLowerCase(),
-    );
-    if (taken) return { ok: false, reason: `A field named "${nextName}" already exists` };
-    const nextType = type ?? field.type;
+
+    let nextName = field.name;
+    if (patch.name !== undefined) {
+      const trimmed = patch.name.trim();
+      if (!trimmed) return { ok: false, reason: 'Field name cannot be empty' };
+      const taken = fields.some(
+        (f) => f.id !== fieldId && f.name.trim().toLowerCase() === trimmed.toLowerCase(),
+      );
+      if (taken) return { ok: false, reason: `A field named "${trimmed}" already exists` };
+      nextName = trimmed;
+    }
     const nameChanged = nextName !== field.name;
+    const nextType = patch.type ?? field.type;
     const typeChanged = nextType !== field.type;
-    if (!nameChanged && !typeChanged) return { ok: true, field, updatedFormulas: 0 };
 
     // A type change goes through the same planner the header menu's editor uses, so the two
     // paths cannot disagree about what converts.
@@ -186,6 +218,53 @@ export function createSession(file: TablifyFile): TableSession {
       retyped = plan.field;
       valuesByRow = plan.valuesByRow;
     }
+    const nextField: FieldDefinition = nameChanged ? { ...retyped, name: nextName } : { ...retyped };
+
+    // Only the keys the caller sent are touched. A rule set to false / null / '' is removed, so
+    // a rule can be switched off from the window.
+    if (patch.required !== undefined) {
+      if (patch.required) nextField.required = true;
+      else delete nextField.required;
+    }
+    if (patch.unique !== undefined) {
+      if (patch.unique) nextField.unique = true;
+      else delete nextField.unique;
+    }
+    if (patch.min !== undefined) {
+      if (patch.min === null || patch.min === '') delete nextField.min;
+      else nextField.min = patch.min;
+    }
+    if (patch.max !== undefined) {
+      if (patch.max === null || patch.max === '') delete nextField.max;
+      else nextField.max = patch.max;
+    }
+    if (patch.regex !== undefined) {
+      const regex = patch.regex === null ? '' : String(patch.regex).trim();
+      if (!regex) delete nextField.regex;
+      else {
+        try {
+          new RegExp(regex);
+        } catch {
+          return { ok: false, reason: 'The regex is not valid.' };
+        }
+        nextField.regex = regex;
+      }
+    }
+    if (patch.formula !== undefined && nextField.type === 'formula') {
+      // Same guard as setFormula: a formula that does not parse is refused before anything lands.
+      const compiled = compileFormula(patch.formula);
+      if (!compiled.ok) return { ok: false, reason: ERROR_MESSAGES[compiled.code] };
+      nextField.formula = patch.formula;
+    }
+    if (patch.linkTableId !== undefined && nextField.type === 'link') {
+      nextField.linkTableId = patch.linkTableId;
+    }
+
+    // A save that changed nothing must not add an undo entry or bump a row revision.
+    if (!nameChanged && sameFieldDefinition(field, nextField)) {
+      return { ok: true, field, updatedFormulas: 0 };
+    }
+
     const rows = store.getAllRows();
     const before: FieldChangeEntry[] = [
       {
@@ -195,9 +274,7 @@ export function createSession(file: TablifyFile): TableSession {
           : {},
       },
     ];
-    const after: FieldChangeEntry[] = [
-      { field: nameChanged ? { ...retyped, name: nextName } : retyped, valuesByRow },
-    ];
+    const after: FieldChangeEntry[] = [{ field: nextField, valuesByRow }];
 
     if (nameChanged) {
       for (const other of fields) {
@@ -229,7 +306,7 @@ export function createSession(file: TablifyFile): TableSession {
     afterMutation();
     return {
       ok: true,
-      field: after[0].field,
+      field: nextField,
       updatedFormulas: before.length - 1,
     };
   };
@@ -470,4 +547,29 @@ export function applyNewFieldExtras(field: FieldDefinition, extras: NewFieldExtr
   if (extras.min !== undefined && extras.min !== null && extras.min !== '') field.min = extras.min;
   if (extras.max !== undefined && extras.max !== null && extras.max !== '') field.max = extras.max;
   if (extras.regex) field.regex = extras.regex;
+}
+
+/** Every key editField can write, compared value by value (undefined and absent are the same). */
+const FIELD_EDIT_KEYS = [
+  'name',
+  'type',
+  'required',
+  'unique',
+  'min',
+  'max',
+  'regex',
+  'formula',
+  'linkTableId',
+] as const;
+
+/**
+ * Whether two definitions are the same for the purpose of "did the user change anything".
+ * Options are compared structurally: a type change keeps or drops the array as a whole, so
+ * reference equality would report a false change.
+ */
+function sameFieldDefinition(a: FieldDefinition, b: FieldDefinition): boolean {
+  for (const key of FIELD_EDIT_KEYS) {
+    if (!Object.is(a[key], b[key])) return false;
+  }
+  return JSON.stringify(a.options ?? null) === JSON.stringify(b.options ?? null);
 }

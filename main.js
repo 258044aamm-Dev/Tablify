@@ -10561,24 +10561,27 @@ function createSession(file) {
   const setViewState = (next) => {
     view = next;
   };
-  const editFieldImpl = (fieldId, name, type) => {
+  const editFieldImpl = (fieldId, edit, type) => {
+    const patch = typeof edit === "string" ? { name: edit, ...type === void 0 ? {} : { type } } : edit;
     const fields = store.getFields();
     const field = fields.find((f) => f.id === fieldId);
     if (!field)
       return { ok: false, reason: "Field not found" };
-    const nextName = name.trim();
-    if (!nextName)
-      return { ok: false, reason: "Field name cannot be empty" };
-    const taken = fields.some(
-      (f) => f.id !== fieldId && f.name.trim().toLowerCase() === nextName.toLowerCase()
-    );
-    if (taken)
-      return { ok: false, reason: `A field named "${nextName}" already exists` };
-    const nextType = type ?? field.type;
+    let nextName = field.name;
+    if (patch.name !== void 0) {
+      const trimmed = patch.name.trim();
+      if (!trimmed)
+        return { ok: false, reason: "Field name cannot be empty" };
+      const taken = fields.some(
+        (f) => f.id !== fieldId && f.name.trim().toLowerCase() === trimmed.toLowerCase()
+      );
+      if (taken)
+        return { ok: false, reason: `A field named "${trimmed}" already exists` };
+      nextName = trimmed;
+    }
     const nameChanged = nextName !== field.name;
+    const nextType = patch.type ?? field.type;
     const typeChanged = nextType !== field.type;
-    if (!nameChanged && !typeChanged)
-      return { ok: true, field, updatedFormulas: 0 };
     let retyped = field;
     let valuesByRow = {};
     if (typeChanged) {
@@ -10588,6 +10591,56 @@ function createSession(file) {
       retyped = plan.field;
       valuesByRow = plan.valuesByRow;
     }
+    const nextField = nameChanged ? { ...retyped, name: nextName } : { ...retyped };
+    if (patch.required !== void 0) {
+      if (patch.required)
+        nextField.required = true;
+      else
+        delete nextField.required;
+    }
+    if (patch.unique !== void 0) {
+      if (patch.unique)
+        nextField.unique = true;
+      else
+        delete nextField.unique;
+    }
+    if (patch.min !== void 0) {
+      if (patch.min === null || patch.min === "")
+        delete nextField.min;
+      else
+        nextField.min = patch.min;
+    }
+    if (patch.max !== void 0) {
+      if (patch.max === null || patch.max === "")
+        delete nextField.max;
+      else
+        nextField.max = patch.max;
+    }
+    if (patch.regex !== void 0) {
+      const regex = patch.regex === null ? "" : String(patch.regex).trim();
+      if (!regex)
+        delete nextField.regex;
+      else {
+        try {
+          new RegExp(regex);
+        } catch {
+          return { ok: false, reason: "The regex is not valid." };
+        }
+        nextField.regex = regex;
+      }
+    }
+    if (patch.formula !== void 0 && nextField.type === "formula") {
+      const compiled = compileFormula(patch.formula);
+      if (!compiled.ok)
+        return { ok: false, reason: ERROR_MESSAGES[compiled.code] };
+      nextField.formula = patch.formula;
+    }
+    if (patch.linkTableId !== void 0 && nextField.type === "link") {
+      nextField.linkTableId = patch.linkTableId;
+    }
+    if (!nameChanged && sameFieldDefinition(field, nextField)) {
+      return { ok: true, field, updatedFormulas: 0 };
+    }
     const rows = store.getAllRows();
     const before = [
       {
@@ -10595,9 +10648,7 @@ function createSession(file) {
         valuesByRow: typeChanged ? Object.fromEntries(rows.map((r) => [r.id, r.values[fieldId] ?? null])) : {}
       }
     ];
-    const after = [
-      { field: nameChanged ? { ...retyped, name: nextName } : retyped, valuesByRow }
-    ];
+    const after = [{ field: nextField, valuesByRow }];
     if (nameChanged) {
       for (const other of fields) {
         if (other.type !== "formula" || !other.formula)
@@ -10624,7 +10675,7 @@ function createSession(file) {
     afterMutation();
     return {
       ok: true,
-      field: after[0].field,
+      field: nextField,
       updatedFormulas: before.length - 1
     };
   };
@@ -10856,6 +10907,24 @@ function applyNewFieldExtras(field, extras) {
     field.max = extras.max;
   if (extras.regex)
     field.regex = extras.regex;
+}
+var FIELD_EDIT_KEYS = [
+  "name",
+  "type",
+  "required",
+  "unique",
+  "min",
+  "max",
+  "regex",
+  "formula",
+  "linkTableId"
+];
+function sameFieldDefinition(a, b) {
+  for (const key of FIELD_EDIT_KEYS) {
+    if (!Object.is(a[key], b[key]))
+      return false;
+  }
+  return JSON.stringify(a.options ?? null) === JSON.stringify(b.options ?? null);
 }
 
 // src/io/export/view.ts
