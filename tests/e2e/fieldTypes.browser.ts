@@ -398,9 +398,12 @@ async function runCheckboxNull(page: Page): Promise<void> {
 }
 
 /**
- * What the grid renders today. These assert the CURRENT contract (raw stored values, the known
- * "typed cell formatting" gap recorded in docs/evidence/SAD-79.md §5) so that changing it later
- * is a deliberate decision with a failing check, not an accident.
+ * What the grid renders.
+ *
+ * COD-71 changed six of these: a select cell shows the option's name (as the prototype's chip),
+ * currency / percent / duration show their unit, and a checkbox is a box instead of the word
+ * "true". The rest still render their stored text, and those remain pinned — a change to them
+ * should fail loudly, exactly as before.
  */
 async function runRenderedValues(page: Page): Promise<void> {
   const rendered = (col: number) =>
@@ -412,15 +415,79 @@ async function runRenderedValues(page: Page): Promise<void> {
     );
   const expected: Array<[string, string]> = [
     ['fld_text', 'Hello world'],
-    ['fld_cur', '123456'],
-    ['fld_pct', '0.25'],
-    ['fld_dur', '90000'],
-    ['fld_single', 'opt_a'],
+    ['fld_cur', '1234.56'],
+    ['fld_pct', '25%'],
+    ['fld_dur', '1m 30s'],
+    ['fld_single', 'Alpha'],
+    ['fld_multi', 'Alpha Beta'],
     ['fld_formula', '2'],
   ];
   for (const [id, text] of expected) {
     check(`${id}: cell renders "${text}"`, (await rendered(COL[id])) === text, `got ${JSON.stringify(await rendered(COL[id]))}`);
   }
+
+  const chips = await page.evaluate(
+    (cols) =>
+      cols.map(
+        (c) =>
+          document.querySelectorAll(
+            `.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${c}"] .tablify__chip`,
+          ).length,
+      ),
+    [COL.fld_single, COL.fld_multi] as const,
+  );
+  check('single_select: one chip in the cell', chips[0] === 1, `got ${chips[0]}`);
+  check('multi_select: one chip per value', chips[1] === 2, `got ${chips[1]}`);
+
+  const leaks = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.tablify__row .tablify__cell-text'))
+      .map((el) => el.textContent ?? '')
+      .filter((t) => t.includes('opt_')).length,
+  );
+  check('no cell shows a raw option id', leaks === 0, `${leaks} cell(s) with opt_`);
+}
+
+/**
+ * COD-71: the checkbox is a real box. One click flips the value (one undo step), the cell is not
+ * selected by that click, and the toolbar's Undo puts the value straight back.
+ */
+async function runCheckboxClick(page: Page): Promise<void> {
+  const selectedCol = () =>
+    page.evaluate(() => document.querySelector<HTMLElement>('.tablify__cell--selected')?.dataset.colIndex ?? null);
+  const before = await stored(page, 0, 'fld_check');
+  const selBefore = await selectedCol();
+
+  const box = page.locator(cell(0, COL.fld_check) + ' .tablify__check');
+  await box.scrollIntoViewIfNeeded();
+  await box.click();
+  await page.waitForTimeout(160);
+
+  const after = await stored(page, 0, 'fld_check');
+  check(
+    'checkbox: one click flips the value',
+    after === (before !== true),
+    `${JSON.stringify(before)} -> ${JSON.stringify(after)}`,
+  );
+  const selAfter = await selectedCol();
+  check('checkbox: clicking the box does not move the cell selection', selBefore === selAfter, `${selBefore} -> ${selAfter}`);
+  check('checkbox: clicking the box opens no editor', (await surface(page)).kind === 'none');
+  const aria = await page.evaluate(
+    (c) =>
+      document
+        .querySelector(`.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${c}"] .tablify__check`)
+        ?.getAttribute('aria-checked') ?? null,
+    COL.fld_check,
+  );
+  check('checkbox: aria-checked follows the value', aria === String(after === true), `${aria} vs ${JSON.stringify(after)}`);
+
+  await page.locator('button.tablify__toolbar-button[data-action="undo"]').click();
+  await page.waitForTimeout(160);
+  const undone = await stored(page, 0, 'fld_check');
+  check(
+    'checkbox: one click is one undo step',
+    JSON.stringify(undone) === JSON.stringify(before),
+    `${JSON.stringify(after)} -> ${JSON.stringify(undone)}, wanted ${JSON.stringify(before)}`,
+  );
 }
 
 // ---- runner ----------------------------------------------------------------------
@@ -435,6 +502,7 @@ async function main(): Promise<void> {
     await runEditingMatrix(session.page);
     // Before runEmptyCommit: the clearing check empties the text cell these assert on.
     await runRenderedValues(session.page);
+    await runCheckboxClick(session.page);
     await runReadOnlyRefusals(session.page);
     await runInvalidInput(session.page);
     await runEmptyCommit(session.page);

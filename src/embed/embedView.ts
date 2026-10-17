@@ -192,6 +192,16 @@ export class EmbedView {
         this.sel = { row, col };
       },
       linkSummary: links ? (value) => summarizeLinks(value, links.index) : undefined,
+      // COD-71: the checkbox box is clickable in an embed too; the write goes through the
+      // shared document, so both embeds and the full view see it and it is saved once.
+      onToggleCheckbox: (rowIndex, colIndex) => {
+        const s = this.doc.getSession();
+        if (!s) return;
+        const row = s.getDisplayRows()[rowIndex];
+        const field = s.getVisibleFields()[colIndex];
+        if (!row || !field || field.type !== 'checkbox') return;
+        this.doc.mutate((st) => st.setValue(row.id, field.id, row.values[field.id] !== true));
+      },
     });
     this.grid.root.tabIndex = 0;
     this.grid.root.addEventListener('keydown', (e) => this.onKeyDown(e));

@@ -13185,7 +13185,8 @@ var GLYPHS = {
   "check": { w: 448, d: "M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z" },
   "palette": { w: 512, d: "M512 256c0 .9 0 1.8 0 2.7c-.4 36.5-33.6 61.3-70.1 61.3H344c-26.5 0-48 21.5-48 48c0 3.4 .4 6.7 1 9.9c2.1 10.2 6.5 20 10.8 29.9c6.1 13.8 12.1 27.5 12.1 42c0 31.8-21.6 60.7-53.4 62c-3.5 .1-7 .2-10.6 .2C114.6 512 0 397.4 0 256S114.6 0 256 0S512 114.6 512 256zM128 288a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm0-96a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm96 96a32 32 0 1 0 0-64 32 32 0 1 0 0 64z" },
   "arrow-up": { w: 384, d: "M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z" },
-  "arrow-down": { w: 384, d: "M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z" }
+  "arrow-down": { w: 384, d: "M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z" },
+  "square": { w: 448, d: "M384 80c8.8 0 16 7.2 16 16V416c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V96c0-8.8 7.2-16 16-16H384zM64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64z" }
 };
 function faIcon(name, sizePx) {
   const g = GLYPHS[name];
@@ -13488,6 +13489,84 @@ function applyValidationState(cellEl, field, row, allRows) {
   }
 }
 
+// src/views/grid/cellRender.ts
+function isFormattedCellType(field) {
+  switch (field.type) {
+    case "single_select":
+    case "multi_select":
+    case "currency":
+    case "percent":
+    case "duration":
+      return true;
+    default:
+      return false;
+  }
+}
+function formattedCellText(field, value) {
+  if (value === void 0 || value === null)
+    return "";
+  return getFieldType(field.type).format(value, field);
+}
+function selectOptionIds(field, value) {
+  if (field.type === "single_select")
+    return typeof value === "string" && value !== "" ? [value] : [];
+  if (field.type === "multi_select") {
+    return Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+  }
+  return [];
+}
+function renderSelectChips(host, field, value, theme) {
+  const options = field.options ?? [];
+  const multi = field.type === "multi_select";
+  let first = true;
+  for (const id of selectOptionIds(field, value)) {
+    const option = options.find((o) => o.id === id);
+    if (!option)
+      continue;
+    if (!first)
+      host.appendChild(document.createTextNode(" "));
+    first = false;
+    const colors = optionChipColors(option.color, theme);
+    const chip = document.createElement("span");
+    chip.className = multi ? "tablify__chip tablify__chip--cell tablify__chip--multi" : "tablify__chip tablify__chip--cell";
+    chip.style.background = colors.background;
+    chip.style.borderColor = colors.border;
+    chip.style.color = colors.text;
+    if (!multi) {
+      const dot = document.createElement("span");
+      dot.className = "tablify__chip-dot";
+      dot.setAttribute("aria-hidden", "true");
+      dot.style.background = colors.dot;
+      chip.appendChild(dot);
+    }
+    chip.appendChild(document.createTextNode(option.name));
+    host.appendChild(chip);
+  }
+}
+function createCheckboxControl(field, value, onToggle) {
+  const checked = value === true;
+  const icon = faIcon(checked ? "square-check" : "square");
+  const el2 = document.createElement(onToggle ? "button" : "span");
+  el2.className = checked ? "tablify__check tablify__check--on" : "tablify__check";
+  el2.innerHTML = icon;
+  if (onToggle) {
+    el2.type = "button";
+    el2.setAttribute("role", "checkbox");
+    el2.setAttribute("aria-checked", checked ? "true" : "false");
+    el2.setAttribute("aria-label", field.name);
+    el2.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onToggle();
+    });
+    el2.addEventListener("dblclick", (e) => e.stopPropagation());
+  } else {
+    el2.setAttribute("role", "img");
+    el2.setAttribute("aria-label", `${field.name}: ${checked ? "checked" : "not checked"}`);
+  }
+  return el2;
+}
+
 // src/views/grid/GridView.ts
 var GROUP_HEADER_CHIP_PX = 40;
 var GROUP_HEADER_TEXT_PX = 34;
@@ -13658,6 +13737,10 @@ var GridView = class {
   /** SAD-79: live width while a resize handle is dragged (not yet committed). */
   resizePreview = null;
   resizeObserver = null;
+  /** COD-71: the theme the cells render in — the same root class the group headers read. */
+  cellTheme() {
+    return this.root.classList.contains("tablify--dark") ? "dark" : "light";
+  }
   /** SAD-80: selected row ids (UI state owned by the table view). */
   rowSelection = /* @__PURE__ */ new Set();
   /** SAD-80: the row being dragged by its `#` cell, re-applied on every render. */
@@ -14537,6 +14620,19 @@ var GridView = class {
               cell2.title = `${summary.broken} broken ${summary.broken === 1 ? "link" : "links"}: the linked row or table was not found.`;
               cell2.setAttribute("data-broken-links", String(summary.broken));
             }
+          } else if (field.type === "single_select" || field.type === "multi_select") {
+            cell2.classList.add("tablify__cell--select");
+            renderSelectChips(text, field, val, this.cellTheme());
+          } else if (field.type === "checkbox") {
+            text.appendChild(
+              createCheckboxControl(
+                field,
+                val,
+                this.opts.onToggleCheckbox ? () => this.opts.onToggleCheckbox?.(rowIdx, colIndex) : void 0
+              )
+            );
+          } else if (isFormattedCellType(field)) {
+            text.textContent = formattedCellText(field, val);
           } else {
             text.textContent = val === void 0 || val === null ? "" : String(Array.isArray(val) ? val.join(", ") : val);
           }
@@ -18141,6 +18237,18 @@ var TableView = class extends import_obsidian9.TextFileView {
         },
         // SAD-96: double-click (the README's documented gesture) opens the cell's editor.
         onCellActivate: (row, col) => this.startEdit({ row, col }),
+        // COD-71: a checkbox cell is a real box; one click is one undo step, saved like any edit.
+        onToggleCheckbox: (row, col) => {
+          const s2 = this.session;
+          if (!s2)
+            return;
+          const rowData = this.displayRows()[row];
+          const field = s2.getVisibleFields()[col];
+          if (!rowData || !field || field.type !== "checkbox")
+            return;
+          s2.setValue(rowData.id, field.id, rowData.values[field.id] !== true);
+          this.afterChange();
+        },
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -19324,7 +19432,19 @@ var EmbedView = class {
       onCellClick: (row, col) => {
         this.sel = { row, col };
       },
-      linkSummary: links ? (value) => summarizeLinks(value, links.index) : void 0
+      linkSummary: links ? (value) => summarizeLinks(value, links.index) : void 0,
+      // COD-71: the checkbox box is clickable in an embed too; the write goes through the
+      // shared document, so both embeds and the full view see it and it is saved once.
+      onToggleCheckbox: (rowIndex, colIndex) => {
+        const s2 = this.doc.getSession();
+        if (!s2)
+          return;
+        const row = s2.getDisplayRows()[rowIndex];
+        const field = s2.getVisibleFields()[colIndex];
+        if (!row || !field || field.type !== "checkbox")
+          return;
+        this.doc.mutate((st) => st.setValue(row.id, field.id, row.values[field.id] !== true));
+      }
     });
     this.grid.root.tabIndex = 0;
     this.grid.root.addEventListener("keydown", (e) => this.onKeyDown(e));

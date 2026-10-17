@@ -615,6 +615,16 @@ export class TableView extends TextFileView {
         },
         // SAD-96: double-click (the README's documented gesture) opens the cell's editor.
         onCellActivate: (row, col) => this.startEdit({ row, col }),
+        // COD-71: a checkbox cell is a real box; one click is one undo step, saved like any edit.
+        onToggleCheckbox: (row, col) => {
+          const s = this.session;
+          if (!s) return;
+          const rowData = this.displayRows()[row];
+          const field = s.getVisibleFields()[col];
+          if (!rowData || !field || field.type !== 'checkbox') return;
+          s.setValue(rowData.id, field.id, rowData.values[field.id] !== true);
+          this.afterChange();
+        },
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.

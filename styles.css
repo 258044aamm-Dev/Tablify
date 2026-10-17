@@ -2639,6 +2639,71 @@
   flex: 0 0 auto;
 }
 
+/* COD-71: a select cell draws the option's chip (the cell stores the option id). The default
+   capsule padding leaves 16px of height, less than a chip, so select cells trade some of it for
+   the room the chip needs; the capsule keeps its 34/28/40px height and its radius. */
+.tablify__chip--cell {
+  line-height: 16px;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.tablify__cell--select > .tablify__capsule {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.tablify--rh-small .tablify__cell--select > .tablify__capsule {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.tablify--rh-large .tablify__cell--select > .tablify__capsule {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+/* The prototype's smaller multi-select chip: `px-2 py-0.5 text-[10px]`, no colour dot, and the
+   `mr-1` gap the renderer draws as a space between chips. */
+.tablify__chip--multi {
+  padding: 1px 8px;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+/* COD-71: the checkbox cell is a real box. 14px keeps the glyph inside the shortest capsule
+   (a large row leaves 14px of height). Checked = the prototype's terracotta; unchecked = the
+   muted ink the empty-cell em dash uses. */
+.tablify button.tablify__check {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--tablify-text-placeholder);
+  cursor: pointer;
+}
+
+.tablify button.tablify__check:hover {
+  color: var(--tablify-text-muted);
+}
+
+.tablify .tablify__check--on,
+.tablify button.tablify__check--on {
+  color: var(--tablify-accent-primary);
+}
+
+.tablify button.tablify__check:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
 .tablify .tablify__dropdown-check {
   display: inline-flex;
   align-items: center;

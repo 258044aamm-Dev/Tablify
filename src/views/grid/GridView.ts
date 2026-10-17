@@ -36,6 +36,12 @@ import { effectiveFrozenColumns } from '../../model/view.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { GridGroup } from './grouping.js';
 import { applyValidationState } from './validationDisplay.js';
+import {
+  createCheckboxControl,
+  formattedCellText,
+  isFormattedCellType,
+  renderSelectChips,
+} from './cellRender.js';
 
 export interface GridOptions {
   rows: Row[];
@@ -108,6 +114,11 @@ export interface GridOptions {
   groups?: GridGroup[] | null;
   /** SAD-81: a group header was clicked — collapse or expand the group with this key. */
   onToggleGroup?: (key: string) => void;
+  /**
+   * COD-71: a checkbox cell was clicked. The caller writes the value through the command stack,
+   * so one click is one undo step. Without it the cell is a read-only box.
+   */
+  onToggleCheckbox?: (rowIndex: number, colIndex: number) => void;
 }
 
 /**
@@ -226,6 +237,11 @@ export class GridView {
   /** SAD-79: live width while a resize handle is dragged (not yet committed). */
   private resizePreview: { fieldId: string; width: number } | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  /** COD-71: the theme the cells render in — the same root class the group headers read. */
+  private cellTheme(): 'light' | 'dark' {
+    return this.root.classList.contains('tablify--dark') ? 'dark' : 'light';
+  }
+
   /** SAD-80: selected row ids (UI state owned by the table view). */
   private rowSelection: ReadonlySet<string> = new Set();
   /** SAD-80: the row being dragged by its `#` cell, re-applied on every render. */
@@ -1329,7 +1345,26 @@ export class GridView {
               cell.title = `${summary.broken} broken ${summary.broken === 1 ? 'link' : 'links'}: the linked row or table was not found.`;
               cell.setAttribute('data-broken-links', String(summary.broken));
             }
+          } else if (field.type === 'single_select' || field.type === 'multi_select') {
+            // COD-71: a select cell stores an option id; the reader gets the option's chip.
+            // The cell trades capsule padding for the chip's height (styles.css).
+            cell.classList.add('tablify__cell--select');
+            renderSelectChips(text, field, val, this.cellTheme());
+          } else if (field.type === 'checkbox') {
+            // COD-71: a clickable box instead of the word "true".
+            text.appendChild(
+              createCheckboxControl(
+                field,
+                val,
+                this.opts.onToggleCheckbox ? () => this.opts.onToggleCheckbox?.(rowIdx, colIndex) : undefined,
+              ),
+            );
+          } else if (isFormattedCellType(field)) {
+            // COD-71: currency (minor units), percent (0…1) and duration (ms) show their unit.
+            text.textContent = formattedCellText(field, val);
           } else {
+            // Unchanged for every other type: the stored value is the display text, and the
+            // array join keeps a corrupt attachment value rendering exactly as before.
             text.textContent = val === undefined || val === null ? '' : String(Array.isArray(val) ? val.join(', ') : val);
           }
           // An empty value shows the prototype's em dash through CSS (:empty::before), so
