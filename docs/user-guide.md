@@ -93,7 +93,10 @@ Use the header menu (**Change field type…**) to change a column's type. A type
 ## 4. Editing cells
 
 - Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits.
+- Opening a cell and leaving it again without changing anything never changes the value.
+- A **Date and time** cell is edited in your computer's local time and stored as UTC, so the same moment shows correctly on any machine.
 - On a touch device, tap the selected cell again to edit it — or choose **Edit cell** from the long-press menu.
+- System fields — **Auto number**, **Created time**, **Last modified** — are read-only and are not offered as new field types. A table imported from a file that has them shows them only when the file carries a value for the row.
 - Paste tab-separated text (e.g. copied from a spreadsheet) with **Ctrl/Cmd+V** — a rectangular range is filled; **Ctrl/Cmd+C** copies the selected range as tab-separated text.
 
 ## 5. Keyboard use
