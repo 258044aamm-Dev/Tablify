@@ -101,6 +101,17 @@ describe('P3-02 — Cell editors', () => {
     expect(store.getRow('row_1')!.values['fld_name']).toBe('new');
   });
 
+  it('date and date_time have no inline editor any more — COD-75 moved them to the panel', () => {
+    for (const type of ['date', 'date_time'] as const) {
+      const f = field({ type, name: type });
+      f.id = `fld_${type}`;
+      const store = createTableStore({ fields: [f], initialRows: [{ id: 'row_1', rev: 1, values: {} }] });
+      const stack = createCommandStack({ store });
+      const row = store.getRow('row_1')!;
+      expect(createEditor(f, row, store, stack, vi.fn()), `${type} must not build an <input type="date">`).toBeNull();
+    }
+  });
+
   it('commitValue for each type calls command path (spy)', () => {
     const types: FieldDefinition['type'][] = ['text', 'number', 'checkbox', 'date', 'single_select', 'multi_select', 'url', 'email'];
     for (const t of types) {

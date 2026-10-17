@@ -2977,6 +2977,359 @@
   appearance: none;
 }
 
+/* ---- date & time panel (COD-75) ------------------------------------------------------
+   The third `#floatPanel` screen, after select and attachment: a 320 px card with the value
+   field on top, the month grid, an optional time row and the footer. It replaces Chromium's
+   native `<input type="date">` dialog, which is drawn outside the DOM and cannot be themed —
+   see docs/evidence/COD-75.md.
+   Geometry: 12 px body, 30 px field, 36 px day cells in a 7/2 px grid, 28 px clock capsule,
+   26 px ghost buttons, 28 px Done. Touch (`pointer: coarse`) grows the days to 44 px. */
+.tablify__date-panel {
+  width: 320px;
+  max-width: calc(100vw - 24px);
+}
+
+.tablify__date-body {
+  box-sizing: border-box;
+  padding: 12px;
+  text-align: left;
+}
+
+/* -- value field -- */
+.tablify__date-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+/* Element-qualified, like the other panel inputs: Obsidian's own `input[type='text']` rule is
+   (0,1,1) and would otherwise repaint the field. */
+.tablify input.tablify__date-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 30px;
+  margin: 0;
+  padding: 0 32px 0 10px;
+  background: var(--tablify-bg-capsule);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 16px;
+  box-shadow: none;
+  appearance: none;
+}
+
+.tablify input.tablify__date-input::placeholder {
+  color: var(--tablify-text-muted);
+  font-family: inherit;
+}
+
+.tablify input.tablify__date-input:focus {
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+.tablify input.tablify__date-input[aria-invalid='true'] {
+  border-color: var(--tablify-text-danger);
+}
+
+.tablify__date-glyph {
+  position: absolute;
+  right: 9px;
+  display: inline-flex;
+  color: var(--tablify-text-muted);
+  pointer-events: none;
+}
+
+/* Plugin-only: the field's refusal message (never in the native dialog). */
+.tablify .tablify__date-error {
+  margin: -4px 0 8px;
+  font-size: 10.5px;
+  line-height: 14px;
+  color: var(--tablify-text-danger);
+}
+
+.tablify .tablify__date-error[hidden] {
+  display: none;
+}
+
+/* -- month header -- */
+.tablify__date-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin-bottom: 2px;
+}
+
+.tablify__date-month {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 5px;
+  padding-left: 2px;
+  font-family: 'Poppins', Arial, sans-serif;
+}
+
+.tablify__date-month-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.tablify__date-year {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__date-nav {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--tablify-text-muted);
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__date-nav:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+  color: var(--tablify-text);
+}
+
+/* -- calendar -- */
+.tablify__date-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tablify__date-week-row,
+.tablify__date-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.tablify .tablify__date-weekday {
+  display: grid;
+  place-items: center;
+  height: 20px;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__date-day {
+  display: grid;
+  place-items: center;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--tablify-text);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__date-day:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+}
+
+/* Days outside the month stay readable (--tablify-text-placeholder is 1.79:1 and is a glyph
+   token, not text) and stay clickable: picking one jumps the view to its month. */
+.tablify button.tablify__date-day.is-outside {
+  color: var(--tablify-text-muted);
+  font-weight: 400;
+}
+
+.tablify button.tablify__date-day.is-today {
+  box-shadow: inset 0 0 0 1px var(--tablify-accent-primary);
+  color: var(--tablify-text-today);
+  font-weight: 600;
+}
+
+.tablify button.tablify__date-day.is-selected {
+  background: var(--tablify-accent-primary);
+  border-color: var(--tablify-accent-primary);
+  color: var(--tablify-on-accent);
+  font-weight: 600;
+}
+
+.tablify button.tablify__date-day.is-selected:hover {
+  background: var(--tablify-accent-primary);
+}
+
+.tablify button.tablify__date-day:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+/* -- time row (`date_time` only) -- */
+.tablify__date-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--tablify-border-subtle);
+}
+
+.tablify .tablify__date-time-label {
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__date-clock {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--tablify-bg-capsule);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+}
+
+.tablify__date-clock:focus-within {
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
+}
+
+.tablify input.tablify__date-clock-input {
+  width: 18px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--tablify-text);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: none;
+  outline: none;
+  appearance: none;
+}
+
+.tablify .tablify__date-colon {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__date-now {
+  height: 26px;
+  margin: 0 0 0 auto;
+  padding: 0 9px;
+  background: transparent;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  color: var(--tablify-text-muted);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__date-now:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+  color: var(--tablify-text);
+}
+
+/* -- footer -- */
+.tablify__date-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.tablify button.tablify__date-quiet {
+  height: 26px;
+  margin: 0;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--tablify-text-muted);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__date-quiet:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
+  color: var(--tablify-text);
+}
+
+.tablify button.tablify__date-quiet--danger:hover {
+  color: var(--tablify-text-danger);
+}
+
+.tablify button.tablify__date-done {
+  height: 28px;
+  margin: 0 0 0 auto;
+  padding: 0 14px;
+  background: var(--tablify-accent-primary);
+  border: 1px solid var(--tablify-accent-primary);
+  border-radius: 9px;
+  color: var(--tablify-on-accent);
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__date-done:hover {
+  filter: brightness(1.05);
+}
+
+/* Touch: 36 px days are a mouse target. 44 px is the minimum thumb target, and the card grows
+   by the 8 px the wider column needs. */
+@media (pointer: coarse) {
+  .tablify__date-panel {
+    width: 352px;
+  }
+
+  .tablify button.tablify__date-day {
+    height: 44px;
+  }
+}
+
 /* -- option manager: `#optMgrModal` card over the blurred backdrop -- */
 .tablify__optmgr-backdrop {
   position: fixed;

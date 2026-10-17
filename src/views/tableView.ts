@@ -39,6 +39,8 @@ import { FilterBuilderModal } from './grid/FilterBuilderModal.js';
 import { SelectDropdown } from './grid/select/Dropdown.js';
 import { OptionManagerDialog } from './grid/select/OptionManager.js';
 import { AttachmentPanel } from './grid/AttachmentPanel.js';
+import { DatePicker } from './grid/date/DatePicker.js';
+import { equivalentStored } from './grid/date/draft.js';
 import { checkAttachmentPath, normalizeAttachmentPath } from './grid/attachment.js';
 import { createSetFieldOptionsCommand } from '../model/commands.js';
 import { planOptionAdd } from '../model/selectOptions.js';
@@ -1158,7 +1160,14 @@ export class TableView extends TextFileView {
     grid.scrollToRow(sel.row);
     const cell = this.cellElement(sel);
     // Step 11: select and attachment cells open the prototype's anchored float panel.
-    if (field.type === 'single_select' || field.type === 'multi_select' || field.type === 'attachment') {
+    // COD-75: date and date_time join them — the browser's own picker cannot be themed.
+    if (
+      field.type === 'single_select' ||
+      field.type === 'multi_select' ||
+      field.type === 'attachment' ||
+      field.type === 'date' ||
+      field.type === 'date_time'
+    ) {
       if (cell) this.openCellPanel(row.id, field, cell);
       return;
     }
@@ -1209,6 +1218,33 @@ export class TableView extends TextFileView {
       panel.close();
       if (focusGrid) grid.root.focus();
     };
+
+    // COD-75: date / date_time — the anchored picker replaces `<input type="date">` and the
+    // browser's unstyleable dialog. One `setValue` per commit, so one undo step, and an untouched
+    // draft writes nothing at all (the COD-68 rule).
+    if (field.type === 'date' || field.type === 'date_time') {
+      const stored = value();
+      let settled = false;
+      const finish = (commit: boolean, next?: CellValue): void => {
+        if (settled) return;
+        settled = true;
+        picker.close();
+        if (commit && next !== undefined && !equivalentStored(field.type, next, stored)) {
+          s.setValue(rowId, field.id, next);
+          this.afterChange();
+        }
+        grid.root.focus();
+      };
+      const picker = new DatePicker({
+        field,
+        value: stored,
+        theme: this.isDark() ? 'dark' : 'light',
+        onCommit: (next) => finish(true, next),
+        onCancel: () => finish(false),
+      });
+      picker.open(anchor);
+      return;
+    }
 
     if (field.type === 'attachment') {
       const panel = new AttachmentPanel({

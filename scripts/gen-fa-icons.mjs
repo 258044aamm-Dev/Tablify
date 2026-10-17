@@ -67,6 +67,8 @@ const GLYPHS = [
   'filter-circle-xmark',
   'chevron-down',
   'chevron-right',
+  // Date & time panel (COD-75): month stepper arrow (chevron-right was already inlined)
+  'chevron-left',
   // Select panel, option manager, attachment panel (SAD-90, the prototype's own glyphs:
   // fa-check on a picked row, fa-palette in the panel footer and the manager title,
   // fa-arrow-up / fa-arrow-down on the per-option reorder buttons)

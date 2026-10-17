@@ -129,6 +129,9 @@ async function open(origin: string, text: string): Promise<Session> {
   await page.addStyleTag({ content: fs.readFileSync(path.join(REPO, 'styles.css'), 'utf8') });
   await page.addScriptTag({ url: origin + '/tests/visual/harness/.out/bundle.js' });
   await page.waitForFunction('window.__tablifyReady === true');
+  // COD-75: the date panel opens its calendar on the stored value's month, or on "today" when
+  // the cell is empty. Pin the clock so "today" is 17 October 2026 in every run.
+  await page.clock.setFixedTime(new Date('2026-10-17T06:00:00Z'));
   await page.waitForTimeout(150);
   return { browser, page, close: () => browser.close() };
 }
@@ -216,9 +219,9 @@ const EDIT_CASES: EditCase[] = [
   { fieldId: 'fld_dur', label: 'duration', expect: 'editor', input: '1:30', expected: 90000 },
   { fieldId: 'fld_rating', label: 'rating', expect: 'editor', input: '7', expected: 7 },
   { fieldId: 'fld_check', label: 'checkbox', expect: 'editor', expected: true },
-  { fieldId: 'fld_date', label: 'date', expect: 'editor', input: '2026-10-17', expected: '2026-10-17' },
-  // Stored as ISO UTC; the input is local wall-clock time, so the expected value is derived below.
-  { fieldId: 'fld_dt', label: 'date_time', expect: 'editor', input: '2026-10-17T14:30' },
+  // COD-75: date and date_time open the anchored picker, not an inline input.
+  { fieldId: 'fld_date', label: 'date', expect: 'panel' },
+  { fieldId: 'fld_dt', label: 'date_time', expect: 'panel' },
   { fieldId: 'fld_url', label: 'url', expect: 'editor', input: 'https://example.com/a', expected: 'https://example.com/a' },
   { fieldId: 'fld_email', label: 'email', expect: 'editor', input: 'User@Example.com', expected: 'user@example.com' },
   { fieldId: 'fld_phone', label: 'phone', expect: 'editor', input: '+880 1712-345678', expected: '+880 1712-345678' },
@@ -296,6 +299,25 @@ async function runEditingMatrix(page: Page): Promise<void> {
         check(`${c.label}: choosing an option stores the option id`, JSON.stringify(got) === JSON.stringify(c.expected), `got ${JSON.stringify(got)}`);
       }
       await dismiss(page);
+    } else if (shown.kind === 'panel' && (c.fieldId === 'fld_date' || c.fieldId === 'fld_dt')) {
+      // COD-75: pick through the panel's calendar. A date field commits on the day; a date_time
+      // keeps the panel open so the time can follow, then Done commits.
+      await page.locator('.tablify__date-day[data-date="2026-10-21"]').click();
+      await page.waitForTimeout(140);
+      if (c.fieldId === 'fld_date') {
+        const got = await stored(page, 0, 'fld_date');
+        check('date: picking a day stores YYYY-MM-DD', got === '2026-10-21', `got ${JSON.stringify(got)}`);
+        check('date: the panel closes on the pick', (await surface(page)).kind === 'none', 'panel still open');
+      } else {
+        await page.locator('.tablify__date-clock input[aria-label="Hours"]').fill('14');
+        await page.locator('.tablify__date-clock input[aria-label="Minutes"]').fill('18');
+        await page.locator('.tablify__date-done').click();
+        await page.waitForTimeout(140);
+        const got = await stored(page, 0, 'fld_dt');
+        const want = await page.evaluate(() => new Date(2026, 9, 21, 14, 18, 0, 0).toISOString());
+        check('date_time: picking a day and a time stores ISO UTC', got === want, `got ${JSON.stringify(got)} want ${JSON.stringify(want)}`);
+        check('date_time: the panel closes on Done', (await surface(page)).kind === 'none', 'panel still open');
+      }
     } else if (shown.kind === 'panel' && c.fieldId === 'fld_attach') {
       check('attachment: panel renders an input', (await page.locator('.tablify__panel input').count()) > 0, 'no input');
       await dismiss(page);
@@ -354,32 +376,46 @@ async function runEmptyCommit(page: Page): Promise<void> {
   check('text: clearing a cell empties it ("" — text types keep empty strings)', got === '', `got ${JSON.stringify(got)}`);
 }
 
-/** Date/time round-trips — the COD-68 guard. Uses row 1, which starts populated. */
+/** What the open date panel shows: the value field's text and the day marked as picked. */
+async function panelValue(page: Page): Promise<{ value: string; selected: string | null }> {
+  return page.evaluate(() => {
+    const input = document.querySelector<HTMLInputElement>('input.tablify__date-input');
+    const selected = document.querySelector('.tablify__date-day[aria-selected="true"]') as HTMLElement | null;
+    return { value: input?.value ?? '', selected: selected?.dataset.date ?? null };
+  });
+}
+
+/** Date/time round-trips — the COD-68 guard, re-asserted through the COD-75 panel. */
 async function runDateTimeRoundTrip(page: Page): Promise<void> {
   const iso = '2026-10-16T09:30:00.000Z';
 
   await dblclickCell(page, 1, COL.fld_dt);
-  const info = await editorValue(page);
+  const info = await panelValue(page);
   const sameInstant = await page.evaluate(
-    (storedIso: string) => {
-      const e = document.querySelector<HTMLInputElement>('input.tablify__editor');
-      return !!e && e.value !== '' && new Date(e.value).getTime() === Date.parse(storedIso);
-    },
-    iso,
+    (args: { value: string; iso: string }) => args.value !== '' && new Date(args.value).getTime() === Date.parse(args.iso),
+    { value: info.value, iso },
   );
-  check('date_time: editor is datetime-local', info.type === 'datetime-local', `type ${info.type}`);
-  check('date_time: editor shows the stored instant', sameInstant, `input ${JSON.stringify(info.value)}`);
-  // Dismissing without an edit must not touch the cell (this used to write null).
+  check('date_time: the panel replaces the native input', (await surface(page)).kind === 'panel', 'no panel');
+  check('date_time: the panel shows the stored instant', sameInstant, `field ${JSON.stringify(info.value)}`);
+  check('date_time: the stored day is the selected day', info.selected !== null, `selected ${JSON.stringify(info.selected)}`);
+
+  // Dismissing without an edit must not touch the cell.
   await page.mouse.click(2980, 880);
   await page.waitForTimeout(180);
   check('date_time: open + click away preserves the value', (await stored(page, 1, 'fld_dt')) === iso, `got ${JSON.stringify(await stored(page, 1, 'fld_dt'))}`);
 
   await dblclickCell(page, 1, COL.fld_date);
-  const dateInfo = await editorValue(page);
-  check('date: editor stays date-only and keeps its value', dateInfo.type === 'date' && dateInfo.value === '2026-10-16', JSON.stringify(dateInfo));
+  const dateInfo = await panelValue(page);
+  check('date: the panel shows the stored day', dateInfo.value === '2026-10-16', JSON.stringify(dateInfo));
   await page.keyboard.press('Escape');
   await page.waitForTimeout(80);
   check('date: unchanged after open + Escape', (await stored(page, 1, 'fld_date')) === '2026-10-16');
+
+  // The claim this ticket is about: no native date control is ever created.
+  const native = await page.evaluate(
+    () => document.querySelectorAll('input[type="date"], input[type="datetime-local"]').length,
+  );
+  check('no native date input is ever created', native === 0, `${native} native input(s)`);
 }
 
 /** A checkbox that was never set must stay unset when the cell is opened and dismissed. */

@@ -226,6 +226,12 @@ export interface Theme {
   /** SAD-80: prototype Delete ink (`text-red-500`), AA-adjusted in both themes. */
   textDanger: string;
   /**
+   * COD-75: the numeral of "today" in the date panel. The bare accent measures 3.28:1 on the
+   * light card — too low for 12 px text — so light uses the same AA terracotta `textSelected`
+   * already carries (4.78:1); dark uses the accent (5.09:1 on the pill surface).
+   */
+  textToday: string;
+  /**
    * SAD-80: row checkbox tint (prototype `accent-tablify-terracotta`, no dark variant). A UI
    * control, so the 3:1 non-text bar applies — met by #CC785C in both themes.
    */
@@ -273,6 +279,7 @@ export const lightTheme: Theme = {
   fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracottaTextLight,
   textDanger: palette.dangerLight,
+  textToday: palette.terracottaTextLight,
   accentCheck: palette.terracotta,
   accentFill: palette.terracotta,
   switchOff: palette.switchOffLight,
@@ -309,6 +316,7 @@ export const darkTheme: Theme = {
   fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracotta,
   textDanger: palette.dangerDark,
+  textToday: palette.accentOrange,
   accentCheck: palette.terracotta,
   accentFill: palette.terracotta,
   switchOff: palette.placeholderDark,
@@ -355,6 +363,7 @@ export const cssVars = {
   fieldPlaceholder: '--tablify-field-placeholder',
   textSelected: '--tablify-text-selected',
   textDanger: '--tablify-text-danger',
+  textToday: '--tablify-text-today',
   accentCheck: '--tablify-accent-check',
   accentFill: '--tablify-accent-fill',
   switchOff: '--tablify-switch-off',
@@ -399,6 +408,7 @@ export function applyTheme(root: HTMLElement, theme: ThemeName): void {
   root.style.setProperty(cssVars.fieldPlaceholder, t.fieldPlaceholder);
   root.style.setProperty(cssVars.textSelected, t.textSelected);
   root.style.setProperty(cssVars.textDanger, t.textDanger);
+  root.style.setProperty(cssVars.textToday, t.textToday);
   root.style.setProperty(cssVars.accentCheck, t.accentCheck);
   root.style.setProperty(cssVars.accentFill, t.accentFill);
   root.style.setProperty(cssVars.switchOff, t.switchOff);

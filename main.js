@@ -13015,6 +13015,7 @@ var lightTheme = {
   fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracottaTextLight,
   textDanger: palette.dangerLight,
+  textToday: palette.terracottaTextLight,
   accentCheck: palette.terracotta,
   accentFill: palette.terracotta,
   switchOff: palette.switchOffLight,
@@ -13050,6 +13051,7 @@ var darkTheme = {
   fieldPlaceholder: palette.fieldPlaceholder,
   textSelected: palette.terracotta,
   textDanger: palette.dangerDark,
+  textToday: palette.accentOrange,
   accentCheck: palette.terracotta,
   accentFill: palette.terracotta,
   switchOff: palette.placeholderDark,
@@ -13089,6 +13091,7 @@ var cssVars = {
   fieldPlaceholder: "--tablify-field-placeholder",
   textSelected: "--tablify-text-selected",
   textDanger: "--tablify-text-danger",
+  textToday: "--tablify-text-today",
   accentCheck: "--tablify-accent-check",
   accentFill: "--tablify-accent-fill",
   switchOff: "--tablify-switch-off",
@@ -13127,6 +13130,7 @@ function applyTheme(root, theme) {
   root.style.setProperty(cssVars.fieldPlaceholder, t.fieldPlaceholder);
   root.style.setProperty(cssVars.textSelected, t.textSelected);
   root.style.setProperty(cssVars.textDanger, t.textDanger);
+  root.style.setProperty(cssVars.textToday, t.textToday);
   root.style.setProperty(cssVars.accentCheck, t.accentCheck);
   root.style.setProperty(cssVars.accentFill, t.accentFill);
   root.style.setProperty(cssVars.switchOff, t.switchOff);
@@ -13177,6 +13181,7 @@ var GLYPHS = {
   "filter-circle-xmark": { w: 576, d: "M3.9 22.9C10.5 8.9 24.5 0 40 0H472c15.5 0 29.5 8.9 36.1 22.9s4.6 30.5-5.2 42.5L396.4 195.6C316.2 212.1 256 283 256 368c0 27.4 6.3 53.4 17.5 76.5c-1.6-.8-3.2-1.8-4.7-2.9l-64-48c-8.1-6-12.8-15.5-12.8-25.6V288.9L9 65.3C-.7 53.4-2.8 36.8 3.9 22.9zM432 224a144 144 0 1 1 0 288 144 144 0 1 1 0-288zm59.3 107.3c6.2-6.2 6.2-16.4 0-22.6s-16.4-6.2-22.6 0L432 345.4l-36.7-36.7c-6.2-6.2-16.4-6.2-22.6 0s-6.2 16.4 0 22.6L409.4 368l-36.7 36.7c-6.2 6.2-6.2 16.4 0 22.6s16.4 6.2 22.6 0L432 390.6l36.7 36.7c6.2 6.2 16.4 6.2 22.6 0s6.2-16.4 0-22.6L454.6 368l36.7-36.7z" },
   "chevron-down": { w: 512, d: "M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z" },
   "chevron-right": { w: 320, d: "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z" },
+  "chevron-left": { w: 320, d: "M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l192 192c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L77.3 256 246.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192z" },
   "check": { w: 448, d: "M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z" },
   "palette": { w: 512, d: "M512 256c0 .9 0 1.8 0 2.7c-.4 36.5-33.6 61.3-70.1 61.3H344c-26.5 0-48 21.5-48 48c0 3.4 .4 6.7 1 9.9c2.1 10.2 6.5 20 10.8 29.9c6.1 13.8 12.1 27.5 12.1 42c0 31.8-21.6 60.7-53.4 62c-3.5 .1-7 .2-10.6 .2C114.6 512 0 397.4 0 256S114.6 0 256 0S512 114.6 512 256zM128 288a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm0-96a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm96 96a32 32 0 1 0 0-64 32 32 0 1 0 0 64z" },
   "arrow-up": { w: 384, d: "M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z" },
@@ -13272,27 +13277,18 @@ function parseInput(field, input) {
     return { ok: false, error: e.message };
   }
 }
-function toLocalDateTimeInput(value) {
-  if (value === null || value === void 0 || value === "")
-    return "";
-  const d = new Date(String(value));
-  if (Number.isNaN(d.getTime()))
-    return "";
-  const pad3 = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad3(d.getMonth() + 1)}-${pad3(d.getDate())}T${pad3(d.getHours())}:${pad3(d.getMinutes())}:${pad3(d.getSeconds())}`;
-}
-function isUnchanged(field, oldValue, newValue, initial) {
+function isUnchanged(field, oldValue, newValue) {
   if (field.type === "checkbox")
     return Boolean(oldValue) === Boolean(newValue);
-  if (field.type === "date_time")
-    return toLocalDateTimeInput(newValue) === initial;
   return String(oldValue ?? null) === String(newValue);
 }
 function createEditor(field, row, store, stack, onDone) {
   if (isReadOnly(field))
     return null;
+  if (field.type === "date" || field.type === "date_time")
+    return null;
   const ft = getFieldType(field.type);
-  const initial = field.type === "date_time" ? toLocalDateTimeInput(row.values[field.id] ?? null) : ft.format(row.values[field.id] ?? null, field);
+  const initial = ft.format(row.values[field.id] ?? null, field);
   let input;
   const isLong = field.type === "long_text";
   const isCheckbox = field.type === "checkbox";
@@ -13314,9 +13310,7 @@ function createEditor(field, row, store, stack, onDone) {
     input = ta;
   } else {
     const inp = document.createElement("input");
-    inp.type = field.type === "date" ? "date" : field.type === "date_time" ? "datetime-local" : "text";
-    if (field.type === "date_time")
-      inp.step = "1";
+    inp.type = "text";
     inp.value = initial;
     input = inp;
   }
@@ -13338,7 +13332,7 @@ function createEditor(field, row, store, stack, onDone) {
       return;
     }
     const oldValue = row.values[field.id] ?? null;
-    if (isUnchanged(field, oldValue, res.value, initial)) {
+    if (isUnchanged(field, oldValue, res.value)) {
       onDone(false);
       return;
     }
@@ -13429,9 +13423,9 @@ var RowPool = class {
    */
   update(start, end) {
     const needed = end - start;
-    for (const [idx, el2] of this.active) {
+    for (const [idx, el3] of this.active) {
       if (idx < start || idx >= end) {
-        this.pool.push(el2);
+        this.pool.push(el3);
         this.active.delete(idx);
       }
     }
@@ -13441,8 +13435,8 @@ var RowPool = class {
     const result = [];
     for (let i = start; i < end; i++) {
       if (!this.active.has(i)) {
-        const el2 = this.pool.pop();
-        this.active.set(i, el2);
+        const el3 = this.pool.pop();
+        this.active.set(i, el3);
       }
       result.push(this.active.get(i));
     }
@@ -13541,25 +13535,25 @@ function renderSelectChips(host, field, value, theme) {
 function createCheckboxControl(field, value, onToggle) {
   const checked = value === true;
   const icon = faIcon(checked ? "square-check" : "square");
-  const el2 = document.createElement(onToggle ? "button" : "span");
-  el2.className = checked ? "tablify__check tablify__check--on" : "tablify__check";
-  el2.innerHTML = icon;
+  const el3 = document.createElement(onToggle ? "button" : "span");
+  el3.className = checked ? "tablify__check tablify__check--on" : "tablify__check";
+  el3.innerHTML = icon;
   if (onToggle) {
-    el2.type = "button";
-    el2.setAttribute("role", "checkbox");
-    el2.setAttribute("aria-checked", checked ? "true" : "false");
-    el2.setAttribute("aria-label", field.name);
-    el2.addEventListener("click", (e) => {
+    el3.type = "button";
+    el3.setAttribute("role", "checkbox");
+    el3.setAttribute("aria-checked", checked ? "true" : "false");
+    el3.setAttribute("aria-label", field.name);
+    el3.addEventListener("click", (e) => {
       e.stopPropagation();
       e.preventDefault();
       onToggle();
     });
-    el2.addEventListener("dblclick", (e) => e.stopPropagation());
+    el3.addEventListener("dblclick", (e) => e.stopPropagation());
   } else {
-    el2.setAttribute("role", "img");
-    el2.setAttribute("aria-label", `${field.name}: ${checked ? "checked" : "not checked"}`);
+    el3.setAttribute("role", "img");
+    el3.setAttribute("aria-label", `${field.name}: ${checked ? "checked" : "not checked"}`);
   }
-  return el2;
+  return el3;
 }
 function isNumericCellType(field) {
   switch (field.type) {
@@ -13751,11 +13745,11 @@ var GridView = class {
     if (opts.onInsertRow)
       this.buildInsertRow(opts.onInsertRow);
     this.pool = new RowPool(() => {
-      const el2 = document.createElement("div");
-      el2.className = "tablify__row";
-      el2.style.display = "flex";
-      el2.style.height = `${this.rowHeight}px`;
-      return el2;
+      const el3 = document.createElement("div");
+      el3.className = "tablify__row";
+      el3.style.display = "flex";
+      el3.style.height = `${this.rowHeight}px`;
+      return el3;
     });
     this.root.addEventListener("scroll", () => {
       this.scrollTop = this.root.scrollTop;
@@ -14119,23 +14113,23 @@ var GridView = class {
    *   '2' — the header is its own stacking context, so this only has to outrank the other
    *   header cells, while the header element itself outranks the whole body.
    */
-  placeSlot(el2, slot, frozenZIndex) {
-    el2.style.flex = "0 0 auto";
-    el2.style.boxSizing = "border-box";
-    el2.style.width = `${this.slotWidths[slot] ?? DEFAULT_COLUMN_WIDTH}px`;
+  placeSlot(el3, slot, frozenZIndex) {
+    el3.style.flex = "0 0 auto";
+    el3.style.boxSizing = "border-box";
+    el3.style.width = `${this.slotWidths[slot] ?? DEFAULT_COLUMN_WIDTH}px`;
     const frozen = this.frozenColumns > 0 && slot < LEAD_SLOTS + this.frozenColumns;
     const edge = frozen && slot === LEAD_SLOTS + this.frozenColumns - 1;
     if (frozen) {
-      el2.classList.add(slot < LEAD_SLOTS ? "tablify__lead--frozen" : "tablify__cell--frozen");
-      el2.classList.toggle("tablify__cell--frozen-edge", edge);
-      el2.style.position = "sticky";
-      el2.style.left = `${this.slotLefts[slot]}px`;
-      el2.style.zIndex = frozenZIndex;
-    } else if (el2.style.position || el2.classList.contains("tablify__cell--frozen-edge")) {
-      el2.classList.remove("tablify__lead--frozen", "tablify__cell--frozen", "tablify__cell--frozen-edge");
-      el2.style.position = "";
-      el2.style.left = "";
-      el2.style.zIndex = "";
+      el3.classList.add(slot < LEAD_SLOTS ? "tablify__lead--frozen" : "tablify__cell--frozen");
+      el3.classList.toggle("tablify__cell--frozen-edge", edge);
+      el3.style.position = "sticky";
+      el3.style.left = `${this.slotLefts[slot]}px`;
+      el3.style.zIndex = frozenZIndex;
+    } else if (el3.style.position || el3.classList.contains("tablify__cell--frozen-edge")) {
+      el3.classList.remove("tablify__lead--frozen", "tablify__cell--frozen", "tablify__cell--frozen-edge");
+      el3.style.position = "";
+      el3.style.left = "";
+      el3.style.zIndex = "";
     }
   }
   styleCell(cell2, colIndex, frozenZIndex) {
@@ -14146,7 +14140,7 @@ var GridView = class {
   restyleGeometry() {
     const apply = (container, z) => {
       container.style.width = `${this.totalWidth}px`;
-      Array.from(container.children).forEach((el2, i) => this.placeSlot(el2, i, z));
+      Array.from(container.children).forEach((el3, i) => this.placeSlot(el3, i, z));
     };
     apply(this.header, "2");
     for (const rowEl of Array.from(this.content.children))
@@ -14165,11 +14159,11 @@ var GridView = class {
     return this.rowGripTemplate;
   }
   createLead(frozenZIndex, slot) {
-    const el2 = document.createElement("div");
-    el2.className = "tablify__lead tablify__lead--num";
-    el2.setAttribute("aria-hidden", "true");
-    this.placeSlot(el2, slot, frozenZIndex);
-    return el2;
+    const el3 = document.createElement("div");
+    el3.className = "tablify__lead tablify__lead--num";
+    el3.setAttribute("aria-hidden", "true");
+    this.placeSlot(el3, slot, frozenZIndex);
+    return el3;
   }
   renderHeader() {
     this.header.innerHTML = "";
@@ -14408,7 +14402,7 @@ var GridView = class {
       if (this.rowDropIndicator)
         this.rowDropIndicator.style.display = "none";
       this.draggingRowId = null;
-      this.content.querySelectorAll(".tablify__row--dragging").forEach((el2) => el2.classList.remove("tablify__row--dragging"));
+      this.content.querySelectorAll(".tablify__row--dragging").forEach((el3) => el3.classList.remove("tablify__row--dragging"));
       this.cancelRowDrag = null;
     };
     const move = (ev) => {
@@ -14450,13 +14444,13 @@ var GridView = class {
    * (prototype), and the drop line drawn in the gap above that row — or under the last row.
    */
   dropSlotAt(clientY) {
-    const rowsEls = Array.from(this.content.children).filter((el2) => el2.dataset.rowId);
+    const rowsEls = Array.from(this.content.children).filter((el3) => el3.dataset.rowId);
     let beforeEl = null;
-    for (const el2 of rowsEls) {
-      const r = el2.getBoundingClientRect();
+    for (const el3 of rowsEls) {
+      const r = el3.getBoundingClientRect();
       const slotTop = r.top + ROW_GAP;
       if (clientY < slotTop + (r.bottom - slotTop) / 2) {
-        beforeEl = el2;
+        beforeEl = el3;
         break;
       }
     }
@@ -14596,14 +14590,14 @@ var GridView = class {
    * mono row count, in a button that collapses or expands the group.
    */
   buildGroupHeader(group, ariaRowIndex) {
-    const el2 = document.createElement("div");
-    el2.className = "tablify__group-row";
-    el2.setAttribute("role", "row");
-    el2.setAttribute("aria-rowindex", String(ariaRowIndex));
-    el2.dataset.groupKey = group.key;
-    el2.style.height = `${group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX}px`;
-    el2.style.minWidth = "100%";
-    el2.style.width = `${this.totalWidth}px`;
+    const el3 = document.createElement("div");
+    el3.className = "tablify__group-row";
+    el3.setAttribute("role", "row");
+    el3.setAttribute("aria-rowindex", String(ariaRowIndex));
+    el3.dataset.groupKey = group.key;
+    el3.style.height = `${group.color ? GROUP_HEADER_CHIP_PX : GROUP_HEADER_TEXT_PX}px`;
+    el3.style.minWidth = "100%";
+    el3.style.width = `${this.totalWidth}px`;
     const cell2 = document.createElement("div");
     cell2.className = "tablify__group-cell";
     cell2.setAttribute("role", "gridcell");
@@ -14649,8 +14643,8 @@ var GridView = class {
     });
     btn.addEventListener("keydown", stopButtonKeys);
     cell2.appendChild(btn);
-    el2.appendChild(cell2);
-    return el2;
+    el3.appendChild(cell2);
+    return el3;
   }
   /**
    * Fill one pooled row element. `number` is the row's displayed number (`#`, labels) and
@@ -14779,9 +14773,9 @@ function round2(n) {
 function clampWidth(w) {
   return Math.max(RESIZE_MIN_WIDTH, Math.min(RESIZE_MAX_WIDTH, w));
 }
-function capturePointer(el2, pointerId) {
+function capturePointer(el3, pointerId) {
   try {
-    el2.setPointerCapture?.(pointerId);
+    el3.setPointerCapture?.(pointerId);
   } catch {
   }
 }
@@ -15941,7 +15935,7 @@ var Toolbar = class _Toolbar {
     inner.appendChild(clear);
     if (focusKey) {
       const again = Array.from(panel.querySelectorAll("[data-focus-key]")).find(
-        (el2) => el2.dataset.focusKey === focusKey
+        (el3) => el3.dataset.focusKey === focusKey
       );
       again?.focus();
     }
@@ -17355,7 +17349,7 @@ var SelectDropdown = class {
   // For tests: get visible items
   getVisibleOptionNames() {
     return Array.from(this.list.querySelectorAll(".tablify__dropdown-item")).map(
-      (el2) => el2.textContent ?? ""
+      (el3) => el3.textContent ?? ""
     );
   }
   hasCreateOption() {
@@ -17804,6 +17798,704 @@ var AttachmentPanel = class {
     this.opts.onRemove(index);
     this.warn = null;
     this.render();
+  }
+};
+
+// src/views/grid/date/calendar.ts
+var WEEKDAY_SHORT = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+var WEEKDAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+var MONTH_LONG = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+];
+function daysInMonth3(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+function addMonths(year, month, delta) {
+  const total = year * 12 + month + delta;
+  return { year: Math.floor(total / 12), month: (total % 12 + 12) % 12 };
+}
+function addDays(parts, delta) {
+  const d = new Date(parts.year, parts.month, parts.day + delta, 12, 0, 0, 0);
+  return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
+}
+function leadingDays(year, month, weekStart) {
+  const firstWeekday = new Date(year, month, 1, 12, 0, 0, 0).getDay();
+  return (firstWeekday - weekStart + 7) % 7;
+}
+function gridFor(year, month, weekStart = 1) {
+  const offset = leadingDays(year, month, weekStart);
+  const total = offset + daysInMonth3(year, month);
+  const weeks = Math.ceil(total / 7);
+  const first = addDays({ year, month, day: 1 }, -offset);
+  return Array.from(
+    { length: weeks },
+    (_, w) => Array.from({ length: 7 }, (_2, d) => addDays(first, w * 7 + d))
+  );
+}
+function weekdayLabels(weekStart = 1) {
+  return Array.from({ length: 7 }, (_, i) => WEEKDAY_SHORT[(weekStart + i) % 7]);
+}
+function monthLabel(month) {
+  return MONTH_LONG[(month % 12 + 12) % 12];
+}
+function dayLabel(parts) {
+  return `${WEEKDAY_LONG[new Date(parts.year, parts.month, parts.day, 12).getDay()]} ${parts.day} ${monthLabel(
+    parts.month
+  )} ${parts.year}`;
+}
+function formatYmd(parts) {
+  return `${String(parts.year).padStart(4, "0")}-${String(parts.month + 1).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+function parseYmd(text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text.trim());
+  if (!m)
+    return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]) - 1;
+  const day2 = Number(m[3]);
+  if (month < 0 || month > 11 || day2 < 1 || day2 > daysInMonth3(year, month))
+    return null;
+  return { year, month, day: day2 };
+}
+function sameDay(a, b) {
+  return !!a && !!b && a.year === b.year && a.month === b.month && a.day === b.day;
+}
+function partsOf2(date) {
+  return { year: date.getFullYear(), month: date.getMonth(), day: date.getDate() };
+}
+function localeWeekStart(language) {
+  try {
+    const LocaleCtor = Intl.Locale;
+    if (LocaleCtor) {
+      const tag = language ?? (typeof navigator !== "undefined" && navigator.language ? navigator.language : "en");
+      const locale = new LocaleCtor(tag);
+      const info = typeof locale.getWeekInfo === "function" ? locale.getWeekInfo() : locale.weekInfo;
+      const first = info?.firstDay;
+      if (typeof first === "number" && first >= 1 && first <= 7)
+        return first === 7 ? 0 : first;
+    }
+  } catch {
+  }
+  return 1;
+}
+
+// src/views/grid/date/draft.ts
+var pad22 = (n) => String(n).padStart(2, "0");
+function equivalentStored(type, a, b) {
+  const aEmpty = a === null || a === void 0 || a === "";
+  const bEmpty = b === null || b === void 0 || b === "";
+  if (aEmpty || bEmpty)
+    return aEmpty && bEmpty;
+  if (type === "date")
+    return String(a) === String(b);
+  const ta = Date.parse(String(a));
+  const tb = Date.parse(String(b));
+  if (Number.isNaN(ta) || Number.isNaN(tb))
+    return String(a) === String(b);
+  return ta === tb;
+}
+var DateDraft = class _DateDraft {
+  type;
+  /** The stored value as it arrived — returned untouched while the draft is clean. */
+  original;
+  parts;
+  time;
+  hasValue;
+  /** True once any control in the panel has been used; see `toStored`. */
+  dirty = false;
+  /** A stored value the field type cannot parse — shown verbatim rather than silently dropped. */
+  corrupt = false;
+  rawText;
+  now;
+  constructor(type, original, now) {
+    this.type = type;
+    this.original = original;
+    this.now = now;
+    const today = partsOf2(now());
+    this.parts = today;
+    this.time = { hours: 0, minutes: 0, seconds: 0, millis: 0 };
+    this.hasValue = false;
+    this.rawText = original === null || original === void 0 ? "" : String(original);
+  }
+  /** Build a draft from a stored cell value. */
+  static fromStored(type, value, now = () => /* @__PURE__ */ new Date()) {
+    const draft = new _DateDraft(type, value ?? null, now);
+    if (value === null || value === void 0 || value === "")
+      return draft;
+    if (type === "date") {
+      const day2 = parseYmd(String(value));
+      if (!day2) {
+        draft.corrupt = true;
+        draft.hasValue = true;
+        return draft;
+      }
+      draft.parts = day2;
+      draft.hasValue = true;
+      return draft;
+    }
+    const stamp = dateTimeParts(String(value));
+    if (!stamp) {
+      draft.corrupt = true;
+      draft.hasValue = true;
+      return draft;
+    }
+    draft.parts = stamp.date;
+    draft.time = stamp.time;
+    draft.hasValue = true;
+    return draft;
+  }
+  get hasDate() {
+    return this.hasValue;
+  }
+  get dateParts() {
+    return this.parts;
+  }
+  get timeParts() {
+    return this.time;
+  }
+  /** True once the user has used any control. */
+  get touched() {
+    return this.dirty;
+  }
+  /** What the field shows — the same shape the cell shows, so copy/paste round-trips. */
+  get text() {
+    if (this.corrupt && !this.dirty)
+      return this.rawText;
+    if (!this.hasValue)
+      return "";
+    if (this.type === "date")
+      return formatYmd(this.parts);
+    return `${formatYmd(this.parts)}T${pad22(this.time.hours)}:${pad22(this.time.minutes)}`;
+  }
+  /** Pick a day from the calendar. Keeps the time, seconds and milliseconds. */
+  pickDay(year, month, day2) {
+    this.parts = { year, month, day: day2 };
+    this.hasValue = true;
+    this.dirty = true;
+  }
+  /** Set the clock from the `hh` / `mm` inputs: an explicit time is a whole-minute time. */
+  setTime(hours, minutes) {
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes))
+      return;
+    const h = Math.min(23, Math.max(0, Math.trunc(hours)));
+    const m = Math.min(59, Math.max(0, Math.trunc(minutes)));
+    if (!this.hasValue) {
+      this.parts = partsOf2(this.now());
+      this.hasValue = true;
+    }
+    this.time = { hours: h, minutes: m, seconds: 0, millis: 0 };
+    this.dirty = true;
+  }
+  /** Move the date to today, keeping the time (the footer's **Today**). */
+  setToday() {
+    this.parts = partsOf2(this.now());
+    this.hasValue = true;
+    this.dirty = true;
+  }
+  /** The current instant to the minute (the time row's **Now**). */
+  setNow() {
+    const now = this.now();
+    this.parts = partsOf2(now);
+    this.time = { hours: now.getHours(), minutes: now.getMinutes(), seconds: 0, millis: 0 };
+    this.hasValue = true;
+    this.dirty = true;
+  }
+  /** Empty the cell (the footer's **Clear**). */
+  clear() {
+    this.hasValue = false;
+    this.dirty = true;
+  }
+  /**
+   * Read the text field. Returns the same verdicts the cell editor always had: empty clears,
+   * anything the field type refuses is an error with a message the panel shows.
+   */
+  setText(input) {
+    const trimmed = input.trim();
+    if (trimmed === "") {
+      this.clear();
+      return { ok: true };
+    }
+    const parsed = getFieldType(this.type).parse(trimmed);
+    if (parsed === null) {
+      return {
+        ok: false,
+        error: this.type === "date" ? "Enter a date like 2026-10-17" : "Enter a date and time like 2026-10-17T14:30"
+      };
+    }
+    if (this.type === "date") {
+      const next2 = parseYmd(String(parsed));
+      if (!next2)
+        return { ok: false, error: "Enter a date like 2026-10-17" };
+      this.parts = next2;
+      this.hasValue = true;
+      this.dirty = true;
+      return { ok: true };
+    }
+    const next = dateTimeParts(String(parsed));
+    if (!next)
+      return { ok: false, error: "Enter a date and time like 2026-10-17T14:30" };
+    const sameClock = this.hasValue && next.time.hours === this.time.hours && next.time.minutes === this.time.minutes;
+    const spellsSeconds = /\d{2}:\d{2}:\d{2}/.test(trimmed);
+    this.parts = next.date;
+    this.time = sameClock && !spellsSeconds ? { ...next.time, seconds: this.time.seconds, millis: this.time.millis } : next.time;
+    this.hasValue = true;
+    this.dirty = true;
+    return { ok: true };
+  }
+  /**
+   * The value to store. While the draft is untouched this is the **original value**, so an
+   * opened-and-dismissed panel cannot rewrite milliseconds, a time zone, or a value the type
+   * cannot parse.
+   */
+  toStored() {
+    if (!this.dirty)
+      return this.original;
+    if (!this.hasValue)
+      return null;
+    if (this.type === "date")
+      return formatYmd(this.parts);
+    return new Date(
+      this.parts.year,
+      this.parts.month,
+      this.parts.day,
+      this.time.hours,
+      this.time.minutes,
+      this.time.seconds,
+      this.time.millis
+    ).toISOString();
+  }
+};
+function dateTimeParts(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime()))
+    return null;
+  return {
+    date: partsOf2(d),
+    time: { hours: d.getHours(), minutes: d.getMinutes(), seconds: d.getSeconds(), millis: d.getMilliseconds() }
+  };
+}
+
+// src/views/grid/date/DatePicker.ts
+var uid = 0;
+var pad23 = (n) => String(n).padStart(2, "0");
+function el(tag, className) {
+  const node = document.createElement(tag);
+  node.className = className;
+  return node;
+}
+function makeButton(className, label) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = className;
+  b.setAttribute("aria-label", label);
+  return b;
+}
+var DatePicker = class {
+  opts;
+  type;
+  weekStart;
+  now;
+  card;
+  input;
+  error;
+  title;
+  grid;
+  hh;
+  mm;
+  ids = { error: `tablify-date-error-${uid += 1}`, title: `tablify-date-title-${uid}` };
+  draft;
+  view;
+  focusDate;
+  invalid = false;
+  closed = false;
+  unwire = null;
+  constructor(options) {
+    this.opts = options;
+    this.type = options.field.type === "date" ? "date" : "date_time";
+    this.weekStart = options.weekStart ?? localeWeekStart();
+    this.now = options.now ?? (() => /* @__PURE__ */ new Date());
+    this.draft = DateDraft.fromStored(this.type, options.value, this.now);
+    this.view = { year: this.draft.dateParts.year, month: this.draft.dateParts.month };
+    this.focusDate = this.draft.dateParts;
+    const { card, body } = createPanelCard("tablify-date-panel", options.theme ?? "light", "tablify__date-body");
+    this.card = card;
+    this.card.classList.add("tablify__date-panel");
+    this.card.setAttribute("aria-label", this.type === "date" ? "Pick a date" : "Pick a date and time");
+    const field = el("div", "tablify__date-field");
+    this.input = document.createElement("input");
+    this.input.className = "tablify__date-input";
+    this.input.type = "text";
+    this.input.spellcheck = false;
+    this.input.autocomplete = "off";
+    this.input.value = this.draft.text;
+    this.input.placeholder = this.type === "date" ? "No date" : "No date and time";
+    this.input.setAttribute("aria-label", this.type === "date" ? "Date" : "Date and time");
+    this.input.setAttribute("aria-describedby", this.ids.error);
+    this.input.addEventListener("input", () => this.onTextInput());
+    this.input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        this.commit();
+      }
+    });
+    const glyph = el("span", "tablify__date-glyph");
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.innerHTML = faIcon("calendar", 14);
+    field.appendChild(this.input);
+    field.appendChild(glyph);
+    this.error = el("div", "tablify__date-error");
+    this.error.id = this.ids.error;
+    this.error.setAttribute("role", "status");
+    this.error.hidden = true;
+    const head = el("div", "tablify__date-head");
+    const prev = makeButton("tablify__date-nav", "Previous month");
+    prev.innerHTML = faIcon("chevron-left", 11);
+    prev.addEventListener("click", () => this.stepMonth(-1));
+    const next = makeButton("tablify__date-nav", "Next month");
+    next.innerHTML = faIcon("chevron-right", 11);
+    next.addEventListener("click", () => this.stepMonth(1));
+    this.title = el("div", "tablify__date-month");
+    this.title.id = this.ids.title;
+    this.title.setAttribute("aria-live", "polite");
+    head.appendChild(prev);
+    head.appendChild(this.title);
+    head.appendChild(next);
+    this.grid = el("div", "tablify__date-grid");
+    this.grid.setAttribute("role", "grid");
+    this.grid.setAttribute("aria-labelledby", this.ids.title);
+    let timeRow = null;
+    if (this.type === "date_time") {
+      timeRow = el("div", "tablify__date-time");
+      const label = el("span", "tablify__date-time-label");
+      label.textContent = "Time";
+      const capsule = el("div", "tablify__date-clock");
+      this.hh = this.clockInput("Hours", 23);
+      this.mm = this.clockInput("Minutes", 59);
+      const colon = el("span", "tablify__date-colon");
+      colon.textContent = ":";
+      colon.setAttribute("aria-hidden", "true");
+      capsule.appendChild(this.hh);
+      capsule.appendChild(colon);
+      capsule.appendChild(this.mm);
+      const now = makeButton("tablify__date-now", "Now");
+      now.textContent = "Now";
+      now.addEventListener("click", () => this.setNow());
+      timeRow.appendChild(label);
+      timeRow.appendChild(capsule);
+      timeRow.appendChild(now);
+    } else {
+      this.hh = null;
+      this.mm = null;
+    }
+    const foot = el("div", "tablify__date-foot");
+    const today = makeButton("tablify__date-quiet", "Today");
+    today.textContent = "Today";
+    today.addEventListener("click", () => this.setToday());
+    const clear = makeButton("tablify__date-quiet tablify__date-quiet--danger", "Clear");
+    clear.textContent = "Clear";
+    clear.addEventListener("click", () => {
+      this.draft.clear();
+      this.commit();
+    });
+    const done = makeButton("tablify__date-done", "Done");
+    done.textContent = "Done";
+    done.addEventListener("click", () => this.commit());
+    foot.appendChild(today);
+    foot.appendChild(clear);
+    foot.appendChild(done);
+    body.appendChild(field);
+    body.appendChild(this.error);
+    body.appendChild(head);
+    body.appendChild(this.grid);
+    if (timeRow)
+      body.appendChild(timeRow);
+    body.appendChild(foot);
+    this.render();
+  }
+  get element() {
+    return this.card;
+  }
+  /** Anchor under the cell, take over dismissal, and put the caret in the value field. */
+  open(anchor) {
+    if (this.closed)
+      return;
+    document.body.appendChild(this.card);
+    anchorPanel(this.card, anchor);
+    const onPress = (ev) => {
+      if (!this.card.contains(ev.target))
+        this.commit();
+    };
+    const onKey = (ev) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        this.cancel();
+      }
+    };
+    document.addEventListener("mousedown", onPress);
+    document.addEventListener("touchstart", onPress, { passive: true });
+    document.addEventListener("keydown", onKey);
+    this.unwire = () => {
+      document.removeEventListener("mousedown", onPress);
+      document.removeEventListener("touchstart", onPress);
+      document.removeEventListener("keydown", onKey);
+    };
+    this.input.focus();
+    this.input.select();
+  }
+  close() {
+    if (this.closed)
+      return;
+    this.closed = true;
+    this.unwire?.();
+    this.unwire = null;
+    this.card.remove();
+  }
+  // ---- actions ---------------------------------------------------------------------------
+  commit() {
+    if (this.closed || this.invalid)
+      return;
+    const value = this.draft.toStored();
+    this.close();
+    this.opts.onCommit(value);
+  }
+  cancel() {
+    if (this.closed)
+      return;
+    this.close();
+    this.opts.onCancel?.();
+  }
+  pick(parts) {
+    this.draft.pickDay(parts.year, parts.month, parts.day);
+    this.focusDate = parts;
+    if (this.type === "date") {
+      this.commit();
+      return;
+    }
+    this.view = { year: parts.year, month: parts.month };
+    this.render();
+    this.focusDay(parts);
+  }
+  setNow() {
+    this.draft.setNow();
+    const parts = this.draft.dateParts;
+    this.focusDate = parts;
+    this.view = { year: parts.year, month: parts.month };
+    this.render();
+  }
+  setToday() {
+    this.draft.setToday();
+    const parts = this.draft.dateParts;
+    this.focusDate = parts;
+    this.view = { year: parts.year, month: parts.month };
+    if (this.type === "date") {
+      this.commit();
+      return;
+    }
+    this.render();
+    this.focusDay(parts);
+  }
+  stepMonth(delta) {
+    this.view = addMonths(this.view.year, this.view.month, delta);
+    this.focusDate = {
+      year: this.view.year,
+      month: this.view.month,
+      day: Math.min(this.focusDate.day, daysInMonth3(this.view.year, this.view.month))
+    };
+    const hadFocus = this.grid.contains(document.activeElement);
+    this.renderCalendar();
+    if (hadFocus)
+      this.focusDay(this.focusDate);
+  }
+  // ---- input handling --------------------------------------------------------------------
+  onTextInput() {
+    const result = this.draft.setText(this.input.value);
+    if (!result.ok) {
+      this.invalid = true;
+      this.input.setAttribute("aria-invalid", "true");
+      this.showError(result.error);
+      return;
+    }
+    this.invalid = false;
+    this.input.removeAttribute("aria-invalid");
+    this.showError(null);
+    const parts = this.draft.dateParts;
+    this.focusDate = parts;
+    this.view = { year: parts.year, month: parts.month };
+    this.renderCalendar();
+    this.syncClock();
+  }
+  clockInput(label, max2) {
+    const input = document.createElement("input");
+    input.className = "tablify__date-clock-input";
+    input.type = "text";
+    input.inputMode = "numeric";
+    input.maxLength = 2;
+    input.autocomplete = "off";
+    input.setAttribute("aria-label", label);
+    input.addEventListener("input", () => {
+      input.value = input.value.replace(/\D/g, "").slice(0, 2);
+      this.applyClock();
+    });
+    input.addEventListener("change", () => this.normalizeClock());
+    input.addEventListener("blur", () => this.normalizeClock());
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown")
+        return;
+      e.preventDefault();
+      const step = e.key === "ArrowUp" ? 1 : -1;
+      const current = Number(input.value || "0");
+      const next = (current + step + (max2 + 1)) % (max2 + 1);
+      input.value = pad23(next);
+      this.applyClock(true);
+    });
+    return input;
+  }
+  applyClock(fillEmpty = false) {
+    if (!this.hh || !this.mm)
+      return;
+    const h = this.hh.value === "" ? fillEmpty ? 0 : NaN : Number(this.hh.value);
+    const m = this.mm.value === "" ? fillEmpty ? 0 : NaN : Number(this.mm.value);
+    if (Number.isNaN(h) || Number.isNaN(m))
+      return;
+    if (h > 23 || m > 59)
+      return;
+    this.draft.setTime(h, m);
+    this.syncInput();
+    this.renderCalendar();
+  }
+  normalizeClock() {
+    if (!this.hh || !this.mm)
+      return;
+    const rawH = Number(this.hh.value);
+    const rawM = Number(this.mm.value);
+    const h = Number.isNaN(rawH) ? 0 : Math.min(23, Math.max(0, Math.trunc(rawH)));
+    const m = Number.isNaN(rawM) ? 0 : Math.min(59, Math.max(0, Math.trunc(rawM)));
+    this.hh.value = pad23(h);
+    this.mm.value = pad23(m);
+    this.draft.setTime(h, m);
+    this.syncClock();
+    this.syncInput();
+    this.renderCalendar();
+  }
+  onGridKey(ev, parts) {
+    const key = ev.key;
+    let next = null;
+    if (key === "ArrowLeft")
+      next = addDays(parts, -1);
+    else if (key === "ArrowRight")
+      next = addDays(parts, 1);
+    else if (key === "ArrowUp")
+      next = addDays(parts, -7);
+    else if (key === "ArrowDown")
+      next = addDays(parts, 7);
+    else if (key === "Home")
+      next = addDays(parts, -this.columnOf(parts));
+    else if (key === "End")
+      next = addDays(parts, 6 - this.columnOf(parts));
+    else if (key === "PageUp" || key === "PageDown") {
+      const months = key === "PageUp" ? -1 : 1;
+      const target = addMonths(parts.year, parts.month, ev.shiftKey ? months * 12 : months);
+      next = { year: target.year, month: target.month, day: Math.min(parts.day, daysInMonth3(target.year, target.month)) };
+    } else if (key === "Enter" || key === " ") {
+      ev.preventDefault();
+      this.pick(parts);
+      return;
+    }
+    if (!next)
+      return;
+    ev.preventDefault();
+    this.focusDate = next;
+    this.view = { year: next.year, month: next.month };
+    this.renderCalendar();
+    this.focusDay(next);
+  }
+  columnOf(parts) {
+    const weekday = new Date(parts.year, parts.month, parts.day, 12).getDay();
+    return (weekday - this.weekStart + 7) % 7;
+  }
+  focusDay(parts) {
+    const button = this.grid.querySelector(`[data-date="${formatYmd(parts)}"]`);
+    button?.focus();
+  }
+  // ---- rendering -------------------------------------------------------------------------
+  showError(message) {
+    this.error.textContent = message ?? "";
+    this.error.hidden = message === null;
+  }
+  render() {
+    this.syncInput();
+    this.syncClock();
+    this.renderCalendar();
+  }
+  syncInput() {
+    this.input.value = this.draft.text;
+  }
+  syncClock() {
+    if (!this.hh || !this.mm)
+      return;
+    const t = this.draft.timeParts;
+    this.hh.value = pad23(t.hours);
+    this.mm.value = pad23(t.minutes);
+  }
+  renderCalendar() {
+    this.title.textContent = "";
+    const month = el("span", "tablify__date-month-name");
+    month.textContent = monthLabel(this.view.month);
+    const year = el("span", "tablify__date-year");
+    year.textContent = String(this.view.year);
+    this.title.append(month, year);
+    const today = this.now();
+    const todayParts = { year: today.getFullYear(), month: today.getMonth(), day: today.getDate() };
+    const selected = this.draft.hasDate ? this.draft.dateParts : null;
+    this.grid.textContent = "";
+    const headRow = el("div", "tablify__date-week-row");
+    headRow.setAttribute("role", "row");
+    for (const label of weekdayLabels(this.weekStart)) {
+      const cell2 = el("div", "tablify__date-weekday");
+      cell2.setAttribute("role", "columnheader");
+      cell2.textContent = label;
+      headRow.appendChild(cell2);
+    }
+    this.grid.appendChild(headRow);
+    for (const week of gridFor(this.view.year, this.view.month, this.weekStart)) {
+      const row = el("div", "tablify__date-week");
+      row.setAttribute("role", "row");
+      for (const parts of week) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "tablify__date-day";
+        button.setAttribute("role", "gridcell");
+        button.setAttribute("aria-label", dayLabel(parts));
+        button.dataset.date = formatYmd(parts);
+        button.textContent = String(parts.day);
+        if (parts.month !== this.view.month)
+          button.classList.add("is-outside");
+        if (sameDay(parts, todayParts))
+          button.classList.add("is-today");
+        const isSelected = sameDay(parts, selected);
+        if (isSelected) {
+          button.classList.add("is-selected");
+          button.setAttribute("aria-selected", "true");
+        }
+        button.tabIndex = sameDay(parts, this.focusDate) ? 0 : -1;
+        button.addEventListener("click", () => this.pick(parts));
+        button.addEventListener("keydown", (ev) => this.onGridKey(ev, parts));
+        row.appendChild(button);
+      }
+      this.grid.appendChild(row);
+    }
   }
 };
 
@@ -18861,7 +19553,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     }
     grid.scrollToRow(sel.row);
     const cell2 = this.cellElement(sel);
-    if (field.type === "single_select" || field.type === "multi_select" || field.type === "attachment") {
+    if (field.type === "single_select" || field.type === "multi_select" || field.type === "attachment" || field.type === "date" || field.type === "date_time") {
       if (cell2)
         this.openCellPanel(row.id, field, cell2);
       return;
@@ -18913,6 +19605,30 @@ var TableView = class extends import_obsidian9.TextFileView {
       if (focusGrid)
         grid.root.focus();
     };
+    if (field.type === "date" || field.type === "date_time") {
+      const stored = value();
+      let settled = false;
+      const finish = (commit, next) => {
+        if (settled)
+          return;
+        settled = true;
+        picker.close();
+        if (commit && next !== void 0 && !equivalentStored(field.type, next, stored)) {
+          s.setValue(rowId, field.id, next);
+          this.afterChange();
+        }
+        grid.root.focus();
+      };
+      const picker = new DatePicker({
+        field,
+        value: stored,
+        theme: this.isDark() ? "dark" : "light",
+        onCommit: (next) => finish(true, next),
+        onCancel: () => finish(false)
+      });
+      picker.open(anchor);
+      return;
+    }
     if (field.type === "attachment") {
       const panel2 = new AttachmentPanel({
         field,
@@ -19777,14 +20493,14 @@ function registerEmbedProcessor(plugin) {
   const app = plugin.app;
   plugin.registerMarkdownCodeBlockProcessor(
     EMBED_FENCE_LANGUAGE,
-    async (source, el2, ctx) => {
+    async (source, el3, ctx) => {
       const parsed = parseEmbedSource(source);
       if (!parsed.ok) {
         const err3 = document.createElement("div");
         err3.className = "tablify__error";
         err3.dataset.testid = "tablify-embed-error";
         err3.textContent = parsed.error;
-        el2.appendChild(err3);
+        el3.appendChild(err3);
         return;
       }
       const path = parsed.path;
@@ -19797,9 +20513,9 @@ function registerEmbedProcessor(plugin) {
         },
         links: linkIndexFor(app)
       });
-      el2.appendChild(view.root);
+      el3.appendChild(view.root);
       ctx.addChild(
-        new EmbedRenderChild(el2, () => {
+        new EmbedRenderChild(el3, () => {
           view.destroy();
           registry2.release(path);
         })
@@ -21106,7 +21822,7 @@ function typeLabel(type) {
 }
 
 // src/views/sync/SyncModal.ts
-function el(parent, tag, opts = {}) {
+function el2(parent, tag, opts = {}) {
   const node = document.createElement(tag);
   if (opts.cls)
     node.className = opts.cls;
@@ -21284,37 +22000,37 @@ var SyncModal = class extends import_obsidian15.Modal {
       root.removeChild(root.firstChild);
     const link = this.deps.session.getSyncLink();
     const busy = this.state.busy !== null;
-    el(root, "div", {
+    el2(root, "div", {
       cls: "tablify-sync__token",
       text: this.deps.token ? "Token: stored in Tablify settings (never written to .tablify files)." : "No token. Add one in Tablify settings, under Airtable sync."
     });
-    el(root, "div", { cls: "tablify-sync__scopes", text: `Scopes: ${SCOPES_TEXT}. ${CREATE_SCOPE_TEXT}` });
-    const linkBox = el(root, "div", { cls: "tablify-sync__link" });
+    el2(root, "div", { cls: "tablify-sync__scopes", text: `Scopes: ${SCOPES_TEXT}. ${CREATE_SCOPE_TEXT}` });
+    const linkBox = el2(root, "div", { cls: "tablify-sync__link" });
     if (link) {
-      el(linkBox, "span", { text: `Linked to ${link.tableName} (${link.baseId}).` });
-      const unlinkBtn = el(linkBox, "button", { text: "Unlink" });
+      el2(linkBox, "span", { text: `Linked to ${link.tableName} (${link.baseId}).` });
+      const unlinkBtn = el2(linkBox, "button", { text: "Unlink" });
       unlinkBtn.addEventListener("click", () => this.unlink());
     } else {
       this.renderLinkForm(linkBox, busy);
     }
-    const actions = el(root, "div", { cls: "tablify-sync__actions" });
-    const pullBtn = el(actions, "button", { text: "Pull from Airtable" });
-    const pushBtn = el(actions, "button", { text: "Push to Airtable" });
+    const actions = el2(root, "div", { cls: "tablify-sync__actions" });
+    const pullBtn = el2(actions, "button", { text: "Pull from Airtable" });
+    const pushBtn = el2(actions, "button", { text: "Push to Airtable" });
     const canRun = !!link && !!this.deps.token && !busy;
     pullBtn.disabled = !canRun;
     pushBtn.disabled = !canRun;
     pullBtn.addEventListener("click", () => void this.pull());
     pushBtn.addEventListener("click", () => void this.push());
     if (this.state.busy)
-      el(root, "div", { cls: "tablify-sync__progress", text: `${this.state.busy}\u2026` });
+      el2(root, "div", { cls: "tablify-sync__progress", text: `${this.state.busy}\u2026` });
     if (this.state.status) {
-      el(root, "div", {
+      el2(root, "div", {
         cls: this.state.status.error ? "tablify-sync__status tablify-sync__status--error" : "tablify-sync__status",
         text: this.state.status.text
       });
     }
     if (link?.lastSync) {
-      el(root, "div", {
+      el2(root, "div", {
         cls: "tablify-sync__last",
         text: `Last ${link.lastSync.direction} ${link.lastSync.at}: ${link.lastSync.ok ? "ok" : "with problems"}. ${link.lastSync.summary}`
       });
@@ -21324,9 +22040,9 @@ var SyncModal = class extends import_obsidian15.Modal {
       this.renderFields(root, busy);
   }
   renderLinkForm(box, busy) {
-    const baseSel = el(box, "select", { cls: "tablify-sync__base" });
+    const baseSel = el2(box, "select", { cls: "tablify-sync__base" });
     for (const b of this.state.bases) {
-      const opt = el(baseSel, "option", { text: b.name });
+      const opt = el2(baseSel, "option", { text: b.name });
       opt.value = b.id;
       if (b.id === this.state.baseId)
         opt.selected = true;
@@ -21335,9 +22051,9 @@ var SyncModal = class extends import_obsidian15.Modal {
       this.state.baseId = baseSel.value;
       void this.run("Loading tables", () => this.loadTables());
     });
-    const tableSel = el(box, "select", { cls: "tablify-sync__table" });
+    const tableSel = el2(box, "select", { cls: "tablify-sync__table" });
     this.state.tables.forEach((t, i) => {
-      const opt = el(tableSel, "option", { text: t.name });
+      const opt = el2(tableSel, "option", { text: t.name });
       opt.value = String(i);
       if (i === this.state.tableIndex)
         opt.selected = true;
@@ -21345,8 +22061,8 @@ var SyncModal = class extends import_obsidian15.Modal {
     tableSel.addEventListener("change", () => {
       this.state.tableIndex = Number(tableSel.value);
     });
-    const replaceLabel = el(box, "label");
-    const replace = el(replaceLabel, "input");
+    const replaceLabel = el2(box, "label");
+    const replace = el2(replaceLabel, "input");
     replace.type = "checkbox";
     replace.checked = this.state.replaceColumns;
     replaceLabel.appendChild(document.createTextNode(" Replace local columns with the Airtable schema (local values in those columns are removed)"));
@@ -21354,49 +22070,49 @@ var SyncModal = class extends import_obsidian15.Modal {
       this.state.replaceColumns = replace.checked;
       this.render();
     });
-    const linkBtn = el(box, "button", { text: this.state.replaceColumns ? "Replace columns and link" : "Link table" });
+    const linkBtn = el2(box, "button", { text: this.state.replaceColumns ? "Replace columns and link" : "Link table" });
     linkBtn.disabled = busy || !this.deps.token || this.state.tables.length === 0;
     linkBtn.addEventListener("click", () => void this.link());
   }
   renderConflicts(root, busy) {
     if (this.state.conflicts.length === 0)
       return;
-    const box = el(root, "div", { cls: "tablify-sync__conflicts" });
-    el(box, "div", { text: `Conflicts (${this.state.conflicts.length})` });
+    const box = el2(root, "div", { cls: "tablify-sync__conflicts" });
+    el2(box, "div", { text: `Conflicts (${this.state.conflicts.length})` });
     for (const item of this.state.conflicts) {
-      const row = el(box, "div", { cls: "tablify-sync__conflict" });
+      const row = el2(box, "div", { cls: "tablify-sync__conflict" });
       const title = item.kind === "remote_deleted" ? "Deleted in Airtable, edited here" : "Changed here and in Airtable";
-      el(row, "div", { text: title });
+      el2(row, "div", { text: title });
       const choices = item.kind === "remote_deleted" ? [["keep_local", "Keep local"], ["keep_remote", "Remove row"]] : [["keep_local", "Keep local"], ["keep_remote", "Keep remote"], ["keep_both", "Keep both"]];
       for (const [decision, label] of choices) {
-        const btn = el(row, "button", { text: label });
+        const btn = el2(row, "button", { text: label });
         btn.disabled = busy;
         btn.addEventListener("click", () => void this.resolve(item, decision));
       }
     }
   }
   renderFields(root, busy) {
-    const box = el(root, "div", { cls: "tablify-sync__fields" });
-    const check = el(box, "button", { text: "Check fields to create" });
+    const box = el2(root, "div", { cls: "tablify-sync__fields" });
+    const check = el2(box, "button", { text: "Check fields to create" });
     check.disabled = busy || !this.deps.token;
     check.addEventListener("click", () => void this.preparePlan());
     const plan = this.state.plan;
     if (!plan)
       return;
-    const list = el(box, "ul", { cls: "tablify-sync__plan" });
+    const list = el2(box, "ul", { cls: "tablify-sync__plan" });
     for (const item of plan.items) {
-      el(list, "li", { text: `${item.name} (${typeLabel(item.tablifyType)} \u2192 ${item.airtableType})` });
+      el2(list, "li", { text: `${item.name} (${typeLabel(item.tablifyType)} \u2192 ${item.airtableType})` });
     }
     for (const skip of plan.skipped) {
-      el(list, "li", { cls: "tablify-sync__skipped", text: `${skip.name}: not created (${skip.reason})` });
+      el2(list, "li", { cls: "tablify-sync__skipped", text: `${skip.name}: not created (${skip.reason})` });
     }
-    const buttons = el(box, "div", { cls: "tablify-sync__confirm" });
-    this.cancelButton = el(buttons, "button", { text: "Cancel" });
+    const buttons = el2(box, "div", { cls: "tablify-sync__confirm" });
+    this.cancelButton = el2(buttons, "button", { text: "Cancel" });
     this.cancelButton.addEventListener("click", () => {
       this.state.plan = null;
       this.render();
     });
-    const create = el(buttons, "button", { text: `Create ${plan.items.length} field(s) in Airtable` });
+    const create = el2(buttons, "button", { text: `Create ${plan.items.length} field(s) in Airtable` });
     create.disabled = busy || plan.items.length === 0;
     create.addEventListener("click", () => void this.createFields());
     this.cancelButton.focus();

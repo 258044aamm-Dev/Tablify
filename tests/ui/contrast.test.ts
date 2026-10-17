@@ -140,4 +140,23 @@ describe('P3-11 — Contrast and visual verification', () => {
     expect(lightTheme.accentCheck).toBe(lightTheme.focus);
     expect(contrastRatio(darkTheme.accentCheck, darkTheme.bgInner)).toBeGreaterThanOrEqual(3);
   });
+
+  it('COD-75: the date panel’s "today" numeral passes AA on the card in both themes', () => {
+    // The accent alone is 3.28:1 on the light card — too low for 12 px text — so light uses the
+    // AA terracotta and dark uses the accent on the darker pill surface.
+    for (const [name, t, surface] of [
+      ['light', lightTheme, lightTheme.bgPill],
+      ['dark', darkTheme, darkTheme.bgPill],
+    ] as const) {
+      const ratio = contrastRatio(t.textToday, surface);
+      expect(ratio, `${name}: textToday ${t.textToday} on bgPill ${surface} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+    }
+    // And the selected day: the ink the toolbar's active pill already uses.
+    for (const [name, t] of [
+      ['light', lightTheme],
+      ['dark', darkTheme],
+    ] as const) {
+      expect(contrastRatio(t.onAccent, t.accentPrimary), `${name}: onAccent on accentPrimary`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
