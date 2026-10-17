@@ -4,6 +4,16 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- **Double-clicking a cell edits it again (COD-66)** — the documented double-click did nothing,
+  while Enter worked. The first click of the double-click rebuilt the grid rows, which destroyed
+  the element under the pointer, so the browser never fired the `dblclick` that opens the editor.
+  Selecting a cell now updates the highlight in place instead of re-rendering, so double-click
+  reaches the editor again for text, select, attachment and link cells (read-only cells still
+  open nothing). Single click still only selects, and keyboard navigation, row selection, row
+  drag, the context menus and the embed view are unchanged. Files are not affected.
+
 ## [2.0.0-beta.3] — 2026-10-16
 
 ### Changed
