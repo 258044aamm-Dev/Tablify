@@ -44,10 +44,11 @@ export function reorderByDrag(view: ViewDefinition, fromIdx: number, toIdx: numb
 }
 
 export function setFrozenColumns(view: ViewDefinition, n: number, fields: FieldDefinition[]): ViewDefinition {
-  const clamped = Math.max(0, Math.min(fields.length, Math.round(n)));
-  // SAD-100: every path through here is a deliberate choice (Options switch, header Freeze),
-  // so the viewport default must not override it afterwards.
-  const next: ViewDefinition = { ...view, frozenColumns: clamped, freezeMode: 'fixed' };
+  // COD-72: only the primary column can be frozen, so this is a 0/1 flag: any positive count
+  // freezes it, 0 (or a non-number) unfreezes it. Narrow panes still render it unpinned —
+  // effectiveFrozenColumns decides that, not the stored flag.
+  const clamped = Number.isFinite(n) && Math.round(n) > 0 ? 1 : 0;
+  const next: ViewDefinition = { ...view, frozenColumns: clamped };
   const res = validateView(next, fields);
   return res.ok ? res.view : view;
 }

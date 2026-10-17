@@ -37,8 +37,6 @@ function cloneView(view: ViewDefinition): ViewDefinition {
     ...(view.collapsedGroups !== undefined
       ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups }
       : {}),
-    // SAD-100: same conditional-copy rule — absent means "legacy/default interpretation".
-    ...(view.freezeMode !== undefined ? { freezeMode: view.freezeMode } : {}),
   };
 }
 
@@ -46,33 +44,16 @@ function cloneView(view: ViewDefinition): ViewDefinition {
 export const MOBILE_PANE_MAX_WIDTH = 639;
 
 /**
- * SAD-100: how this view's freeze setting should be read.
+ * COD-72: the frozen-column flag to render, given the current table-pane width.
  *
- * - `'viewport'` — follow the live pane-width default (owner decision: "the viewport decides
- *   until the user touches the switch"). The stored number is the desktop default (1).
- * - `'fixed'` — `frozenColumns` is a deliberate choice and applies at every size.
- *
- * Absent `freezeMode` is the legacy interpretation: `frozenColumns === 1` was the old hard
- * default (createDefaultView never asked), so it follows the viewport; `0` and `≥2` could only
- * come from a deliberate action and stay fixed. Once a user touches the freeze switch or the
- * header Freeze item, `setFrozenColumns` writes `freezeMode: 'fixed'` and the choice sticks.
- */
-export function freezeModeOf(view: ViewDefinition): 'viewport' | 'fixed' {
-  if (view.freezeMode === 'viewport' || view.freezeMode === 'fixed') return view.freezeMode;
-  return view.frozenColumns === 1 ? 'viewport' : 'fixed';
-}
-
-/**
- * SAD-100: the frozen-column count to render, given the current table-pane width.
- *
- * `paneWidth` is the width of the table pane (device type is never consulted). In viewport
- * mode the mobile width (≤ 639px) suppresses freezing entirely; wider panes render the stored
- * count (the desktop default is 1). Fixed views return their stored count at every width.
+ * Only the primary column can be frozen, so `frozenColumns` is a 0/1 flag (validateView
+ * enforces it). A narrow table pane (≤ 639px, the phone breakpoint) never freezes — the
+ * primary column would otherwise eat most of the width and hide the rest of the table.
+ * `paneWidth` is the width of the table pane; device type is never consulted.
  */
 export function effectiveFrozenColumns(view: ViewDefinition, paneWidth: number): number {
-  const stored = Math.max(0, Math.round(view.frozenColumns ?? 0));
-  if (freezeModeOf(view) === 'viewport' && paneWidth <= MOBILE_PANE_MAX_WIDTH) return 0;
-  return stored;
+  const stored = (view.frozenColumns ?? 0) > 0 ? 1 : 0;
+  return paneWidth <= MOBILE_PANE_MAX_WIDTH ? 0 : stored;
 }
 
 function createDefaultView(fields: FieldDefinition[], name = 'Default'): ViewDefinition {
@@ -83,10 +64,8 @@ function createDefaultView(fields: FieldDefinition[], name = 'Default'): ViewDef
     sort: [],
     groupBy: null,
     hidden: [],
+    // COD-72: 1 = the primary column is frozen (the desktop default), 0 = not frozen.
     frozenColumns: 1,
-    // SAD-100: new tables follow the viewport freeze default (mobile → unfrozen). Older plugin
-    // builds drop this key and fall back to their always-frozen behaviour — the safe direction.
-    freezeMode: 'viewport',
     rowHeight: 'medium',
     columnWidths: {},
     columnOrder,
@@ -99,7 +78,8 @@ function createDefaultView(fields: FieldDefinition[], name = 'Default'): ViewDef
  * - Unknown field IDs are removed with a warning (not an error).
  * - Hiding the primary field is an error (R-D13) — view not applied.
  * - columnOrder missing or not a permutation → derived from field order with warning.
- * - frozenColumns clamped to 0..fields.length with warning if out of range.
+ * - frozenColumns clamped to 0..1 with warning if out of range (COD-72: primary only).
+ * - columnOrder is normalised so the primary field is the first column (COD-72).
  * - columnWidths entries with unknown field or non-integer/negative dropped with warning.
  * - sort entries with unknown field dropped with warning; direction invalid → dropped.
  * - groupBy unknown → cleared with warning.
@@ -225,6 +205,19 @@ export function validateView(view: ViewDefinition, fields: FieldDefinition[]): V
     normalized.columnOrder = cleanOrder;
   }
 
+  // --- COD-72: the primary field is always the first column ---
+  // Freezing pins a prefix, so "the primary column is frozen" only means the leftmost column
+  // when the primary cannot be dragged away from it. The header hides the primary's drag grip;
+  // this normaliser is the enforcement for every other path (drop, keyboard, hand-edited file).
+  if (primaryId) {
+    const primaryIndex = normalized.columnOrder.indexOf(primaryId);
+    if (primaryIndex > 0) {
+      normalized.columnOrder.splice(primaryIndex, 1);
+      normalized.columnOrder.unshift(primaryId);
+      warnings.push(`Primary field "${primary?.name ?? primaryId}" must stay in the first column — moved`);
+    }
+  }
+
   // --- columnWidths ---
   const origWidths = view.columnWidths && typeof view.columnWidths === 'object' ? view.columnWidths : {};
   const cleanWidths: Record<string, number> = {};
@@ -251,12 +244,14 @@ export function validateView(view: ViewDefinition, fields: FieldDefinition[]): V
     warnings.push(`frozenColumns invalid type "${String(frozen)}" — set to 0`);
     frozen = 0;
   }
+  // COD-72: only the primary column can be frozen, so the flag is 0 or 1. A file written by an
+  // earlier multi-column build (or a hand edit) keeps the freeze, narrowed to the primary column.
   if (frozen < 0) {
     warnings.push(`frozenColumns ${frozen} below 0 — clamped to 0`);
     frozen = 0;
-  } else if (frozen > fields.length) {
-    warnings.push(`frozenColumns ${frozen} exceeds field count ${fields.length} — clamped to ${fields.length}`);
-    frozen = fields.length;
+  } else if (frozen > 1) {
+    warnings.push(`frozenColumns ${frozen} exceeds 1 — only the primary column can be frozen, clamped to 1`);
+    frozen = 1;
   }
   normalized.frozenColumns = frozen;
 
@@ -307,11 +302,6 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
     groupBy: (obj.groupBy as string | null) ?? null,
     hidden: Array.isArray(obj.hidden) ? (obj.hidden as string[]) : [],
     frozenColumns: typeof obj.frozenColumns === 'number' ? obj.frozenColumns : 0,
-    // SAD-100: optional freezeMode ('viewport' | 'fixed'), same absent-means-default rule as
-    // search/query. Invalid values are dropped below with a warning.
-    ...(obj.freezeMode === 'viewport' || obj.freezeMode === 'fixed'
-      ? { freezeMode: obj.freezeMode as 'viewport' | 'fixed' }
-      : {}),
     rowHeight: (obj.rowHeight as RowHeight) ?? 'medium',
     columnWidths: typeof obj.columnWidths === 'object' && obj.columnWidths !== null ? (obj.columnWidths as Record<string, number>) : {},
     columnOrder: Array.isArray(obj.columnOrder) ? (obj.columnOrder as string[]) : fields.map((f) => f.id),
@@ -332,10 +322,6 @@ export function normalizeView(raw: unknown, fields: FieldDefinition[]): ViewVali
   if (!Array.isArray(obj.sort)) warnings.push('view sort missing — set to []');
   if (!Array.isArray(obj.hidden)) warnings.push('view hidden missing — set to []');
   if (typeof obj.frozenColumns !== 'number') warnings.push('view frozenColumns missing — set to 0');
-  // SAD-100: absent is the legacy interpretation; only a present-but-invalid value warns.
-  if (obj.freezeMode !== undefined && obj.freezeMode !== 'viewport' && obj.freezeMode !== 'fixed') {
-    warnings.push('view freezeMode invalid — ignored');
-  }
   if (typeof obj.rowHeight !== 'string') warnings.push('view rowHeight missing — set to medium');
   // SAD-69: search/query are optional. Absent means "no filter" and must stay absent;
   // present-but-wrong-type is dropped with a warning.

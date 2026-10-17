@@ -30,25 +30,20 @@ describe('P3-07 — Column and row layout', () => {
     expect(view.columnOrder[0]).toBe('fld_2');
   });
 
-  it('freeze first N columns stays visible during horizontal scroll (view state)', () => {
+  it('freezes and unfreezes the primary column (COD-72: a 0/1 flag)', () => {
     const f = fields(5);
     let view = createDefaultView(f);
+    expect(view.frozenColumns).toBe(1);
+    // any positive count means "frozen"; there is no multi-column state anymore
     view = setFrozenColumns(view, 2, f);
-    expect(view.frozenColumns).toBe(2);
-    // clamped
+    expect(view.frozenColumns).toBe(1);
     view = setFrozenColumns(view, 10, f);
-    expect(view.frozenColumns).toBe(5);
+    expect(view.frozenColumns).toBe(1);
+    view = setFrozenColumns(view, 0, f);
+    expect(view.frozenColumns).toBe(0);
     view = setFrozenColumns(view, -1, f);
     expect(view.frozenColumns).toBe(0);
-  });
-
-  it('records an explicit freeze choice (SAD-100): freezeMode becomes fixed', () => {
-    const f = fields(5);
-    // The viewport default must not survive a deliberate choice at any count.
-    expect(createDefaultView(f).freezeMode).toBe('viewport');
-    for (const n of [0, 1, 2]) {
-      expect(setFrozenColumns(createDefaultView(f), n, f).freezeMode).toBe('fixed');
-    }
+    expect(setFrozenColumns(view, Number.NaN, f).frozenColumns).toBe(0);
   });
 
   it('row height setting applies to all rows', () => {

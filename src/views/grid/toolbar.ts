@@ -100,6 +100,12 @@ export interface ToolbarState {
   selectedCount?: number;
   /** SAD-113: every field in the table, hidden ones included. Absent hides the field count. */
   totalFieldCount?: number;
+  /**
+   * COD-72: the table pane is too narrow to freeze (≤ 639px). The switch stays visible but is
+   * disabled — the grid never renders the freeze at that width, so an enabled switch would
+   * look like a no-op.
+   */
+  freezeUnavailable?: boolean;
 }
 
 export interface ToolbarOptions extends ToolbarState {
@@ -454,6 +460,7 @@ export class Toolbar {
     this.opts.queryError = state.queryError;
     this.opts.selectedCount = state.selectedCount;
     this.opts.totalFieldCount = state.totalFieldCount;
+    this.opts.freezeUnavailable = state.freezeUnavailable === true;
     this.renderSelection();
     this.renderFieldCount();
 
@@ -650,8 +657,9 @@ export class Toolbar {
     }
     heightGroup.appendChild(pills);
 
-    // ---- freeze primary column (S-5: on/off) ----
-    const freezeOn = (view.frozenColumns ?? 0) >= 1;
+    // ---- freeze primary column (COD-72: on/off; the only freeze control) ----
+    const freezeUnavailable = this.opts.freezeUnavailable === true;
+    const freezeOn = !freezeUnavailable && (view.frozenColumns ?? 0) >= 1;
     const freezeGroup = document.createElement('div');
     freezeGroup.className = 'tablify__option-group tablify__option-group--inline';
     freezeGroup.dataset.testid = 'option-freeze';
@@ -668,6 +676,12 @@ export class Toolbar {
     toggle.setAttribute('aria-labelledby', freezeLabel.id);
     toggle.dataset.action = ACTIONS.toggleFreeze;
     toggle.dataset.focusKey = 'freeze';
+    if (freezeUnavailable) {
+      // SAD-109 pattern: the reason is folded into the aria-label (one tooltip, not a title too).
+      toggle.classList.add('tablify__switch--narrow');
+      toggle.disabled = true;
+      toggle.setAttribute('aria-label', 'Freeze primary column. Not available in a narrow window');
+    }
     const knob = document.createElement('span');
     knob.className = 'tablify__switch-knob';
     knob.setAttribute('aria-hidden', 'true');

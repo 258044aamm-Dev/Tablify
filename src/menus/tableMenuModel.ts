@@ -138,7 +138,6 @@ export interface HeaderContext {
 export function headerEntries(ctx: HeaderContext): MenuEntry[] {
   const sort = ctx.view.sort;
   const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
-  const frozenThrough = ctx.colIndex + 1;
   return [
     // COD-69: "Modify field…" opens the same window Add field uses, pre-filled. It replaces the
     // type-only picker this menu had before COD-67 (no submenus in this Obsidian API version).
@@ -162,12 +161,6 @@ export function headerEntries(ctx: HeaderContext): MenuEntry[] {
       label: 'Sort descending',
       enabled: sortedThis !== 'desc',
       reason: 'Already sorted descending',
-    },
-    {
-      id: 'header.freeze',
-      label: 'Freeze column',
-      enabled: ctx.view.frozenColumns !== frozenThrough,
-      reason: 'Already frozen through this column',
     },
   ];
 }

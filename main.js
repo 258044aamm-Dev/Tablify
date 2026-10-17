@@ -5295,22 +5295,13 @@ function cloneView(view) {
     ...view.query !== void 0 && view.query !== null ? { query: view.query } : {},
     // SAD-81: same conditional-copy rule as search/query.
     // A non-array (hand-edited file) is passed through as-is; validateView drops it with a warning.
-    ...view.collapsedGroups !== void 0 ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups } : {},
-    // SAD-100: same conditional-copy rule — absent means "legacy/default interpretation".
-    ...view.freezeMode !== void 0 ? { freezeMode: view.freezeMode } : {}
+    ...view.collapsedGroups !== void 0 ? { collapsedGroups: Array.isArray(view.collapsedGroups) ? [...view.collapsedGroups] : view.collapsedGroups } : {}
   };
 }
 var MOBILE_PANE_MAX_WIDTH = 639;
-function freezeModeOf(view) {
-  if (view.freezeMode === "viewport" || view.freezeMode === "fixed")
-    return view.freezeMode;
-  return view.frozenColumns === 1 ? "viewport" : "fixed";
-}
 function effectiveFrozenColumns(view, paneWidth) {
-  const stored = Math.max(0, Math.round(view.frozenColumns ?? 0));
-  if (freezeModeOf(view) === "viewport" && paneWidth <= MOBILE_PANE_MAX_WIDTH)
-    return 0;
-  return stored;
+  const stored = (view.frozenColumns ?? 0) > 0 ? 1 : 0;
+  return paneWidth <= MOBILE_PANE_MAX_WIDTH ? 0 : stored;
 }
 function createDefaultView(fields, name = "Default") {
   const columnOrder = fields.map((f) => f.id);
@@ -5320,10 +5311,8 @@ function createDefaultView(fields, name = "Default") {
     sort: [],
     groupBy: null,
     hidden: [],
+    // COD-72: 1 = the primary column is frozen (the desktop default), 0 = not frozen.
     frozenColumns: 1,
-    // SAD-100: new tables follow the viewport freeze default (mobile → unfrozen). Older plugin
-    // builds drop this key and fall back to their always-frozen behaviour — the safe direction.
-    freezeMode: "viewport",
     rowHeight: "medium",
     columnWidths: {},
     columnOrder,
@@ -5430,6 +5419,14 @@ function validateView(view, fields) {
     }
     normalized.columnOrder = cleanOrder;
   }
+  if (primaryId) {
+    const primaryIndex = normalized.columnOrder.indexOf(primaryId);
+    if (primaryIndex > 0) {
+      normalized.columnOrder.splice(primaryIndex, 1);
+      normalized.columnOrder.unshift(primaryId);
+      warnings.push(`Primary field "${primary?.name ?? primaryId}" must stay in the first column \u2014 moved`);
+    }
+  }
   const origWidths = view.columnWidths && typeof view.columnWidths === "object" ? view.columnWidths : {};
   const cleanWidths = {};
   for (const [fid, w] of Object.entries(origWidths)) {
@@ -5455,9 +5452,9 @@ function validateView(view, fields) {
   if (frozen < 0) {
     warnings.push(`frozenColumns ${frozen} below 0 \u2014 clamped to 0`);
     frozen = 0;
-  } else if (frozen > fields.length) {
-    warnings.push(`frozenColumns ${frozen} exceeds field count ${fields.length} \u2014 clamped to ${fields.length}`);
-    frozen = fields.length;
+  } else if (frozen > 1) {
+    warnings.push(`frozenColumns ${frozen} exceeds 1 \u2014 only the primary column can be frozen, clamped to 1`);
+    frozen = 1;
   }
   normalized.frozenColumns = frozen;
   const rh = view.rowHeight;
@@ -5734,10 +5731,7 @@ function parse(input) {
         ...typeof v.query === "string" ? { query: v.query } : {},
         // SAD-81: collapsed group keys, first-class like search/query. A non-array is left to
         // the unknown-key loop below, so it still round-trips untouched.
-        ...Array.isArray(v.collapsedGroups) ? { collapsedGroups: v.collapsedGroups } : {},
-        // SAD-100: freezeMode, first-class like the keys above. Any other value is left out
-        // here (validateView warns); the unknown-key loop below still round-trips it raw.
-        ...v.freezeMode === "viewport" || v.freezeMode === "fixed" ? { freezeMode: v.freezeMode } : {}
+        ...Array.isArray(v.collapsedGroups) ? { collapsedGroups: v.collapsedGroups } : {}
       };
       const result = validateView(viewWithDefaults, fieldsForView);
       if (!result.ok && result.errors.length > 0) {
@@ -5756,6 +5750,7 @@ function parse(input) {
           result.view[k] = original[k];
         }
       }
+      delete result.view.freezeMode;
       return result.view;
     });
     obj.views = normalizedViews;
@@ -5796,7 +5791,7 @@ function formatVersionFor(file) {
 }
 var FIELD_KEYS = ["id", "name", "type", "primary", "options", "required", "unique", "min", "max", "regex", "formula", "linkTableId", "airtable"];
 var ROW_KEYS = ["id", "rev", "createdAt", "updatedAt", "values", "sync"];
-var VIEW_KEYS = ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths", "columnOrder", "warnings", "search", "query", "collapsedGroups", "freezeMode"];
+var VIEW_KEYS = ["id", "name", "sort", "groupBy", "hidden", "frozenColumns", "rowHeight", "columnWidths", "columnOrder", "warnings", "search", "query", "collapsedGroups"];
 var ROW_SYNC_KEYS = ["airtableId", "syncedRev", "syncedAt", "remoteHash", "remoteDeleted", "conflict"];
 var SYNC_LINK_KEYS = ["baseId", "tableId", "tableName", "linkedAt", "lastSync", "records"];
 var OPTION_KEYS = ["id", "name", "color"];
@@ -14105,10 +14100,7 @@ var GridView = class {
     this.offsets = this.slotLefts.slice(LEAD_SLOTS);
     this.frozenColumns = Math.max(
       0,
-      Math.min(
-        this.fields.length,
-        Math.round(effectiveFrozenColumns(view, this.currentPaneWidth))
-      )
+      Math.min(1, Math.round(effectiveFrozenColumns(view, this.currentPaneWidth)))
     );
   }
   /**
@@ -14132,13 +14124,15 @@ var GridView = class {
     el2.style.boxSizing = "border-box";
     el2.style.width = `${this.slotWidths[slot] ?? DEFAULT_COLUMN_WIDTH}px`;
     const frozen = this.frozenColumns > 0 && slot < LEAD_SLOTS + this.frozenColumns;
+    const edge = frozen && slot === LEAD_SLOTS + this.frozenColumns - 1;
     if (frozen) {
       el2.classList.add(slot < LEAD_SLOTS ? "tablify__lead--frozen" : "tablify__cell--frozen");
+      el2.classList.toggle("tablify__cell--frozen-edge", edge);
       el2.style.position = "sticky";
       el2.style.left = `${this.slotLefts[slot]}px`;
       el2.style.zIndex = frozenZIndex;
-    } else if (el2.style.position) {
-      el2.classList.remove("tablify__lead--frozen", "tablify__cell--frozen");
+    } else if (el2.style.position || el2.classList.contains("tablify__cell--frozen-edge")) {
+      el2.classList.remove("tablify__lead--frozen", "tablify__cell--frozen", "tablify__cell--frozen-edge");
       el2.style.position = "";
       el2.style.left = "";
       el2.style.zIndex = "";
@@ -14229,7 +14223,7 @@ var GridView = class {
     const main = document.createElement("div");
     main.className = "tablify__hc-main";
     capsule.appendChild(main);
-    if (this.opts.onColumnMove) {
+    if (this.opts.onColumnMove && !field.primary) {
       const grip = document.createElement("span");
       grip.className = "tablify__hc-grip";
       grip.title = "Drag to reorder";
@@ -15050,7 +15044,6 @@ function rowEntries(rowSelected = false) {
 function headerEntries(ctx) {
   const sort = ctx.view.sort;
   const sortedThis = sort.length === 1 && sort[0].fieldId === ctx.fieldId ? sort[0].direction : null;
-  const frozenThrough = ctx.colIndex + 1;
   return [
     // COD-69: "Modify field…" opens the same window Add field uses, pre-filled. It replaces the
     // type-only picker this menu had before COD-67 (no submenus in this Obsidian API version).
@@ -15074,12 +15067,6 @@ function headerEntries(ctx) {
       label: "Sort descending",
       enabled: sortedThis !== "desc",
       reason: "Already sorted descending"
-    },
-    {
-      id: "header.freeze",
-      label: "Freeze column",
-      enabled: ctx.view.frozenColumns !== frozenThrough,
-      reason: "Already frozen through this column"
     }
   ];
 }
@@ -15125,8 +15112,8 @@ function resizeColumn(view, fieldId, newWidth, fields) {
   return res.view;
 }
 function setFrozenColumns(view, n, fields) {
-  const clamped = Math.max(0, Math.min(fields.length, Math.round(n)));
-  const next = { ...view, frozenColumns: clamped, freezeMode: "fixed" };
+  const clamped = Number.isFinite(n) && Math.round(n) > 0 ? 1 : 0;
+  const next = { ...view, frozenColumns: clamped };
   const res = validateView(next, fields);
   return res.ok ? res.view : view;
 }
@@ -15641,6 +15628,7 @@ var Toolbar = class _Toolbar {
     this.opts.queryError = state.queryError;
     this.opts.selectedCount = state.selectedCount;
     this.opts.totalFieldCount = state.totalFieldCount;
+    this.opts.freezeUnavailable = state.freezeUnavailable === true;
     this.renderSelection();
     this.renderFieldCount();
     if (state.theme !== this.opts.theme) {
@@ -15817,7 +15805,8 @@ var Toolbar = class _Toolbar {
       pills.appendChild(btn);
     }
     heightGroup.appendChild(pills);
-    const freezeOn = (view.frozenColumns ?? 0) >= 1;
+    const freezeUnavailable = this.opts.freezeUnavailable === true;
+    const freezeOn = !freezeUnavailable && (view.frozenColumns ?? 0) >= 1;
     const freezeGroup = document.createElement("div");
     freezeGroup.className = "tablify__option-group tablify__option-group--inline";
     freezeGroup.dataset.testid = "option-freeze";
@@ -15834,6 +15823,11 @@ var Toolbar = class _Toolbar {
     toggle.setAttribute("aria-labelledby", freezeLabel.id);
     toggle.dataset.action = ACTIONS.toggleFreeze;
     toggle.dataset.focusKey = "freeze";
+    if (freezeUnavailable) {
+      toggle.classList.add("tablify__switch--narrow");
+      toggle.disabled = true;
+      toggle.setAttribute("aria-label", "Freeze primary column. Not available in a narrow window");
+    }
     const knob = document.createElement("span");
     knob.className = "tablify__switch-knob";
     knob.setAttribute("aria-hidden", "true");
@@ -17978,6 +17972,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     return {
       fields: s.getFields(),
       view: { ...view, frozenColumns: effectiveFrozenColumns(view, paneWidth) },
+      freezeUnavailable: paneWidth <= MOBILE_PANE_MAX_WIDTH,
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
       // SAD-113: every field, hidden ones included (the field count is about the table, not the view).
@@ -18789,9 +18784,6 @@ var TableView = class extends import_obsidian9.TextFileView {
         break;
       case "header.sortDesc":
         s.setView({ ...s.getView(), sort: [{ fieldId: field.id, direction: "desc" }] });
-        break;
-      case "header.freeze":
-        s.setView({ ...s.getView(), frozenColumns: t.col + 1, freezeMode: "fixed" });
         break;
       default:
         return;

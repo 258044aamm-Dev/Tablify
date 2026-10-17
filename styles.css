@@ -216,6 +216,8 @@
 .tablify--light {
   --tablify-placeholder-opacity: 0.7;
   --tablify-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  /* COD-72: the frozen boundary casts a soft edge over the columns scrolling beneath it. */
+  --tablify-frozen-edge-shadow: 10px 0 12px -10px rgba(0, 0, 0, 0.22);
   /* Prototype `.light .pill-input:focus-within` ring: rgba(204,120,92,0.15). */
   --tablify-focus-ring: color-mix(in srgb, var(--tablify-accent-primary) 15%, transparent);
 }
@@ -223,6 +225,7 @@
 .tablify--dark {
   --tablify-placeholder-opacity: 1;
   --tablify-pill-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --tablify-frozen-edge-shadow: 10px 0 14px -10px rgba(0, 0, 0, 0.65);
   /* Prototype `.dark .pill-input:focus-within` ring: rgba(217,119,87,0.2). */
   --tablify-focus-ring: color-mix(in srgb, var(--tablify-accent-primary) 20%, transparent);
 }
@@ -547,6 +550,12 @@
 
 .tablify button.tablify__switch.is-on {
   background: var(--tablify-accent-fill);
+}
+
+/* COD-72: too narrow a pane to freeze — the switch shows the state but cannot be operated. */
+.tablify button.tablify__switch.tablify__switch--narrow {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .tablify__switch-knob {
@@ -2309,6 +2318,36 @@
     6px -8px 0 var(--tablify-bg-inner),
     -6px 8px 0 var(--tablify-bg-inner),
     -6px -8px 0 var(--tablify-bg-inner);
+}
+
+/* COD-72: the `#` slot pins to the shell's content edge, so scrolled cells would otherwise
+   show through the 12px (8px on phones) padding strip to its left. Paint that strip with the
+   block's own background — same colour as the mask above. */
+.tablify__lead--frozen::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: calc(-1 * var(--tablify-grid-pad));
+  width: var(--tablify-grid-pad);
+  background-color: var(--tablify-bg-inner);
+  pointer-events: none;
+}
+
+/* COD-72: the frozen block ends with a hairline divider plus a soft edge shadow, so a column
+   scrolling underneath is visibly clipped instead of being cut mid-capsule. The pseudo-element
+   sits at the outer edge of the background mask (6px of spread) and is inert to the pointer. */
+.tablify__cell--frozen-edge::after {
+  content: '';
+  position: absolute;
+  /* Bridges the 8px row spacing, like the background mask above, so the divider is continuous. */
+  top: -8px;
+  bottom: -8px;
+  right: -6px;
+  width: 1px;
+  background-color: var(--tablify-border-subtle);
+  box-shadow: var(--tablify-frozen-edge-shadow);
+  pointer-events: none;
 }
 
 /* P7-01: embedded table in a note (```tablify fence). Height-limited; the full view is unchanged. */

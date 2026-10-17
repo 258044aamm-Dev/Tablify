@@ -121,15 +121,11 @@ export interface ViewDefinition {
   sort: SortEntry[];
   groupBy: string | null;
   hidden: string[];
-  frozenColumns: number;
   /**
-   * SAD-100: how `frozenColumns` should be read. 'viewport' follows the live pane-width default
-   * (≤639px → 0, wider → 1); 'fixed' means the stored count is a deliberate choice and always
-   * applies. Absent = legacy interpretation: `frozenColumns === 1` (the old hard default) is
-   * 'viewport', any other value is 'fixed'. Optional and absent by default — byte-identical
-   * round-trips (same rule as search/query/collapsedGroups).
+   * COD-72: 1 = the primary column is frozen, 0 = it is not. Only the primary column can be
+   * frozen; validateView clamps the value to 0..1. Panes ≤639px never render it frozen.
    */
-  freezeMode?: 'viewport' | 'fixed';
+  frozenColumns: number;
   rowHeight: RowHeight;
   columnWidths: Record<string, number>;
   columnOrder: string[];

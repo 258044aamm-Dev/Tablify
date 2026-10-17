@@ -66,10 +66,10 @@ describe('View — validateView per-setting save/reload', () => {
       ],
       groupBy: 'fld_due',
       hidden: ['fld_score'],
-      frozenColumns: 2,
+      frozenColumns: 1,
       rowHeight: 'large',
       columnWidths: { fld_name: 250, fld_status: 120 },
-      columnOrder: ['fld_due', 'fld_name', 'fld_status', 'fld_score'],
+      columnOrder: ['fld_name', 'fld_due', 'fld_status', 'fld_score'],
       warnings: [],
     };
     const res = validateView(v, FIELDS);
@@ -78,10 +78,10 @@ describe('View — validateView per-setting save/reload', () => {
     expect(res.view.sort).toEqual(v.sort);
     expect(res.view.groupBy).toBe('fld_due');
     expect(res.view.hidden).toEqual(['fld_score']);
-    expect(res.view.frozenColumns).toBe(2);
+    expect(res.view.frozenColumns).toBe(1);
     expect(res.view.rowHeight).toBe('large');
     expect(res.view.columnWidths).toEqual({ fld_name: 250, fld_status: 120 });
-    expect(res.view.columnOrder).toEqual(['fld_due', 'fld_name', 'fld_status', 'fld_score']);
+    expect(res.view.columnOrder).toEqual(['fld_name', 'fld_due', 'fld_status', 'fld_score']);
   });
 
   it('sort with unknown field is ignored with warning', () => {
@@ -143,15 +143,23 @@ describe('View — validateView per-setting save/reload', () => {
   });
 
   it('frozenColumns out of range clamped with warning', () => {
+    // COD-72: only the primary column freezes, so the flag saturates at 1.
     const vHigh: ViewDefinition = { ...BASE_VIEW, frozenColumns: 99 };
     const resHigh = validateView(vHigh, FIELDS);
-    expect(resHigh.view.frozenColumns).toBe(FIELDS.length);
+    expect(resHigh.view.frozenColumns).toBe(1);
     expect(resHigh.warnings.join()).toContain('exceeds');
 
     const vNeg: ViewDefinition = { ...BASE_VIEW, frozenColumns: -1 };
     const resNeg = validateView(vNeg, FIELDS);
     expect(resNeg.view.frozenColumns).toBe(0);
     expect(resNeg.warnings.join()).toContain('below');
+  });
+
+  it('moves the primary field to the first column with a warning', () => {
+    const v: ViewDefinition = { ...BASE_VIEW, columnOrder: ['fld_due', 'fld_name', 'fld_status', 'fld_score'] };
+    const res = validateView(v, FIELDS);
+    expect(res.view.columnOrder).toEqual(['fld_name', 'fld_due', 'fld_status', 'fld_score']);
+    expect(res.warnings.join(' ')).toMatch(/must stay in the first column/);
   });
 
   it('rowHeight invalid set to medium with warning', () => {

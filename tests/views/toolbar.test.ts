@@ -300,19 +300,34 @@ describe('Toolbar — Options panel (view settings)', () => {
     expect(callbacks.calls.onRowHeight).toEqual(['large']);
   });
 
-  // SAD-81 (S-5): the prototype's "Freeze primary column" switch replaces the 0..n select.
-  it('offers a freeze switch that reads any count of 1 or more as on', () => {
+  // COD-72: the switch is the only freeze control, and it reads the 0/1 flag.
+  it('offers a freeze switch that reads the flag', () => {
     const { toolbar } = mount();
     buttonByAction(toolbar.root, 'options')?.click();
     const sw = need(toolbar.root.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch');
-    expect(sw.getAttribute('aria-checked')).toBe('true'); // createDefaultView freezes 1
+    expect(sw.getAttribute('aria-checked')).toBe('true'); // createDefaultView freezes the primary
+    expect(sw.hasAttribute('disabled')).toBe(false);
     expect(toolbar.root.querySelector('[data-testid="option-freeze"]')?.textContent).toContain('Freeze primary column');
 
+    // A legacy count from an older file still reads as simply "on".
     const view = createDefaultView(FIELDS);
     view.frozenColumns = 3;
     const wide = mount({ view });
     buttonByAction(wide.toolbar.root, 'options')?.click();
     expect(wide.toolbar.root.querySelector('[role="switch"]')?.getAttribute('aria-checked')).toBe('true');
+  });
+
+  // COD-72: a pane that cannot render the freeze must not offer an enabled switch.
+  it('disables the freeze switch on a narrow pane, with the reason in the label', () => {
+    const { toolbar, callbacks } = mount({ freezeUnavailable: true });
+    buttonByAction(toolbar.root, 'options')?.click();
+    const sw = need(toolbar.root.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch');
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(sw.hasAttribute('disabled')).toBe(true);
+    expect(sw.getAttribute('aria-label')).toBe('Freeze primary column. Not available in a narrow window');
+    // A disabled button does not fire the toggle.
+    sw.click();
+    expect(callbacks.calls.onFreezeColumns).toBeUndefined();
   });
 
   it('reports freeze off (0) when on, and on (1) when off', () => {

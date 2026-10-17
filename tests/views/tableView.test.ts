@@ -422,18 +422,17 @@ describe('TableView — view settings (Options)', () => {
     expect(savedView(view).rowHeight).toBe('large');
   });
 
-  it('the freeze switch toggles the primary column and persists (SAD-81)', async () => {
+  it('the freeze switch toggles the primary column and persists (COD-72)', async () => {
     const view = await openView(sampleFile());
     const before = savedView(view).frozenColumns;
     need(action(view, 'options'), 'options button').click();
     need(view.contentEl.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch').click();
     expect(savedView(view).frozenColumns).toBe(before >= 1 ? 0 : 1);
-    // SAD-100: touching the switch is an explicit choice — the viewport default must not
-    // override it afterwards.
-    expect(savedView(view).freezeMode).toBe('fixed');
+    // COD-72: the flag is the only freeze state — no freezeMode key is written any more.
+    expect('freezeMode' in savedView(view)).toBe(false);
     need(view.contentEl.querySelector<HTMLElement>('[role="switch"]'), 'freeze switch').click();
     expect(savedView(view).frozenColumns).toBe(before >= 1 ? 1 : 0);
-    expect(savedView(view).freezeMode).toBe('fixed');
+    expect('freezeMode' in savedView(view)).toBe(false);
   });
 });
 

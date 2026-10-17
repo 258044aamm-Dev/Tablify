@@ -663,14 +663,12 @@ export class GridView {
     this.totalWidth = round2(COLUMN_GAP + x);
     this.widths = this.slotWidths.slice(LEAD_SLOTS);
     this.offsets = this.slotLefts.slice(LEAD_SLOTS);
-    // SAD-100: render the *effective* freeze — the viewport default follows the live pane
-    // width; an explicit (fixed) choice applies at every width. Clamp stays identical.
+    // COD-72: only the primary column can be frozen, so the painted count is 0 or 1. The
+    // effective value already suppresses the freeze on a narrow pane; the clamp keeps a
+    // hand-built view (frozenColumns > 1) from pinning more than the primary.
     this.frozenColumns = Math.max(
       0,
-      Math.min(
-        this.fields.length,
-        Math.round(effectiveFrozenColumns(view, this.currentPaneWidth)),
-      ),
+      Math.min(1, Math.round(effectiveFrozenColumns(view, this.currentPaneWidth))),
     );
   }
 
@@ -698,16 +696,20 @@ export class GridView {
     el.style.boxSizing = 'border-box';
     el.style.width = `${this.slotWidths[slot] ?? DEFAULT_COLUMN_WIDTH}px`;
     const frozen = this.frozenColumns > 0 && slot < LEAD_SLOTS + this.frozenColumns;
+    // COD-72: the last frozen slot carries the boundary treatment (a divider and a soft edge
+    // shadow) so a column scrolling underneath is visibly clipped by the frozen block.
+    const edge = frozen && slot === LEAD_SLOTS + this.frozenColumns - 1;
     if (frozen) {
       el.classList.add(slot < LEAD_SLOTS ? 'tablify__lead--frozen' : 'tablify__cell--frozen');
+      el.classList.toggle('tablify__cell--frozen-edge', edge);
       el.style.position = 'sticky';
       el.style.left = `${this.slotLefts[slot]}px`;
       el.style.zIndex = frozenZIndex;
-    } else if (el.style.position) {
+    } else if (el.style.position || el.classList.contains('tablify__cell--frozen-edge')) {
       // Only an element that was pinned before (restyleGeometry after un-freezing) needs
       // clearing; skipping the writes on fresh cells keeps the scroll render as cheap as it
       // was before SAD-79.
-      el.classList.remove('tablify__lead--frozen', 'tablify__cell--frozen');
+      el.classList.remove('tablify__lead--frozen', 'tablify__cell--frozen', 'tablify__cell--frozen-edge');
       el.style.position = '';
       el.style.left = '';
       el.style.zIndex = '';
@@ -813,7 +815,10 @@ export class GridView {
     main.className = 'tablify__hc-main';
     capsule.appendChild(main);
 
-    if (this.opts.onColumnMove) {
+    // COD-72: the primary field is always the first column (validateView keeps it there), and
+    // it is the column the freeze pins — so it gets no drag grip. Dropping another column onto
+    // it still lands after it, which the model normalises.
+    if (this.opts.onColumnMove && !field.primary) {
       const grip = document.createElement('span');
       grip.className = 'tablify__hc-grip';
       grip.title = 'Drag to reorder';

@@ -62,10 +62,22 @@ describe('header menu (P5-02)', () => {
   const view = createDefaultView(makeFile(1).fields);
   const base = { fieldId: 'fld_amount', isPrimary: false, colIndex: 1, view: { ...view, frozenColumns: 1, sort: [] } };
 
-  it('lists the five header items in spec order', () => {
+  it('lists the four header items in spec order (COD-72: no freeze item)', () => {
     expect(headerEntries(base).map((e) => e.label)).toEqual([
-      'Modify field…', 'Hide field', 'Sort ascending', 'Sort descending', 'Freeze column',
+      'Modify field…', 'Hide field', 'Sort ascending', 'Sort descending',
     ]);
+  });
+
+  // COD-72: freezing is primary-only and lives in Options; the header must offer neither
+  // freeze nor unfreeze, whatever the stored flag is.
+  it('has no freeze or unfreeze entry for any column', () => {
+    for (const frozenColumns of [0, 1, 4]) {
+      const view = { ...base.view, frozenColumns };
+      for (const colIndex of [0, 1, 2]) {
+        const ids = headerEntries({ ...base, colIndex, view }).map((e) => e.id);
+        expect(ids.filter((id) => id.startsWith('header.freeze') || id.startsWith('header.unfreeze'))).toEqual([]);
+      }
+    }
   });
 
   // COD-67/COD-69: the menu opens the same window that creates a field, not a type-only picker.
@@ -87,11 +99,6 @@ describe('header menu (P5-02)', () => {
     const entries = headerEntries(sorted);
     expect(byId(entries, 'header.sortAsc')).toMatchObject({ enabled: false, reason: 'Already sorted ascending' });
     expect(byId(entries, 'header.sortDesc').enabled).toBe(true);
-  });
-
-  it('freeze is disabled when the column is already the last frozen one', () => {
-    const frozen = { ...base, colIndex: 1, view: { ...base.view, frozenColumns: 2 } };
-    expect(byId(headerEntries(frozen), 'header.freeze')).toMatchObject({ enabled: false, reason: 'Already frozen through this column' });
   });
 
   it('displayTitle shows the reason only for disabled items', () => {

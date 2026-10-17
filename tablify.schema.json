@@ -328,15 +328,8 @@
         "frozenColumns": {
           "type": "integer",
           "minimum": 0,
-          "description": "Number of frozen columns from the left."
-        },
-        "freezeMode": {
-          "type": "string",
-          "enum": [
-            "viewport",
-            "fixed"
-          ],
-          "description": "SAD-100: how frozenColumns is read. \"viewport\" follows the pane-width default (<=639px unfrozen, wider frozen); \"fixed\" means frozenColumns is a deliberate choice. Absent = legacy interpretation (frozenColumns 1 follows the viewport, other values are fixed)."
+          "maximum": 1,
+          "description": "COD-72: 1 freezes the primary column, 0 leaves it unfrozen. Only the primary column can be frozen. Panes <=639px wide never render it frozen."
         },
         "rowHeight": {
           "type": "string",

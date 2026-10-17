@@ -17,7 +17,7 @@ import { isMoveAction, moveSelection } from './tableController.js';
 import { LongPressDetector } from './longPress.js';
 import { buildTableMenu } from '../menus/tableMenu.js';
 import { cellMenu, headerEntries, rowEntries, type MenuEntry } from '../menus/tableMenuModel.js';
-import { createDefaultView, effectiveFrozenColumns } from '../model/view.js';
+import { createDefaultView, effectiveFrozenColumns, MOBILE_PANE_MAX_WIDTH } from '../model/view.js';
 import { cycleHeaderSort, hideField, moveColumnOnto, resizeColumn, setFrozenColumns, setGroupBy, setRowHeight, setSort } from './grid/columns.js';
 import { groupRows, toggleCollapsed, type GroupedRows } from './grid/grouping.js';
 import { addRowRange, pruneSelection, toggleRow } from './grid/selection.js';
@@ -217,13 +217,14 @@ export class TableView extends TextFileView {
       };
     }
     const view = s.getView();
-    // SAD-100: the Options freeze switch shows the *effective* state (the viewport default
-    // follows the pane width), so its toggle inverts exactly what the user sees. The write
-    // goes to the stored view via setFrozenColumns as an explicit 'fixed' choice.
+    // COD-72: the Options switch shows the *effective* state — on a narrow pane the primary
+    // column is not rendered frozen, so the switch reads off and is disabled instead of
+    // pretending a click would do something. The write always targets the stored 0/1 flag.
     const paneWidth = this.grid?.currentPaneWidth ?? (this.contentEl.clientWidth || 800);
     return {
       fields: s.getFields(),
       view: { ...view, frozenColumns: effectiveFrozenColumns(view, paneWidth) },
+      freezeUnavailable: paneWidth <= MOBILE_PANE_MAX_WIDTH,
       visibleRowCount: s.getDisplayRows().length,
       totalRowCount: s.store.getAllRows().length,
       // SAD-113: every field, hidden ones included (the field count is about the table, not the view).
@@ -1074,10 +1075,6 @@ export class TableView extends TextFileView {
         break;
       case 'header.sortDesc':
         s.setView({ ...s.getView(), sort: [{ fieldId: field.id, direction: 'desc' }] });
-        break;
-      case 'header.freeze':
-        // SAD-100: the header Freeze item is a deliberate choice at every pane width.
-        s.setView({ ...s.getView(), frozenColumns: t.col + 1, freezeMode: 'fixed' });
         break;
       default:
         return;

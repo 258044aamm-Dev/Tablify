@@ -150,16 +150,16 @@ describe('GridView — frozen columns', () => {
     grid.destroy();
   });
 
-  it('makes the first N columns sticky in both header and body', () => {
+  it('makes only the primary column sticky in both header and body', () => {
     const f = fields(4);
-    const view = { ...createDefaultView(f), frozenColumns: 2 };
+    const view = { ...createDefaultView(f), frozenColumns: 1 };
     const grid = mount(f, rows(2, f), view);
 
     for (const cells of [headerCells(grid), bodyCells(grid)]) {
-      expect(cells.map((c) => c.style.position)).toEqual(['sticky', 'sticky', '', '']);
+      expect(cells.map((c) => c.style.position)).toEqual(['sticky', '', '', '']);
       expect(cells.map((c) => c.classList.contains('tablify__cell--frozen'))).toEqual([
         true,
-        true,
+        false,
         false,
         false,
       ]);
@@ -167,34 +167,48 @@ describe('GridView — frozen columns', () => {
     grid.destroy();
   });
 
-  it('pins each frozen column at its cumulative offset', () => {
+  it('pins the primary column at the lead offset, header and body alike', () => {
     const f = fields(4);
-    const view = { ...createDefaultView(f), frozenColumns: 3 };
+    const view = { ...createDefaultView(f), frozenColumns: 1 };
     const grid = mount(f, rows(2, f), view);
 
-    const offset = (n: number) => String(LEAD_BLOCK + n * (DEFAULT_COLUMN_WIDTH + COLUMN_GAP));
-    expect(headerCells(grid).map((c) => c.style.left)).toEqual([
-      `${offset(0)}px`,
-      `${offset(1)}px`,
-      `${offset(2)}px`,
-      '',
-    ]);
+    expect(headerCells(grid).map((c) => c.style.left)).toEqual([`${LEAD_BLOCK}px`, '', '', '']);
     expect(bodyCells(grid).map((c) => c.style.left)).toEqual(
       headerCells(grid).map((c) => c.style.left),
     );
     grid.destroy();
   });
 
-  it('derives offsets from the resolved widths, so a wide column pushes the next one right', () => {
+  // COD-72: the boundary is visible, so a column scrolling underneath is not cut mid-capsule.
+  it('marks the last frozen slot with the boundary class and clears it on unfreeze', () => {
     const f = fields(3);
-    const view = { ...createDefaultView(f), frozenColumns: 2, columnWidths: { fld_0: 250 } };
+    const view = { ...createDefaultView(f), frozenColumns: 1 };
+    const grid = mount(f, rows(2, f), view);
+    expect(headerCells(grid).map((c) => c.classList.contains('tablify__cell--frozen-edge'))).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    expect(bodyCells(grid).map((c) => c.classList.contains('tablify__cell--frozen-edge'))).toEqual([
+      true,
+      false,
+      false,
+    ]);
+
+    grid.setModel(rows(2, f), f, { ...view, frozenColumns: 0 });
+    for (const c of [...headerCells(grid), ...bodyCells(grid)]) {
+      expect(c.classList.contains('tablify__cell--frozen-edge')).toBe(false);
+    }
+    grid.destroy();
+  });
+
+  it('pins the primary column whatever its width, at the same lead offset', () => {
+    const f = fields(3);
+    const view = { ...createDefaultView(f), frozenColumns: 1, columnWidths: { fld_0: 250 } };
     const grid = mount(f, rows(2, f), view);
 
-    expect(bodyCells(grid).map((c) => c.style.left)).toEqual([
-      `${LEAD_BLOCK}px`,
-      `${LEAD_BLOCK + 250 + COLUMN_GAP}px`,
-      '',
-    ]);
+    expect(bodyCells(grid)[0].style.width).toBe('250px');
+    expect(bodyCells(grid).map((c) => c.style.left)).toEqual([`${LEAD_BLOCK}px`, '', '']);
     grid.destroy();
   });
 
@@ -214,24 +228,24 @@ describe('GridView — frozen columns', () => {
     grid.destroy();
   });
 
-  it('clamps a frozen count larger than the field count', () => {
-    const f = fields(2);
+  it('renders a legacy multi-column count as the primary column only', () => {
+    const f = fields(3);
     const view = { ...createDefaultView(f), frozenColumns: 99 };
     const grid = mount(f, rows(2, f), view);
-    expect(bodyCells(grid).map((c) => c.style.position)).toEqual(['sticky', 'sticky']);
+    expect(bodyCells(grid).map((c) => c.style.position)).toEqual(['sticky', '', '']);
     grid.destroy();
   });
 
-  it('picks up a new frozen count through setModel', () => {
+  it('picks up a new freeze flag through setModel', () => {
     const f = fields(4);
     const view = { ...createDefaultView(f), frozenColumns: 0 };
     const grid = mount(f, rows(2, f), view);
     expect(bodyCells(grid).map((c) => c.style.position)).toEqual(['', '', '', '']);
 
-    grid.setModel(rows(2, f), f, { ...view, frozenColumns: 2 });
-    expect(bodyCells(grid).map((c) => c.style.position)).toEqual(['sticky', 'sticky', '', '']);
+    grid.setModel(rows(2, f), f, { ...view, frozenColumns: 1 });
+    expect(bodyCells(grid).map((c) => c.style.position)).toEqual(['sticky', '', '', '']);
 
-    // …and releases them again.
+    // …and releases it again.
     grid.setModel(rows(2, f), f, { ...view, frozenColumns: 0 });
     expect(bodyCells(grid).map((c) => c.style.position)).toEqual(['', '', '', '']);
     grid.destroy();
@@ -249,16 +263,13 @@ describe('GridView — frozen columns', () => {
     grid.destroy();
   });
 
-  it('excludes hidden fields from the geometry (frozen offsets follow what is visible)', () => {
+  it('excludes hidden fields from the geometry (the primary pins first among visible ones)', () => {
     const f = fields(3);
     // GridView receives fields already filtered by view order, as TableView does.
     const visible = [f[0], f[2]];
-    const view = { ...createDefaultView(visible), frozenColumns: 2 };
+    const view = { ...createDefaultView(visible), frozenColumns: 1 };
     const grid = mount(visible, rows(2, visible), view);
-    expect(bodyCells(grid).map((c) => c.style.left)).toEqual([
-      `${LEAD_BLOCK}px`,
-      `${LEAD_BLOCK + DEFAULT_COLUMN_WIDTH + COLUMN_GAP}px`,
-    ]);
+    expect(bodyCells(grid).map((c) => c.style.left)).toEqual([`${LEAD_BLOCK}px`, '']);
     grid.destroy();
   });
 
@@ -323,7 +334,7 @@ describe('GridView — horizontal scroll keeps the header aligned', () => {
   });
 });
 
-describe('GridView — viewport-based default freeze (SAD-100)', () => {
+describe('GridView — primary-column freeze and the pane width (COD-72)', () => {
   const isPinned = (grid: GridView) =>
     [...headerCells(grid), ...bodyCells(grid)].some(
       (c) => c.style.position === 'sticky' && c.classList.contains('tablify__cell--frozen'),
@@ -356,35 +367,21 @@ describe('GridView — viewport-based default freeze (SAD-100)', () => {
     at640.destroy();
   });
 
-  it('an explicit fixed choice wins over the pane width', () => {
+  it('never freezes on a narrow pane, even when the flag is set (COD-72)', () => {
     const f = fields(3);
-    const fixedOn = mount(
-      f,
-      rows(2, f),
-      { ...createDefaultView(f), freezeMode: 'fixed', frozenColumns: 1 },
-      390,
-    );
-    expect(isPinned(fixedOn)).toBe(true);
-    fixedOn.destroy();
-    const fixedOff = mount(
-      f,
-      rows(2, f),
-      { ...createDefaultView(f), freezeMode: 'fixed', frozenColumns: 0 },
-      1568,
-    );
-    expect(isPinned(fixedOff)).toBe(false);
-    fixedOff.destroy();
+    const narrow = mount(f, rows(2, f), { ...createDefaultView(f), frozenColumns: 1 }, 390);
+    expect(isPinned(narrow)).toBe(false);
+    for (const c of [...headerCells(narrow), ...bodyCells(narrow)]) {
+      expect(c.classList.contains('tablify__cell--frozen-edge')).toBe(false);
+    }
+    narrow.destroy();
   });
 
-  it('a legacy deliberate value (0 / multi-freeze, no key) is fixed, not viewport', () => {
+  it('an unfrozen view stays unfrozen on a wide pane', () => {
     const f = fields(3);
-    const zero = mount(f, rows(2, f), { ...createDefaultView(f), freezeMode: undefined, frozenColumns: 0 }, 1568);
-    expect(isPinned(zero)).toBe(false);
-    zero.destroy();
-    const multi = mount(f, rows(2, f), { ...createDefaultView(f), freezeMode: undefined, frozenColumns: 2 }, 390);
-    const pinned = [...headerCells(multi), ...bodyCells(multi)].filter((c) => c.style.position === 'sticky');
-    expect(pinned.length).toBeGreaterThan(0);
-    multi.destroy();
+    const grid = mount(f, rows(2, f), { ...createDefaultView(f), frozenColumns: 0 }, 1568);
+    expect(isPinned(grid)).toBe(false);
+    grid.destroy();
   });
 
   it('re-applies the viewport default when the pane width changes (live resize path)', () => {

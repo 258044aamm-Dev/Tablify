@@ -93,7 +93,9 @@ describe('SAD-79 header capsule markup', () => {
   it('renders grip, key (primary only), name button and ⋮ — textContent stays the name', () => {
     const grid = mount({ onSortClick: vi.fn(), onHeaderMenu: vi.fn(), onColumnResize: vi.fn(), onColumnMove: vi.fn() });
     const [name, status] = headerCells(grid);
-    expect(name.querySelector('.tablify__hc-grip svg')).not.toBeNull();
+    // COD-72: the primary column is locked first, so it has no drag grip; the others do.
+    expect(name.querySelector('.tablify__hc-grip')).toBeNull();
+    expect(status.querySelector('.tablify__hc-grip svg')).not.toBeNull();
     expect(name.querySelector('.tablify__hc-key svg')).not.toBeNull();
     expect(status.querySelector('.tablify__hc-key')).toBeNull();
     const btn = name.querySelector<HTMLButtonElement>('button.tablify__hc-name');
@@ -191,12 +193,12 @@ describe('SAD-79 header interactions', () => {
     const original = document.elementFromPoint;
     document.elementFromPoint = () => cells[2];
     try {
-      const grip = cells[0].querySelector<HTMLElement>('.tablify__hc-grip');
+      const grip = cells[1].querySelector<HTMLElement>('.tablify__hc-grip');
       grip?.dispatchEvent(pointer('pointerdown', { clientX: 10, clientY: 10 }));
       grip?.dispatchEvent(pointer('pointermove', { clientX: 300, clientY: 12 }));
       grip?.dispatchEvent(pointer('pointerup', { clientX: 300, clientY: 12 }));
       // The trailing click lands on the header cell, as it does in a browser.
-      cells[0].dispatchEvent(pointer('click'));
+      cells[1].dispatchEvent(pointer('click'));
     } finally {
       document.elementFromPoint = original;
     }
@@ -265,16 +267,16 @@ describe('SAD-79 header interactions', () => {
     document.elementFromPoint = () =>
       cells[2].querySelector('.tablify__hc-name, .tablify__hc-name--static');
     try {
-      const grip = cells[0].querySelector<HTMLElement>('.tablify__hc-grip');
+      const grip = cells[1].querySelector<HTMLElement>('.tablify__hc-grip');
       grip?.dispatchEvent(pointer('pointerdown', { clientX: 10, clientY: 10 }));
       grip?.dispatchEvent(pointer('pointermove', { clientX: 300, clientY: 12 }));
       expect(cells[2].classList.contains('tablify__header-cell--drop-target')).toBe(true);
-      expect(cells[0].classList.contains('tablify__header-cell--dragging')).toBe(true);
+      expect(cells[1].classList.contains('tablify__header-cell--dragging')).toBe(true);
       grip?.dispatchEvent(pointer('pointerup', { clientX: 300, clientY: 12 }));
     } finally {
       document.elementFromPoint = original;
     }
-    expect(onColumnMove).toHaveBeenCalledWith('fld_name', 'fld_due');
+    expect(onColumnMove).toHaveBeenCalledWith('fld_status', 'fld_due');
     expect(cells[2].classList.contains('tablify__header-cell--drop-target')).toBe(false);
     grid.destroy();
   });
@@ -371,8 +373,10 @@ describe('SAD-79 pure helpers', () => {
 
   it('moveColumnOnto: right lands after the target, left lands before it; hidden columns keep place', () => {
     const order = { ...base, columnOrder: ['fld_name', 'fld_status', 'fld_due'] };
-    expect(moveColumnOnto(order, 'fld_name', 'fld_status', FIELDS).columnOrder).toEqual(['fld_status', 'fld_name', 'fld_due']);
-    expect(moveColumnOnto(order, 'fld_due', 'fld_name', FIELDS).columnOrder).toEqual(['fld_due', 'fld_name', 'fld_status']);
+    // COD-72: the primary field is pinned to the first column, so moving it is a no-op and a
+    // drop onto it lands right after it.
+    expect(moveColumnOnto(order, 'fld_name', 'fld_status', FIELDS).columnOrder).toEqual(['fld_name', 'fld_status', 'fld_due']);
+    expect(moveColumnOnto(order, 'fld_due', 'fld_name', FIELDS).columnOrder).toEqual(['fld_name', 'fld_due', 'fld_status']);
     expect(moveColumnOnto(order, 'fld_due', 'fld_due', FIELDS)).toBe(order);
     expect(moveColumnOnto(order, 'fld_due', 'missing', FIELDS)).toBe(order);
   });
@@ -395,6 +399,7 @@ describe('SAD-79 TableView wiring (undoable, through setView)', () => {
       fields: [
         { id: 'fld_name', name: 'Name', type: 'text', primary: true },
         { id: 'fld_notes', name: 'Notes', type: 'long_text' },
+        { id: 'fld_due', name: 'Due', type: 'date' },
       ],
       rows: [mk('r1', 'Beta'), mk('r2', 'Alpha'), mk('r3', 'Gamma')],
       views: [
@@ -407,7 +412,7 @@ describe('SAD-79 TableView wiring (undoable, through setView)', () => {
           frozenColumns: 1,
           rowHeight: 'medium',
           columnWidths: {},
-          columnOrder: ['fld_name', 'fld_notes'],
+          columnOrder: ['fld_name', 'fld_notes', 'fld_due'],
           warnings: [],
         },
       ],
@@ -468,20 +473,28 @@ describe('SAD-79 TableView wiring (undoable, through setView)', () => {
     const view = await open();
     const cells = Array.from(view.contentEl.querySelectorAll<HTMLElement>('.tablify__header-cell'));
     const original = document.elementFromPoint;
-    document.elementFromPoint = () => cells[1];
+    document.elementFromPoint = () => cells[2];
     try {
-      const grip = cells[0].querySelector<HTMLElement>('.tablify__hc-grip');
+      const grip = cells[1].querySelector<HTMLElement>('.tablify__hc-grip');
       grip?.dispatchEvent(pointer('pointerdown', { clientX: 0, clientY: 0 }));
       grip?.dispatchEvent(pointer('pointermove', { clientX: 200, clientY: 0 }));
       grip?.dispatchEvent(pointer('pointerup', { clientX: 200, clientY: 0 }));
     } finally {
       document.elementFromPoint = original;
     }
-    expect(saved(view).columnOrder).toEqual(['fld_notes', 'fld_name']);
+    expect(saved(view).columnOrder).toEqual(['fld_name', 'fld_due', 'fld_notes']);
     expect(
       Array.from(view.contentEl.querySelectorAll('.tablify__header-cell')).map((c) => c.textContent),
-    ).toEqual(['Notes', 'Name']);
+    ).toEqual(['Name', 'Due', 'Notes']);
     undo(view);
-    expect(saved(view).columnOrder).toEqual(['fld_name', 'fld_notes']);
+    expect(saved(view).columnOrder).toEqual(['fld_name', 'fld_notes', 'fld_due']);
+  });
+
+  it('the primary column has no drag grip (COD-72: it is always first)', async () => {
+    const view = await open();
+    const cells = Array.from(view.contentEl.querySelectorAll<HTMLElement>('.tablify__header-cell'));
+    expect(cells[0].querySelector('.tablify__hc-grip')).toBeNull();
+    expect(cells[1].querySelector('.tablify__hc-grip')).not.toBeNull();
+    expect(cells[2].querySelector('.tablify__hc-grip')).not.toBeNull();
   });
 });
