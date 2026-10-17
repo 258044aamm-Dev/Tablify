@@ -105,6 +105,13 @@ export class TableView extends TextFileView {
     return this.file?.basename ?? 'Tablify table';
   }
 
+  /**
+   * COD-74: the tab / file-explorer glyph. `View.icon` was never set, so Obsidian drew its own
+   * generic file icon for every Tablify tab. `table` is the same Lucide id the file menu uses
+   * for "Open Tablify Table". `View.getIcon()` returns this field.
+   */
+  readonly icon = 'table';
+
   canAcceptExtension(extension: string): boolean {
     return extension === 'tablify';
   }

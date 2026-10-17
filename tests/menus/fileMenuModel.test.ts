@@ -11,8 +11,33 @@ import addFormats from 'ajv-formats';
 const labels = (t: Parameters<typeof menuItemsFor>[0]) => menuItemsFor(t).map((i) => i.label);
 
 describe('file explorer menu items (P5-01, FEATURES §2.16)', () => {
-  it('.tablify file: Open, Duplicate, Export', () => {
-    expect(labels({ kind: 'file', extension: 'tablify' })).toEqual(['Open', 'Duplicate', 'Export']);
+  // COD-74: the items name the plugin, like the folder ones already did.
+  it('.tablify file: Open, Duplicate, Export — Tablify-branded', () => {
+    expect(labels({ kind: 'file', extension: 'tablify' })).toEqual([
+      'Open Tablify Table',
+      'Duplicate Tablify Table',
+      'Export Tablify Table',
+    ]);
+    expect(menuItemsFor({ kind: 'file', extension: 'tablify' }).map((i) => i.icon)).toEqual([
+      'table',
+      'copy',
+      'download',
+    ]);
+  });
+
+  // COD-74 regression gate: the `.tablify` items had no icon, so the wiring called setIcon('')
+  // and Obsidian drew nothing. Every item of every target must carry a label and an icon.
+  it('every item for every target has a label and an icon', () => {
+    const targets = [
+      { kind: 'file', extension: 'tablify' },
+      { kind: 'folder', path: 'Projects' },
+    ] as const;
+    for (const target of targets) {
+      for (const item of menuItemsFor(target)) {
+        expect(item.label.trim()).not.toBe('');
+        expect(item.icon.trim()).not.toBe('');
+      }
+    }
   });
 
   it('folder: New Tablify Table, Import CSV or Excel to Tablify', () => {

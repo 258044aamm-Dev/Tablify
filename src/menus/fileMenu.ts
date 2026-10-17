@@ -11,6 +11,8 @@ import { TABLIFY_VIEW_TYPE } from '../views/tableView.js';
 
 /** P8-04 follow-up: shown only on a copy whose table ID is shared with another file. */
 export const REISSUE_LABEL = 'Give this copy a new table ID';
+/** COD-74: label kept (the integrity notice and the docs quote it); the icon is new. */
+export const REISSUE_ICON = 'refresh-cw';
 
 export function registerFileMenu(plugin: Plugin): void {
   const app = plugin.app;
@@ -22,10 +24,12 @@ export function registerFileMenu(plugin: Plugin): void {
 
       const before = menu.items.length;
       for (const item of items) {
+        // COD-74: `item.icon` is required — the `?? ''` fallback this line used to carry called
+        // setIcon('') for the three .tablify items, which draws nothing.
         menu.addItem((mi) =>
           mi
             .setTitle(item.label)
-            .setIcon(item.icon ?? '')
+            .setIcon(item.icon)
             .onClick(() => void run(app, file, item.id)),
         );
       }
@@ -38,7 +42,11 @@ export function registerFileMenu(plugin: Plugin): void {
       if (file instanceof TFile && file.extension === 'tablify') {
         const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
         if (cached.kind === 'reissue') {
-          menu.addItem((mi) => mi.setTitle(REISSUE_LABEL).onClick(() => void reissueFile(app, file)));
+          // COD-74: the one item that is added inline rather than from the model — same rule,
+          // it carries an icon like every other Tablify item in this menu.
+          menu.addItem((mi) =>
+            mi.setTitle(REISSUE_LABEL).setIcon(REISSUE_ICON).onClick(() => void reissueFile(app, file)),
+          );
         }
       }
     }),

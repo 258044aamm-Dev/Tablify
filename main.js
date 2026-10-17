@@ -17871,6 +17871,12 @@ var TableView = class extends import_obsidian9.TextFileView {
   getDisplayText() {
     return this.file?.basename ?? "Tablify table";
   }
+  /**
+   * COD-74: the tab / file-explorer glyph. `View.icon` was never set, so Obsidian drew its own
+   * generic file icon for every Tablify tab. `table` is the same Lucide id the file menu uses
+   * for "Open Tablify Table". `View.getIcon()` returns this field.
+   */
+  icon = "table";
   canAcceptExtension(extension) {
     return extension === "tablify";
   }
@@ -19043,9 +19049,9 @@ var import_obsidian10 = require("obsidian");
 var NEW_TABLE_ROW_COUNT = 3;
 var COPY_SUFFIX = " copy";
 var NEW_TABLE_NAME = "Untitled table";
-var OPEN = { id: "open", label: "Open" };
-var DUPLICATE = { id: "duplicate", label: "Duplicate" };
-var EXPORT = { id: "export", label: "Export" };
+var OPEN = { id: "open", label: "Open Tablify Table", icon: "table" };
+var DUPLICATE = { id: "duplicate", label: "Duplicate Tablify Table", icon: "copy" };
+var EXPORT = { id: "export", label: "Export Tablify Table", icon: "download" };
 var NEW_TABLE = { id: "newTable", label: "New Tablify Table", icon: "file-plus" };
 var IMPORT = { id: "importTable", label: "Import CSV or Excel to Tablify", icon: "upload" };
 function menuItemsFor(target) {
@@ -19132,6 +19138,7 @@ function decideReissue(duplicates, path, openPaths) {
 
 // src/menus/fileMenu.ts
 var REISSUE_LABEL = "Give this copy a new table ID";
+var REISSUE_ICON = "refresh-cw";
 function registerFileMenu(plugin) {
   const app = plugin.app;
   plugin.registerEvent(
@@ -19142,7 +19149,7 @@ function registerFileMenu(plugin) {
       const before = menu.items.length;
       for (const item of items) {
         menu.addItem(
-          (mi) => mi.setTitle(item.label).setIcon(item.icon ?? "").onClick(() => void run(app, file, item.id))
+          (mi) => mi.setTitle(item.label).setIcon(item.icon).onClick(() => void run(app, file, item.id))
         );
       }
       if (isFolder) {
@@ -19152,7 +19159,9 @@ function registerFileMenu(plugin) {
       if (file instanceof import_obsidian10.TFile && file.extension === "tablify") {
         const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
         if (cached.kind === "reissue") {
-          menu.addItem((mi) => mi.setTitle(REISSUE_LABEL).onClick(() => void reissueFile(app, file)));
+          menu.addItem(
+            (mi) => mi.setTitle(REISSUE_LABEL).setIcon(REISSUE_ICON).onClick(() => void reissueFile(app, file))
+          );
         }
       }
     })

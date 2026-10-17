@@ -146,20 +146,67 @@ export class Notice {
   }
 }
 
+/**
+ * COD-74: a real event bus stand-in. The `file-menu` handler is code the plugin registers on the
+ * workspace, so the wiring (titles, icons, order) can only be asserted if the event can be
+ * fired. Before this, `workspace.on` did not exist in the mock at all and the file menu was
+ * only ever tested at the model level — which is how `setIcon('')` slipped through.
+ */
+export class Events {
+  private handlers = new Map<string, Array<(...args: unknown[]) => void>>();
+
+  on(name: string, callback: (...args: never[]) => void): { name: string; callback: unknown } {
+    const list = this.handlers.get(name) ?? [];
+    list.push(callback as unknown as (...args: unknown[]) => void);
+    this.handlers.set(name, list);
+    return { name, callback };
+  }
+
+  off(_ref: { name: string; callback: unknown }): void {
+    /* no-op */
+  }
+
+  /** Test-only: fire every handler registered for `name`. */
+  trigger(name: string, ...args: unknown[]): void {
+    for (const handler of this.handlers.get(name) ?? []) handler(...args);
+  }
+
+  /** Test-only: how many handlers are registered for `name`. */
+  handlerCount(name: string): number {
+    return (this.handlers.get(name) ?? []).length;
+  }
+}
+
+/** The workspace surface the plugin uses, plus the event bus (`on` / `trigger`). */
+export class Workspace extends Events {
+  getActiveFile(): TFile | null {
+    return null;
+  }
+
+  getActiveViewOfType(): null {
+    return null;
+  }
+
+  getLeaf(): null {
+    return null;
+  }
+
+  iterateAllLeaves(): void {
+    /* no-op */
+  }
+
+  onLayoutReady(callback: () => void): void {
+    callback();
+  }
+}
+
 export class App {
   vault = {
     getFiles: (): TFile[] => [],
     getAbstractFileByPath: (): TAbstractFile | null => null,
     getName: () => 'vault',
   };
-  workspace = {
-    getActiveFile: (): TFile | null => null,
-    getActiveViewOfType: (): null => null,
-    getLeaf: () => null,
-    iterateAllLeaves: (): void => {
-      /* no-op */
-    },
-  };
+  workspace = new Workspace();
   fileManager = {
     generateMarkdownLink: (): string => '',
     /** SAD-77: the title row renames the table file through this. Tests replace it with a spy. */
@@ -522,6 +569,12 @@ export class TextFileView {
   saveRequests = 0;
   /** Data passed to the most recent setViewData(). */
   lastViewData: string | null = null;
+  /** COD-74: `View.icon` — the tab glyph Obsidian draws for this view. */
+  icon = 'file';
+
+  getIcon(): string {
+    return this.icon;
+  }
 
   constructor(leaf: WorkspaceLeaf) {
     this.leaf = leaf;
@@ -595,6 +648,11 @@ export class TFile extends TAbstractFile {
 
 export class TFolder extends TAbstractFile {
   children: TAbstractFile[] = [];
+
+  /** Obsidian's TFolder.isRoot(): the vault root folder. */
+  isRoot(): boolean {
+    return (this as unknown as { path: string }).path === '/' || (this as unknown as { path: string }).path === '';
+  }
 }
 
 export class Plugin {

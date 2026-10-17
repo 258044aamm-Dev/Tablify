@@ -18,8 +18,15 @@ export type FileMenuAction = 'open' | 'duplicate' | 'export' | 'newTable' | 'imp
 export interface FileMenuItem {
   id: FileMenuAction;
   label: string;
-  /** Obsidian/Lucide icon id rendered via MenuItem.setIcon. Optional. */
-  icon?: string;
+  /**
+   * Obsidian/Lucide icon id rendered via MenuItem.setIcon.
+   *
+   * COD-74: required. It used to be optional, and the three `.tablify` items simply left it out —
+   * the wiring then called `setIcon('')`, which draws no glyph at all, so the file menu showed the
+   * plugin's items without icons. Making the field required turns that omission into a compile
+   * error instead of a blank spot in Obsidian's menu.
+   */
+  icon: string;
 }
 
 /** Suffix added to a duplicated table's name (decision from the P5 questions). */
@@ -28,9 +35,12 @@ export const COPY_SUFFIX = ' copy';
 /** Default name for a new table (proposed in P5-01; disclosed in the gate note). */
 export const NEW_TABLE_NAME = 'Untitled table';
 
-const OPEN: FileMenuItem = { id: 'open', label: 'Open' };
-const DUPLICATE: FileMenuItem = { id: 'duplicate', label: 'Duplicate' };
-const EXPORT: FileMenuItem = { id: 'export', label: 'Export' };
+// COD-74: the same `<Verb> Tablify Table` shape as the folder items below, so every item this
+// plugin adds to the file menu reads as one family. Icons are long-standing Lucide ids, the
+// same library Obsidian uses for `file-plus` / `upload`; an unknown id renders nothing.
+const OPEN: FileMenuItem = { id: 'open', label: 'Open Tablify Table', icon: 'table' };
+const DUPLICATE: FileMenuItem = { id: 'duplicate', label: 'Duplicate Tablify Table', icon: 'copy' };
+const EXPORT: FileMenuItem = { id: 'export', label: 'Export Tablify Table', icon: 'download' };
 const NEW_TABLE: FileMenuItem = { id: 'newTable', label: 'New Tablify Table', icon: 'file-plus' };
 const IMPORT: FileMenuItem = { id: 'importTable', label: 'Import CSV or Excel to Tablify', icon: 'upload' };
 
