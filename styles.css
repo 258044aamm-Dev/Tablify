@@ -3643,8 +3643,17 @@
   text-overflow: ellipsis;
 }
 
+/* The reason is the point of a blocked row, so it wraps to a second line instead of ending in an
+   ellipsis; two lines is the cap that keeps the row's rhythm (a reason is one short sentence —
+   "12 values cannot convert to text"). */
 .tablify__tp-row-desc--blocked {
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--tablify-text-danger);
+  white-space: normal;
+  text-overflow: clip;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .tablify__tp-row-check {

@@ -13,7 +13,7 @@
  * the helpers in ./typePickerSupport.ts are the one place that knows where to look.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import axe from 'axe-core';
 import { FieldTypePicker, FIELD_TYPE_META, TYPE_GROUPS } from '../../../src/views/grid/fieldTypePicker.js';
 import { CHANGE_TARGET_TYPES, TYPE_LABELS } from '../../../src/menus/tableMenuModel.js';
@@ -490,6 +490,47 @@ describe('COD-76 — in the window', () => {
     h.trigger().click();
     h.picker.close();
     expect(() => h.picker.close()).not.toThrow();
+  });
+});
+
+describe('COD-76 — placement', () => {
+  /** jsdom has no layout: give the trigger the geometry the case is about. */
+  function place(trigger: HTMLElement, top: number, height = 39, left = 24, width = 320): void {
+    trigger.getBoundingClientRect = () =>
+      ({ top, bottom: top + height, left, right: left + width, width, height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+  }
+  const viewport = (height: number): void => {
+    Object.defineProperty(window, 'innerHeight', { value: height, configurable: true });
+  };
+  afterEach(() => {
+    Object.defineProperty(window, 'innerHeight', { value: 768, configurable: true });
+  });
+
+  it('hangs 6 px under the trigger when there is room below', () => {
+    const h = mount();
+    place(h.trigger(), 100);
+    h.trigger().click();
+    expect(h.panel().style.top).toBe('145px');
+    expect(h.panel().style.position).toBe('fixed');
+  });
+
+  it('flips above the trigger when the bottom of the screen is close', () => {
+    const h = mount();
+    place(h.trigger(), 700);
+    h.trigger().click();
+    // The panel's own height is zero in jsdom, so it sits 6 px above the trigger's top edge.
+    expect(parseFloat(h.panel().style.top)).toBeLessThan(700);
+  });
+
+  it('never gives the list more height than the side it opened on has', () => {
+    viewport(300);
+    const h = mount();
+    place(h.trigger(), 120);
+    h.trigger().click();
+    const list = h.panel().querySelector('.tablify__tp-list') as HTMLElement;
+    // 300 px of screen, a trigger at 120..159, the panel's 86 px of chrome and a 8 px edge: the
+    // list is held at its 120 px floor rather than pushed off the bottom.
+    expect(list.style.maxHeight).toBe('120px');
   });
 });
 

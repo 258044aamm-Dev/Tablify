@@ -16023,6 +16023,7 @@ function el(tag, className) {
   return node;
 }
 var LIST_MAX = 348;
+var LIST_MIN = 120;
 var FieldTypePicker = class {
   opts;
   trigger;
@@ -16380,8 +16381,12 @@ var FieldTypePicker = class {
   }
   // ---------------------------------------------------------------- placement
   /**
-   * Anchor the panel to the trigger: trigger width, 6 px below, flipped above near the bottom edge,
-   * clamped into the viewport. z-index 1000 puts it above the host modal's layer (COD-69's value).
+   * Anchor the panel to the trigger: trigger width, 6 px below, and never off screen.
+   *
+   * The list is capped to the room the chosen side actually has — a shorter list is better than a
+   * panel hanging off the bottom of the screen — and the side itself is chosen by that room, so a
+   * phone flips the panel above the trigger instead of covering it. `z-index: 1000` is COD-69's
+   * value for "above the host modal's layer".
    */
   position() {
     const panel = this.panel;
@@ -16396,15 +16401,16 @@ var FieldTypePicker = class {
     panel.style.width = `${width}px`;
     panel.style.left = `${left}px`;
     panel.style.zIndex = "1000";
-    const listMax = Math.max(120, Math.min(LIST_MAX, Math.floor(vh * 0.45)));
-    const list = this.listEl;
-    if (list)
-      list.style.maxHeight = `${listMax}px`;
-    const top = r.bottom + 6;
-    panel.style.top = `${top}px`;
+    const CHROME = 86;
+    const below = vh - 8 - (r.bottom + 6) - CHROME;
+    const above = r.top - 6 - 8 - CHROME;
+    const flip = above > below && above >= LIST_MIN;
+    const listMax = Math.max(LIST_MIN, Math.min(LIST_MAX, flip ? above : below, Math.floor(vh * 0.45)));
+    if (this.listEl)
+      this.listEl.style.maxHeight = `${listMax}px`;
     const height = panel.getBoundingClientRect().height;
-    if (top + height > vh - 8)
-      panel.style.top = `${Math.max(8, r.top - height - 6)}px`;
+    const top = flip ? Math.max(8, r.top - height - 6) : Math.min(r.bottom + 6, Math.max(8, vh - height - 8));
+    panel.style.top = `${top}px`;
   }
   /** Focus the search unless the pointer is coarse: on a phone the keyboard would cover the list. */
   focusOnOpen() {

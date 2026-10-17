@@ -89,6 +89,22 @@ async function mount(): Promise<void> {
         }),
       );
     }
+    if (kind === 'editField') {
+      // COD-76 evidence: Modify Field with a model verdict on every type but this one's own, so the
+      // blocked rows (greyed, with the reason) are on screen. The sentence is the shape
+      // `planTypeChange` produces, not a made-up one.
+      const field = { id: 'f1', name: 'Amount', type: 'number', required: false, unique: false, min: null, max: null, regex: null };
+      mountModal(
+        new AddFieldModal(app as never, noop, {
+          mode: 'edit',
+          initial: { field: field as never },
+          // The sentence `planTypeChange` really produces (`fieldChange.ts:61`), so the capture
+          // shows the copy users get rather than a placeholder.
+          typeBlockReason: (type: string) =>
+            type === 'number' ? null : `4 values cannot convert to ${type.replace(/_/g, ' ')}`,
+        }),
+      );
+    }
     if (kind === 'linkPicker') {
       const rows = ['Acme Corp', 'Globex', 'Initech', 'Umbrella'].map((label, i) => ({ id: `r${i}`, label }));
       const index = { byTableId: () => ({ id: 't1', name: 'Customers', rows }) };

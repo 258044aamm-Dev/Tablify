@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>COD-76 — the field type picker</title>
+<style>
+  /* ------------------------------------------------------------------ board chrome */
+  :root {
+    --paper: #f4efe6;
+    --card: #ffffff;
+    --ink: #1e1b18;
+    --muted: #6e655c;
+    --border: #e6e0d5;
+    --accent: #cc785c;
+    --accent-ink: #b5573a;
+    --accent-fill: #cc785c;
+    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 28px 80px;
+    background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 14px; line-height: 22px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .board { max-width: 1180px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-family: var(--serif); font-size: 28px; font-weight: 600; letter-spacing: -0.01em; }
+  .lede { margin: 0 0 6px; max-width: 760px; color: var(--muted); }
+  .issue { margin: 0 0 34px; font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.02em; }
+  h2 { margin: 44px 0 6px; font-family: var(--serif); font-size: 18px; font-weight: 600; }
+  h2 .num { display: inline-block; min-width: 22px; color: var(--accent-ink); font-family: var(--mono); font-size: 12px; vertical-align: 2px; }
+  .note { margin: 0 0 18px; max-width: 820px; color: var(--muted); font-size: 13px; line-height: 21px; }
+  .note b { color: var(--ink); font-weight: 600; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .caption { margin: 10px 0 0; font-size: 11px; color: var(--muted); letter-spacing: 0.01em; text-align: center; }
+  @media (max-width: 860px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ------------------------------------------------------------------ the modal card */
+  .stage { display: flex; justify-content: center; padding: 26px 14px; border-radius: 18px; background: var(--paper); border: 1px solid var(--border); }
+  .stage--light { background: #f4efe6; }
+  .stage--dark { background: #1b1a17; border-color: #38342e; }
+  .stage--tall { min-height: 700px; align-items: flex-start; padding-top: 26px; }
+
+  .pmodal {
+    position: relative; width: 384px; max-width: 100%;
+    background: var(--bg-card); color: var(--text);
+    border: 1px solid var(--border-subtle); border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 30px rgba(20, 16, 12, 0.14), 0 2px 6px rgba(20, 16, 12, 0.08);
+    font-size: 12px; line-height: 16px;
+    font-family: var(--sans);
+  }
+  .pmodal__title { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: -0.005em; color: var(--text-title); }
+  .pmodal__title .ico { width: 13px; height: 13px; color: var(--accent-primary); }
+  .pmodal__x { margin-left: auto; width: 22px; height: 22px; display: grid; place-items: center; border: 0; background: transparent; color: var(--text-muted); border-radius: 6px; cursor: pointer; }
+  .pmodal__x:hover { background: var(--bg-inner); color: var(--text); }
+  .pmodal__x svg { width: 10px; height: 10px; }
+  .field + .field { margin-top: 12px; }
+  .label { display: block; margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  .input {
+    width: 100%; padding: 10px 14px; background: var(--bg-pill); color: var(--text);
+    border: 1px solid var(--border-subtle); border-radius: 12px;
+    font: inherit; font-size: 12px; line-height: 16px;
+  }
+  .input::placeholder { color: var(--text-placeholder); }
+  .input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 2px var(--focus-ring); }
+  .rules { padding-top: 4px; border-top: 1px solid var(--border-subtle); }
+  .rules .label { margin-bottom: 6px; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .check { display: flex; align-items: center; gap: 6px; color: var(--text); cursor: pointer; }
+  .check input { width: 13px; height: 13px; accent-color: var(--accent-check); margin: 0; }
+  .small-input { padding: 8px 12px; }
+  .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .btn { padding: 8px 14px; border: 0; border-radius: 12px; background: transparent; color: var(--text-muted); font: inherit; font-size: 12px; cursor: pointer; }
+  .btn:hover { background: var(--bg-inner); }
+  .btn--primary { padding: 8px 16px; background: var(--accent-fill); color: var(--on-accent); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px -1px rgba(0,0,0,.1); }
+  .btn--primary:hover { background: color-mix(in srgb, var(--accent-fill) 88%, black); }
+
+  /* ------------------------------------------------------------------ the picker trigger */
+  .tp { position: relative; }
+  .tp__trigger {
+    display: flex; align-items: center; gap: 9px; width: 100%; height: 38px;
+    padding: 0 12px; text-align: left; cursor: pointer;
+    background: var(--bg-pill); color: var(--text);
+    border: 1px solid var(--border-subtle); border-radius: 12px;
+    font: inherit; font-size: 12px; line-height: 16px;
+  }
+  .tp__trigger:hover { border-color: var(--pill-border-hover); background: var(--bg-pill-hover); }
+  .tp__trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .tp__trigger[aria-expanded="true"] { border-color: var(--accent-primary); box-shadow: 0 0 0 2px var(--focus-ring); }
+  .tp__glyph { width: 13px; height: 13px; flex: none; color: var(--text-muted); }
+  .tp__trigger[aria-expanded="true"] .tp__glyph { color: var(--accent-primary); }
+  .tp__name { font-weight: 500; }
+  .tp__chev { margin-left: auto; width: 11px; height: 11px; flex: none; color: var(--text-muted); transition: transform .16s ease; }
+  .tp__trigger[aria-expanded="true"] .tp__chev { transform: rotate(180deg); }
+
+  /* ------------------------------------------------------------------ the panel */
+  .tp__panel {
+    position: absolute; z-index: 4; left: 0; right: 0; top: calc(100% + 6px);
+    background: var(--bg-pill); color: var(--text);
+    border: 1px solid var(--border-subtle); border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(20,16,12,.20), 0 3px 10px rgba(20,16,12,.10);
+    overflow: hidden; display: none;
+  }
+  .tp__panel[data-open="true"] { display: block; animation: tp-in .13s ease-out; }
+  @keyframes tp-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  .dark .tp__panel { box-shadow: 0 16px 40px rgba(0,0,0,.55), 0 3px 10px rgba(0,0,0,.35); }
+
+  .tp__search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
+  .tp__search svg { width: 11px; height: 11px; flex: none; color: var(--text-muted); }
+  .tp__search input { flex: 1; min-width: 0; border: 0; padding: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; line-height: 16px; }
+  .tp__search input:focus { outline: none; }
+  /* The plugin's dialog inputs paint placeholders in textMuted (5.71 / 6.40 on the card);
+     the lighter fieldPlaceholder the panel inputs use measures 2.5:1, too low for a hint. */
+  .tp__search input::placeholder { color: var(--text-muted); }
+  .tp__clear[hidden] { display: none; }
+  .tp__clear { width: 18px; height: 18px; display: grid; place-items: center; border: 0; border-radius: 5px; background: var(--bg-inner); color: var(--text-muted); cursor: pointer; padding: 0; }
+  .tp__clear:hover { color: var(--text); }
+  .tp__clear svg { width: 8px; height: 8px; }
+
+  .tp__listwrap { position: relative; }
+  .tp__listwrap::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 26px; z-index: 2;
+    background: linear-gradient(var(--bg-pill), transparent); opacity: 0; transition: opacity .12s;
+    pointer-events: none;
+  }
+  .tp__listwrap[data-top="true"]::before { opacity: 1; }
+  .tp__list { max-height: 348px; overflow-y: auto; padding: 4px 6px 8px; scrollbar-width: thin; }
+  .tp__list::-webkit-scrollbar { width: 8px; }
+  .tp__list::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 8px; border: 2px solid var(--bg-pill); }
+
+  .tp__group {
+    position: sticky; top: 0; z-index: 1;
+    margin: 0; padding: 10px 8px 5px;
+    background: var(--bg-pill);
+    font-size: 9px; line-height: 12px; font-weight: 600; letter-spacing: .085em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .tp__row {
+    display: grid; grid-template-columns: 14px minmax(0, 1fr) 12px; align-items: center; gap: 9px;
+    padding: 6px 8px; border-radius: 9px; cursor: pointer; border: 0; width: 100%;
+    background: transparent; color: var(--text); font: inherit; text-align: left;
+  }
+  .tp__row + .tp__row { margin-top: 1px; }
+  .tp__row:hover { background: var(--bg-inner); }
+  .tp__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+  .tp__row--active { background: var(--bg-inner); box-shadow: inset 0 0 0 1px var(--border-subtle); }
+  .tp__row--current { background: color-mix(in srgb, var(--accent-primary) 9%, transparent); }
+  .tp__row--current .tp__row-name { font-weight: 600; }
+  .tp__row--current .tp__row-glyph { color: var(--ink-accent); }
+  .tp__row--disabled { cursor: not-allowed; }
+  .tp__row--disabled .tp__row-glyph { opacity: .45; }
+  .tp__row--disabled .tp__row-name { color: var(--text-muted); }
+  .tp__row--disabled:hover { background: transparent; }
+  .tp__row--disabled:hover .tp__row-glyph { color: var(--text-muted); }
+  .tp__row--disabled:hover .tp__row-name { color: var(--text-muted); }
+  .tp__row-glyph { width: 13px; height: 13px; color: var(--text-muted); }
+  .tp__row:hover .tp__row-glyph { color: var(--text); }
+  .tp__row-text { min-width: 0; }
+  .tp__row-name { display: block; font-size: 12px; line-height: 16px; }
+  .tp__row-desc { display: block; font-size: 10.5px; line-height: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tp__row-desc--reason { color: var(--text-danger); opacity: .95; }
+  .tp__row-check { width: 11px; height: 11px; color: var(--ink-accent); }
+  .tp__row-lock { width: 9px; height: 11px; color: var(--text-muted); }
+
+  .tp__empty { padding: 26px 16px 22px; text-align: center; }
+  .tp__empty p { margin: 0 0 10px; color: var(--text-muted); font-size: 12px; }
+  .tp__empty b { color: var(--text); font-weight: 500; }
+  .tp__empty .btn {
+    padding: 5px 13px; border: 1px solid var(--border-subtle); border-radius: 999px;
+    background: var(--bg-pill); color: var(--accent-ink); font-size: 11px; line-height: 16px;
+  }
+  .tp__empty .btn:hover { border-color: var(--pill-border-hover); background: var(--bg-pill-hover); color: var(--accent-ink); }
+
+  .tp__hint {
+    display: flex; align-items: center; gap: 10px; padding: 7px 12px;
+    border-top: 1px solid var(--border-subtle); background: var(--bg-inner);
+    font-size: 9.5px; line-height: 12px; color: var(--text-muted);
+  }
+  .tp__hint span { display: inline-flex; align-items: center; gap: 4px; }
+  .tp__hint kbd {
+    font-family: var(--mono); font-size: 9px; padding: 1px 4px; border-radius: 4px;
+    background: var(--bg-pill); border: 1px solid var(--border-subtle); color: var(--text-muted);
+  }
+
+  /* ------------------------------------------------------------------ light / dark tokens */
+  .light {
+    --bg: #faf7f2; --bg-card: #ffffff; --bg-inner: #f4efe6; --bg-pill: #ffffff; --bg-pill-hover: #f6f2ea;
+    --border-subtle: #e6e0d5; --pill-border-hover: #d3cab9;
+    --text: #1e1b18; --text-title: #1e1b18; --text-muted: #6e655c; --text-placeholder: #9ca3af;
+    --accent-primary: #cc785c; --accent-fill: #cc785c; --on-accent: #ffffff; --accent-check: #cc785c;
+    --focus: #d97757; --focus-ring: rgba(217, 119, 87, .22); --text-danger: #dc2626;
+    --scroll-thumb: #d5cec2;
+  }
+  .dark {
+    --bg: #181715; --bg-card: #22201d; --bg-inner: #1b1a17; --bg-pill: #24221e; --bg-pill-hover: #2d2a25;
+    --border-subtle: #38342e; --pill-border-hover: #4a453e;
+    --text: #ece7e1; --text-title: #ece7e1; --text-muted: #9ca3af; --text-placeholder: #9ca3af;
+    --accent-primary: #d97757; --accent-fill: #d97757; --on-accent: #1a1512; --accent-check: #d97757;
+    --focus: #d97757; --focus-ring: rgba(217, 119, 87, .28); --text-danger: #f87171;
+    --scroll-thumb: #4a453e;
+  }
+
+  /* ------------------------------------------------------------------ before (the OS list) */
+  .os-note { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 8px; align-items: start; padding: 10px 12px; border-radius: 10px; background: rgba(204,120,92,.09); border: 1px solid rgba(204,120,92,.28); font-size: 11.5px; line-height: 17px; color: #6a4b3f; }
+  .os-note svg { width: 13px; height: 13px; color: var(--accent-ink); margin-top: 2px; }
+  .os-menu {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 4;
+    padding: 5px; border-radius: 10px; border: 1px solid #c9c9c9; background: #f6f6f6;
+    box-shadow: 0 10px 26px rgba(0,0,0,.22); color: #111; font-size: 12px; line-height: 20px;
+  }
+  .os-menu__group { padding: 3px 8px; font-size: 10px; color: #8a8a8a; }
+  .os-menu__item { padding: 2px 8px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .os-menu__item--sel { background: #2f7cf6; color: #fff; }
+  .os-menu__fade { position: absolute; left: 5px; right: 5px; bottom: 5px; height: 26px; border-radius: 0 0 8px 8px; background: linear-gradient(transparent, #f6f6f6); }
+
+  /* ------------------------------------------------------------------ spec tables */
+  table.spec { width: 100%; border-collapse: collapse; margin: 10px 0 6px; font-size: 12px; }
+  table.spec th, table.spec td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.spec th { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+  table.spec td:first-child { white-space: nowrap; }
+  table.spec code, .mono { font-family: var(--mono); font-size: 11px; background: rgba(0,0,0,.045); padding: 1px 5px; border-radius: 4px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+  .sw { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-size: 11px; color: var(--muted); }
+  .sw i { width: 10px; height: 10px; border-radius: 999px; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); }
+  .rules-list { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 21px; }
+  .rules-list b { color: var(--ink); font-weight: 600; }
+  .kbdmap { display: grid; grid-template-columns: 120px minmax(0,1fr); gap: 6px 14px; margin-top: 10px; font-size: 12px; }
+  .kbdmap dt { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+  .kbdmap dd { margin: 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="board">
+
+  <h1>The field type picker</h1>
+  <p class="lede">Today the <b>Field type</b> row is a native <code class="mono">&lt;select&gt;</code>. The list that opens is drawn by the
+  operating system: it ignores the theme, cannot carry an icon or a description, and on a phone it is the OS's own
+  full-screen drawer. This board replaces it with a picker the plugin draws — searchable, grouped, keyboard-first,
+  themed — without moving a single type out of the model.</p>
+  <p class="issue">COD-76 · “he field type selection drawer UI” · Improvement, p2 · mock for approval, nothing implemented</p>
+
+  <!-- ---------------------------------------------------------------- 1. before -->
+  <h2><span class="num">01</span> Before — the window, and the list it cannot control</h2>
+  <p class="note">The closed control is already styled by the plugin. Everything below the fold of that control belongs to the OS,
+  so the sheet on the right is an <b>illustration</b> of what Chromium / Android / macOS draw — not plugin pixels.</p>
+
+  <div class="pair">
+    <div>
+      <div class="stage stage--light light">
+        <div class="pmodal">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Add New Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" placeholder="e.g. Status, Budget, Due date…"></div>
+          <div class="field"><label class="label">Field type</label>
+            <select class="input" style="appearance:auto; height:38px;"><option>Text</option></select>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">What ships today · light</p>
+    </div>
+    <div>
+      <div class="stage stage--light light">
+        <div class="pmodal">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Add New Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" placeholder="e.g. Status, Budget, Due date…"></div>
+          <div class="field"><label class="label">Field type</label>
+            <div style="position:relative">
+              <select class="input" style="appearance:auto; height:38px;"><option>Text</option></select>
+              <div class="os-menu" aria-hidden="true">
+                <div class="os-menu__group">Basic</div>
+                <div class="os-menu__item os-menu__item--sel">Text</div>
+                <div class="os-menu__item">Long text</div>
+                <div class="os-menu__item">Number</div>
+                <div class="os-menu__item">Currency</div>
+                <div class="os-menu__item">Percent</div>
+                <div class="os-menu__item">Duration</div>
+                <div class="os-menu__item">Rating</div>
+                <div class="os-menu__fade"></div>
+              </div>
+            </div>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">…and the list it opens is the OS's · illustration</p>
+    </div>
+  </div>
+
+  <!-- ---------------------------------------------------------------- 2. after -->
+  <h2><span class="num">02</span> After — one row that opens the plugin's own picker</h2>
+  <p class="note">Click the <b>Field type</b> row. Type to search (names <i>and</i> descriptions, e.g. <span class="mono">money</span>,
+  <span class="mono">stars</span>, <span class="mono">clock</span>). <b>↑↓</b> move, <b>↵</b> picks, <b>Esc</b> closes.
+  Each entry carries the icon the grid already draws in its column headers (<span class="mono">faIcons.ts</span>) — <b>zero new glyphs, zero new dependencies</b>.</p>
+
+  <div class="pair">
+    <div>
+      <div class="stage stage--light light">
+        <div class="pmodal">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Add New Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" placeholder="e.g. Status, Budget, Due date…"></div>
+          <div class="field"><label class="label" id="lbl-a">Field type</label>
+            <div class="tp" data-picker="a" data-current="text"></div>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">Create mode · light · click “Text”</p>
+    </div>
+    <div>
+      <div class="stage stage--dark dark">
+        <div class="pmodal">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Add New Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" placeholder="e.g. Status, Budget, Due date…" value="Budget"></div>
+          <div class="field"><label class="label">Field type</label>
+            <div class="tp" data-picker="b" data-current="currency"></div>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+            <div class="grid2"><input class="input small-input" placeholder="Min (number / date)"><input class="input small-input" placeholder="Max"></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">Create mode · dark · picker closed</p>
+    </div>
+  </div>
+
+  <!-- ---------------------------------------------------------------- 3. modify -->
+  <h2><span class="num">03</span> Modify mode — the types that would drop values, explained</h2>
+  <p class="note">Changing a <b>Number</b> column whose cells hold <span class="mono">abc</span> cannot offer <b>Text → Number…</b> silently.
+  Today those types simply vanish from the list, which reads as a bug. They now stay in place, greyed, and say why —
+  the reason is the one <span class="mono">planTypeChange()</span> already returns; no new rule is invented here.</p>
+
+  <div class="pair">
+    <div>
+      <div class="stage stage--light light stage--tall">
+        <div class="pmodal">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Modify Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" value="Rating"></div>
+          <div class="field"><label class="label">Field type</label>
+            <div class="tp" data-picker="c" data-current="text" data-mode="edit" data-open="true"></div>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">Modify mode · light · open, blocked types greyed with the reason</p>
+    </div>
+    <div>
+      <div class="stage stage--dark dark stage--tall">
+        <div class="pmodal">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Modify Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" value="Rating"></div>
+          <div class="field"><label class="label">Field type</label>
+            <div class="tp" data-picker="d" data-current="text" data-mode="edit" data-open="true"></div>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">Modify mode · dark · open, with the reason on each blocked type</p>
+    </div>
+  </div>
+
+  <!-- ---------------------------------------------------------------- 4. phone -->
+  <h2><span class="num">04</span> Phone — 390 px, the same card, clamped</h2>
+  <p class="note">No bottom sheet, no OS drawer. The panel is the width of the trigger, capped to the viewport − 32 px, and
+  its list scrolls inside a <b>60 % of viewport</b> cap so the Save button never leaves the screen. On a coarse pointer the
+  search box is <b>not</b> focused on open — the keyboard would eat the list; the current type is scrolled into view instead.</p>
+
+  <div class="pair">
+    <div>
+      <div class="stage stage--light light" style="padding: 18px 8px;">
+        <div class="pmodal" style="width: 342px; padding: 18px;">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Add New Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" placeholder="e.g. Status, Budget, Due date…"></div>
+          <div class="field"><label class="label">Field type</label>
+            <div class="tp" data-picker="e" data-current="single_select" data-touch="true"></div>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">390 × 780 · light · touch, picker closed</p>
+    </div>
+    <div>
+      <div class="stage stage--dark dark stage--tall" style="padding: 18px 8px;">
+        <div class="pmodal" style="width: 342px; padding: 18px;">
+          <div class="pmodal__title"><span class="ico" data-ico="table-columns"></span>Add New Field<button class="pmodal__x" aria-label="Close"><span data-ico="xmark"></span></button></div>
+          <div class="field"><label class="label">Field name</label><input class="input" placeholder="e.g. Status, Budget, Due date…"></div>
+          <div class="field"><label class="label">Field type</label>
+            <div class="tp" data-picker="f" data-current="single_select" data-touch="true" data-open="true"></div>
+          </div>
+          <div class="field rules">
+            <label class="label">Validation rules</label>
+            <div class="grid2"><label class="check"><input type="checkbox"> Required</label><label class="check"><input type="checkbox"> Unique</label></div>
+          </div>
+          <div class="footer"><button class="btn">Cancel</button><button class="btn btn--primary">Save Field</button></div>
+        </div>
+      </div>
+      <p class="caption">390 × 780 · dark · open, scrolled to the current type</p>
+    </div>
+  </div>
+
+  <!-- ---------------------------------------------------------------- 5. spec -->
+  <h2><span class="num">05</span> The spec — geometry, type scale, states</h2>
+
+  <table class="spec">
+    <tr><th>Part</th><th>Size / colour</th><th>Why</th></tr>
+    <tr><td>Trigger</td><td>38 px tall · <span class="mono">bgPill</span> · 1 px <span class="mono">borderSubtle</span> · radius 12</td><td>reads as a field, not a button — it sits in a column of inputs</td></tr>
+    <tr><td>Trigger text</td><td>12 / 16 · weight 500 · glyph 13 px</td><td>the label on the row above is 12 / 500 too</td></tr>
+    <tr><td>Panel</td><td>width = trigger · bgPill (as the other float panels) · radius 14 · 6 px below · 348 px list</td><td>the 384 px window leaves 336; a floating 320 card would look detached</td></tr>
+    <tr><td>Search row</td><td>10 / 12 padding · 1 px divider below</td><td>one quiet line, never a second “input” inside a panel</td></tr>
+    <tr><td>Group label</td><td>9 / 12 · 600 · 0.085 em · sticky</td><td>18 rows need headings; sticky keeps the group name while scrolling</td></tr>
+    <tr><td>Row</td><td>42 px · 14 + 1fr + 12 · radius 9 · 1 px gap</td><td>two-line rows still land near the 40 px thumb target</td></tr>
+    <tr><td>Row name / description</td><td>12 / 16 · 10.5 / 14 muted</td><td>the description must never compete with the name</td></tr>
+    <tr><td>Hint bar</td><td>9.5 / 12 · <span class="mono">bgInner</span></td><td>teaches ↑↓ ↵ esc once; costs 26 px</td></tr>
+  </table>
+
+  <div class="swatches">
+    <span class="sw"><i style="background:#b5573a"></i>textToday — current type glyph, check</span>
+    <span class="sw"><i style="background:#f4efe6"></i>bgInner — hover, keyboard cursor</span>
+    <span class="sw"><i style="background:#6e655c"></i>textMuted 5.71 / 6.25 — glyphs, descriptions</span>
+    <span class="sw"><i style="background:#dc2626"></i>textDanger 4.83 / 5.74 — the blocked reason</span>
+  </div>
+
+  <h2><span class="num">06</span> Behaviour, stated as rules</h2>
+  <ul class="rules-list">
+    <li><b>Open</b> — click, or <span class="mono">Enter</span> / <span class="mono">Space</span> / <span class="mono">↑</span> / <span class="mono">↓</span> on the closed trigger. The list scrolls the current type into view.</li>
+    <li><b>Search</b> — filters on the type name and on hidden keywords (<span class="mono">money</span> → Currency, <span class="mono">stars</span> → Rating, <span class="mono">clock</span> → Date and time). No match → an empty state with <i>Clear search</i>.</li>
+    <li><b>Pick</b> — click, or <span class="mono">Enter</span> on the highlighted row: the trigger updates, the panel closes, focus returns to the trigger, and the window's dependent rows (Options / Min–Max / Regex / Formula / Linked table) show or hide exactly as they do today.</li>
+    <li><b>Dismiss</b> — <span class="mono">Esc</span>, a press outside, or <span class="mono">Tab</span>. The type does not change.</li>
+    <li><b>Blocked rows</b> stay visible, <span class="mono">aria-disabled="true"</span>, with the reason in place of the description; clicking does nothing.</li>
+    <li><b>Nothing else moves</b> — the committed type, the extras, the notices, the patch built on Save and <span class="mono">onConfirm</span>'s arguments are untouched.</li>
+  </ul>
+
+  <h2><span class="num">07</span> Keyboard &amp; assistive tech</h2>
+  <dl class="kbdmap">
+    <dt>↓ / ↑</dt><dd>next / previous row, skipping blocked ones, wrapping</dd>
+    <dt>Home / End</dt><dd>first / last selectable row</dd>
+    <dt>Enter</dt><dd>pick the highlighted row</dd>
+    <dt>Esc</dt><dd>close the panel, keep the window open, focus back on the trigger</dd>
+    <dt>Tab</dt><dd>close and move on — the popup never traps focus</dd>
+    <dt>A–Z</dt><dd>typing when the trigger is focused opens the panel with that letter in the search</dd>
+  </dl>
+  <p class="note" style="margin-top:14px">The current row's glyph and check use <b>textToday</b> (the AA terracotta), not the raw accent: the accent measures
+  3.28:1 on the white panel (2.99:1 on its own tint), and a 13 px glyph owes 3:1. Measured: <b>4.78 / 5.09</b> on the panel, <b>4.36 / 4.48</b> on the tinted row.</p>
+  <p class="note" style="margin-top:14px">A blocked row is <b>not</b> dimmed as a whole: fading it to 55 % would take its
+  reason to ≈2.5:1 on white, and the reason is the one thing you need to read. Only the decorative icon fades.</p>
+  <p class="note" style="margin-top:14px">The trigger is a <span class="mono">button</span> with <span class="mono">aria-haspopup="listbox"</span>,
+  <span class="mono">aria-expanded</span>, and a label of “Field type: Date”; the panel is a <span class="mono">role="listbox"</span> of
+  <span class="mono">role="option"</span>s with <span class="mono">aria-selected</span> on the current one and
+  <span class="mono">aria-activedescendant</span> following the keyboard cursor while focus stays in the search box.
+  Group headings are <span class="mono">role="group"</span> + <span class="mono">aria-labelledby</span>, so a screen reader
+  announces “Basic, group” before the row name.</p>
+
+</div>
+
+<script>
+const ICONS = {"font":{"w":448,"d":"M254 52.8C249.3 40.3 237.3 32 224 32s-25.3 8.3-30 20.8L57.8 416H32c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32h-1.8l18-48H303.8l18 48H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H390.2L254 52.8zM279.8 304H168.2L224 155.1 279.8 304z"},"align-left":{"w":448,"d":"M288 64c0 17.7-14.3 32-32 32H32C14.3 96 0 81.7 0 64S14.3 32 32 32H256c17.7 0 32 14.3 32 32zm0 256c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H256c17.7 0 32 14.3 32 32zM0 192c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 448c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"},"hashtag":{"w":448,"d":"M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H347.1L325.8 320H384c17.7 0 32 14.3 32 32s-14.3 32-32 32H315.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7H155.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8L90.2 384H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192L165.8 320h95.1l21.3-128H187.1z"},"dollar-sign":{"w":320,"d":"M160 0c17.7 0 32 14.3 32 32V67.7c1.6 .2 3.1 .4 4.7 .7c.4 .1 .7 .1 1.1 .2l48 8.8c17.4 3.2 28.9 19.9 25.7 37.2s-19.9 28.9-37.2 25.7l-47.5-8.7c-31.3-4.6-58.9-1.5-78.3 6.2s-27.2 18.3-29 28.1c-2 10.7-.5 16.7 1.2 20.4c1.8 3.9 5.5 8.3 12.8 13.2c16.3 10.7 41.3 17.7 73.7 26.3l2.9 .8c28.6 7.6 63.6 16.8 89.6 33.8c14.2 9.3 27.6 21.9 35.9 39.5c8.5 17.9 10.3 37.9 6.4 59.2c-6.9 38-33.1 63.4-65.6 76.7c-13.7 5.6-28.6 9.2-44.4 11V480c0 17.7-14.3 32-32 32s-32-14.3-32-32V445.1c-.4-.1-.9-.1-1.3-.2l-.2 0 0 0c-24.4-3.8-64.5-14.3-91.5-26.3c-16.1-7.2-23.4-26.1-16.2-42.2s26.1-23.4 42.2-16.2c20.9 9.3 55.3 18.5 75.2 21.6c31.9 4.7 58.2 2 76-5.3c16.9-6.9 24.6-16.9 26.8-28.9c1.9-10.6 .4-16.7-1.3-20.4c-1.9-4-5.6-8.4-13-13.3c-16.4-10.7-41.5-17.7-74-26.3l-2.8-.7 0 0C119.4 279.3 84.4 270 58.4 253c-14.2-9.3-27.5-22-35.8-39.6c-8.4-17.9-10.1-37.9-6.1-59.2C23.7 116 52.3 91.2 84.8 78.3c13.3-5.3 27.9-8.9 43.2-11V32c0-17.7 14.3-32 32-32z"},"percent":{"w":384,"d":"M374.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-320 320c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l320-320zM128 128A64 64 0 1 0 0 128a64 64 0 1 0 128 0zM384 384a64 64 0 1 0 -128 0 64 64 0 1 0 128 0z"},"stopwatch":{"w":448,"d":"M176 0c-17.7 0-32 14.3-32 32s14.3 32 32 32h16V98.4C92.3 113.8 16 200 16 304c0 114.9 93.1 208 208 208s208-93.1 208-208c0-41.8-12.3-80.7-33.5-113.2l24.1-24.1c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L355.7 143c-28.1-23-62.2-38.8-99.7-44.6V64h16c17.7 0 32-14.3 32-32s-14.3-32-32-32H224 176zm72 192V320c0 13.3-10.7 24-24 24s-24-10.7-24-24V192c0-13.3 10.7-24 24-24s24 10.7 24 24z"},"star":{"w":576,"d":"M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"},"square-check":{"w":448,"d":"M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM337 209L209 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L303 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"},"calendar":{"w":448,"d":"M96 32V64H48C21.5 64 0 85.5 0 112v48H448V112c0-26.5-21.5-48-48-48H352V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V64H160V32c0-17.7-14.3-32-32-32S96 14.3 96 32zM448 192H0V464c0 26.5 21.5 48 48 48H400c26.5 0 48-21.5 48-48V192z"},"clock":{"w":512,"d":"M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z"},"link":{"w":640,"d":"M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z"},"envelope":{"w":512,"d":"M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z"},"phone":{"w":512,"d":"M164.9 24.6c-7.7-18.6-28-28.5-47.4-23.2l-88 24C12.1 30.2 0 46 0 64C0 311.4 200.6 512 448 512c18 0 33.8-12.1 38.6-29.5l24-88c5.3-19.4-4.6-39.7-23.2-47.4l-96-40c-16.3-6.8-35.2-2.1-46.3 11.6L304.7 368C234.3 334.7 177.3 277.7 144 207.3L193.3 167c13.7-11.2 18.4-30 11.6-46.3l-40-96z"},"circle-dot":{"w":512,"d":"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-352a96 96 0 1 1 0 192 96 96 0 1 1 0-192z"},"list-check":{"w":512,"d":"M152.1 38.2c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 113C-2.3 103.6-2.3 88.4 7 79s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zm0 160c9.9 8.9 10.7 24 1.8 33.9l-72 80c-4.4 4.9-10.6 7.8-17.2 7.9s-12.9-2.4-17.6-7L7 273c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l22.1 22.1 55.1-61.2c8.9-9.9 24-10.7 33.9-1.8zM224 96c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zm0 160c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32zM160 416c0-17.7 14.3-32 32-32H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H192c-17.7 0-32-14.3-32-32zM48 368a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"},"paperclip":{"w":448,"d":"M364.2 83.8c-24.4-24.4-64-24.4-88.4 0l-184 184c-42.1 42.1-42.1 110.3 0 152.4s110.3 42.1 152.4 0l152-152c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-152 152c-64 64-167.6 64-231.6 0s-64-167.6 0-231.6l184-184c46.3-46.3 121.3-46.3 167.6 0s46.3 121.3 0 167.6l-176 176c-28.6 28.6-75 28.6-103.6 0s-28.6-75 0-103.6l144-144c10.9-10.9 28.7-10.9 39.6 0s10.9 28.7 0 39.6l-144 144c-6.7 6.7-6.7 17.7 0 24.4s17.7 6.7 24.4 0l176-176c24.4-24.4 24.4-64 0-88.4z"},"square-root-variable":{"w":576,"d":"M282.6 78.1c8-27.3 33-46.1 61.4-46.1H544c17.7 0 32 14.3 32 32s-14.3 32-32 32H344L238.7 457c-3.6 12.3-14.1 21.2-26.8 22.8s-25.1-4.6-31.5-15.6L77.6 288H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H77.6c22.8 0 43.8 12.1 55.3 31.8l65.2 111.8L282.6 78.1zM393.4 233.4c12.5-12.5 32.8-12.5 45.3 0L480 274.7l41.4-41.4c12.5-12.5 32.8-12.5 45.3 0s12.5 32.8 0 45.3L525.3 320l41.4 41.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L480 365.3l-41.4 41.4c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L434.7 320l-41.4-41.4c-12.5-12.5-12.5-32.8 0-45.3z"},"diagram-project":{"w":576,"d":"M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z"},"magnifying-glass":{"w":512,"d":"M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z"},"chevron-down":{"w":512,"d":"M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"},"check":{"w":448,"d":"M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z"},"xmark":{"w":384,"d":"M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"},"arrow-up":{"w":384,"d":"M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z"},"arrow-down":{"w":384,"d":"M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z"}};
+const ico = (name, cls) => {
+  const g = ICONS[name];
+  if (!g) return '';
+  return `<svg class="${cls || ''}" viewBox="0 0 ${g.w} 512" width="100%" height="100%" fill="currentColor" aria-hidden="true" focusable="false"><path d="${g.d}"></path></svg>`;
+};
+document.querySelectorAll('[data-ico]').forEach((el) => { el.innerHTML = ico(el.dataset.ico); el.style.display = 'inline-flex'; el.style.width = '13px'; el.style.height = '13px'; });
+
+/* ---- the type catalogue: one line of truth for names, icons, descriptions, search words ---- */
+const TYPES = [
+  ['text', 'font', 'Text', 'A single line of words', 'string words name title'],
+  ['long_text', 'align-left', 'Long text', 'A paragraph that wraps in the cell', 'notes paragraph body description'],
+  ['number', 'hashtag', 'Number', 'Any number', 'integer decimal quantity amount'],
+  ['currency', 'dollar-sign', 'Currency', 'Money, shown to two decimals', 'price cost money budget salary'],
+  ['percent', 'percent', 'Percent', 'A share, shown as a percentage', 'rate share ratio'],
+  ['duration', 'stopwatch', 'Duration', 'A length of time', 'timer hours minutes elapsed'],
+  ['rating', 'star', 'Rating', 'Stars, five by default', 'stars score review'],
+  ['checkbox', 'square-check', 'Checkbox', 'Yes or no, one tap', 'boolean done yes no toggle'],
+  ['date', 'calendar', 'Date', 'A day', 'calendar due day'],
+  ['date_time', 'clock', 'Date and time', 'A day and a clock time', 'timestamp when schedule clock'],
+  ['url', 'link', 'URL', 'A web address that opens a browser', 'website http hyperlink'],
+  ['email', 'envelope', 'Email', 'An address that opens your mail app', 'mail contact'],
+  ['phone', 'phone', 'Phone', 'A number that starts a call', 'call mobile tel'],
+  ['single_select', 'circle-dot', 'Single select', 'One choice from a list', 'dropdown tag status option'],
+  ['multi_select', 'list-check', 'Multi select', 'Several choices from a list', 'tags dropdown multiple'],
+  ['attachment', 'paperclip', 'Attachment', 'A file already in your vault', 'file upload pdf image'],
+  ['formula', 'square-root-variable', 'Formula', 'Computed from other fields', 'calculate expression computed'],
+  ['link', 'diagram-project', 'Link', 'Rows in another table', 'relation reference relate'],
+];
+const GROUPS = [
+  ['Basic', ['text', 'long_text', 'number', 'currency', 'percent', 'duration', 'rating', 'checkbox']],
+  ['Date', ['date', 'date_time']],
+  ['Links & contact', ['url', 'email', 'phone']],
+  ['Select & attachment', ['single_select', 'multi_select', 'attachment']],
+  ['Computed', ['formula', 'link']],
+];
+/* The reasons planTypeChange() returns today, shown instead of a description (mock data). */
+const BLOCKED = {
+  single_select: 'Choose options in field settings (not in this version)',
+  multi_select: 'Choose options in field settings (not in this version)',
+  attachment: 'Attachments keep their own path',
+  formula: 'Formula fields are created with Add field',
+  link: 'Link fields are created with Add field',
+  number: '3 values cannot convert',
+  currency: '3 values cannot convert',
+  percent: '3 values cannot convert',
+  duration: '3 values cannot convert',
+  rating: '3 values cannot convert',
+  date: '3 values cannot convert',
+  date_time: '3 values cannot convert',
+  checkbox: '3 values cannot convert',
+};
+
+const byId = Object.fromEntries(TYPES.map((t) => [t[0], t]));
+
+function buildPicker(host) {
+  const current = host.dataset.current;
+  const edit = host.dataset.mode === 'edit';
+  const touch = host.dataset.touch === 'true';
+  const cur = byId[current];
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'tp__trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.innerHTML = `<span class="tp__glyph">${ico(cur[1])}</span><span class="tp__name">${cur[2]}</span><span class="tp__chev">${ico('chevron-down')}</span>`;
+
+  const panel = document.createElement('div');
+  panel.className = 'tp__panel';
+  panel.dataset.open = 'false';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', 'Field types');
+  panel.innerHTML = `
+    <div class="tp__search">
+      ${ico('magnifying-glass')}
+      <input type="text" placeholder="Search field types…" aria-label="Search field types" autocomplete="off">
+      <button class="tp__clear" type="button" aria-label="Clear search" hidden>${ico('xmark')}</button>
+    </div>
+    <div class="tp__listwrap"><div class="tp__list" role="listbox" aria-label="Field types"></div></div>
+    <div class="tp__hint">
+      <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+      <span><kbd>↵</kbd> choose</span>
+      <span><kbd>esc</kbd> close</span>
+      <span style="margin-left:auto" data-count>18 types</span>
+    </div>`;
+  host.append(trigger, panel);
+
+  const list = panel.querySelector('.tp__list');
+  const listwrap = panel.querySelector('.tp__listwrap');
+  const paintEdge = () => { listwrap.dataset.top = String(list.scrollTop > 4); };
+  list.addEventListener('scroll', paintEdge);
+  const search = panel.querySelector('.tp__search input');
+  const clearBtn = panel.querySelector('.tp__clear');
+  let activeId = null;
+  let query = '';
+
+  const blockedFor = (id) => (edit && id !== current ? BLOCKED[id] : null);
+
+  function render() {
+    const q = query.trim().toLowerCase();
+    const html = [];
+    for (const [group, ids] of GROUPS) {
+      const rows = ids.filter((id) => {
+        if (!q) return true;
+        const t = byId[id];
+        return (t[2] + ' ' + t[3] + ' ' + t[4]).toLowerCase().includes(q);
+      });
+      if (!rows.length) continue;
+      html.push(`<div class="tp__group" id="grp-${group.replace(/\W/g, '')}">${group}</div>`);
+      for (const id of rows) {
+        const t = byId[id];
+        const reason = blockedFor(id);
+        const isCur = id === current;
+        const cls = ['tp__row'];
+        if (isCur) cls.push('tp__row--current');
+        if (reason) cls.push('tp__row--disabled');
+        html.push(
+          `<button type="button" class="${cls.join(' ')}" role="option" data-id="${id}" id="opt-${host.dataset.picker}-${id}"` +
+          ` aria-selected="${isCur}"${reason ? ' aria-disabled="true"' : ''}` +
+          ` title="${reason ? reason.replace(/"/g, '&quot;') : ''}">` +
+          `<span class="tp__row-glyph">${ico(t[1])}</span>` +
+          `<span class="tp__row-text"><span class="tp__row-name">${t[2]}</span>` +
+          `<span class="tp__row-desc${reason ? ' tp__row-desc--reason' : ''}">${reason || t[3]}</span></span>` +
+          (isCur ? `<span class="tp__row-check">${ico('check')}</span>` : '<span></span>') +
+          '</button>',
+        );
+      }
+    }
+    if (!html.length) {
+      html.push(`<div class="tp__empty"><p>No field type matches <b>“${query.trim().replace(/</g, '&lt;')}”</b>.</p><button class="btn" type="button" data-clear>Clear search</button></div>`);
+    }
+    list.innerHTML = html.join('');
+    const n = list.querySelectorAll('.tp__row').length;
+    panel.querySelector('[data-count]').textContent = n ? n + (n === 1 ? ' type' : ' types') : 'no match';
+    if (activeId) setActive(activeId, false);
+    paintEdge();
+  }
+
+  function rows() { return Array.from(list.querySelectorAll('.tp__row')); }
+  function pickable() { return rows().filter((r) => r.getAttribute('aria-disabled') !== 'true'); }
+  function setActive(id, scroll = true) {
+    rows().forEach((r) => r.classList.toggle('tp__row--active', r.dataset.id === id));
+    activeId = id;
+    list.setAttribute('aria-activedescendant', id ? `opt-${host.dataset.picker}-${id}` : '');
+    if (scroll) { const el = list.querySelector('.tp__row--active'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+  }
+
+  function open() {
+    panel.dataset.open = 'true';
+    trigger.setAttribute('aria-expanded', 'true');
+    if (!touch) search.focus();
+    const currentRow = list.querySelector('.tp__row--current, .tp__row:not([aria-disabled="true"])');
+    if (currentRow) {
+      // Land on the start of the current row's group: a centred row leaves a half-row cut off
+      // under the search line, which reads as a rendering fault rather than a scroll position.
+      let top = currentRow;
+      while (top.previousElementSibling && !top.previousElementSibling.classList.contains('tp__group')) top = top.previousElementSibling;
+      list.scrollTop = Math.max(0, (top.previousElementSibling ? top.previousElementSibling.offsetTop : top.offsetTop) - 2);
+    }
+    paintEdge();
+    setActive((pickable()[0] && (list.querySelector('.tp__row--current') ? current : pickable()[0].dataset.id)));
+  }
+  function close() {
+    panel.dataset.open = 'false';
+    trigger.setAttribute('aria-expanded', 'false');
+    activeId = null;
+  }
+  function choose(id) {
+    if (blockedFor(id)) return;
+    const t = byId[id];
+    trigger.querySelector('.tp__glyph').innerHTML = ico(t[1]);
+    trigger.querySelector('.tp__name').textContent = t[2];
+    host.dataset.current = id;
+    close();
+    trigger.focus();
+    render();
+  }
+
+  trigger.addEventListener('click', () => (panel.dataset.open === 'true' ? close() : open()));
+  trigger.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+      if (panel.dataset.open === 'true') return;
+      e.preventDefault();
+      open();
+    }
+  });
+  search.addEventListener('input', () => {
+    query = search.value;
+    clearBtn.hidden = query === '';
+    render();
+    const first = pickable()[0];
+    if (first) setActive(first.dataset.id, false);
+  });
+  clearBtn.addEventListener('click', () => { search.value = ''; query = ''; clearBtn.hidden = true; render(); search.focus(); });
+  panel.addEventListener('click', (e) => {
+    const clear = e.target.closest('[data-clear]');
+    if (clear) { search.value = ''; query = ''; clearBtn.hidden = true; render(); search.focus(); return; }
+    const row = e.target.closest('.tp__row');
+    if (row) choose(row.dataset.id);
+  });
+  panel.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); close(); trigger.focus(); return; }
+    if (e.key === 'Tab') { close(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const opts = pickable();
+      if (!opts.length) return;
+      const i = opts.findIndex((r) => r.dataset.id === activeId);
+      const next = e.key === 'ArrowDown' ? (i + 1) % opts.length : (i - 1 + opts.length) % opts.length;
+      setActive(opts[next].dataset.id);
+      return;
+    }
+    if (e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      const opts = pickable();
+      if (opts.length) setActive((e.key === 'Home' ? opts[0] : opts[opts.length - 1]).dataset.id);
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeId) choose(activeId);
+    }
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (panel.dataset.open !== 'true') return;
+    if (!host.contains(e.target)) close();
+  });
+
+  render();
+  if (host.dataset.open === 'true') open();
+}
+
+document.querySelectorAll('[data-picker]').forEach(buildPicker);
+</script>
+</body>
+</html>

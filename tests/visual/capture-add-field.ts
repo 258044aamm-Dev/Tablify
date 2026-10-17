@@ -8,6 +8,10 @@
 // is still compared, which is what this script exists to protect.
 //
 //   npx tsx tests/visual/capture-add-field.ts [--theme dark|light|all] [--viewport owner|mobile|all] [--out dir]
+//   npx tsx tests/visual/capture-add-field.ts --evidence docs/evidence/cod-76/shipped
+//
+// With --evidence the script also shoots the picker itself (open, searching, blocked rows) for the
+// COD-76 board. Those are plugin-only shots: the prototype has no panel to compare against.
 import fs from 'node:fs';
 import path from 'node:path';
 // @ts-expect-error -- pngjs ships no type declarations (dev-only script; same import as capture-filter-builder).
@@ -34,6 +38,44 @@ const STATES: Record<string, { type: string; formula?: string }> = {
   link: { type: 'link' },
 };
 
+/**
+ * COD-76: shoot the picker as a user sees it — the Add / Modify Field card plus the panel hanging
+ * under it. The panel is on `document.body`, so the card alone would not contain it; the clip is the
+ * union of the two, clamped to the viewport.
+ */
+async function capturePicker(
+  server: Awaited<ReturnType<typeof startStaticServer>>,
+  theme: Theme,
+  viewport: HarnessViewport,
+  fixture: string,
+  dir: string,
+  name: string,
+  open: string,
+): Promise<void> {
+  const plugin = await openPlugin(server.origin, theme, viewport, fixture);
+  try {
+    await plugin.page.evaluate(open);
+    await plugin.page.mouse.move(0, 0);
+    await plugin.page.evaluate('document.fonts.ready');
+    await plugin.page.waitForTimeout(120);
+    const clip = (await plugin.page.evaluate(`(() => {
+      const card = document.querySelector('.tablify__af-modal').getBoundingClientRect();
+      const panel = document.querySelector('[data-testid="tablify-field-type-panel"]');
+      if (!panel) throw new Error('the picker did not open');
+      const p = panel.getBoundingClientRect();
+      const pad = 8;
+      const left = Math.max(0, Math.min(card.left, p.left) - pad);
+      const top = Math.max(0, Math.min(card.top, p.top) - pad);
+      const right = Math.min(window.innerWidth, Math.max(card.right, p.right) + pad);
+      const bottom = Math.min(window.innerHeight, Math.max(card.bottom, p.bottom) + pad);
+      return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) };
+    })()`)) as { x: number; y: number; width: number; height: number };
+    await plugin.page.screenshot({ path: path.join(dir, `${theme}-${viewport}.${name}.png`), clip });
+  } finally {
+    await plugin.close();
+  }
+}
+
 function pad(img: PNG, w: number, h: number): PNG {
   const out = new PNG({ width: w, height: h });
   out.data.fill(0);
@@ -46,6 +88,7 @@ async function main(): Promise<void> {
   const viewports = expand<HarnessViewport>(arg('viewport', 'all'), ['owner', 'mobile'] as HarnessViewport[]);
   const out = path.resolve(arg('out', '.out/add-field'));
   fs.mkdirSync(out, { recursive: true });
+  const evidence = arg('evidence', '');
   const fixture = newTableText('Untitled table');
   await buildHarness();
   const server = await startStaticServer(REPO);
@@ -129,6 +172,32 @@ async function main(): Promise<void> {
       const n = pixelmatch(dataA.data, dataB.data, diff.data, w, h, { threshold: 0.1 });
       fs.writeFileSync(path.join(out, `${combo}.${state}.diff.png`), PNG.sync.write(diff));
       lines.push(`| ${combo} | ${state} | ${pa.width}×${pa.height} | ${pb.width}×${pb.height} | ${((100 * n) / Math.max(1, pixels)).toFixed(2)} % |`);
+    }
+
+    if (evidence) {
+      const dir = path.resolve(evidence);
+      fs.mkdirSync(dir, { recursive: true });
+      for (const theme of themes) for (const viewport of viewports) {
+        // 1. the panel as it opens: search, five groups, the current row ticked.
+        await capturePicker(server, theme, viewport, fixture, dir, 'type-open', `(() => {
+          window.__tablifyOpenModal('addField');
+          document.getElementById('tablify__af-type').click();
+        })()`);
+        // 2. typing: two letters narrow 18 rows to the two money-ish kinds.
+        await capturePicker(server, theme, viewport, fixture, dir, 'type-search', `(() => {
+          window.__tablifyOpenModal('addField');
+          const trigger = document.getElementById('tablify__af-type');
+          trigger.click();
+          const input = document.querySelector('[data-testid="tablify-field-type-panel"] input');
+          input.value = 'mo';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        })()`);
+        // 3. Modify Field: every type but the field's own keeps its row, greyed, with the reason.
+        await capturePicker(server, theme, viewport, fixture, dir, 'type-blocked', `(() => {
+          window.__tablifyOpenModal('editField');
+          document.getElementById('tablify__af-type').click();
+        })()`);
+      }
     }
   } finally {
     await server.close();
