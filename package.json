@@ -8,6 +8,7 @@
     "lint": "eslint src/ tests/",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:fields": "tsx tests/e2e/fieldTypes.browser.ts",
     "check:guard": "bash scripts/check-tabula-guard.sh",
     "check:docs": "node scripts/check-docs-links.mjs",
     "check:icons": "node scripts/gen-fa-icons.mjs --check",

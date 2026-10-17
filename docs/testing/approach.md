@@ -31,6 +31,21 @@ Given the limitations of automated UI testing inside Obsidian (G-L1), the Tablif
 - **Command:** Part of `npm run check`
 - **CI:** Runs automatically
 
+### Layer 2b: Browser checks (Playwright)
+
+- **Tool:** Playwright (Chromium), driven by the visual-parity harness (`tests/visual/lib/harness.ts`),
+  which mounts the real `TableView`
+- **Location:** `tests/e2e/*.browser.ts`
+- **Scope:** the things jsdom cannot see — real hit-testing, real click → `dblclick` sequencing,
+  real `<input>` type sanitization, anchored panels
+- **Command:** `npm run test:fields` — the 21-field-type editing matrix (77 checks)
+- **CI:** deliberately **not** part of `npm test` (needs Chromium, ~19 s). Run it before a release
+  and after touching the grid, the editors or a field type
+- **Why:** COD-66 (the browser never fired `dblclick` because the first click rebuilt the row),
+  COD-68 (`<input type=date>` silently rejected an ISO timestamp and the blur-commit deleted it) and
+  the checkbox `null → false` write were all invisible to the jsdom suite. See
+  `docs/evidence/COD-66-all-fields.md`
+
 ### Layer 3: Manual scripted tests (T-M-DEV)
 
 - **Tool:** Scripted test cases run on real devices
