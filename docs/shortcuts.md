@@ -52,6 +52,7 @@ The panel takes the keys while it is open. Nothing here reaches the Add / Modify
 | Tap the selected cell again | Edit it | Touch equivalent of double-click |
 | Right-click / long-press a cell | Cell menu | **Edit cell** opens the editor from here too |
 | Double-click / tap a read-only cell | Nothing | System and formula fields cannot be edited (the menu says why) |
+| Tap outside the table | Clear the focused cell | Anywhere but the table surface, a picker panel, a menu or a dialog; an open editor commits first (COD-77) |
 
 ## Overlap with Obsidian defaults
 

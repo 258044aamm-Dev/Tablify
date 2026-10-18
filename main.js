@@ -19020,6 +19020,8 @@ var TableView = class extends import_obsidian9.TextFileView {
   pressTarget = null;
   /** Set when a long press opened the menu, so the following click does nothing. */
   suppressClick = false;
+  /** COD-77: removes the document-level outside-press listener (wired in renderGrid). */
+  unwireOutsideTapClear;
   /** SAD-114: the row a Shift-click range starts from (set by any row selection change). */
   selectionAnchor = null;
   /** Time of the last touch (P5-03), used to ignore the native touch context menu. SAD-97:
@@ -19090,6 +19092,8 @@ var TableView = class extends import_obsidian9.TextFileView {
     return serialize(this.session.toFile());
   }
   clear() {
+    this.unwireOutsideTapClear?.();
+    this.unwireOutsideTapClear = null;
     this.grid?.destroy();
     this.grid = null;
     this.session = null;
@@ -19572,6 +19576,7 @@ var TableView = class extends import_obsidian9.TextFileView {
       this.grid.root.addEventListener("contextmenu", (e) => this.onContextMenu(e));
       this.wirePressEvents(this.grid.root);
       this.wireEditSwitchPress(this.grid.root);
+      this.wireOutsideTapClear();
     } else {
       this.grid.setTheme(theme);
       this.grid.setModel(rows, fields, s.getView(), groups);
@@ -19771,6 +19776,43 @@ var TableView = class extends import_obsidian9.TextFileView {
   finishEditOnPress(editor) {
     editor.dispatchEvent(new Event("blur"));
     return this.editing === null;
+  }
+  // ---- outside-press clearing (COD-77) ----
+  /**
+   * COD-77 (prototype `outsideTapClear`, Prototype/script.js:866): a press
+   * anywhere outside the table surface drops the focused cell. Pointerdown,
+   * not click — the highlight is gone the instant the tap lands, before any
+   * re-render can detach the target — and one listener covers mouse, pen and
+   * touch. Never prevented, so the press detection flows are untouched.
+   *
+   * Captured on the way down, deliberately: a press on another cell while an
+   * editor is open is committed by `wireEditSwitchPress` during the bubble
+   * phase, and that commit re-renders the rows — detaching the press target
+   * before a bubble listener on the document could ask it `closest()`. In the
+   * capture phase the target is still attached, so the keep-zone decision is
+   * always made against the DOM the press actually landed on.
+   */
+  outsideTapClear(ev) {
+    const t = ev.target;
+    if (!t?.closest)
+      return;
+    if (t.closest(
+      ".tablify__header, .tablify__viewport, .tablify__panel, .menu, .menu-container, .modal-container"
+    ) || this.editing !== null && this.editing.contains(t)) {
+      return;
+    }
+    if (!this.grid?.getSelection() && !this.editing)
+      return;
+    if (this.editing && !this.finishEditOnPress(this.editing))
+      return;
+    this.grid?.setSelection(null);
+  }
+  /** COD-77: the listener lives at document level, like the panels' own dismissal. */
+  wireOutsideTapClear() {
+    this.unwireOutsideTapClear?.();
+    const bound = (ev) => this.outsideTapClear(ev);
+    document.addEventListener("pointerdown", bound, true);
+    this.unwireOutsideTapClear = () => document.removeEventListener("pointerdown", bound, true);
   }
   // ---- touch long press (P5-03) ----
   wirePressEvents(root) {

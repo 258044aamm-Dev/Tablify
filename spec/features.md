@@ -74,6 +74,17 @@ Supported types: text, long text, number, currency, percent, duration, rating, c
 > The edit gestures, the commit rules (Enter/Done/blur commit, Escape cancels, one undo step per
 > commit) and the stored formats (`YYYY-MM-DD`, ISO 8601 UTC) are unchanged.
 
+> **COD-77 (2026-10-18):** a press anywhere outside the table surface drops the focused cell
+> (`outsideTapClear`, ported from the prototype's `Prototype/script.js:866`). Keep-zones, where
+> the highlight survives: the table surface itself (header and body — a press there is a normal
+> grid press), the anchored picker panels (`.tablify__panel`), open menus, open modals, and the
+> open editor (tapping into it moves the caret, it does not commit). Outside them — the toolbar,
+> the title row, another pane, the Insert Row pill — the selection is cleared in place, at press
+> time (`pointerdown`, capture phase, so the keep-zone decision is made before any commit can
+> re-render and detach the press target). An open editor commits first through its own blur path
+> (one undo step); a value validation refuses keeps both the editor and the highlight. Row
+> selection (SAD-114) is a separate UI state and is untouched.
+
 ### 2.6 Search and filtering (Feature 6)
 
 | Pattern | Meaning |

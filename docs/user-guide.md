@@ -144,6 +144,7 @@ back unchanged. Searching and sorting also read the stored value.
 ## 4. Editing cells
 
 - Click a cell to select it; press **Enter** (or double-click) to edit; **Enter** commits, **Escape** cancels; clicking away also commits. One click on another cell is enough: the edit is saved and that cell is selected straight away. A value the field refuses keeps the editor open, with the cursor still in it, until you fix it or press **Escape**.
+- The highlight follows the tap: pressing anywhere outside the table — the toolbar, the title row, another pane, the Insert Row button — drops it immediately. Pressing inside the table, on an open picker panel, or on a menu or dialog keeps it (and an open editor commits first, so nothing typed is lost).
 - Opening a cell and leaving it again without changing anything never changes the value.
 - A **Date and time** cell is edited in your computer's local time and stored as UTC, so the same moment shows correctly on any machine.
 - A **Date** or **Date and time** cell opens Tablify's own picker (section 4a) instead of the browser's calendar; the gestures above are unchanged, and a picked day in a Date cell is saved straight away.

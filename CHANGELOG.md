@@ -30,6 +30,16 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **The focused cell now loses its highlight the moment you tap outside the table
+  (COD-77)** — the capsule outline used to stay on the cell until something else was
+  selected. A press on the toolbar, the title row, another pane or the workspace drops it
+  immediately, at press time; an open editor commits first, so nothing typed is lost.
+  Presses inside the table, on an open picker panel, or on a menu or dialog keep the
+  highlight, exactly as the prototype intends. Selection moves, editing, undo and every
+  other gesture are unchanged.
+
+### Fixed
+
 - **The file menu's Tablify items show their icons and name the plugin (COD-74)** — right-clicking
   a `.tablify` file showed *Open*, *Duplicate* and *Export* with no icons and nothing saying
   Tablify, while the folder items beside them were branded. The three items are now **Open Tablify
