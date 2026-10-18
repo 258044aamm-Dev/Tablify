@@ -2,6 +2,38 @@
 
 ---
 
+# 2.0.0-beta.5 — 2026-10-18
+
+**Release:** v2.0.0-beta.5 (pre-release) · **Format version 2** · the two popups the plugin draws (date, field type), the cell-focusing fix, and the COD-69–COD-74 tranche (field window, edit-switch click, value rendering, freeze-the-primary, branded file menu); no file-format change
+
+## Situation
+
+Beta.5 changes how cells are edited and read, not how a table is stored. The date and
+date-time pickers and the field type list are panels the plugin draws instead of the
+browser's own controls; the focused cell now drops its highlight when a press lands
+outside the table; and cells render values the way a person reads them (chips, stars,
+links, grouped digits, local timestamps). None of it touches the `.tablify` format:
+a table written by beta.4 opens unchanged in beta.5, and a table written by beta.5
+opens in beta.4 — a downgrade only costs the new panels and rendering. Freezing is
+now the primary column only; a table saved by an older build with several frozen
+columns opens with the primary column frozen and the rest scrolling normally.
+
+## Rolling back
+
+| Situation | Action |
+|---|---|
+| The drawn pickers, the new rendering or the focusing rule is not wanted | Reinstall 2.0.0-beta.4 using its `main.js`, `manifest.json`, and `styles.css` release assets. No table data changes. |
+| A table was saved by beta.5 and then downgraded | It opens in beta.4 unchanged — the format is the same. Only the `freezeMode` key (dropped by beta.5 on save) is absent, which beta.4 also tolerates. |
+| A table contains formula or link fields | Keep Tablify 2.x installed. Tablify 1.0.2 and earlier cannot open `formatVersion: 2` files. |
+
+## Release verification checklist (2.0.0-beta.5)
+
+- [x] `npm run check` on the release commit: 124 test files / 1,942 tests; lint 0 errors (119 existing warnings); guard, docs links (156 files), FA icon check and build pass.
+- [x] `npm run test:fields` (Chromium, production `TableView`): 102/102 checks.
+- [x] Production `main.js` built twice with an identical SHA-256; assets hashed and recorded in the [release notes](2.0.0-beta.5.md).
+- [ ] Owner: install on desktop and mobile; verify the date picker, the field type panel and the outside-tap clearing, in light and dark.
+- [ ] Owner: revoke/rotate the temporary GitHub credential used for publication.
+
 # 2.0.0-beta.4 — 2026-10-17
 
 **Release:** v2.0.0-beta.4 (pre-release) · **Format version 2** · field editor, field rename with reference rewriting, header shows the name only (COD-67), plus the COD-66 and COD-68 editor fixes; no file-format change

@@ -4,6 +4,23 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+## [2.0.0-beta.5] — 2026-10-18
+
+### Added
+
+- **The rest of the grid now reads like the prototype (COD-73)** — a **Rating** cell is stars plus
+  `4/5` (the scale is the field's Max), **Date and time** / **Created time** / **Last modified** show
+  your local wall clock instead of the stored ISO instant, **URL** / **Email** / **Phone** cells are
+  clickable links, **Number** cells group their digits (`1,234,567`) and the numeric columns sit
+  right, an **Attachment** is one paperclip chip per file, and **Long text** clamps to two lines.
+  Only the rendering changed: sort, search, copy and export still read the stored values.
+
+- **Validation rules and formulas can be changed from the field window (COD-69)** — Required,
+  Unique, Min, Max and Regex are pre-filled and editable for an existing field, and a formula
+  field's expression is editable there next to its live preview. An invalid regex or an
+  unparseable formula is refused before anything is written, and *Edit formula…* stays in the
+  header menu.
+
 ### Changed
 
 - **Date and date-and-time cells open a picker the plugin draws (COD-75)** — the window that
@@ -28,6 +45,17 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   **Escape** without closing the window. Existing behaviour is untouched: the same 18 types, the
   same groups, the same conversion rules, the same save path.
 
+- **The header menu's *Field details…* is now *Modify field…*, and the window shows the whole
+  field (COD-69)** — clicking a column header or choosing **Modify field…** opens the same window
+  that creates a field, with every row the create dialog draws filled in from that field: name,
+  type, options, validation rules, formula with its preview, and linked table. Create mode is
+  unchanged. Saving is still one undo step; a save that changes nothing adds no undo entry.
+
+- **Select options are edited through *Manage options…* in that window** — cells store each
+  option's identity, so the window shows how many options the field has and opens the option
+  manager instead of a free-text list, where renaming cannot be told apart from deleting and
+  adding, and a delete clears the cells that used the option.
+
 ### Fixed
 
 - **The focused cell now loses its highlight the moment you tap outside the table
@@ -37,8 +65,6 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   Presses inside the table, on an open picker panel, or on a menu or dialog keep the
   highlight, exactly as the prototype intends. Selection moves, editing, undo and every
   other gesture are unchanged.
-
-### Fixed
 
 - **The file menu's Tablify items show their icons and name the plugin (COD-74)** — right-clicking
   a `.tablify` file showed *Open*, *Duplicate* and *Export* with no icons and nothing saying
@@ -74,34 +100,6 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   click: one click is one undo step, and it is clickable in embeds too. Tables imported from CSV or
   Excel were always mapped correctly — only the grid was printing the raw value, which made imported
   select columns look like they carried fixed options.
-
-### Changed
-
-- **The header menu's *Field details…* is now *Modify field…*, and the window shows the whole
-  field (COD-69)** — clicking a column header or choosing **Modify field…** opens the same window
-  that creates a field, with every row the create dialog draws filled in from that field: name,
-  type, options, validation rules, formula with its preview, and linked table. Create mode is
-  unchanged. Saving is still one undo step; a save that changes nothing adds no undo entry.
-
-- **Select options are edited through *Manage options…* in that window** — cells store each
-  option's identity, so the window shows how many options the field has and opens the option
-  manager instead of a free-text list, where renaming cannot be told apart from deleting and
-  adding, and a delete clears the cells that used the option.
-
-### Added
-
-- **The rest of the grid now reads like the prototype (COD-73)** — a **Rating** cell is stars plus
-  `4/5` (the scale is the field's Max), **Date and time** / **Created time** / **Last modified** show
-  your local wall clock instead of the stored ISO instant, **URL** / **Email** / **Phone** cells are
-  clickable links, **Number** cells group their digits (`1,234,567`) and the numeric columns sit
-  right, an **Attachment** is one paperclip chip per file, and **Long text** clamps to two lines.
-  Only the rendering changed: sort, search, copy and export still read the stored values.
-
-- **Validation rules and formulas can be changed from the field window (COD-69)** — Required,
-  Unique, Min, Max and Regex are pre-filled and editable for an existing field, and a formula
-  field's expression is editable there next to its live preview. An invalid regex or an
-  unparseable formula is refused before anything is written, and *Edit formula…* stays in the
-  header menu.
 
 ## [2.0.0-beta.4] — 2026-10-17
 
