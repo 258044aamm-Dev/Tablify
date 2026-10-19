@@ -206,3 +206,56 @@ describe('Round-trip: serialize → parse → serialize', () => {
     }
   });
 });
+
+// SAD-303 — the optional phone default country. Additive: a field that does not set it is
+// byte-identical to before, and a field that does set it keeps the spec's key order.
+describe('phoneCountry — the phone field default country (SAD-303)', () => {
+  const emptyFile = () => JSON.parse(readFileSync(join(SAMPLES_DIR, 'v1', 'empty.tablify'), 'utf-8')) as TablifyFile;
+
+  it('serializes after regex and before formula, and parses back', () => {
+    const file = emptyFile();
+    file.fields.push(
+      { id: 'fld_phone', name: 'Phone', type: 'phone', phoneCountry: 'BD' },
+      { id: 'fld_calc', name: 'Calc', type: 'formula', formula: '1 + 1' },
+    );
+    file.formatVersion = 2;
+    // Keep the view consistent, so the fixture measures key order and not columnOrder repair.
+    file.views[0].columnOrder.push('fld_phone', 'fld_calc');
+    const text = serialize(file);
+    const field = JSON.parse(text).fields.find((f: { id: string }) => f.id === 'fld_phone');
+    expect(Object.keys(field)).toEqual(['id', 'name', 'type', 'phoneCountry']);
+
+    const calc = JSON.parse(text).fields.find((f: { id: string }) => f.id === 'fld_calc');
+    expect(Object.keys(calc).indexOf('formula')).toBeGreaterThan(Object.keys(calc).indexOf('type'));
+
+    const parsed = parse(text);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.data.fields.find((f) => f.id === 'fld_phone')?.phoneCountry).toBe('BD');
+      expect(serialize(parsed.data)).toBe(text);
+    }
+  });
+
+  it('is absent unless a field sets it (older files keep their exact bytes)', () => {
+    for (const name of ['empty.tablify', 'typical.tablify', 'edge.tablify']) {
+      const original = readFileSync(join(SAMPLES_DIR, 'v1', name), 'utf-8');
+      expect(serialize(JSON.parse(original) as TablifyFile)).toBe(original);
+    }
+  });
+
+  it('rejects a non-string phoneCountry', () => {
+    const file = JSON.parse(readFileSync(join(SAMPLES_DIR, 'v1', 'typical.tablify'), 'utf-8'));
+    file.fields[0].phoneCountry = 42;
+    const result = parse(JSON.stringify(file));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('phoneCountry');
+  });
+
+  it('accepts any string and leaves validation to the editor (a corrupt code must not brick the file)', () => {
+    const file = emptyFile();
+    file.fields.push({ id: 'fld_phone', name: 'Phone', type: 'phone', phoneCountry: 'zz' });
+    const result = parse(serialize(file));
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.fields.at(-1)?.phoneCountry).toBe('zz');
+  });
+});

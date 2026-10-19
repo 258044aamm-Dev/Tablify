@@ -49,6 +49,11 @@ export interface FieldDefinition {
   min?: number | string | null;
   max?: number | string | null;
   regex?: string | null;
+  /**
+   * phone only (SAD-303): ISO 3166-1 alpha-2 default country, uppercase, e.g. "BD".
+   * Absent = use the reader's region. Additive: no formatVersion change.
+   */
+  phoneCountry?: string;
   /** formula only (v2, P8-03): the expression. Results are not stored in the file. */
   formula?: string;
   /** link only (v2, P8-04): default target table ID. */

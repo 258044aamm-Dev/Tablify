@@ -26,7 +26,7 @@ export function formatVersionFor(file: TablifyFile): 1 | 2 {
 }
 
 /** Field key order per FORMAT_SPEC.md §3. */
-const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'unique', 'min', 'max', 'regex', 'formula', 'linkTableId', 'airtable'] as const;
+const FIELD_KEYS = ['id', 'name', 'type', 'primary', 'options', 'required', 'unique', 'min', 'max', 'regex', 'phoneCountry', 'formula', 'linkTableId', 'airtable'] as const;
 
 /** Row key order per FORMAT_SPEC.md §4. */
 const ROW_KEYS = ['id', 'rev', 'createdAt', 'updatedAt', 'values', 'sync'] as const;

@@ -16,7 +16,10 @@
   "properties": {
     "formatVersion": {
       "type": "integer",
-      "enum": [1, 2],
+      "enum": [
+        1,
+        2
+      ],
       "description": "File format version. 1, or 2 when a table has a formula or link field (FORMAT_SPEC §12)."
     },
     "tableId": {
@@ -164,6 +167,11 @@
             "null"
           ],
           "description": "Regular expression for text validation."
+        },
+        "phoneCountry": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "phone fields only (SAD-303). ISO 3166-1 alpha-2 default country, e.g. BD. Absent = use the reader's region. No formatVersion change."
         },
         "airtable": {
           "oneOf": [

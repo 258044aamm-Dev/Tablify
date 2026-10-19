@@ -352,6 +352,31 @@ describe('phone type', () => {
     expect(ft.parse('+1 555-1234')).toBe('+1 555-1234');
     expect(ft.parse('')).toBe(null);
   });
+
+  // SAD-303: a valid number is stored as E.164; anything else keeps the typed text.
+  it('parse stores a valid number as E.164 using the field default country', () => {
+    const bd: FieldDefinition = { id: 'fld_phone', name: 'Phone', type: 'phone', phoneCountry: 'BD' };
+    expect(ft.parse('01712-345678', bd)).toBe('+8801712345678');
+    expect(ft.parse('01712345678', bd)).toBe('+8801712345678');
+    expect(ft.parse('+880 1712-345678', bd)).toBe('+8801712345678');
+    expect(ft.parse('  +880 1712-345678  ', bd)).toBe('+8801712345678');
+  });
+
+  it('parse never rewrites a value it cannot validate', () => {
+    const bd: FieldDefinition = { id: 'fld_phone', name: 'Phone', type: 'phone', phoneCountry: 'BD' };
+    expect(ft.parse('12345', bd)).toBe('12345');
+    expect(ft.parse('+1 555-1234', bd)).toBe('+1 555-1234');
+    expect(ft.parse('call me', bd)).toBe('call me');
+  });
+
+  it('parse without a field default only normalises an international value', () => {
+    expect(ft.parse('+880 1712-345678')).toBe('+8801712345678');
+    expect(ft.parse('01712-345678')).toBe('01712-345678');
+  });
+
+  it('accepts the E.164 form it now produces', () => {
+    expect(ft.validate('+8801712345678')).toBe(true);
+  });
 });
 
 describe('single_select type', () => {

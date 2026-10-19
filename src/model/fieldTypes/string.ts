@@ -1,8 +1,10 @@
-import type { CellValue } from '../types.js';
+import type { CellValue, FieldDefinition } from '../types.js';
 import type { FieldType } from './interface.js';
+import { toE164 } from '../phone/phoneValue.js';
 
-// Simple URL validation: must have protocol and host
-const URL_RE = /^https?:\/\/.+/i;
+// Simple URL validation: must have protocol and host.
+// Exported (SAD-303) so import inference uses the field type's own rule, never a copy.
+export const URL_RE = /^https?:\/\/.+/i;
 
 /** url — string that looks like a URL */
 export const urlType: FieldType = {
@@ -15,10 +17,17 @@ export const urlType: FieldType = {
     return URL_RE.test(value);
   },
 
-  parse(input: string): CellValue {
+  /**
+   * SAD-303: a valid number is stored as E.164. Anything that is not valid is kept exactly
+   * as typed (trimmed) — the same contract as before, so no existing value is ever rewritten
+   * by opening it. The country comes from the field's own default; with no default, only an
+   * international value (starting with +) can be normalised, because a national number has
+   * no country to assume.
+   */
+  parse(input: string, field?: FieldDefinition): CellValue {
     const trimmed = input.trim();
     if (trimmed === '') return null;
-    return trimmed;
+    return toE164(trimmed, field?.phoneCountry) ?? trimmed;
   },
 
   format(value: CellValue): string {
@@ -31,8 +40,8 @@ export const urlType: FieldType = {
   },
 };
 
-// Simple email validation
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Simple email validation. Exported for import inference (SAD-303).
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** email — string matching email pattern */
 export const emailType: FieldType = {
@@ -61,8 +70,9 @@ export const emailType: FieldType = {
   },
 };
 
-// Phone: allows digits, spaces, dashes, parentheses, leading +
-const PHONE_RE = /^\+?[\d\s\-().]{5,20}$/;
+// Phone: allows digits, spaces, dashes, parentheses, leading +.
+// E.164 fits (a + and at most 15 digits); legacy formatted values still fit too.
+export const PHONE_RE = /^\+?[\d\s\-().]{5,20}$/;
 
 /** phone — string matching phone pattern */
 export const phoneType: FieldType = {
@@ -75,10 +85,17 @@ export const phoneType: FieldType = {
     return PHONE_RE.test(value);
   },
 
-  parse(input: string): CellValue {
+  /**
+   * SAD-303: a valid number is stored as E.164. Anything that is not valid is kept exactly
+   * as typed (trimmed) — the same contract as before, so no existing value is ever rewritten
+   * by opening it. The country comes from the field's own default; with no default, only an
+   * international value (starting with +) can be normalised, because a national number has
+   * no country to assume.
+   */
+  parse(input: string, field?: FieldDefinition): CellValue {
     const trimmed = input.trim();
     if (trimmed === '') return null;
-    return trimmed;
+    return toE164(trimmed, field?.phoneCountry) ?? trimmed;
   },
 
   format(value: CellValue): string {

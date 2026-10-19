@@ -114,6 +114,11 @@ export function parse(input: string): ParseResult {
     if (field.linkTableId !== undefined && typeof field.linkTableId !== 'string') {
       return { ok: false, error: `fields[${i}].linkTableId must be a string` };
     }
+    // SAD-303: optional phone default country. Type only, like linkTableId; the UI checks
+    // that the code is a supported country so a corrupt value cannot brick the file.
+    if (field.phoneCountry !== undefined && typeof field.phoneCountry !== 'string') {
+      return { ok: false, error: `fields[${i}].phoneCountry must be a string` };
+    }
     // P7-05: optional Airtable link metadata. Absent or null = local-only field.
     const airtableErr = validateFieldAirtableMeta(field.airtable);
     if (airtableErr) {

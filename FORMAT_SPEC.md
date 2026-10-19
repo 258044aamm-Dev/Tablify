@@ -126,6 +126,7 @@ Each field object has these keys **in this order**:
 | `min` | number\|string\|null | optional | Minimum value constraint. Number for numeric types, ISO date string for date types. `null` if not set. |
 | `max` | number\|string\|null | optional | Maximum value constraint. Same type rules as `min`. |
 | `regex` | string\|null | optional | Regular expression for text validation. Only for `text` and `long_text` types. `null` if not set. |
+| `phoneCountry` | string | optional | **SAD-303:** `phone` fields only. ISO 3166-1 alpha-2 default country, uppercase (`"BD"`). Used only when an entered number has no international prefix; absent means the reader's region. Additive: **no `formatVersion` change**; readers that do not know the key preserve it unchanged. |
 
 ### 3.1 Field types
 

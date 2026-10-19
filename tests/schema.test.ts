@@ -226,6 +226,28 @@ describe('tablify.schema.json validation', () => {
       }
     });
 
+    // SAD-303: the phone default country is an optional, documented field key.
+    it('accepts phoneCountry on a phone field and rejects a malformed one', () => {
+      const base = {
+        formatVersion: 1,
+        tableId: 'tbl_TEST',
+        name: 'Test',
+        fields: [{ id: 'fld_phone', name: 'Phone', type: 'phone', primary: true, phoneCountry: 'BD' }],
+        rows: [],
+        views: [{
+          id: 'view_default', name: 'Default', sort: [], groupBy: null,
+          hidden: [], frozenColumns: 1, rowHeight: 'medium', columnWidths: {}
+        }],
+        syncLink: null
+      };
+      expect(validate(base)).toBe(true);
+      for (const bad of ['bd', 'BGD', 'B', '']) {
+        const data = structuredClone(base);
+        data.fields[0].phoneCountry = bad;
+        expect(validate(data), bad).toBe(false);
+      }
+    });
+
     it('rejects invalid field type', () => {
       const data = {
         formatVersion: 1,
