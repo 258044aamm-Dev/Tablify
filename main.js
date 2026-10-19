@@ -24966,6 +24966,10 @@ var TableView = class extends import_obsidian9.TextFileView {
   grid = null;
   rawData = "";
   editing = null;
+  /** SAD-305: grid coordinates of the open inline editor, so keyboard resizes keep it in view. */
+  editingCell = null;
+  /** SAD-305: removes the visualViewport resize/scroll listeners wired while an editor is open. */
+  unwireEditingViewport;
   /** SAD-80: selected row ids — UI state only, never saved and never undoable. */
   rowSelection = /* @__PURE__ */ new Set();
   toolbar = null;
@@ -25056,10 +25060,13 @@ var TableView = class extends import_obsidian9.TextFileView {
   clear() {
     this.unwireOutsideTapClear?.();
     this.unwireOutsideTapClear = null;
+    this.unwireEditingViewport?.();
+    this.unwireEditingViewport = void 0;
     this.grid?.destroy();
     this.grid = null;
     this.session = null;
     this.editing = null;
+    this.editingCell = null;
     this.menuTarget = null;
     this.rowSelection = /* @__PURE__ */ new Set();
     if (this.body)
@@ -25083,7 +25090,7 @@ var TableView = class extends import_obsidian9.TextFileView {
    */
   onResize() {
     this.grid?.handleResize();
-    this.syncLayoutFloor();
+    this.handleViewportResize();
   }
   // ---- internals ----
   currentTheme() {
@@ -25483,6 +25490,9 @@ var TableView = class extends import_obsidian9.TextFileView {
         // SAD-100: a pane-width change can flip the viewport freeze default — mirror the new
         // effective state into the Options switch.
         onPaneWidthChange: () => this.syncToolbar(),
+        // SAD-305: when the mobile keyboard shrinks or restores the grid shell, re-sync the
+        // card floor and keep any open cell editor aligned and scrolled into view.
+        onViewportResize: () => this.handleViewportResize(),
         onCellClick: () => this.grid?.root.focus(),
         // SAD-96: on touch the second tap on the selected cell opens the editor — the
         // documented gesture where there is no Enter key. Mouse editing is double-click.
@@ -25811,7 +25821,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     const t = ev.target;
     if (!t?.closest)
       return;
-    if (t.closest(
+    if (t === this.grid?.root || t.closest(
       ".tablify__header, .tablify__viewport, .tablify__panel, .menu, .menu-container, .modal-container"
     ) || this.editing !== null && this.editing.contains(t)) {
       return;
@@ -26093,7 +26103,10 @@ var TableView = class extends import_obsidian9.TextFileView {
       return;
     }
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
+      this.unwireEditingViewport?.();
+      this.unwireEditingViewport = void 0;
       this.editing = null;
+      this.editingCell = null;
       editor?.remove();
       if (committed)
         this.publishLive();
@@ -26105,14 +26118,83 @@ var TableView = class extends import_obsidian9.TextFileView {
     if (!editor || !cell2)
       return;
     this.editing = editor;
+    this.editingCell = { ...sel };
     editor.style.position = "absolute";
+    this.positionEditor(editor, sel);
+    grid.root.appendChild(editor);
+    this.wireEditingViewport();
+    this.syncEditingViewport();
+  }
+  /**
+   * SAD-305: align the floating inline editor over the active cell's capsule inside `grid.root`.
+   * Returns the measured capsule/cell element so callers can scroll it into the outer view.
+   */
+  positionEditor(editor, sel) {
+    const grid = this.grid;
+    if (!grid)
+      return null;
+    const cell2 = this.cellElement(sel);
+    if (!cell2)
+      return null;
     const rootRect = grid.root.getBoundingClientRect();
-    const cellRect = (cell2.querySelector(".tablify__capsule") ?? cell2).getBoundingClientRect();
+    const target = cell2.querySelector(".tablify__capsule") ?? cell2;
+    const cellRect = target.getBoundingClientRect();
     editor.style.left = `${cellRect.left - rootRect.left - grid.root.clientLeft + grid.root.scrollLeft}px`;
     editor.style.top = `${cellRect.top - rootRect.top - grid.root.clientTop + grid.root.scrollTop}px`;
     editor.style.width = `${cellRect.width}px`;
     editor.style.height = `${cellRect.height}px`;
-    grid.root.appendChild(editor);
+    return target;
+  }
+  /**
+   * SAD-305: handle pane or keyboard viewport size changes — update the card floor, recover
+   * outer scroll when the keyboard closes and the card fits again, and keep an open editor in view.
+   */
+  handleViewportResize() {
+    this.syncLayoutFloor();
+    if (!this.editing && this.contentEl.clientHeight > 0 && this.contentEl.scrollHeight <= this.contentEl.clientHeight && this.contentEl.scrollTop !== 0) {
+      this.contentEl.scrollTop = 0;
+    }
+    this.syncEditingViewport();
+  }
+  /**
+   * SAD-305: when the mobile on-screen keyboard opens after `startEdit` (triggered by the async
+   * `input.focus()`), re-scroll the grid to the active row, re-align the editor over the cell's
+   * capsule, and scroll `.tablify-view` if the active cell was pushed below the keyboard fold.
+   */
+  syncEditingViewport() {
+    const editor = this.editing;
+    const sel = this.editingCell;
+    const grid = this.grid;
+    if (!editor || !sel || !grid)
+      return;
+    grid.scrollToRow(sel.row);
+    const target = this.positionEditor(editor, sel) ?? editor;
+    const viewRect = this.contentEl.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    if (!(viewRect.height > 0) || !(targetRect.height > 0))
+      return;
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    const visibleBottom = vv && vv.height > 0 ? Math.min(viewRect.bottom, vv.offsetTop + vv.height) : viewRect.bottom;
+    const pad3 = 12;
+    if (targetRect.bottom > visibleBottom) {
+      this.contentEl.scrollTop += targetRect.bottom - visibleBottom + pad3;
+    } else if (targetRect.top < viewRect.top) {
+      this.contentEl.scrollTop = Math.max(0, this.contentEl.scrollTop - (viewRect.top - targetRect.top + pad3));
+    }
+  }
+  /** SAD-305: listen to mobile `visualViewport` resize/scroll while an inline editor is open. */
+  wireEditingViewport() {
+    this.unwireEditingViewport?.();
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!vv)
+      return;
+    const onViewport = () => this.handleViewportResize();
+    vv.addEventListener("resize", onViewport);
+    vv.addEventListener("scroll", onViewport);
+    this.unwireEditingViewport = () => {
+      vv.removeEventListener("resize", onViewport);
+      vv.removeEventListener("scroll", onViewport);
+    };
   }
   // ---- cell panels (Step 11): select, attachment, option manager ----
   /** Theme of the host surface, as the modals elsewhere read it. */
