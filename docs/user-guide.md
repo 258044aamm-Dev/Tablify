@@ -227,9 +227,10 @@ A **Rating** is a number, and its stars are a way of reading and choosing that n
 **Max** (*Add New Field* / *Modify Field*) is its scale: 5 stars when unset, up to 10.
 
 **Clicking a star.** Click the third star and the cell becomes `3` — one click, one undo step, no
-editor to dismiss. Clicking the star that already holds the value writes nothing. The stars in the
-cell are a mouse and trackpad shortcut; they are not in the tab order, because the arrow keys belong
-to the grid.
+editor to dismiss. Hovering a star lights it and every star before it, so the value a click will
+write is visible before you commit; hovering the cell itself says `4.5 out of 5`. Clicking the star
+that already holds the value writes nothing. The stars in the cell are a mouse and trackpad
+shortcut; they are not in the tab order, because the arrow keys belong to the grid.
 
 **The panel.** Double-click the cell (or press **Enter**, or tap it again) for the full editor:
 

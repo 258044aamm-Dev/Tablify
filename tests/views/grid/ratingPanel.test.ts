@@ -143,6 +143,22 @@ describe('SAD-304 — clicking and dragging the stars', () => {
     expect(fills(h)).toEqual([1, 1, 1, 1, 0.5]);
   });
 
+  it('hovering previews the value without touching the draft', () => {
+    const h = mount({ value: 2 });
+    layout(h);
+    // A pointer at 41 px is the left half of star three → 2.5, so three stars light up.
+    h.slider.dispatchEvent(new MouseEvent('pointermove', { clientX: 41, bubbles: true }));
+    expect(
+      Array.from(h.card.querySelectorAll('.tablify__star--preview')).map((el) =>
+        (el as HTMLElement).dataset.ratingStar ?? null,
+      ),
+    ).toHaveLength(3);
+    expect(h.input.value).toBe('2');
+    expect(h.caption.textContent).toBe('2 out of 5 stars');
+    h.slider.dispatchEvent(new MouseEvent('pointerleave', { bubbles: true }));
+    expect(h.card.querySelectorAll('.tablify__star--preview')).toHaveLength(0);
+  });
+
   it('the pointer never selects past the ends', () => {
     const h = mount();
     layout(h);

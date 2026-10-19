@@ -22,6 +22,7 @@ import { anchorPanel, createPanelCard } from '../select/panel.js';
 import { ratingScale } from '../cellRender.js';
 import {
   parseRatingInput,
+  ratingFromPosition,
   ratingNumber,
   ratingValueText,
   roundRating,
@@ -73,6 +74,8 @@ export class RatingPanel {
   private errorText = '';
   private closed = false;
   private dragging = false;
+  /** The star count a hover would fill; 0 when the pointer is away. */
+  private preview = 0;
   private unwire: (() => void) | null = null;
 
   constructor(options: RatingPanelOptions) {
@@ -99,6 +102,10 @@ export class RatingPanel {
     this.slider.addEventListener('pointermove', (event) => this.onPointerMove(event));
     this.slider.addEventListener('pointerup', () => {
       this.dragging = false;
+    });
+    this.slider.addEventListener('pointerleave', () => {
+      this.preview = 0;
+      this.applyPreview();
     });
     this.slider.addEventListener('pointercancel', () => {
       this.dragging = false;
@@ -270,6 +277,7 @@ export class RatingPanel {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault();
     this.dragging = true;
+    this.preview = 0;
     try {
       this.slider.setPointerCapture(event.pointerId);
     } catch {
@@ -280,18 +288,33 @@ export class RatingPanel {
   }
 
   private onPointerMove(event: PointerEvent): void {
-    if (!this.dragging) return;
-    this.pickAt(event.clientX);
+    if (this.dragging) {
+      this.pickAt(event.clientX);
+      return;
+    }
+    // SAD-304: before a press, the stars under the pointer light up — the value a click would
+    // choose, the same preview the cell gives.
+    const rect = this.slider.getBoundingClientRect();
+    const hovered = ratingFromPosition(event.clientX - rect.left, rect.width, this.scale, 0.5);
+    const next = Math.ceil(hovered);
+    if (next === this.preview) return;
+    this.preview = next;
+    this.applyPreview();
   }
 
   private pickAt(clientX: number): void {
     const rect = this.slider.getBoundingClientRect();
-    const ratio = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
-    // Half-star zones: the left half of a star is x.5, the right half is x.
-    const raw = Math.ceil((ratio * this.scale) / 0.5) * 0.5;
-    const next = roundRating(Math.max(0.5, Math.min(this.scale, raw)));
+    // Half-star zones, the same arithmetic the cell's hover preview and its tests use.
+    const next = ratingFromPosition(clientX - rect.left, rect.width, this.scale, 0.5);
     this.input.value = String(next);
     this.setDraft(next);
+  }
+
+  /** Paint the hover preview without touching the draft (or the stored value). */
+  private applyPreview(): void {
+    Array.from(this.slider.children).forEach((child, index) => {
+      child.classList.toggle('tablify__star--preview', index < this.preview);
+    });
   }
 
   // ---- paint --------------------------------------------------------------------------
@@ -332,6 +355,7 @@ export class RatingPanel {
     this.hint.textContent = this.invalid ? this.errorText : '';
     this.doneBtn.disabled = this.invalid;
     this.clearBtn.disabled = this.draft === null;
+    this.applyPreview();
   }
 
   // ---- outcomes -----------------------------------------------------------------------

@@ -205,6 +205,29 @@ export interface RatingStarsOptions {
 }
 
 /**
+ * SAD-304: hovering a clickable star marks that star and every star before it, so the value a
+ * click will write is visible before the click. A pointer listener rather than a CSS sibling
+ * rule: the stars are painted left to right, and a `~` selector would light up the wrong side.
+ *
+ * The class is decoration only — `--on` and `--partial` still say what the stored value is.
+ */
+function wireStarPreview(stars: HTMLElement): void {
+  const paint = (upTo: number): void => {
+    for (const star of Array.from(stars.children) as HTMLElement[]) {
+      const n = Number(star.dataset.ratingStar);
+      star.classList.toggle('tablify__star--preview', Number.isFinite(n) && n <= upTo);
+    }
+  };
+  stars.addEventListener('pointerover', (event) => {
+    const target = (event.target as HTMLElement | null)?.closest?.('[data-rating-star]') as HTMLElement | null;
+    if (!target || !stars.contains(target)) return;
+    const n = Number(target.dataset.ratingStar);
+    if (Number.isFinite(n)) paint(n);
+  });
+  stars.addEventListener('pointerleave', () => paint(0));
+}
+
+/**
  * A rating cell: one star per point of the scale, each filled by the fraction the value gives it
  * (`4.5` fills four stars and half of the fifth), then the number (`4.5`).
  *
@@ -251,6 +274,7 @@ export function renderRatingStars(
     star.appendChild(box);
     stars.appendChild(star);
   }
+  if (options.interactive) wireStarPreview(stars);
   host.appendChild(stars);
   const rating = ratingNumber(value);
   if (rating !== null) {

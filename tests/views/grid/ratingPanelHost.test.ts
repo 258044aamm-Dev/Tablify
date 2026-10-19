@@ -171,6 +171,23 @@ describe('SAD-304 — a star in the cell is a one-click edit', () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it('hovering a star previews the value a click would write', async () => {
+    const view = await openView(doc());
+    const col = columnOf(view, RATING_ID);
+    starInCell(view, col, 3).dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+    const previewed = Array.from(
+      view.contentEl.querySelectorAll(
+        `.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${col}"] .tablify__star--preview`,
+      ),
+    ).map((el) => (el as HTMLElement).dataset.ratingStar);
+    expect(previewed).toEqual(['1', '2', '3']);
+    const row = view.contentEl.querySelector(
+      `.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="${col}"] .tablify__stars`,
+    ) as HTMLElement;
+    row.dispatchEvent(new MouseEvent('pointerleave', { bubbles: true }));
+    expect(row.querySelectorAll('.tablify__star--preview')).toHaveLength(0);
+  });
+
   it('the stars carry the value they stand for', async () => {
     const view = await openView(doc());
     const col = columnOf(view, RATING_ID);

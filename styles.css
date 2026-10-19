@@ -4063,9 +4063,15 @@
   transform: scale(1.15);
 }
 
-.tablify__stars--interactive .tablify__star:hover .tablify__star-base {
+/* SAD-304: the hovered star and every star before it show the value a click would write. The
+   class is set by `wireStarPreview`; a CSS `~` rule would light the wrong side of the row. */
+.tablify__stars--interactive .tablify__star--preview .tablify__star-base,
+.tablify__stars--interactive .tablify__star--preview .tablify__star-box {
+  opacity: 0.55;
+}
+
+.tablify__stars--interactive .tablify__star--preview .tablify__star-base {
   color: var(--tablify-accent-primary);
-  opacity: 0.5;
 }
 
 /* SAD-304 — the rating panel. */
@@ -4101,6 +4107,17 @@
 
 .tablify__rating-stars .tablify__star {
   line-height: 1;
+  /* SAD-304: the glyph is 20 px; the padding makes a 24 × 28 px target without moving it, and
+     the negative margin keeps the row exactly as wide as the stars. */
+  padding: 4px 2px;
+  margin: -4px -2px;
+  border-radius: 4px;
+}
+
+.tablify__rating-stars .tablify__star--preview .tablify__star-base,
+.tablify__rating-stars .tablify__star:hover .tablify__star-base {
+  color: var(--tablify-accent-primary);
+  opacity: 0.55;
 }
 
 .tablify__rating-stars .tablify__star-box {

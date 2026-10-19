@@ -9,8 +9,9 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 - **Ratings are stars you can click (SAD-304)** — a Rating cell now draws one star per point of the
   field's **Max** and fills each by the value's fraction, so `4.5` is four full stars and half of
   the fifth, followed by the number. Clicking a star writes that value (one undo step, no editor),
-  and double-click / **Enter** opens a panel with big stars, half-star zones, drag-to-scrub and a
-  numeric field that takes any decimal (`3.7`). The star row is a slider for keyboard and screen
+  and hovering one lights the stars up to it so the click is never a guess. Double-click or
+  **Enter** opens a panel with big stars, half-star zones, drag-to-scrub and a numeric field that
+  takes any decimal (`3.7`). The star row is a slider for keyboard and screen
   readers: arrows move by half a star, Page keys by a whole one, Home/End jump, Delete clears, and
   the panel reports `4.5 out of 5 stars`. Read-only ratings draw no targets. No new dependency, no
   `formatVersion` change.

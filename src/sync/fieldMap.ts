@@ -149,7 +149,7 @@ export function mapField(field: AirtableFieldSchema, primaryId: string | null): 
   let readOnly = rule ? rule.readOnly : true;
   let reason = rule ? (rule.reason ?? '') : `${UNSUPPORTED} (${field.type})`;
 
-  // Rating above 10 does not fit Tablify's 1–10 rating.
+  // Rating above 10 does not fit Tablify's rating type (0–10, SAD-304).
   if (field.type === 'rating') {
     const max = (field.options as { max?: unknown } | undefined)?.max;
     if (typeof max === 'number' && max > 10) {

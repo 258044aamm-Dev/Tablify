@@ -18281,6 +18281,13 @@ function starFills(value, scale) {
   }
   return fills;
 }
+function ratingFromPosition(x, width, scale, step) {
+  if (!(width > 0) || !(scale > 0))
+    return step === 1 ? 1 : 0.5;
+  const ratio = Math.max(0, Math.min(1, x / width));
+  const raw = Math.ceil(ratio * scale / step) * step;
+  return roundRating(Math.max(step, Math.min(scale, raw)));
+}
 function parseRatingInput(text, scale) {
   const trimmed = text.trim().replace(",", ".");
   if (trimmed === "")
@@ -18412,6 +18419,23 @@ function ratingScale(field) {
   const max2 = typeof field.max === "number" && Number.isFinite(field.max) ? Math.round(field.max) : 5;
   return Math.max(1, Math.min(10, max2));
 }
+function wireStarPreview(stars) {
+  const paint = (upTo) => {
+    for (const star of Array.from(stars.children)) {
+      const n = Number(star.dataset.ratingStar);
+      star.classList.toggle("tablify__star--preview", Number.isFinite(n) && n <= upTo);
+    }
+  };
+  stars.addEventListener("pointerover", (event) => {
+    const target = event.target?.closest?.("[data-rating-star]");
+    if (!target || !stars.contains(target))
+      return;
+    const n = Number(target.dataset.ratingStar);
+    if (Number.isFinite(n))
+      paint(n);
+  });
+  stars.addEventListener("pointerleave", () => paint(0));
+}
 function renderRatingStars(host, field, value, options = {}) {
   const scale = ratingScale(field);
   const fills = starFills(value, scale);
@@ -18438,6 +18462,8 @@ function renderRatingStars(host, field, value, options = {}) {
     star.appendChild(box);
     stars.appendChild(star);
   }
+  if (options.interactive)
+    wireStarPreview(stars);
   host.appendChild(stars);
   const rating = ratingNumber(value);
   if (rating !== null) {
@@ -24603,6 +24629,8 @@ var RatingPanel = class {
   errorText = "";
   closed = false;
   dragging = false;
+  /** The star count a hover would fill; 0 when the pointer is away. */
+  preview = 0;
   unwire = null;
   constructor(options) {
     this.opts = options;
@@ -24625,6 +24653,10 @@ var RatingPanel = class {
     this.slider.addEventListener("pointermove", (event) => this.onPointerMove(event));
     this.slider.addEventListener("pointerup", () => {
       this.dragging = false;
+    });
+    this.slider.addEventListener("pointerleave", () => {
+      this.preview = 0;
+      this.applyPreview();
     });
     this.slider.addEventListener("pointercancel", () => {
       this.dragging = false;
@@ -24787,6 +24819,7 @@ var RatingPanel = class {
       return;
     event.preventDefault();
     this.dragging = true;
+    this.preview = 0;
     try {
       this.slider.setPointerCapture(event.pointerId);
     } catch {
@@ -24795,17 +24828,29 @@ var RatingPanel = class {
     this.pickAt(event.clientX);
   }
   onPointerMove(event) {
-    if (!this.dragging)
+    if (this.dragging) {
+      this.pickAt(event.clientX);
       return;
-    this.pickAt(event.clientX);
+    }
+    const rect = this.slider.getBoundingClientRect();
+    const hovered = ratingFromPosition(event.clientX - rect.left, rect.width, this.scale, 0.5);
+    const next = Math.ceil(hovered);
+    if (next === this.preview)
+      return;
+    this.preview = next;
+    this.applyPreview();
   }
   pickAt(clientX) {
     const rect = this.slider.getBoundingClientRect();
-    const ratio = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
-    const raw = Math.ceil(ratio * this.scale / 0.5) * 0.5;
-    const next = roundRating(Math.max(0.5, Math.min(this.scale, raw)));
+    const next = ratingFromPosition(clientX - rect.left, rect.width, this.scale, 0.5);
     this.input.value = String(next);
     this.setDraft(next);
+  }
+  /** Paint the hover preview without touching the draft (or the stored value). */
+  applyPreview() {
+    Array.from(this.slider.children).forEach((child, index) => {
+      child.classList.toggle("tablify__star--preview", index < this.preview);
+    });
   }
   // ---- paint --------------------------------------------------------------------------
   paint() {
@@ -24839,6 +24884,7 @@ var RatingPanel = class {
     this.hint.textContent = this.invalid ? this.errorText : "";
     this.doneBtn.disabled = this.invalid;
     this.clearBtn.disabled = this.draft === null;
+    this.applyPreview();
   }
   // ---- outcomes -----------------------------------------------------------------------
   commit() {

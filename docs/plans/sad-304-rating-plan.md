@@ -2,8 +2,9 @@
 
 **Issue:** [SAD-304](https://linear.app/sad-mod/issue/SAD-304/rating) (Feature + Improvement, P2)
 **Project:** Tablify · **Branch:** `main` · **Plan written:** 2026-10-19 · **Status:** implemented
-in four commits (`0dbb36d`, `45037e5`, `ca96a24`, and the documentation commit that carries this
-line). See [`docs/evidence/SAD-304.md`](../evidence/SAD-304.md) for the measured result.
+in the four planned commits (`0dbb36d`, `45037e5`, `ca96a24`, `d1d187a`) plus the review follow-ups
+`bdc8b5c` (the cell's tooltip carries the scale) and the hover-preview commit. See
+[`docs/evidence/SAD-304.md`](../evidence/SAD-304.md) for the measured result.
 
 ---
 
@@ -136,7 +137,7 @@ null    → ☆☆☆☆☆            (no number, em dash rules unchanged)
   This is deliberately *not* a listener on the star: the event must still reach the grid so long-press suppression and focus behave exactly as they do for every other click, and returning early means a star click never opens the editor on touch.
 - The write itself is `tableView.rateAt(row, col, value)`:
   `isReadOnly(field)` → return; value unchanged → **return (no undo step)**; else `session.setValue(rowId, fieldId, value)` + `afterChange()` — the same path the checkbox uses (`src/views/tableView.ts:835-842`).
-- Hover: the interactive star row is laid out `row-reverse`, so a pure-CSS `:hover` + `~` rule tints the hovered star and every star before it — a preview of the value a click will write. No JavaScript hover state.
+- Hover: the interactive star row sets `--preview` on the hovered star and every star before it (a pointer listener in `wireStarPreview`), so the value a click will write is visible before the click. A CSS `:hover` + `~` rule was rejected: the stars are painted left to right, so it would light the wrong side of the row.
 - Hit area: `padding: 4px 1.5px; margin: -4px -1.5px` on each star (≈14 × 19 px) without moving the glyphs. The panel is the touch-first path; the cell remains a fast mouse affordance.
 - Read-only (`airtable.readOnly`, i.e. a rating above 10) renders plain stars, no `data-rating-star`, no hover rule, `cursor: default`.
 
