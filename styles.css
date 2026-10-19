@@ -1004,9 +1004,11 @@
    Sections space themselves with the prototype's margins (title mb-5, meta mb-2), so no gap. */
 .tablify__card {
   /* SAD-79 (S-6): the prototype card wraps its content; with the grid shrinking to its rows
-     the card follows, still capped at the pane (min-height 0 lets the grid scroll inside). */
+     the card follows, still capped at the pane (min-height 0 lets the grid scroll inside).
+     SAD-305: floored by --tablify-card-min-height so a mobile keyboard resize never crushes
+     the card below the grid's minimum usable height. */
   flex: 0 1 auto;
-  min-height: 0;
+  min-height: var(--tablify-card-min-height, 0px);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -1040,7 +1042,7 @@
 
 .tablify__body {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: var(--tablify-grid-min-height, 0px);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1048,9 +1050,11 @@
 
 .tablify--grid {
   /* SAD-79 (S-6): shrink to content, capped at the pane — the shell is as tall as its rows
-     and scrolls (both axes) only once the pane runs out. */
+     and scrolls (both axes) only once the pane runs out.
+     SAD-305: floored by --tablify-grid-min-height so the row area never collapses under the
+     sticky header when the mobile keyboard shrinks the viewport. */
   flex: 0 1 auto;
-  min-height: 0;
+  min-height: var(--tablify-grid-min-height, 0px);
   width: 100%;
   box-sizing: border-box;
   /* SAD-79: prototype #tableInnerContainer — p-3 (p-2 on phones), rounded-2xl, inner

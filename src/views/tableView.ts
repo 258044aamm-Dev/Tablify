@@ -189,6 +189,7 @@ export class TableView extends TextFileView {
     this.menuTarget = null;
     this.rowSelection = new Set();
     if (this.body) this.body.empty();
+    this.syncLayoutFloor();
     this.syncToolbar();
   }
 
@@ -208,6 +209,7 @@ export class TableView extends TextFileView {
    */
   onResize(): void {
     this.grid?.handleResize();
+    this.syncLayoutFloor();
   }
 
   // ---- internals ----
@@ -693,6 +695,37 @@ export class TableView extends TextFileView {
       this.grid.setModel(rows, fields, s.getView(), groups);
       this.grid.setRowSelection(this.rowSelection);
     }
+    this.syncLayoutFloor();
+  }
+
+  /**
+   * SAD-305: propagate the grid's content-bounded minimum height floor to `.tablify__card` and
+   * `.tablify__body` so that when the mobile on-screen keyboard shrinks `.tablify-view`, the card
+   * stops shrinking at the grid floor and `.tablify-view` scrolls instead of crushing the rows
+   * under the sticky column header.
+   */
+  private syncLayoutFloor(): void {
+    const card = this.card;
+    if (!card) return;
+    const gridMin = this.grid?.minHeightFloor() ?? 0;
+    if (gridMin <= 0) {
+      card.style.removeProperty('--tablify-grid-min-height');
+      card.style.removeProperty('--tablify-card-min-height');
+      return;
+    }
+    card.style.setProperty('--tablify-grid-min-height', `${gridMin}px`);
+    let cardChrome = 220;
+    if (this.body) {
+      const topChrome = this.body.getBoundingClientRect().top - card.getBoundingClientRect().top;
+      if (topChrome > 0) {
+        const cs = typeof getComputedStyle === 'function' ? getComputedStyle(card) : null;
+        const bottomPad = cs
+          ? (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0)
+          : 17;
+        cardChrome = Math.round(topChrome + bottomPad);
+      }
+    }
+    card.style.setProperty('--tablify-card-min-height', `${cardChrome + gridMin}px`);
   }
 
   // ---- group by (SAD-81) ----

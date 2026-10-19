@@ -189,6 +189,13 @@ const ROW_DROP_INSET_PX = 10;
 /** SAD-80: distance from the shell's top/bottom edge that auto-scrolls a row drag, and the step. */
 const ROW_DRAG_EDGE_PX = 48;
 const ROW_DRAG_SCROLL_STEP = 14;
+/**
+ * SAD-305: minimum usable grid height when the table has rows, so a short mobile viewport
+ * (e.g. when the on-screen keyboard opens) cannot crush the row area under the sticky header,
+ * while 0-2 row tables still shrink to their exact content height (SAD-79 S-6).
+ */
+export const GRID_MIN_VISIBLE_BODY_PX = 158; // 3 medium rows (3 * 50 + 8 gap)
+export const GRID_HEADER_CHROME_PX = 62; // 45px header + 2 * 8px mobile pad + 2px border
 
 /**
  * Resolved width in px for each visible field, in view order.
@@ -326,6 +333,7 @@ export class GridView {
     this.viewport.setAttribute('role', 'presentation'); // keep grid → row ownership intact for assistive tech
     this.viewport.style.position = 'relative';
     this.viewport.style.height = `${this.bodyHeight()}px`;
+    this.syncMinHeightFloor();
 
     this.content = document.createElement('div');
     this.content.className = 'tablify__content';
@@ -447,6 +455,7 @@ export class GridView {
     this.root.setAttribute('aria-rowcount', String(this.ariaRowCount())); // keep counts in sync (P6-03)
     this.root.setAttribute('aria-colcount', String(this.fields.length));
     this.viewport.style.height = `${this.bodyHeight()}px`;
+    this.syncMinHeightFloor();
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
       this.selected = null;
     }
@@ -579,6 +588,26 @@ export class GridView {
   private bodyHeight(): number {
     if (this.layout) return this.layout.tops[this.layout.items.length] + ROW_GAP;
     return totalHeight(this.totalRows, this.rowHeight) + ROW_GAP;
+  }
+
+  /**
+   * SAD-305: content-bounded minimum grid height in px (0 when the table is empty).
+   * Never exceeds the grid's natural height at rest, and floors populated tables so the row
+   * viewport does not collapse under the sticky header when the mobile keyboard opens.
+   */
+  minHeightFloor(): number {
+    const hasItems = this.layout ? this.layout.items.length > 0 : this.totalRows > 0;
+    if (!hasItems) return 0;
+    return GRID_HEADER_CHROME_PX + Math.min(this.bodyHeight(), GRID_MIN_VISIBLE_BODY_PX);
+  }
+
+  private syncMinHeightFloor(): void {
+    const floor = this.minHeightFloor();
+    if (floor <= 0) {
+      this.root.style.removeProperty('--tablify-grid-min-height');
+    } else {
+      this.root.style.setProperty('--tablify-grid-min-height', `${floor}px`);
+    }
   }
 
   /** ARIA rows: the header, every data row and (SAD-81) every group header. */

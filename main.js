@@ -18538,6 +18538,8 @@ var ROW_DRAG_THRESHOLD_PX = 5;
 var ROW_DROP_INSET_PX = 10;
 var ROW_DRAG_EDGE_PX = 48;
 var ROW_DRAG_SCROLL_STEP = 14;
+var GRID_MIN_VISIBLE_BODY_PX = 158;
+var GRID_HEADER_CHROME_PX = 62;
 function columnWidths(fields, view) {
   const widths = view.columnWidths ?? {};
   return fields.map((f) => {
@@ -18588,6 +18590,7 @@ var GridView = class {
     this.viewport.setAttribute("role", "presentation");
     this.viewport.style.position = "relative";
     this.viewport.style.height = `${this.bodyHeight()}px`;
+    this.syncMinHeightFloor();
     this.content = document.createElement("div");
     this.content.className = "tablify__content";
     this.content.setAttribute("role", "presentation");
@@ -18737,6 +18740,7 @@ var GridView = class {
     this.root.setAttribute("aria-rowcount", String(this.ariaRowCount()));
     this.root.setAttribute("aria-colcount", String(this.fields.length));
     this.viewport.style.height = `${this.bodyHeight()}px`;
+    this.syncMinHeightFloor();
     if (this.selected && (this.selected.row >= rows.length || this.selected.col >= fields.length)) {
       this.selected = null;
     }
@@ -18862,6 +18866,25 @@ var GridView = class {
     if (this.layout)
       return this.layout.tops[this.layout.items.length] + ROW_GAP;
     return totalHeight(this.totalRows, this.rowHeight) + ROW_GAP;
+  }
+  /**
+   * SAD-305: content-bounded minimum grid height in px (0 when the table is empty).
+   * Never exceeds the grid's natural height at rest, and floors populated tables so the row
+   * viewport does not collapse under the sticky header when the mobile keyboard opens.
+   */
+  minHeightFloor() {
+    const hasItems = this.layout ? this.layout.items.length > 0 : this.totalRows > 0;
+    if (!hasItems)
+      return 0;
+    return GRID_HEADER_CHROME_PX + Math.min(this.bodyHeight(), GRID_MIN_VISIBLE_BODY_PX);
+  }
+  syncMinHeightFloor() {
+    const floor = this.minHeightFloor();
+    if (floor <= 0) {
+      this.root.style.removeProperty("--tablify-grid-min-height");
+    } else {
+      this.root.style.setProperty("--tablify-grid-min-height", `${floor}px`);
+    }
   }
   /** ARIA rows: the header, every data row and (SAD-81) every group header. */
   ariaRowCount() {
@@ -25033,6 +25056,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     this.rowSelection = /* @__PURE__ */ new Set();
     if (this.body)
       this.body.empty();
+    this.syncLayoutFloor();
     this.syncToolbar();
   }
   async onClose() {
@@ -25051,6 +25075,7 @@ var TableView = class extends import_obsidian9.TextFileView {
    */
   onResize() {
     this.grid?.handleResize();
+    this.syncLayoutFloor();
   }
   // ---- internals ----
   currentTheme() {
@@ -25516,6 +25541,35 @@ var TableView = class extends import_obsidian9.TextFileView {
       this.grid.setModel(rows, fields, s.getView(), groups);
       this.grid.setRowSelection(this.rowSelection);
     }
+    this.syncLayoutFloor();
+  }
+  /**
+   * SAD-305: propagate the grid's content-bounded minimum height floor to `.tablify__card` and
+   * `.tablify__body` so that when the mobile on-screen keyboard shrinks `.tablify-view`, the card
+   * stops shrinking at the grid floor and `.tablify-view` scrolls instead of crushing the rows
+   * under the sticky column header.
+   */
+  syncLayoutFloor() {
+    const card = this.card;
+    if (!card)
+      return;
+    const gridMin = this.grid?.minHeightFloor() ?? 0;
+    if (gridMin <= 0) {
+      card.style.removeProperty("--tablify-grid-min-height");
+      card.style.removeProperty("--tablify-card-min-height");
+      return;
+    }
+    card.style.setProperty("--tablify-grid-min-height", `${gridMin}px`);
+    let cardChrome = 220;
+    if (this.body) {
+      const topChrome = this.body.getBoundingClientRect().top - card.getBoundingClientRect().top;
+      if (topChrome > 0) {
+        const cs = typeof getComputedStyle === "function" ? getComputedStyle(card) : null;
+        const bottomPad = cs ? (parseFloat(cs.paddingBottom) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : 17;
+        cardChrome = Math.round(topChrome + bottomPad);
+      }
+    }
+    card.style.setProperty("--tablify-card-min-height", `${cardChrome + gridMin}px`);
   }
   // ---- group by (SAD-81) ----
   /**
