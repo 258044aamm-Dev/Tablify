@@ -18,6 +18,7 @@ import { optionChipColors } from '../../ui/theme/tokens.js';
 import { faIcon } from '../../ui/faIcons.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { CellValue, FieldDefinition } from '../../model/types.js';
+import { ratingNumber, starFills } from './rating/scale.js';
 import { formatPhoneDisplay, telHref } from '../../model/phone/phoneValue.js';
 
 export type CellTheme = 'light' | 'dark';
@@ -194,31 +195,69 @@ export function ratingScale(field: FieldDefinition): number {
   return Math.max(1, Math.min(10, max));
 }
 
+/** Options for {@link renderRatingStars}. */
+export interface RatingStarsOptions {
+  /**
+   * SAD-304: ask for clickable stars. The caller handles the click (the grid owns selection and
+   * the write); the renderer only marks each star with the value it stands for.
+   */
+  interactive?: boolean;
+}
+
 /**
- * A rating cell: one star per point of the scale, filled up to the value, then `4/5`.
+ * A rating cell: one star per point of the scale, each filled by the fraction the value gives it
+ * (`4.5` fills four stars and half of the fifth), then the number (`4.5`).
  *
- * The stars are decoration (`aria-hidden`) — the text is the label, so a screen reader reads
- * "4/5" and not five glyphs. An empty rating still draws its stars: they say what the column is,
+ * The stars are decoration (`aria-hidden`) — the text is the label, so a screen reader reads the
+ * value and not five glyphs. An empty rating still draws its stars: they say what the column is,
  * the way an empty checkbox draws its box.
+ *
+ * A star is two stacked copies of the same glyph: the base in the placeholder ink, and the fill in
+ * the accent ink clipped to its fraction. One glyph, every fraction, and no half-star asset.
  */
-export function renderRatingStars(host: HTMLElement, field: FieldDefinition, value: CellValue | undefined): void {
+export function renderRatingStars(
+  host: HTMLElement,
+  field: FieldDefinition,
+  value: CellValue | undefined,
+  options: RatingStarsOptions = {},
+): void {
   const scale = ratingScale(field);
-  const rating = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : 0;
-  const filled = Math.max(0, Math.min(scale, rating));
+  const fills = starFills(value, scale);
   const stars = document.createElement('span');
-  stars.className = 'tablify__stars';
+  stars.className = options.interactive ? 'tablify__stars tablify__stars--interactive' : 'tablify__stars';
   stars.setAttribute('aria-hidden', 'true');
-  for (let i = 1; i <= scale; i += 1) {
+  for (let i = 0; i < scale; i += 1) {
+    const fill = fills[i] ?? 0;
     const star = document.createElement('span');
-    star.className = i <= filled ? 'tablify__star tablify__star--on' : 'tablify__star';
-    star.innerHTML = faIcon('star', 11);
+    // `--on` keeps its old meaning (a full star) for every reader of the class; `--partial` is new.
+    star.className = fill >= 1
+      ? 'tablify__star tablify__star--on'
+      : fill > 0
+        ? 'tablify__star tablify__star--partial'
+        : 'tablify__star';
+    if (options.interactive) star.dataset.ratingStar = String(i + 1);
+    const box = document.createElement('span');
+    box.className = 'tablify__star-box';
+    const base = document.createElement('span');
+    base.className = 'tablify__star-base';
+    base.innerHTML = faIcon('star', 11);
+    const painted = document.createElement('span');
+    painted.className = 'tablify__star-fill';
+    // Three decimals kill the float dust (3.7 - 3 = 0.7000000000000002) without losing a pixel.
+    painted.style.width = `${Math.round(fill * 1000) / 10}%`;
+    painted.innerHTML = faIcon('star', 11);
+    box.appendChild(base);
+    box.appendChild(painted);
+    star.appendChild(box);
     stars.appendChild(star);
   }
   host.appendChild(stars);
-  if (value !== undefined && value !== null && value !== '') {
+  const rating = ratingNumber(value);
+  if (rating !== null) {
     const label = document.createElement('span');
     label.className = 'tablify__rating-text';
-    label.textContent = `${rating}/${scale}`;
+    // The number as the type stores it, so copy, export and this label never disagree.
+    label.textContent = formattedCellText(field, rating);
     host.appendChild(label);
   }
 }

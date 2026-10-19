@@ -163,21 +163,31 @@ export const durationType: FieldType = {
   },
 };
 
-/** rating — integer 1–10 */
+/**
+ * rating — a number in 0–10, with up to two decimals (SAD-304).
+ *
+ * The ceiling is the *type's*. A field's own `max` is its scale (5 when unset) and the largest
+ * value the cell and the panel will choose; but validation stays lenient on purpose, because a
+ * file that already holds 7 in a five-star field must keep reading, and turning yesterday's
+ * integers red would be a regression rather than a fix.
+ */
 export const ratingType: FieldType = {
   readOnly: false,
 
   validate(value: CellValue): boolean {
     if (value === null) return true;
-    return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10;
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10;
   },
 
   parse(input: string): CellValue {
-    const trimmed = input.trim();
+    // A comma is what a person types on a locale that writes `4,5`; the file still gets a dot.
+    const trimmed = input.trim().replace(',', '.');
     if (trimmed === '') return null;
-    const n = parseInt(trimmed, 10);
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(trimmed)) return null;
+    const n = Number(trimmed);
     if (!Number.isFinite(n)) return null;
-    return Math.max(1, Math.min(10, n));
+    // Two decimals is the storage contract (SAD-304); anything finer is a typo, not a rating.
+    return Math.round(Math.max(0, Math.min(10, n)) * 100) / 100;
   },
 
   format(value: CellValue): string {

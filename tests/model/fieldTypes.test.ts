@@ -217,19 +217,37 @@ describe('duration type', () => {
 describe('rating type', () => {
   const ft = getFieldType('rating');
 
-  it('validate 1-10', () => {
+  it('accepts any finite number in 0–10, including zero and fractions (SAD-304)', () => {
+    expect(ft.validate(0)).toBe(true);
+    expect(ft.validate(0.5)).toBe(true);
     expect(ft.validate(1)).toBe(true);
+    expect(ft.validate(4.5)).toBe(true);
     expect(ft.validate(10)).toBe(true);
-    expect(ft.validate(5)).toBe(true);
     expect(ft.validate(null)).toBe(true);
-    expect(ft.validate(0)).toBe(false);
-    expect(ft.validate(11)).toBe(false);
+    expect(ft.validate(10.5)).toBe(false);
+    expect(ft.validate(-0.5)).toBe(false);
+    expect(ft.validate('4' as never)).toBe(false);
   });
 
-  it('parse with clamping', () => {
+  it('parses whole numbers, decimals and a comma decimal mark', () => {
     expect(ft.parse('5')).toBe(5);
+    expect(ft.parse('4.5')).toBe(4.5);
+    expect(ft.parse('3,7')).toBe(3.7);
+    expect(ft.parse(' 2.25 ')).toBe(2.25);
+  });
+
+  it('clamps to 0–10 and rounds to two decimals', () => {
     expect(ft.parse('15')).toBe(10);
-    expect(ft.parse('-1')).toBe(1);
+    expect(ft.parse('-1')).toBe(0);
+    expect(ft.parse('3.666')).toBe(3.67);
+    expect(ft.parse('.5')).toBe(0.5);
+  });
+
+  it('rejects text that is not a number', () => {
+    expect(ft.parse('')).toBeNull();
+    expect(ft.parse('abc')).toBeNull();
+    expect(ft.parse('4.5.1')).toBeNull();
+    expect(ft.parse('4 stars')).toBeNull();
   });
 });
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { parseQuery } from '../../src/query/parse.js';
 import { evaluateQuery } from '../../src/query/evaluate.js';
 import { HAND_FIELDS, HAND_ROWS } from './fixtures.js';
+import type { FieldDefinition, Row } from '../../src/model/types.js';
 
 function evalQuery(q: string): ReturnType<typeof evaluateQuery> {
   const parsed = parseQuery(q);
@@ -108,5 +109,37 @@ describe('P2-02 — unknown option → no match (not error)', () => {
     const res = evalQuery('Status:!BogusOption');
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.matchedIds.length).toBe(HAND_ROWS.length);
+  });
+});
+
+describe('SAD-304 — a rating filter reads fractions', () => {
+  const fields: FieldDefinition[] = [
+    { id: 'fld_name', name: 'Name', type: 'text', primary: true },
+    { id: 'fld_rate', name: 'Rating', type: 'rating', max: 5 },
+  ];
+  const rows: Row[] = [
+    { id: 'row_a', rev: 1, updatedAt: '2026-10-19T10:00:00Z', values: { fld_name: 'a', fld_rate: 4.5 }, sync: null },
+    { id: 'row_b', rev: 1, updatedAt: '2026-10-19T10:00:00Z', values: { fld_name: 'b', fld_rate: 4 }, sync: null },
+    { id: 'row_c', rev: 1, updatedAt: '2026-10-19T10:00:00Z', values: { fld_name: 'c', fld_rate: 3.7 }, sync: null },
+  ];
+
+  function run(q: string): string[] {
+    const parsed = parseQuery(q);
+    if (!parsed.ok) throw new Error(parsed.error.message);
+    const res = evaluateQuery(parsed.ast, rows, fields);
+    if (!res.ok) throw new Error(res.error.message);
+    return res.matchedIds.sort();
+  }
+
+  it('eq 4.5 matches only the half-rated row (it used to truncate to 4)', () => {
+    expect(run('Rating:4.5')).toEqual(['row_a']);
+  });
+
+  it('gt 4.2 finds the half rating but not the whole one', () => {
+    expect(run('Rating:>4.25')).toEqual(['row_a']);
+  });
+
+  it('eq 4 still matches the whole rating and not the fraction', () => {
+    expect(run('Rating:4')).toEqual(['row_b']);
   });
 });

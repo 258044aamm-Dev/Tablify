@@ -3994,7 +3994,6 @@
   gap: 2px;
   flex: 0 0 auto;
   margin-right: 6px;
-  color: var(--tablify-text-placeholder);
 }
 
 .tablify__star {
@@ -4003,8 +4002,35 @@
   line-height: 1;
 }
 
-.tablify .tablify__star--on {
+/* SAD-304: a star is two copies of the same glyph — the base in the placeholder ink, and the
+   accent-ink fill clipped to the fraction the value gives it. One asset, every fraction. */
+.tablify__star-box {
+  position: relative;
+  display: inline-flex;
+  width: 11px;
+  height: 11px;
+}
+
+.tablify__star-base,
+.tablify__star-fill {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: flex-start;
+  line-height: 1;
+}
+
+.tablify__star-base {
+  color: var(--tablify-text-placeholder);
+}
+
+.tablify .tablify__star-fill {
+  overflow: hidden;
   color: var(--tablify-accent-primary);
+}
+
+.tablify__star-fill svg {
+  flex: 0 0 auto;
 }
 
 /* Prototype `text-[10px] font-mono text-tablify-clay`: the `4/5` label. */

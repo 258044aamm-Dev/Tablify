@@ -10915,16 +10915,18 @@ var ratingType = {
   validate(value) {
     if (value === null)
       return true;
-    return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 10;
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 10;
   },
   parse(input) {
-    const trimmed = input.trim();
+    const trimmed = input.trim().replace(",", ".");
     if (trimmed === "")
       return null;
-    const n = parseInt(trimmed, 10);
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(trimmed))
+      return null;
+    const n = Number(trimmed);
     if (!Number.isFinite(n))
       return null;
-    return Math.max(1, Math.min(10, n));
+    return Math.round(Math.max(0, Math.min(10, n)) * 100) / 100;
   },
   format(value) {
     if (value === null)
@@ -11983,7 +11985,7 @@ function parseNumericQueryValue(raw, fieldType) {
       return Number.isFinite(n) && n >= 0 ? n : null;
     }
     case "rating": {
-      const n = parseInt(trimmed, 10);
+      const n = Number(trimmed);
       if (!Number.isFinite(n))
         return null;
       return n;
@@ -18258,6 +18260,23 @@ function applyValidationState(cellEl, field, row, allRows) {
   }
 }
 
+// src/views/grid/rating/scale.ts
+function ratingNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+function starFills(value, scale) {
+  const rating = ratingNumber(value);
+  const fills = [];
+  for (let i = 0; i < scale; i += 1) {
+    if (rating === null) {
+      fills.push(0);
+      continue;
+    }
+    fills.push(Math.max(0, Math.min(1, rating - i)));
+  }
+  return fills;
+}
+
 // src/views/grid/cellRender.ts
 function isFormattedCellType(field) {
   switch (field.type) {
@@ -18369,24 +18388,38 @@ function ratingScale(field) {
   const max2 = typeof field.max === "number" && Number.isFinite(field.max) ? Math.round(field.max) : 5;
   return Math.max(1, Math.min(10, max2));
 }
-function renderRatingStars(host, field, value) {
+function renderRatingStars(host, field, value, options = {}) {
   const scale = ratingScale(field);
-  const rating = typeof value === "number" && Number.isFinite(value) ? Math.round(value) : 0;
-  const filled = Math.max(0, Math.min(scale, rating));
+  const fills = starFills(value, scale);
   const stars = document.createElement("span");
-  stars.className = "tablify__stars";
+  stars.className = options.interactive ? "tablify__stars tablify__stars--interactive" : "tablify__stars";
   stars.setAttribute("aria-hidden", "true");
-  for (let i = 1; i <= scale; i += 1) {
+  for (let i = 0; i < scale; i += 1) {
+    const fill = fills[i] ?? 0;
     const star = document.createElement("span");
-    star.className = i <= filled ? "tablify__star tablify__star--on" : "tablify__star";
-    star.innerHTML = faIcon("star", 11);
+    star.className = fill >= 1 ? "tablify__star tablify__star--on" : fill > 0 ? "tablify__star tablify__star--partial" : "tablify__star";
+    if (options.interactive)
+      star.dataset.ratingStar = String(i + 1);
+    const box = document.createElement("span");
+    box.className = "tablify__star-box";
+    const base = document.createElement("span");
+    base.className = "tablify__star-base";
+    base.innerHTML = faIcon("star", 11);
+    const painted = document.createElement("span");
+    painted.className = "tablify__star-fill";
+    painted.style.width = `${Math.round(fill * 1e3) / 10}%`;
+    painted.innerHTML = faIcon("star", 11);
+    box.appendChild(base);
+    box.appendChild(painted);
+    star.appendChild(box);
     stars.appendChild(star);
   }
   host.appendChild(stars);
-  if (value !== void 0 && value !== null && value !== "") {
+  const rating = ratingNumber(value);
+  if (rating !== null) {
     const label = document.createElement("span");
     label.className = "tablify__rating-text";
-    label.textContent = `${rating}/${scale}`;
+    label.textContent = formattedCellText(field, rating);
     host.appendChild(label);
   }
 }

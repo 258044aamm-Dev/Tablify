@@ -138,7 +138,7 @@ Each field object has these keys **in this order**:
 | 4 | `currency` | Currency amount | number \| null |
 | 5 | `percent` | Percentage (stored as decimal, e.g. 0.75 = 75%) | number \| null |
 | 6 | `duration` | Duration in milliseconds | number \| null |
-| 7 | `rating` | Rating (integer, 1–10) | number \| null |
+| 7 | `rating` | Rating (number 0–10, up to two decimals; the field's `max` is its star scale) | number \| null |
 | 8 | `checkbox` | Boolean checkbox | boolean \| null |
 | 9 | `date` | Date (YYYY-MM-DD) | string \| null |
 | 10 | `date_time` | Date and time (ISO 8601) | string \| null |

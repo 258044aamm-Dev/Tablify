@@ -94,7 +94,10 @@ function parseNumericQueryValue(raw: string, fieldType: FieldTypeName): number |
       return Number.isFinite(n) && n >= 0 ? n : null;
     }
     case 'rating': {
-      const n = parseInt(trimmed, 10);
+      // SAD-304: a rating may hold a fraction, so a filter term may name one (`Rating:4.5`).
+      // `Number` is also what the differential reference has always used — this closes a gap
+      // where `4.5` was compared as `4`.
+      const n = Number(trimmed);
       if (!Number.isFinite(n)) return null;
       return n;
     }

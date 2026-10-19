@@ -333,21 +333,46 @@ function localStamp(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-describe('COD-73 — a rating cell is stars plus the scale', () => {
-  it('draws one star per point of the scale, filled up to the value, then `4/5`', () => {
+describe('SAD-304 — a rating cell is fractional stars plus the number', () => {
+  const stars = (grid: GridView): NodeListOf<Element> =>
+    cellOf(grid, 'f_rating').querySelectorAll('.tablify__star');
+  const fillWidth = (grid: GridView): string => {
+    const fill = cellOf(grid, 'f_rating').querySelector<HTMLElement>('.tablify__star--partial .tablify__star-fill');
+    return fill?.style.width ?? '';
+  };
+
+  it('draws one star per point of the scale, filled up to the value, then the number', () => {
     const grid = mount();
-    const stars = cellOf(grid, 'f_rating').querySelectorAll('.tablify__star');
-    expect(stars).toHaveLength(5);
+    expect(stars(grid)).toHaveLength(5);
     expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(4);
-    expect(textOf(grid, 'f_rating')).toBe('4/5');
+    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--partial')).toHaveLength(0);
+    expect(textOf(grid, 'f_rating')).toBe('4');
     // The stars are decoration; the label is the text.
     expect(cellOf(grid, 'f_rating').querySelector('.tablify__stars')?.getAttribute('aria-hidden')).toBe('true');
     grid.destroy();
   });
 
-  it('an empty rating still draws the scale, but no `0/5` label', () => {
+  it('a half rating fills half of the next star', () => {
+    const grid = mount({}, [row({ ...VALUES, f_rating: 4.5 })]);
+    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(4);
+    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--partial')).toHaveLength(1);
+    expect(fillWidth(grid)).toBe('50%');
+    expect(textOf(grid, 'f_rating')).toBe('4.5');
+    grid.destroy();
+  });
+
+  it('a decimal fills the star by its fraction (3.7 → 70 % of the fourth)', () => {
+    const grid = mount({}, [row({ ...VALUES, f_rating: 3.7 })]);
+    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(3);
+    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--partial')).toHaveLength(1);
+    expect(fillWidth(grid)).toBe('70%');
+    expect(textOf(grid, 'f_rating')).toBe('3.7');
+    grid.destroy();
+  });
+
+  it('an empty rating still draws the scale, but no number', () => {
     const grid = mount({}, [row({ ...VALUES, f_rating: null })]);
-    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star')).toHaveLength(5);
+    expect(stars(grid)).toHaveLength(5);
     expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(0);
     expect(textOf(grid, 'f_rating')).toBe('');
     grid.destroy();
@@ -356,21 +381,23 @@ describe('COD-73 — a rating cell is stars plus the scale', () => {
   it('the scale follows the field’s Max, like the group headings', () => {
     const fields = FIELDS.map((f) => (f.id === 'f_rating' ? { ...f, max: 10 } : f));
     const grid = mount({}, [row({ ...VALUES, f_rating: 7 })], fields);
-    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star')).toHaveLength(10);
+    expect(stars(grid)).toHaveLength(10);
     expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(7);
-    expect(textOf(grid, 'f_rating')).toBe('7/10');
+    expect(textOf(grid, 'f_rating')).toBe('7');
     grid.destroy();
   });
 
-  it('a value above the scale fills the scale, never more stars', () => {
+  it('a value above the scale fills the scale, and still reads its own number', () => {
     const grid = mount({}, [row({ ...VALUES, f_rating: 9 })]);
     expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(5);
+    expect(textOf(grid, 'f_rating')).toBe('9');
     grid.destroy();
   });
 
-  it('no longer prints the bare number', () => {
-    const grid = mount();
-    expect(textOf(grid, 'f_rating')).not.toBe('4');
+  it('zero is a value, not an empty cell', () => {
+    const grid = mount({}, [row({ ...VALUES, f_rating: 0 })]);
+    expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(0);
+    expect(textOf(grid, 'f_rating')).toBe('0');
     grid.destroy();
   });
 });
