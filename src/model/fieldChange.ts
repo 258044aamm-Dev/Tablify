@@ -39,6 +39,8 @@ export function planTypeChange(rows: readonly Row[], field: FieldDefinition, tar
   // P8: the formula and link keys belong only to their own types.
   if (target !== 'formula') delete next.formula;
   if (target !== 'link') delete next.linkTableId;
+  // SAD-303: the phone default country belongs only to phone fields.
+  if (target !== 'phone') delete next.phoneCountry;
 
   const oldType = getFieldType(field.type);
   const valuesByRow: Record<string, CellValue> = {};

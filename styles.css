@@ -4093,3 +4093,178 @@
   padding-top: 1px;
   padding-bottom: 1px;
 }
+
+/* ---- phone country (SAD-303) ------------------------------------------------------------ */
+/* The country row in Add / Modify Field, and the searchable list both it and the phone cell
+   panel open. Every colour is an existing token, so no contrast rule and no theme test changes.
+   The badge is a two-letter monogram, not an emoji flag: Windows' Segoe UI Emoji ships no flag
+   glyphs, so an emoji would render as those same two letters there — and as a box on some
+   Linux fonts. The monogram looks the same everywhere and costs no asset. */
+
+.tablify__af-hint {
+  margin: 2px 0 6px;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__country-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 26px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 5px;
+  border: 1px solid var(--tablify-border-subtle);
+  background: var(--tablify-bg-inner);
+  color: var(--tablify-text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.tablify__country-heading {
+  padding: 6px 8px 2px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__country-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 8px;
+}
+
+.tablify__country-dial {
+  flex: 0 0 auto;
+  margin-left: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__country-row[aria-selected='true'] .tablify__country-dial {
+  color: var(--tablify-text);
+}
+
+.tablify__country-list {
+  max-height: 260px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+/* The trigger in the field window: a button drawn as the window's own input. */
+.tablify.tablify__pmodal button.tablify__country-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: 34px;
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--tablify-bg-inner);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify.tablify__pmodal button.tablify__country-trigger:hover {
+  border-color: var(--tablify-border-pill-hover);
+}
+
+.tablify.tablify__pmodal button.tablify__country-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
+}
+
+.tablify__country-trigger-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tablify__country-trigger--empty .tablify__country-trigger-label {
+  color: var(--tablify-text-muted);
+}
+
+.tablify__country-trigger-chevron {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--tablify-text-muted);
+}
+
+/* The popover above the window. `.tablify__panel` paints the card; this only sizes the body. */
+.tablify__country-popover-body {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-height: min(420px, calc(100vh - 24px));
+}
+
+.tablify__country-popover .tablify__country-list {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+
+.tablify.tablify__panel button.tablify__country-clear {
+  flex: 0 0 auto;
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--tablify-text-muted);
+  border: 0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tablify.tablify__panel button.tablify__country-clear:hover:not(:disabled) {
+  background: var(--tablify-bg-pill-hover);
+  color: var(--tablify-text);
+}
+
+.tablify.tablify__panel button.tablify__country-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Touch: Apple/Material minimum hit size, and a little more list room for a thumb. */
+@media (pointer: coarse) {
+  .tablify button.tablify__dropdown-item.tablify__country-row {
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
+  .tablify__country-list {
+    max-height: 46vh;
+  }
+
+  .tablify.tablify__pmodal button.tablify__country-trigger {
+    min-height: 44px;
+  }
+}

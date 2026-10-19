@@ -28,6 +28,9 @@ import type { FieldEdit, NewFieldExtras } from '../../model/tableSession.js';
 import { compileFormula } from '../../formula/index.js';
 import { EMPTY_PREVIEW } from '../../model/formulaPreview.js';
 import { parseInput } from './editors/index.js';
+import { CountrySelect } from './phone/CountrySelect.js';
+import { defaultCountryFor } from '../../model/phone/phoneValue.js';
+import { regionOfLocale, readerLocale } from '../../model/phone/phoneValue.js';
 
 /** Type preselected when the modal opens. */
 export const DEFAULT_NEW_FIELD_TYPE: FieldTypeName = 'text';
@@ -107,6 +110,10 @@ export class AddFieldModal extends Modal {
   private minText = '';
   private maxText = '';
   private regexText = '';
+  /** SAD-303: the phone field's default country ('' = none). */
+  private phoneCountry = '';
+  /** COD-76/SAD-303: the country popover, closed with the window. */
+  private countrySelect: CountrySelect | null = null;
   /** Edit mode: the "N options: …" line, refreshed after the option manager closes. */
   private optionsSummary: HTMLElement | null = null;
   /** COD-76: the type picker, so closing the window closes its panel too (it lives on body). */
@@ -135,6 +142,9 @@ export class AddFieldModal extends Modal {
     this.minText = initial?.min === null || initial?.min === undefined ? '' : String(initial.min);
     this.maxText = initial?.max === null || initial?.max === undefined ? '' : String(initial.max);
     this.regexText = initial?.regex ?? '';
+    // SAD-303: pre-fill the phone default country. In create mode a phone field starts on the
+    // reader's region, shown as the resolved country rather than as an empty row.
+    this.phoneCountry = initial?.phoneCountry ?? '';
     this.linkTableId =
       initial?.linkTableId ?? options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? '';
   }
@@ -251,6 +261,13 @@ export class AddFieldModal extends Modal {
       this.regexText = regexInput.value;
     });
 
+    // SAD-303: the phone field's default country. Shown only for Phone, like the select
+    // options and the formula expression, and only written when the user picks one.
+    const countryWrap = body.createDiv({ cls: 'tablify__af-country' });
+    this.label(countryWrap, 'Default country', 'tablify__af-country');
+    const countryHint = countryWrap.createDiv({ cls: 'tablify__af-hint' });
+    countryHint.textContent = 'Used when a number is typed without an international prefix.';
+
     // P8-03: Formula, with the prototype's live "Preview (row 1)"
     const formulaWrap = body.createDiv();
     this.label(formulaWrap, 'Formula', 'tablify__af-formula');
@@ -288,8 +305,23 @@ export class AddFieldModal extends Modal {
       this.linkTableId = linkSelect.value;
     });
 
+    const countrySelect = new CountrySelect({
+      id: 'tablify__af-country',
+      value: this.phoneCountry,
+      suggested: this.countrySuggestions(),
+      locale: readerLocale() || 'en',
+      theme: document.body.classList.contains('theme-dark') ? 'dark' : 'light',
+      onChange: (iso) => {
+        this.phoneCountry = iso ?? '';
+        countrySelect.setValue(iso);
+      },
+    });
+    this.countrySelect = countrySelect;
+    countryWrap.appendChild(countrySelect.element);
+
     showTypeRows = (): void => {
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? '' : 'none';
+      countryWrap.style.display = this.type === 'phone' ? '' : 'none';
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? '' : 'none';
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? '' : 'none';
       formulaWrap.style.display = this.type === 'formula' ? '' : 'none';
@@ -330,6 +362,22 @@ export class AddFieldModal extends Modal {
   onClose(): void {
     this.typePicker?.close();
     this.typePicker = null;
+    this.countrySelect?.close();
+    this.countrySelect = null;
+  }
+
+  /**
+   * SAD-303: the countries the phone row suggests first — the field's own value (edit mode),
+   * the reader's region, and the country the field would otherwise resolve to. Never throws.
+   */
+  private countrySuggestions(): string[] {
+    const out: string[] = [];
+    if (this.phoneCountry) out.push(this.phoneCountry);
+    const region = regionOfLocale(readerLocale());
+    if (region) out.push(region);
+    const resolved = defaultCountryFor({ phoneCountry: this.phoneCountry || undefined }, readerLocale());
+    if (resolved) out.push(resolved);
+    return [...new Set(out)];
   }
 
   private label(parent: HTMLElement, text: string, forId: string): void {
@@ -372,6 +420,7 @@ export class AddFieldModal extends Modal {
     if (min !== null) extras.min = min;
     if (max !== null) extras.max = max;
     const regex = this.regexText.trim();
+    if (this.type === 'phone' && this.phoneCountry) extras.phoneCountry = this.phoneCountry;
     if (regex && REGEX_TYPES.includes(this.type)) {
       try {
         new RegExp(regex);
@@ -446,6 +495,7 @@ export class AddFieldModal extends Modal {
       }
       edit.regex = regex || null;
     }
+    if (this.type === 'phone') edit.phoneCountry = this.phoneCountry || null;
     if (this.type === 'formula') edit.formula = this.expression;
     if (this.type === 'link') edit.linkTableId = this.linkTableId;
     this.close();

@@ -6426,7 +6426,7 @@ var Metadata = /* @__PURE__ */ function() {
   }
   return _createClass(Metadata2, [{
     key: "getCountries",
-    value: function getCountries() {
+    value: function getCountries3() {
       return Object.keys(this.metadata.countries).filter(function(_) {
         return _ !== "001";
       });
@@ -8698,6 +8698,11 @@ function parsePhoneNumber3() {
   return parsePhoneNumber2(text, options, metadata);
 }
 
+// node_modules/libphonenumber-js/es6/getCountries.js
+function getCountries(metadata) {
+  return new Metadata(metadata).getCountries();
+}
+
 // node_modules/libphonenumber-js/min/exports/parsePhoneNumber.js
 function parsePhoneNumber4() {
   return withMetadataArgument(parsePhoneNumber3, arguments);
@@ -8708,9 +8713,46 @@ function isSupportedCountry2() {
   return withMetadataArgument(isSupportedCountry, arguments);
 }
 
+// node_modules/libphonenumber-js/min/exports/getCountries.js
+function getCountries2() {
+  return withMetadataArgument(getCountries, arguments);
+}
+
+// node_modules/libphonenumber-js/min/exports/getCountryCallingCode.js
+function getCountryCallingCode2() {
+  return withMetadataArgument(getCountryCallingCode, arguments);
+}
+
 // src/model/phone/phoneValue.ts
+var FALLBACK_COUNTRY = "US";
+function readerLocale() {
+  if (typeof navigator !== "undefined" && typeof navigator.language === "string")
+    return navigator.language;
+  return "";
+}
+function regionOfLocale(locale) {
+  if (!locale)
+    return null;
+  try {
+    if (typeof Intl !== "undefined" && typeof Intl.Locale === "function") {
+      const region2 = new Intl.Locale(locale).region;
+      if (region2 && isSupportedCountryCode(region2))
+        return region2;
+    }
+  } catch {
+  }
+  const match = /^[a-z]{2,3}[-_]([a-zA-Z]{2})\b/.exec(locale);
+  const region = match?.[1]?.toUpperCase() ?? "";
+  return isSupportedCountryCode(region) ? region : null;
+}
 function isSupportedCountryCode(iso) {
   return typeof iso === "string" && /^[A-Z]{2}$/.test(iso) && isSupportedCountry2(iso);
+}
+function defaultCountryFor(field, locale) {
+  const explicit = field?.phoneCountry;
+  if (isSupportedCountryCode(explicit))
+    return explicit;
+  return regionOfLocale(locale ?? readerLocale()) ?? FALLBACK_COUNTRY;
 }
 function parsePhone(input, country) {
   const text = typeof input === "string" ? input.trim() : "";
@@ -12833,6 +12875,8 @@ function planTypeChange(rows, field, target) {
     delete next.formula;
   if (target !== "link")
     delete next.linkTableId;
+  if (target !== "phone")
+    delete next.phoneCountry;
   const oldType = getFieldType(field.type);
   const valuesByRow = {};
   let blocked = 0;
@@ -13040,6 +13084,17 @@ function createSession(file) {
         }
         nextField.regex = regex;
       }
+    }
+    if (patch.phoneCountry !== void 0) {
+      const code = typeof patch.phoneCountry === "string" ? patch.phoneCountry.trim().toUpperCase() : "";
+      if (nextField.type !== "phone" || code === "")
+        delete nextField.phoneCountry;
+      else if (isSupportedCountryCode(code))
+        nextField.phoneCountry = code;
+      else
+        return { ok: false, reason: "Choose a supported country code." };
+    } else if (nextField.type !== "phone") {
+      delete nextField.phoneCountry;
     }
     if (patch.formula !== void 0 && nextField.type === "formula") {
       const compiled = compileFormula(patch.formula);
@@ -13319,6 +13374,9 @@ function applyNewFieldExtras(field, extras) {
     field.max = extras.max;
   if (extras.regex)
     field.regex = extras.regex;
+  if (field.type === "phone" && isSupportedCountryCode(extras.phoneCountry)) {
+    field.phoneCountry = extras.phoneCountry;
+  }
 }
 var FIELD_EDIT_KEYS = [
   "name",
@@ -13328,6 +13386,7 @@ var FIELD_EDIT_KEYS = [
   "min",
   "max",
   "regex",
+  "phoneCountry",
   "formula",
   "linkTableId"
 ];
@@ -18910,6 +18969,520 @@ function previewFormula(fields, firstRow, expression) {
   }
 }
 
+// src/model/phone/countries.ts
+var DEFAULT_LOCALE = "en";
+var COUNTRY_ALIASES = {
+  uk: "GB",
+  "u.k.": "GB",
+  britain: "GB",
+  "great britain": "GB",
+  england: "GB",
+  usa: "US",
+  "u.s.a.": "US",
+  america: "US",
+  "united states of america": "US",
+  uae: "AE",
+  holland: "NL",
+  burma: "MM",
+  "ivory coast": "CI",
+  "czech republic": "CZ",
+  swaziland: "SZ",
+  macedonia: "MK",
+  turkey: "TR",
+  russia: "RU",
+  vietnam: "VN",
+  laos: "LA",
+  syria: "SY",
+  iran: "IR",
+  bolivia: "BO",
+  tanzania: "TZ",
+  venezuela: "VE",
+  moldova: "MD",
+  "south korea": "KR",
+  "north korea": "KP"
+};
+function regionName(iso, locale, fallback) {
+  try {
+    if (typeof Intl === "undefined" || typeof Intl.DisplayNames !== "function")
+      return fallback;
+    const name = new Intl.DisplayNames([locale], { type: "region" }).of(iso);
+    return name && name !== iso ? name : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function collatorFor(locale) {
+  try {
+    return new Intl.Collator(locale, { sensitivity: "base" });
+  } catch {
+    return new Intl.Collator(DEFAULT_LOCALE, { sensitivity: "base" });
+  }
+}
+var listCache = /* @__PURE__ */ new Map();
+function allCountries(locale = DEFAULT_LOCALE) {
+  const key = locale || DEFAULT_LOCALE;
+  const cached = listCache.get(key);
+  if (cached)
+    return cached;
+  const englishNames = /* @__PURE__ */ new Map();
+  const rows = getCountries2().map((iso) => {
+    const english = regionName(iso, DEFAULT_LOCALE, iso);
+    englishNames.set(iso, english);
+    return {
+      iso,
+      dial: getCountryCallingCode2(iso),
+      name: key === DEFAULT_LOCALE ? english : regionName(iso, key, english),
+      english
+    };
+  });
+  rows.sort((a, b) => collatorFor(key).compare(a.name, b.name) || a.iso.localeCompare(b.iso));
+  listCache.set(key, rows);
+  return rows;
+}
+function countryRow(iso, locale = DEFAULT_LOCALE) {
+  if (typeof iso !== "string")
+    return void 0;
+  const upper = iso.trim().toUpperCase();
+  if (!isSupportedCountryCode2(upper))
+    return void 0;
+  return allCountries(locale).find((row) => row.iso === upper);
+}
+function isSupportedCountryCode2(iso) {
+  return typeof iso === "string" && /^[A-Z]{2}$/.test(iso) && isSupportedCountry2(iso);
+}
+function scoreRow(row, query, digits, digitsOnly) {
+  const name = row.name.toLowerCase();
+  const english = row.english.toLowerCase();
+  const iso = row.iso.toLowerCase();
+  if (query === iso)
+    return 0;
+  if (digitsOnly && digits === row.dial)
+    return 0;
+  if (COUNTRY_ALIASES[query] === row.iso)
+    return 0;
+  if (name.startsWith(query) || english.startsWith(query))
+    return 1;
+  if (name.split(/[^\p{L}\p{M}\p{N}]+/u).some((token) => token.startsWith(query)))
+    return 2;
+  if (name.includes(query) || english.includes(query))
+    return 3;
+  if (digitsOnly && digits.length >= 2 && row.dial.startsWith(digits))
+    return 4;
+  return null;
+}
+function searchCountries(query, locale = DEFAULT_LOCALE) {
+  const rows = allCountries(locale);
+  const raw = typeof query === "string" ? query.trim().toLowerCase() : "";
+  if (raw === "")
+    return rows;
+  const digits = raw.replace(/^\+/, "").replace(/[\s().-]/g, "");
+  const digitsOnly = /^\d+$/.test(digits);
+  const collator2 = collatorFor(locale);
+  const scored = [];
+  for (const row of rows) {
+    const score = scoreRow(row, raw, digits, digitsOnly);
+    if (score !== null)
+      scored.push({ row, score });
+  }
+  scored.sort(
+    (a, b) => a.score - b.score || collator2.compare(a.row.name, b.row.name) || a.row.iso.localeCompare(b.row.iso)
+  );
+  return scored.map((entry) => entry.row);
+}
+
+// src/views/grid/phone/CountryList.ts
+var ACTIVE_CLASS = "tablify__dropdown-item--active";
+var uid = 0;
+var CountryList = class {
+  opts;
+  locale;
+  idPrefix;
+  root;
+  list;
+  rows = [];
+  selected;
+  activeIndex = -1;
+  query = "";
+  search;
+  constructor(options) {
+    this.opts = options;
+    this.locale = options.locale ?? "en";
+    this.selected = options.selected ?? null;
+    this.idPrefix = options.idPrefix ?? `tablify-country-${uid += 1}`;
+    this.root = document.createElement("div");
+    this.root.className = "tablify__country";
+    this.search = document.createElement("input");
+    this.search.className = "tablify__dropdown-input";
+    this.search.type = "text";
+    this.search.placeholder = options.placeholder ?? "Search country or +code";
+    this.search.setAttribute("aria-label", "Search country or dialling code");
+    this.search.setAttribute("role", "combobox");
+    this.search.setAttribute("aria-expanded", "true");
+    this.search.setAttribute("aria-autocomplete", "list");
+    this.search.setAttribute("autocomplete", "off");
+    this.search.setAttribute("aria-controls", `${this.idPrefix}-list`);
+    this.search.addEventListener("input", () => {
+      this.query = this.search.value;
+      this.render();
+    });
+    this.search.addEventListener("keydown", (event) => this.onKey(event));
+    this.list = document.createElement("div");
+    this.list.className = "tablify__dropdown-list tablify__country-list";
+    this.list.id = `${this.idPrefix}-list`;
+    this.list.setAttribute("role", "listbox");
+    this.list.setAttribute("aria-label", "Countries");
+    this.root.appendChild(this.search);
+    this.root.appendChild(this.list);
+    this.render();
+  }
+  /** The element to place: search box then list. */
+  get element() {
+    return this.root;
+  }
+  /** Mark a country selected (the ticked row). */
+  setSelected(iso) {
+    this.selected = iso;
+    this.render();
+  }
+  /** Focus the search box with the caret at the end. */
+  focus() {
+    this.search.focus();
+    const end = this.search.value.length;
+    try {
+      this.search.setSelectionRange(end, end);
+    } catch {
+    }
+  }
+  /** Replace the query text without firing an input event. */
+  setQuery(text) {
+    this.search.value = text;
+    this.query = text;
+    this.render();
+  }
+  destroy() {
+    this.root.remove();
+    this.rows.length = 0;
+  }
+  // ---- rows ---------------------------------------------------------------------------
+  /** The suggested codes that actually exist, in the caller's order, without repeats. */
+  suggestedCodes() {
+    const out = [];
+    for (const iso of this.opts.suggested ?? []) {
+      const row = countryRow(iso, this.locale);
+      if (row && !out.includes(row.iso))
+        out.push(row.iso);
+    }
+    return out;
+  }
+  rowButton(row, id) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tablify__dropdown-item tablify__country-row";
+    button.id = id;
+    button.dataset.iso = row.iso;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", row.iso === this.selected ? "true" : "false");
+    const badge = document.createElement("span");
+    badge.className = "tablify__country-badge";
+    badge.setAttribute("aria-hidden", "true");
+    badge.textContent = row.iso;
+    const name = document.createElement("span");
+    name.className = "tablify__country-name";
+    name.textContent = row.name;
+    const dial = document.createElement("span");
+    dial.className = "tablify__country-dial";
+    dial.textContent = `+${row.dial}`;
+    button.appendChild(badge);
+    button.appendChild(name);
+    button.appendChild(dial);
+    if (row.iso === this.selected) {
+      const check = document.createElement("span");
+      check.className = "tablify__dropdown-check";
+      check.innerHTML = faIcon("check", 12);
+      button.appendChild(check);
+    }
+    button.addEventListener("click", () => this.pick(row));
+    return button;
+  }
+  heading(text) {
+    const el4 = document.createElement("div");
+    el4.className = "tablify__country-heading";
+    el4.setAttribute("aria-hidden", "true");
+    el4.textContent = text;
+    return el4;
+  }
+  render() {
+    this.list.textContent = "";
+    this.rows.length = 0;
+    this.activeIndex = -1;
+    const typed = this.query.trim();
+    const matches = typed === "" ? allCountries(this.locale) : searchCountries(typed, this.locale);
+    if (typed === "") {
+      const suggested = this.suggestedCodes();
+      if (suggested.length > 0) {
+        this.list.appendChild(this.heading("Suggested"));
+        for (const iso of suggested) {
+          const row = countryRow(iso, this.locale);
+          if (row)
+            this.appendRow(row);
+        }
+        this.list.appendChild(this.heading("All countries"));
+      }
+    }
+    for (const row of matches) {
+      if (typed === "" && this.suggestedCodes().includes(row.iso))
+        continue;
+      this.appendRow(row);
+    }
+    if (this.rows.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "tablify__dropdown-empty";
+      empty.textContent = "No country matches.";
+      this.list.appendChild(empty);
+    }
+    this.setActive(this.rows.length > 0 ? 0 : -1, false);
+  }
+  appendRow(row) {
+    const id = `${this.idPrefix}-row-${row.iso}`;
+    const button = this.rowButton(row, id);
+    this.list.appendChild(button);
+    this.rows.push(button);
+  }
+  // ---- keyboard -----------------------------------------------------------------------
+  onKey(event) {
+    if (event.isComposing)
+      return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      event.stopPropagation();
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const next = this.activeIndex + delta;
+      this.setActive(next < 0 ? this.rows.length - 1 : next >= this.rows.length ? 0 : next);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      const active = this.rows[this.activeIndex];
+      if (active)
+        this.pickByIso(active.dataset.iso ?? "");
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      this.opts.onCancel?.();
+    }
+  }
+  setActive(index, scroll = true) {
+    this.activeIndex = index;
+    this.rows.forEach((row, i) => row.classList.toggle(ACTIVE_CLASS, i === index));
+    const active = this.rows[index];
+    if (!active) {
+      this.search.removeAttribute("aria-activedescendant");
+      return;
+    }
+    this.search.setAttribute("aria-activedescendant", active.id);
+    if (scroll) {
+      active.scrollIntoView?.({ block: "nearest" });
+    }
+  }
+  pick(row) {
+    this.selected = row.iso;
+    for (const button of this.rows) {
+      const chosen = button.dataset.iso === row.iso;
+      button.setAttribute("aria-selected", chosen ? "true" : "false");
+      const existing = button.querySelector(".tablify__dropdown-check");
+      if (chosen && !existing) {
+        const check = document.createElement("span");
+        check.className = "tablify__dropdown-check";
+        check.innerHTML = faIcon("check", 12);
+        button.appendChild(check);
+      } else if (!chosen) {
+        existing?.remove();
+      }
+    }
+    this.opts.onPick(row);
+  }
+  pickByIso(iso) {
+    const row = countryRow(iso, this.locale);
+    if (row)
+      this.pick(row);
+  }
+};
+
+// src/views/grid/phone/CountrySelect.ts
+var CountrySelect = class {
+  opts;
+  locale;
+  trigger;
+  triggerLabel;
+  panel = null;
+  list = null;
+  unwire = null;
+  value;
+  constructor(options) {
+    this.opts = options;
+    this.locale = options.locale ?? "en";
+    this.value = options.value;
+    this.trigger = document.createElement("button");
+    this.trigger.type = "button";
+    this.trigger.className = "tablify__pmodal-input tablify__country-trigger";
+    this.trigger.id = options.id;
+    this.trigger.setAttribute("aria-haspopup", "listbox");
+    this.trigger.setAttribute("aria-expanded", "false");
+    const badge = document.createElement("span");
+    badge.className = "tablify__country-badge tablify__country-trigger-badge";
+    badge.setAttribute("aria-hidden", "true");
+    this.trigger.appendChild(badge);
+    this.triggerLabel = document.createElement("span");
+    this.triggerLabel.className = "tablify__country-trigger-label";
+    this.trigger.appendChild(this.triggerLabel);
+    const chevron = document.createElement("span");
+    chevron.className = "tablify__country-trigger-chevron";
+    chevron.setAttribute("aria-hidden", "true");
+    chevron.innerHTML = faIcon("chevron-down", 11);
+    this.trigger.appendChild(chevron);
+    this.trigger.addEventListener("click", () => {
+      if (this.panel)
+        this.close();
+      else
+        this.open();
+    });
+    this.paint();
+  }
+  /** The trigger element to place in the window. */
+  get element() {
+    return this.trigger;
+  }
+  /** The chosen ISO code ('' when there is no default). */
+  getValue() {
+    return this.value;
+  }
+  /** Set the value from outside (edit mode pre-fill, reset). */
+  setValue(iso) {
+    this.value = iso ?? "";
+    this.paint();
+  }
+  /** True while the popover is open — the window uses it to keep Escape for the popover. */
+  get isOpen() {
+    return this.panel !== null;
+  }
+  close() {
+    this.unwire?.();
+    this.unwire = null;
+    this.list?.destroy();
+    this.list = null;
+    this.panel?.remove();
+    this.panel = null;
+    this.trigger.setAttribute("aria-expanded", "false");
+  }
+  // ---- internals ----------------------------------------------------------------------
+  paint() {
+    const row = this.value ? countryRow(this.value, this.locale) : void 0;
+    const badge = this.trigger.querySelector(".tablify__country-badge");
+    if (badge)
+      badge.textContent = row ? row.iso : "\u2014";
+    this.triggerLabel.textContent = row ? `${row.name}  +${row.dial}` : "No default \u2014 use my region";
+    this.trigger.classList.toggle("tablify__country-trigger--empty", !row);
+  }
+  open() {
+    const card = document.createElement("div");
+    card.className = "tablify__panel tablify__country-popover";
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-label", "Default country");
+    applyTheme(card, this.opts.theme ?? "light");
+    const body = document.createElement("div");
+    body.className = "tablify__dropdown-body tablify__country-popover-body";
+    card.appendChild(body);
+    this.list = new CountryList({
+      locale: this.locale,
+      suggested: this.opts.suggested,
+      selected: this.value || null,
+      onPick: (row) => {
+        this.setValue(row.iso);
+        this.opts.onChange(row.iso);
+        this.close();
+        this.trigger.focus();
+      },
+      onCancel: () => {
+        this.close();
+        this.trigger.focus();
+      },
+      idPrefix: `${this.opts.id}-list`
+    });
+    body.appendChild(this.list.element);
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "tablify__dropdown-clear tablify__country-clear";
+    clear.textContent = "No default (use my region)";
+    clear.disabled = this.value === "";
+    clear.addEventListener("click", () => {
+      this.setValue(null);
+      this.opts.onChange(null);
+      this.close();
+      this.trigger.focus();
+    });
+    body.appendChild(clear);
+    document.body.appendChild(card);
+    this.panel = card;
+    this.trigger.setAttribute("aria-expanded", "true");
+    this.position();
+    this.list.focus();
+    this.wireDismiss();
+  }
+  /** Trigger width, 6 px below, flipped above when there is no room, and never off screen. */
+  position() {
+    const card = this.panel;
+    if (!card)
+      return;
+    const r = this.trigger.getBoundingClientRect();
+    const vw = window.innerWidth || 1024;
+    const vh = window.innerHeight || 768;
+    const width = Math.min(Math.max(r.width, 260), vw - 32);
+    const left = Math.max(8, Math.min(r.left, vw - width - 12));
+    card.style.position = "fixed";
+    card.style.width = `${width}px`;
+    card.style.left = `${left}px`;
+    card.style.zIndex = "1000";
+    const height = card.getBoundingClientRect().height;
+    const below = r.bottom + 6;
+    const flip = below + height > vh - 8 && r.top - height - 6 > 8;
+    card.style.top = `${Math.max(8, flip ? r.top - height - 6 : below)}px`;
+  }
+  wireDismiss() {
+    const onPress = (ev) => {
+      const target = ev.target;
+      if (this.panel?.contains(target) || this.trigger.contains(target))
+        return;
+      this.close();
+    };
+    const onKey = (ev) => {
+      if (ev.key === "Escape") {
+        ev.stopPropagation();
+        this.close();
+        this.trigger.focus();
+      }
+    };
+    const onMove = () => this.position();
+    const onScroll = (ev) => {
+      if (ev.target instanceof Node && this.panel?.contains(ev.target))
+        return;
+      this.close();
+    };
+    document.addEventListener("pointerdown", onPress, true);
+    document.addEventListener("keydown", onKey, true);
+    window.addEventListener("resize", onMove);
+    window.addEventListener("scroll", onScroll, true);
+    this.unwire = () => {
+      document.removeEventListener("pointerdown", onPress, true);
+      document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("resize", onMove);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }
+};
+
 // src/views/grid/AddFieldModal.ts
 var DEFAULT_NEW_FIELD_TYPE = "text";
 var MIN_MAX_TYPES = ["number", "currency", "percent", "duration", "rating", "date", "date_time"];
@@ -18931,6 +19504,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     this.minText = initial?.min === null || initial?.min === void 0 ? "" : String(initial.min);
     this.maxText = initial?.max === null || initial?.max === void 0 ? "" : String(initial.max);
     this.regexText = initial?.regex ?? "";
+    this.phoneCountry = initial?.phoneCountry ?? "";
     this.linkTableId = initial?.linkTableId ?? options.defaultLinkTableId ?? options.linkTargets?.[0]?.tableId ?? "";
   }
   /** The field being edited, kept so the window can compare against what it opened with. */
@@ -18950,6 +19524,10 @@ var AddFieldModal = class extends import_obsidian5.Modal {
   minText = "";
   maxText = "";
   regexText = "";
+  /** SAD-303: the phone field's default country ('' = none). */
+  phoneCountry = "";
+  /** COD-76/SAD-303: the country popover, closed with the window. */
+  countrySelect = null;
   /** Edit mode: the "N options: …" line, refreshed after the option manager closes. */
   optionsSummary = null;
   /** COD-76: the type picker, so closing the window closes its panel too (it lives on body). */
@@ -19055,6 +19633,10 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     regexInput.addEventListener("input", () => {
       this.regexText = regexInput.value;
     });
+    const countryWrap = body.createDiv({ cls: "tablify__af-country" });
+    this.label(countryWrap, "Default country", "tablify__af-country");
+    const countryHint = countryWrap.createDiv({ cls: "tablify__af-hint" });
+    countryHint.textContent = "Used when a number is typed without an international prefix.";
     const formulaWrap = body.createDiv();
     this.label(formulaWrap, "Formula", "tablify__af-formula");
     const formulaInput = formulaWrap.createEl("textarea", {
@@ -19088,8 +19670,22 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     linkSelect.addEventListener("change", () => {
       this.linkTableId = linkSelect.value;
     });
+    const countrySelect = new CountrySelect({
+      id: "tablify__af-country",
+      value: this.phoneCountry,
+      suggested: this.countrySuggestions(),
+      locale: readerLocale() || "en",
+      theme: document.body.classList.contains("theme-dark") ? "dark" : "light",
+      onChange: (iso) => {
+        this.phoneCountry = iso ?? "";
+        countrySelect.setValue(iso);
+      }
+    });
+    this.countrySelect = countrySelect;
+    countryWrap.appendChild(countrySelect.element);
     showTypeRows = () => {
       optionsWrap.style.display = SELECT_TYPES.includes(this.type) ? "" : "none";
+      countryWrap.style.display = this.type === "phone" ? "" : "none";
       minMaxWrap.style.display = MIN_MAX_TYPES.includes(this.type) ? "" : "none";
       regexWrap.style.display = REGEX_TYPES.includes(this.type) ? "" : "none";
       formulaWrap.style.display = this.type === "formula" ? "" : "none";
@@ -19124,6 +19720,24 @@ var AddFieldModal = class extends import_obsidian5.Modal {
   onClose() {
     this.typePicker?.close();
     this.typePicker = null;
+    this.countrySelect?.close();
+    this.countrySelect = null;
+  }
+  /**
+   * SAD-303: the countries the phone row suggests first — the field's own value (edit mode),
+   * the reader's region, and the country the field would otherwise resolve to. Never throws.
+   */
+  countrySuggestions() {
+    const out = [];
+    if (this.phoneCountry)
+      out.push(this.phoneCountry);
+    const region = regionOfLocale(readerLocale());
+    if (region)
+      out.push(region);
+    const resolved = defaultCountryFor({ phoneCountry: this.phoneCountry || void 0 }, readerLocale());
+    if (resolved)
+      out.push(resolved);
+    return [...new Set(out)];
   }
   label(parent, text, forId) {
     const label = parent.createEl("label", { text, cls: "tablify__pmodal-label" });
@@ -19170,6 +19784,8 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     if (max2 !== null)
       extras.max = max2;
     const regex = this.regexText.trim();
+    if (this.type === "phone" && this.phoneCountry)
+      extras.phoneCountry = this.phoneCountry;
     if (regex && REGEX_TYPES.includes(this.type)) {
       try {
         new RegExp(regex);
@@ -19245,6 +19861,8 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       }
       edit.regex = regex || null;
     }
+    if (this.type === "phone")
+      edit.phoneCountry = this.phoneCountry || null;
     if (this.type === "formula")
       edit.formula = this.expression;
     if (this.type === "link")
@@ -20976,7 +21594,7 @@ function dateTimeParts(value) {
 }
 
 // src/views/grid/date/DatePicker.ts
-var uid = 0;
+var uid2 = 0;
 var pad23 = (n) => String(n).padStart(2, "0");
 function el2(tag, className) {
   const node = document.createElement(tag);
@@ -21002,7 +21620,7 @@ var DatePicker = class {
   grid;
   hh;
   mm;
-  ids = { error: `tablify-date-error-${uid += 1}`, title: `tablify-date-title-${uid}` };
+  ids = { error: `tablify-date-error-${uid2 += 1}`, title: `tablify-date-title-${uid2}` };
   draft;
   view;
   focusDate;

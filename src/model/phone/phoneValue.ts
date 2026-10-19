@@ -7,6 +7,7 @@
 // reshape values in features this issue must not touch.
 
 import { AsYouType, isSupportedCountry, parsePhoneNumberFromString } from 'libphonenumber-js/min';
+import type { CountryCode } from 'libphonenumber-js/min';
 import type { CellValue, FieldDefinition } from '../types.js';
 
 /** Used only when the field has no default and the reader's locale names no region. */
@@ -28,7 +29,7 @@ export function readerLocale(): string {
 }
 
 /** Region of a locale tag ("en-GB" → "GB"), or null when it has none or is unsupported. */
-export function regionOfLocale(locale: string | undefined): string | null {
+export function regionOfLocale(locale: string | undefined): CountryCode | null {
   if (!locale) return null;
   try {
     if (typeof Intl !== 'undefined' && typeof Intl.Locale === 'function') {
@@ -44,15 +45,15 @@ export function regionOfLocale(locale: string | undefined): string | null {
 }
 
 /** Two-letter uppercase code the parser knows. Never throws. */
-export function isSupportedCountryCode(iso: unknown): iso is string {
-  return typeof iso === 'string' && /^[A-Z]{2}$/.test(iso) && isSupportedCountry(iso);
+export function isSupportedCountryCode(iso: unknown): iso is CountryCode {
+  return typeof iso === 'string' && /^[A-Z]{2}$/.test(iso) && isSupportedCountry(iso as CountryCode);
 }
 
 /**
  * The country a phone field edits in: its own default, then the reader's region, then US.
  * An unsupported or malformed `phoneCountry` is ignored rather than trusted.
  */
-export function defaultCountryFor(field: Pick<FieldDefinition, 'phoneCountry'> | undefined, locale?: string): string {
+export function defaultCountryFor(field: Pick<FieldDefinition, 'phoneCountry'> | undefined, locale?: string): CountryCode {
   const explicit = field?.phoneCountry;
   if (isSupportedCountryCode(explicit)) return explicit;
   return regionOfLocale(locale ?? readerLocale()) ?? FALLBACK_COUNTRY;
@@ -66,7 +67,7 @@ export function defaultCountryFor(field: Pick<FieldDefinition, 'phoneCountry'> |
  */
 export function parsePhone(input: string, country?: string): PhoneParts {
   const text = typeof input === 'string' ? input.trim() : '';
-  const fallback = isSupportedCountryCode(country) ? country : null;
+  const fallback: CountryCode | null = isSupportedCountryCode(country) ? country : null;
   if (text === '') return { country: fallback, national: '', e164: null };
 
   const parsed = parsePhoneNumberFromString(text, fallback ?? undefined);
@@ -113,7 +114,7 @@ export function formatPhoneDisplay(value: CellValue | undefined): string {
 }
 
 /** Format a partial number the way the panel shows it while the user types. */
-export function formatAsYouType(input: string, country: string): string {
+export function formatAsYouType(input: string, country: string | undefined): string {
   // AsYouType silently drops anything it does not recognise, so a stray letter would look
   // deleted while typing. Outside the phone alphabet the field is left exactly as typed.
   if (!/^[\d\s+\-().]*$/.test(input)) return input;

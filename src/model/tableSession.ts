@@ -26,6 +26,7 @@ import { compileFormula } from '../formula/index.js';
 
 import { generateFieldId } from '../utils/idGen.js';
 import { createSelectOptionManager } from './selectOptions.js';
+import { isSupportedCountryCode } from './phone/phoneValue.js';
 import { sortRows, visibleFields } from './viewOrder.js';
 import { filterRows, compileQuery } from './rowFilter.js';
 import type { QueryError } from '../query/parse.js';
@@ -58,6 +59,8 @@ export interface FieldEdit {
   min?: number | string | null;
   max?: number | string | null;
   regex?: string | null;
+  /** Phone fields only (SAD-303): ISO alpha-2 default country, or null to clear it. */
+  phoneCountry?: string | null;
   /** Formula fields only; compile-checked before anything is written. */
   formula?: string;
   /** Link fields only. */
@@ -249,6 +252,16 @@ export function createSession(file: TablifyFile): TableSession {
         }
         nextField.regex = regex;
       }
+    }
+    // SAD-303: the phone default country. A null/empty/invalid code clears it, and the key is
+    // only ever written on a phone field, so a type change cannot leave it behind.
+    if (patch.phoneCountry !== undefined) {
+      const code = typeof patch.phoneCountry === 'string' ? patch.phoneCountry.trim().toUpperCase() : '';
+      if (nextField.type !== 'phone' || code === '') delete nextField.phoneCountry;
+      else if (isSupportedCountryCode(code)) nextField.phoneCountry = code;
+      else return { ok: false, reason: 'Choose a supported country code.' };
+    } else if (nextField.type !== 'phone') {
+      delete nextField.phoneCountry;
     }
     if (patch.formula !== undefined && nextField.type === 'formula') {
       // Same guard as setFormula: a formula that does not parse is refused before anything lands.
@@ -530,6 +543,8 @@ export interface NewFieldExtras {
   min?: number | string | null;
   max?: number | string | null;
   regex?: string | null;
+  /** Phone fields only (SAD-303): ISO alpha-2 default country. */
+  phoneCountry?: string | null;
 }
 
 /** Copy the set extras onto a field that is being created (never on an existing field). */
@@ -547,6 +562,11 @@ export function applyNewFieldExtras(field: FieldDefinition, extras: NewFieldExtr
   if (extras.min !== undefined && extras.min !== null && extras.min !== '') field.min = extras.min;
   if (extras.max !== undefined && extras.max !== null && extras.max !== '') field.max = extras.max;
   if (extras.regex) field.regex = extras.regex;
+  // SAD-303: only a phone field carries a default country, and only a supported ISO code
+  // written the way the format requires it (two uppercase letters).
+  if (field.type === 'phone' && isSupportedCountryCode(extras.phoneCountry)) {
+    field.phoneCountry = extras.phoneCountry;
+  }
 }
 
 /** Every key editField can write, compared value by value (undefined and absent are the same). */
@@ -558,6 +578,7 @@ const FIELD_EDIT_KEYS = [
   'min',
   'max',
   'regex',
+  'phoneCountry',
   'formula',
   'linkTableId',
 ] as const;
