@@ -18670,7 +18670,12 @@ var GridView = class {
       this.opts.onCellActivate?.(row, col);
     });
     if (typeof ResizeObserver !== "undefined") {
-      this.resizeObserver = new ResizeObserver(() => this.refreshGeometry());
+      this.resizeObserver = new ResizeObserver(() => {
+        if (!this.refreshGeometry() && this.rangeFor(this.scrollTop) !== this.renderedRange) {
+          this.render();
+        }
+        this.opts.onViewportResize?.();
+      });
       this.resizeObserver.observe(this.root);
     }
     this.renderHeader();
@@ -18815,10 +18820,13 @@ var GridView = class {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
     const top = this.layout ? this.layout.tops[this.layout.rowItem[rowIndex] ?? 0] ?? 0 : rowIndex * this.rowHeight;
     const bodyTop = this.header.offsetHeight;
+    const cs = typeof getComputedStyle === "function" ? getComputedStyle(this.root) : null;
+    const padBottom = cs ? parseFloat(cs.paddingBottom) || 0 : 0;
+    const visibleBodyH = Math.max(this.rowHeight, viewportH - bodyTop - padBottom);
     if (top < this.scrollTop)
       this.setScrollTop(top);
-    else if (top + this.rowHeight > this.scrollTop + viewportH - bodyTop) {
-      this.setScrollTop(top + this.rowHeight - (viewportH - bodyTop));
+    else if (top + this.rowHeight > this.scrollTop + visibleBodyH) {
+      this.setScrollTop(Math.min(top, top + this.rowHeight - visibleBodyH));
     }
   }
   /** Set scrollTop programmatically (for tests/benchmark) */

@@ -63,6 +63,11 @@ export interface GridOptions {
    * what the viewport freeze default measures). Lets the toolbar mirror the new effective state.
    */
   onPaneWidthChange?: () => void;
+  /**
+   * SAD-305: fired when the grid shell resizes (width or height, e.g. when the mobile on-screen
+   * keyboard opens or closes). Lets the view keep an open cell editor aligned and in view.
+   */
+  onViewportResize?: () => void;
   /** Called when a body cell is clicked. Indexes refer to the current rows and fields. */
   onCellClick?: (rowIndex: number, colIndex: number) => void;
   /**
@@ -424,8 +429,15 @@ export class GridView {
 
     // SAD-79 fill mode follows the shell's width. Obsidian also calls handleResize() on pane
     // resizes; the observer covers first layout and container changes it does not report.
+    // SAD-305: a height-only resize (mobile keyboard opening or closing in portrait) leaves width
+    // unchanged, so re-render when the visible row window changes and notify the view.
     if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => this.refreshGeometry());
+      this.resizeObserver = new ResizeObserver(() => {
+        if (!this.refreshGeometry() && this.rangeFor(this.scrollTop) !== this.renderedRange) {
+          this.render();
+        }
+        this.opts.onViewportResize?.();
+      });
       this.resizeObserver.observe(this.root);
     }
 
@@ -530,9 +542,14 @@ export class GridView {
     const viewportH = this.root.clientHeight || this.opts.viewportHeight || 600;
     const top = this.layout ? this.layout.tops[this.layout.rowItem[rowIndex] ?? 0] ?? 0 : rowIndex * this.rowHeight;
     const bodyTop = this.header.offsetHeight;
+    const cs = typeof getComputedStyle === 'function' ? getComputedStyle(this.root) : null;
+    const padBottom = cs ? parseFloat(cs.paddingBottom) || 0 : 0;
+    // SAD-305: floor visibleBodyH at rowHeight so a tight viewport never sets scrollTop > top
+    // (which would push the target row's top edge underneath the sticky header).
+    const visibleBodyH = Math.max(this.rowHeight, viewportH - bodyTop - padBottom);
     if (top < this.scrollTop) this.setScrollTop(top);
-    else if (top + this.rowHeight > this.scrollTop + viewportH - bodyTop) {
-      this.setScrollTop(top + this.rowHeight - (viewportH - bodyTop));
+    else if (top + this.rowHeight > this.scrollTop + visibleBodyH) {
+      this.setScrollTop(Math.min(top, top + this.rowHeight - visibleBodyH));
     }
   }
 
