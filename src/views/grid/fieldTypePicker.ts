@@ -60,7 +60,7 @@ export const FIELD_TYPE_META: Record<FieldTypeName, FieldTypeMeta> = {
   currency: { icon: 'dollar-sign', description: 'Money, shown to two decimals', keywords: 'price cost money budget salary' },
   percent: { icon: 'percent', description: 'A 0–1 fraction, shown as 25%', keywords: 'rate share ratio' },
   duration: { icon: 'stopwatch', description: 'Stored in milliseconds, shown as 1m 30s', keywords: 'timer hours minutes elapsed' },
-  rating: { icon: 'star', description: 'Stars up to the field’s Max, then 4/5', keywords: 'stars score review' },
+  rating: { icon: 'star', description: 'Stars up to the field’s Max, with fractions and click-to-rate', keywords: 'stars score review' },
   checkbox: { icon: 'square-check', description: 'A box you click', keywords: 'boolean done yes no toggle' },
   date: { icon: 'calendar', description: 'A day, yyyy-mm-dd', keywords: 'calendar due day' },
   date_time: { icon: 'clock', description: 'Your clock on screen, UTC in the file', keywords: 'timestamp when schedule clock' },

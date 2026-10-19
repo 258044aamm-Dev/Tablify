@@ -3766,17 +3766,17 @@ function map(node, tagName, func) {
   return results;
 }
 var NAMESPACE_REG_EXP = /.+\:/;
-function getTagName(element2) {
-  return element2.tagName.replace(NAMESPACE_REG_EXP, "");
+function getTagName(element3) {
+  return element3.tagName.replace(NAMESPACE_REG_EXP, "");
 }
 function isElement(node) {
   return node.nodeType === 1;
 }
-function getFirstElementChild(element2) {
+function getFirstElementChild(element3) {
   var i = 0;
-  while (i < element2.childNodes.length) {
-    if (isElement(element2.childNodes[i])) {
-      return element2.childNodes[i];
+  while (i < element3.childNodes.length) {
+    if (isElement(element3.childNodes[i])) {
+      return element3.childNodes[i];
     }
     i++;
   }
@@ -3813,11 +3813,11 @@ function getCellElements(document2) {
   });
   return cells;
 }
-function getCellValueElement(document2, element2) {
-  return findChild(element2, "v");
+function getCellValueElement(document2, element3) {
+  return findChild(element3, "v");
 }
-function getCellInlineStringValue(document2, element2) {
-  var firstElementChild = getFirstElementChild(element2);
+function getCellInlineStringValue(document2, element3) {
+  var firstElementChild = getFirstElementChild(element3);
   if (firstElementChild && getTagName(firstElementChild) === "is") {
     var firstElementChildFirstElementChild = getFirstElementChild(firstElementChild);
     if (firstElementChildFirstElementChild && getTagName(firstElementChildFirstElementChild) === "t") {
@@ -4559,23 +4559,23 @@ function getColumnNumberFromColumnLetters(columnLetters) {
 }
 
 // node_modules/read-excel-file/modules/xlsx/parseCell.js
-function parseCell(element2, sheetDocument, sharedStrings, styles, epoch1904, options) {
-  var coordinates = parseCellCoordinates(element2.getAttribute("r"));
-  var valueElement = getCellValueElement(sheetDocument, element2);
+function parseCell(element3, sheetDocument, sharedStrings, styles, epoch1904, options) {
+  var coordinates = parseCellCoordinates(element3.getAttribute("r"));
+  var valueElement = getCellValueElement(sheetDocument, element3);
   var value = valueElement && valueElement.textContent;
-  var type = element2.getAttribute("t");
+  var type = element3.getAttribute("t");
   return {
     row: coordinates[0],
     column: coordinates[1],
     value: parseCellValue(value, type, {
       getInlineStringValue: function getInlineStringValue() {
-        return getCellInlineStringValue(sheetDocument, element2);
+        return getCellInlineStringValue(sheetDocument, element3);
       },
       getInlineStringXml: function getInlineStringXml() {
-        return getOuterXml(element2);
+        return getOuterXml(element3);
       },
       getStyleId: function getStyleId() {
-        return element2.getAttribute("s");
+        return element3.getAttribute("s");
       },
       styles,
       sharedStrings,
@@ -4591,8 +4591,8 @@ function parseCells(sheetDocument, sharedStrings, styles, epoch1904, options) {
   if (cells.length === 0) {
     return [];
   }
-  return cells.map(function(element2) {
-    return parseCell(element2, sheetDocument, sharedStrings, styles, epoch1904, options);
+  return cells.map(function(element3) {
+    return parseCell(element3, sheetDocument, sharedStrings, styles, epoch1904, options);
   });
 }
 
@@ -5701,9 +5701,9 @@ function _arrayLikeToArray9(r, a) {
 function mergeArrays(a, b) {
   var merged = a.slice();
   for (var _iterator = _createForOfIteratorHelperLoose7(b), _step; !(_step = _iterator()).done; ) {
-    var element2 = _step.value;
-    if (a.indexOf(element2) < 0) {
-      merged.push(element2);
+    var element3 = _step.value;
+    if (a.indexOf(element3) < 0) {
+      merged.push(element3);
     }
   }
   return merged.sort(function(a2, b3) {
@@ -18069,6 +18069,8 @@ function createEditor(field, row, store, stack, onDone) {
     return null;
   if (field.type === "phone")
     return null;
+  if (field.type === "rating")
+    return null;
   const ft = getFieldType(field.type);
   const initial = ft.format(row.values[field.id] ?? null, field);
   let input;
@@ -18261,6 +18263,9 @@ function applyValidationState(cellEl, field, row, allRows) {
 }
 
 // src/views/grid/rating/scale.ts
+function roundRating(value) {
+  return Math.round(value * 100) / 100;
+}
 function ratingNumber(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -18275,6 +18280,25 @@ function starFills(value, scale) {
     fills.push(Math.max(0, Math.min(1, rating - i)));
   }
   return fills;
+}
+function parseRatingInput(text, scale) {
+  const trimmed = text.trim().replace(",", ".");
+  if (trimmed === "")
+    return { ok: true, value: null };
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(trimmed)) {
+    return { ok: false, error: `Enter a number from 0 to ${scale}, or leave it empty.` };
+  }
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0 || n > scale) {
+    return { ok: false, error: `Enter a number from 0 to ${scale}, or leave it empty.` };
+  }
+  return { ok: true, value: roundRating(n) };
+}
+function ratingValueText(value, scale) {
+  if (value === null)
+    return "No rating";
+  const stars = scale === 1 ? "star" : "stars";
+  return `${value} out of ${scale} ${stars}`;
 }
 
 // src/views/grid/cellRender.ts
@@ -18589,6 +18613,15 @@ var GridView = class {
       const col = Number(cell2.dataset.colIndex);
       if (Number.isNaN(row) || Number.isNaN(col))
         return;
+      const star = target?.closest?.("[data-rating-star]");
+      if (star && this.opts.onRate) {
+        const value = Number(star.dataset.ratingStar);
+        if (Number.isFinite(value)) {
+          this.setSelection({ row, col });
+          this.opts.onRate(row, col, value);
+          return;
+        }
+      }
       const wasSelected = this.selected?.row === row && this.selected?.col === col;
       this.setSelection({ row, col });
       this.opts.onCellClick?.(row, col);
@@ -19537,7 +19570,8 @@ var GridView = class {
               )
             );
           } else if (field.type === "rating") {
-            renderRatingStars(text, field, val);
+            const interactive = this.opts.onRate !== void 0 && (this.opts.canRate?.(field) ?? true);
+            renderRatingStars(text, field, val, { interactive });
           } else if (isTimestampCellType(field)) {
             text.textContent = localDateTimeText(val);
           } else if (field.type === "url" || field.type === "email" || field.type === "phone") {
@@ -20342,8 +20376,8 @@ var Toolbar = class _Toolbar {
         this.opts.callbacks.onRowHeight(height);
         return;
       }
-      const button2 = target.closest("[data-action]");
-      const action = button2?.dataset.action;
+      const button3 = target.closest("[data-action]");
+      const action = button3?.dataset.action;
       if (action)
         this.handleAction(action);
     });
@@ -20812,7 +20846,7 @@ var FIELD_TYPE_META = {
   currency: { icon: "dollar-sign", description: "Money, shown to two decimals", keywords: "price cost money budget salary" },
   percent: { icon: "percent", description: "A 0\u20131 fraction, shown as 25%", keywords: "rate share ratio" },
   duration: { icon: "stopwatch", description: "Stored in milliseconds, shown as 1m 30s", keywords: "timer hours minutes elapsed" },
-  rating: { icon: "star", description: "Stars up to the field\u2019s Max, then 4/5", keywords: "stars score review" },
+  rating: { icon: "star", description: "Stars up to the field\u2019s Max, with fractions and click-to-rate", keywords: "stars score review" },
   checkbox: { icon: "square-check", description: "A box you click", keywords: "boolean done yes no toggle" },
   date: { icon: "calendar", description: "A day, yyyy-mm-dd", keywords: "calendar due day" },
   date_time: { icon: "clock", description: "Your clock on screen, UTC in the file", keywords: "timestamp when schedule clock" },
@@ -21079,11 +21113,11 @@ var FieldTypePicker = class {
       const empty = el("div", "tablify__tp-empty");
       const p = el("p");
       p.textContent = `No field type matches \u201C${this.query.trim()}\u201D.`;
-      const button2 = el("button", "tablify__tp-empty-btn");
-      button2.type = "button";
-      button2.dataset.clear = "true";
-      button2.textContent = "Clear search";
-      empty.append(p, button2);
+      const button3 = el("button", "tablify__tp-empty-btn");
+      button3.type = "button";
+      button3.dataset.clear = "true";
+      button3.textContent = "Clear search";
+      empty.append(p, button3);
       list.appendChild(empty);
     }
     if (this.countEl) {
@@ -21391,13 +21425,13 @@ var CountryList = class {
     return out;
   }
   rowButton(row, id) {
-    const button2 = document.createElement("button");
-    button2.type = "button";
-    button2.className = "tablify__dropdown-item tablify__country-row";
-    button2.id = id;
-    button2.dataset.iso = row.iso;
-    button2.setAttribute("role", "option");
-    button2.setAttribute("aria-selected", row.iso === this.selected ? "true" : "false");
+    const button3 = document.createElement("button");
+    button3.type = "button";
+    button3.className = "tablify__dropdown-item tablify__country-row";
+    button3.id = id;
+    button3.dataset.iso = row.iso;
+    button3.setAttribute("role", "option");
+    button3.setAttribute("aria-selected", row.iso === this.selected ? "true" : "false");
     const badge = document.createElement("span");
     badge.className = "tablify__country-badge";
     badge.setAttribute("aria-hidden", "true");
@@ -21408,17 +21442,17 @@ var CountryList = class {
     const dial = document.createElement("span");
     dial.className = "tablify__country-dial";
     dial.textContent = `+${row.dial}`;
-    button2.appendChild(badge);
-    button2.appendChild(name);
-    button2.appendChild(dial);
+    button3.appendChild(badge);
+    button3.appendChild(name);
+    button3.appendChild(dial);
     if (row.iso === this.selected) {
       const check = document.createElement("span");
       check.className = "tablify__dropdown-check";
       check.innerHTML = faIcon("check", 12);
-      button2.appendChild(check);
+      button3.appendChild(check);
     }
-    button2.addEventListener("click", () => this.pick(row));
-    return button2;
+    button3.addEventListener("click", () => this.pick(row));
+    return button3;
   }
   heading(text) {
     const el4 = document.createElement("div");
@@ -21460,9 +21494,9 @@ var CountryList = class {
   }
   appendRow(row) {
     const id = `${this.idPrefix}-row-${row.iso}`;
-    const button2 = this.rowButton(row, id);
-    this.list.appendChild(button2);
-    this.rows.push(button2);
+    const button3 = this.rowButton(row, id);
+    this.list.appendChild(button3);
+    this.rows.push(button3);
   }
   // ---- keyboard -----------------------------------------------------------------------
   onKey(event) {
@@ -21505,15 +21539,15 @@ var CountryList = class {
   }
   pick(row) {
     this.selected = row.iso;
-    for (const button2 of this.rows) {
-      const chosen = button2.dataset.iso === row.iso;
-      button2.setAttribute("aria-selected", chosen ? "true" : "false");
-      const existing = button2.querySelector(".tablify__dropdown-check");
+    for (const button3 of this.rows) {
+      const chosen = button3.dataset.iso === row.iso;
+      button3.setAttribute("aria-selected", chosen ? "true" : "false");
+      const existing = button3.querySelector(".tablify__dropdown-check");
       if (chosen && !existing) {
         const check = document.createElement("span");
         check.className = "tablify__dropdown-check";
         check.innerHTML = faIcon("check", 12);
-        button2.appendChild(check);
+        button3.appendChild(check);
       } else if (!chosen) {
         existing?.remove();
       }
@@ -22236,7 +22270,7 @@ var FormulaEditModal = class extends import_obsidian7.Modal {
       })
     );
     new import_obsidian7.Setting(this.contentEl).addButton(
-      (button2) => button2.setButtonText("Save formula").setCta().onClick(() => this.submit())
+      (button3) => button3.setButtonText("Save formula").setCta().onClick(() => this.submit())
     );
     this.contentEl.addEventListener("keydown", (event) => {
       const evt = event;
@@ -23284,13 +23318,13 @@ var OptionManagerDialog = class {
       }
       ev.stopPropagation();
     });
-    const button2 = document.createElement("button");
-    button2.type = "button";
-    button2.className = "tablify__optmgr-addbtn";
-    button2.textContent = "Add";
-    button2.addEventListener("click", submit);
+    const button3 = document.createElement("button");
+    button3.type = "button";
+    button3.className = "tablify__optmgr-addbtn";
+    button3.textContent = "Add";
+    button3.addEventListener("click", submit);
     add.appendChild(input);
-    add.appendChild(button2);
+    add.appendChild(button3);
     this.body.appendChild(add);
     const hint = document.createElement("p");
     hint.className = "tablify__optmgr-hint";
@@ -23346,13 +23380,13 @@ var OptionManagerDialog = class {
     return row;
   }
   glyphButton(glyph, label, onClick) {
-    const button2 = document.createElement("button");
-    button2.type = "button";
-    button2.className = "tablify__optmgr-move";
-    button2.setAttribute("aria-label", label);
-    button2.innerHTML = faIcon(glyph, 10);
-    button2.addEventListener("click", onClick);
-    return button2;
+    const button3 = document.createElement("button");
+    button3.type = "button";
+    button3.className = "tablify__optmgr-move";
+    button3.setAttribute("aria-label", label);
+    button3.innerHTML = faIcon(glyph, 10);
+    button3.addEventListener("click", onClick);
+    return button3;
   }
   moveBy(index, delta) {
     const ids = (this.field.options ?? []).map((o) => o.id);
@@ -24149,8 +24183,8 @@ var DatePicker = class {
     return (weekday - this.weekStart + 7) % 7;
   }
   focusDay(parts) {
-    const button2 = this.grid.querySelector(`[data-date="${formatYmd(parts)}"]`);
-    button2?.focus();
+    const button3 = this.grid.querySelector(`[data-date="${formatYmd(parts)}"]`);
+    button3?.focus();
   }
   // ---- rendering -------------------------------------------------------------------------
   showError(message) {
@@ -24196,26 +24230,26 @@ var DatePicker = class {
       const row = el2("div", "tablify__date-week");
       row.setAttribute("role", "row");
       for (const parts of week) {
-        const button2 = document.createElement("button");
-        button2.type = "button";
-        button2.className = "tablify__date-day";
-        button2.setAttribute("role", "gridcell");
-        button2.setAttribute("aria-label", dayLabel(parts));
-        button2.dataset.date = formatYmd(parts);
-        button2.textContent = String(parts.day);
+        const button3 = document.createElement("button");
+        button3.type = "button";
+        button3.className = "tablify__date-day";
+        button3.setAttribute("role", "gridcell");
+        button3.setAttribute("aria-label", dayLabel(parts));
+        button3.dataset.date = formatYmd(parts);
+        button3.textContent = String(parts.day);
         if (parts.month !== this.view.month)
-          button2.classList.add("is-outside");
+          button3.classList.add("is-outside");
         if (sameDay(parts, todayParts))
-          button2.classList.add("is-today");
+          button3.classList.add("is-today");
         const isSelected = sameDay(parts, selected);
         if (isSelected) {
-          button2.classList.add("is-selected");
-          button2.setAttribute("aria-selected", "true");
+          button3.classList.add("is-selected");
+          button3.setAttribute("aria-selected", "true");
         }
-        button2.tabIndex = sameDay(parts, this.focusDate) ? 0 : -1;
-        button2.addEventListener("click", () => this.pick(parts));
-        button2.addEventListener("keydown", (ev) => this.onGridKey(ev, parts));
-        row.appendChild(button2);
+        button3.tabIndex = sameDay(parts, this.focusDate) ? 0 : -1;
+        button3.addEventListener("click", () => this.pick(parts));
+        button3.addEventListener("keydown", (ev) => this.onGridKey(ev, parts));
+        row.appendChild(button3);
       }
       this.grid.appendChild(row);
     }
@@ -24531,6 +24565,291 @@ var PhonePanel = class {
     this.closeCountryView();
     this.input.value = formatAsYouType(this.input.value, this.country);
     this.paintPreview();
+  }
+};
+
+// src/views/grid/rating/RatingPanel.ts
+var uid4 = 0;
+function element2(tag, className) {
+  const node = document.createElement(tag);
+  node.className = className;
+  return node;
+}
+function button2(className, label) {
+  const node = document.createElement("button");
+  node.type = "button";
+  node.className = className;
+  node.textContent = label;
+  return node;
+}
+var RatingPanel = class {
+  opts;
+  scale;
+  card;
+  slider;
+  caption;
+  input;
+  hint;
+  clearBtn;
+  doneBtn;
+  ids = { hint: `tablify-rating-hint-${uid4 += 1}` };
+  /** The value as it arrived — handed back untouched while the panel is clean. */
+  original;
+  draft;
+  invalid = false;
+  errorText = "";
+  closed = false;
+  dragging = false;
+  unwire = null;
+  constructor(options) {
+    this.opts = options;
+    this.scale = ratingScale(options.field);
+    this.original = options.value ?? null;
+    this.draft = ratingNumber(options.value);
+    const { card, body } = createPanelCard("tablify-rating-panel", options.theme ?? "light", "tablify__dropdown-body");
+    card.classList.add("tablify__rating-panel");
+    card.setAttribute("aria-label", `Rating: ${options.field.name}`);
+    this.card = card;
+    const head = element2("div", "tablify__rating-head");
+    this.slider = element2("div", "tablify__rating-stars");
+    this.slider.setAttribute("role", "slider");
+    this.slider.setAttribute("tabindex", "0");
+    this.slider.setAttribute("aria-label", `Rating for ${options.field.name}`);
+    this.slider.setAttribute("aria-valuemin", "0");
+    this.slider.setAttribute("aria-valuemax", String(this.scale));
+    this.slider.addEventListener("keydown", (event) => this.onSliderKey(event));
+    this.slider.addEventListener("pointerdown", (event) => this.onPointerDown(event));
+    this.slider.addEventListener("pointermove", (event) => this.onPointerMove(event));
+    this.slider.addEventListener("pointerup", () => {
+      this.dragging = false;
+    });
+    this.slider.addEventListener("pointercancel", () => {
+      this.dragging = false;
+    });
+    head.appendChild(this.slider);
+    this.caption = element2("div", "tablify__rating-caption");
+    this.caption.setAttribute("aria-live", "polite");
+    head.appendChild(this.caption);
+    body.appendChild(head);
+    const row = element2("div", "tablify__rating-row");
+    this.input = document.createElement("input");
+    this.input.type = "text";
+    this.input.className = "tablify__dropdown-input tablify__rating-input";
+    this.input.inputMode = "decimal";
+    this.input.autocomplete = "off";
+    this.input.spellcheck = false;
+    this.input.setAttribute("aria-label", "Rating value");
+    this.input.setAttribute("aria-describedby", this.ids.hint);
+    this.input.addEventListener("input", () => this.onInput());
+    this.input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!this.invalid)
+          this.commit();
+      }
+    });
+    row.appendChild(this.input);
+    const scaleText = element2("span", "tablify__rating-scale");
+    scaleText.textContent = `/ ${this.scale}`;
+    scaleText.setAttribute("aria-hidden", "true");
+    row.appendChild(scaleText);
+    body.appendChild(row);
+    this.hint = element2("div", "tablify__rating-hint");
+    this.hint.id = this.ids.hint;
+    this.hint.hidden = true;
+    body.appendChild(this.hint);
+    const actions = element2("div", "tablify__rating-actions");
+    this.clearBtn = button2("tablify__rating-clear", "Clear");
+    this.clearBtn.addEventListener("click", () => {
+      this.input.value = "";
+      this.setDraft(null);
+      this.input.focus();
+    });
+    this.doneBtn = button2("tablify__rating-done tablify__pmodal-btn tablify__pmodal-btn--primary", "Done");
+    this.doneBtn.addEventListener("click", () => this.commit());
+    actions.appendChild(this.clearBtn);
+    actions.appendChild(this.doneBtn);
+    body.appendChild(actions);
+    this.paint();
+    this.input.value = this.draft === null ? "" : String(this.draft);
+  }
+  /** The card, appended to `document.body` by {@link open}. */
+  get element() {
+    return this.card;
+  }
+  open(anchor) {
+    if (this.closed)
+      return;
+    document.body.appendChild(this.card);
+    anchorPanel(this.card, anchor);
+    const onPress = (ev) => {
+      if (this.card.contains(ev.target))
+        return;
+      if (this.invalid)
+        this.cancel();
+      else
+        this.commit();
+    };
+    const onKey = (ev) => {
+      if (ev.key !== "Escape")
+        return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.cancel();
+    };
+    document.addEventListener("mousedown", onPress);
+    document.addEventListener("touchstart", onPress, { passive: true });
+    document.addEventListener("keydown", onKey, true);
+    this.unwire = () => {
+      document.removeEventListener("mousedown", onPress);
+      document.removeEventListener("touchstart", onPress, { passive: true });
+      document.removeEventListener("keydown", onKey, true);
+    };
+    this.slider.focus();
+  }
+  close() {
+    if (this.closed)
+      return;
+    this.closed = true;
+    this.unwire?.();
+    this.unwire = null;
+    this.card.remove();
+  }
+  // ---- draft --------------------------------------------------------------------------
+  setDraft(next) {
+    this.draft = next === null ? null : roundRating(next);
+    this.invalid = false;
+    this.errorText = "";
+    this.paint();
+  }
+  onInput() {
+    const parsed = parseRatingInput(this.input.value, this.scale);
+    if (!parsed.ok) {
+      this.invalid = true;
+      this.errorText = parsed.error;
+      this.paint();
+      return;
+    }
+    this.draft = parsed.value;
+    this.invalid = false;
+    this.errorText = "";
+    this.paint();
+  }
+  onSliderKey(event) {
+    const current = this.draft ?? 0;
+    let next;
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowUp":
+        next = Math.min(this.scale, current + 0.5);
+        break;
+      case "ArrowLeft":
+      case "ArrowDown":
+        next = Math.max(0, current - 0.5);
+        break;
+      case "PageUp":
+        next = Math.min(this.scale, current + 1);
+        break;
+      case "PageDown":
+        next = Math.max(0, current - 1);
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = this.scale;
+        break;
+      case "Delete":
+      case "Backspace":
+        next = null;
+        break;
+      case "Enter":
+        event.preventDefault();
+        this.commit();
+        return;
+      default: {
+        if (!/^[0-9]$/.test(event.key))
+          return;
+        next = Math.min(this.scale, Number(event.key));
+        break;
+      }
+    }
+    event.preventDefault();
+    this.input.value = next === null ? "" : String(next);
+    this.setDraft(next);
+  }
+  onPointerDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0)
+      return;
+    event.preventDefault();
+    this.dragging = true;
+    try {
+      this.slider.setPointerCapture(event.pointerId);
+    } catch {
+    }
+    this.slider.focus();
+    this.pickAt(event.clientX);
+  }
+  onPointerMove(event) {
+    if (!this.dragging)
+      return;
+    this.pickAt(event.clientX);
+  }
+  pickAt(clientX) {
+    const rect = this.slider.getBoundingClientRect();
+    const ratio = rect.width > 0 ? Math.max(0, Math.min(1, (clientX - rect.left) / rect.width)) : 0;
+    const raw = Math.ceil(ratio * this.scale / 0.5) * 0.5;
+    const next = roundRating(Math.max(0.5, Math.min(this.scale, raw)));
+    this.input.value = String(next);
+    this.setDraft(next);
+  }
+  // ---- paint --------------------------------------------------------------------------
+  paint() {
+    const fills = starFills(this.draft, this.scale);
+    this.slider.replaceChildren();
+    for (let i = 0; i < this.scale; i += 1) {
+      const fill = fills[i] ?? 0;
+      const star = element2(
+        "span",
+        fill >= 1 ? "tablify__star tablify__star--on" : fill > 0 ? "tablify__star tablify__star--partial" : "tablify__star"
+      );
+      const box = element2("span", "tablify__star-box");
+      const base = element2("span", "tablify__star-base");
+      base.innerHTML = faIcon("star", 20);
+      const painted = element2("span", "tablify__star-fill");
+      painted.style.width = `${Math.round(fill * 1e3) / 10}%`;
+      painted.innerHTML = faIcon("star", 20);
+      box.appendChild(base);
+      box.appendChild(painted);
+      star.appendChild(box);
+      this.slider.appendChild(star);
+    }
+    this.slider.setAttribute("aria-valuenow", String(this.draft ?? 0));
+    this.slider.setAttribute("aria-valuetext", ratingValueText(this.draft, this.scale));
+    this.caption.textContent = ratingValueText(this.draft, this.scale);
+    if (this.invalid)
+      this.input.setAttribute("aria-invalid", "true");
+    else
+      this.input.removeAttribute("aria-invalid");
+    this.hint.hidden = !this.invalid;
+    this.hint.textContent = this.invalid ? this.errorText : "";
+    this.doneBtn.disabled = this.invalid;
+    this.clearBtn.disabled = this.draft === null;
+  }
+  // ---- outcomes -----------------------------------------------------------------------
+  commit() {
+    if (this.closed || this.invalid)
+      return;
+    const next = this.draft;
+    this.close();
+    this.opts.onCommit(next);
+  }
+  cancel() {
+    if (this.closed)
+      return;
+    this.close();
+    this.opts.onCancel?.();
   }
 };
 
@@ -25094,6 +25413,9 @@ var TableView = class extends import_obsidian9.TextFileView {
         onCellActivate: (row, col) => this.startEdit({ row, col }),
         // COD-71: a checkbox cell is a real box; one click is one undo step, saved like any edit.
         onToggleCheckbox: (row, col) => this.toggleCheckboxAt(row, col),
+        // SAD-304: a star in a rating cell is a one-click edit; read-only ratings stay decoration.
+        onRate: (row, col, value) => this.rateAt(row, col, value),
+        canRate: (field) => !isReadOnly(field),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -25283,6 +25605,25 @@ var TableView = class extends import_obsidian9.TextFileView {
     if (!rowData || !field || field.type !== "checkbox")
       return;
     s.setValue(rowData.id, field.id, rowData.values[field.id] !== true);
+    this.afterChange();
+  }
+  /**
+   * SAD-304: a click on the k-th star writes k. Same path as the checkbox — one `setValue`, so
+   * one undo step and one save — and clicking the star that already holds the value writes
+   * nothing (no empty entry in the undo history).
+   */
+  rateAt(row, col, value) {
+    const s = this.session;
+    if (!s)
+      return;
+    const rowData = this.displayRows()[row];
+    const field = s.getVisibleFields()[col];
+    if (!rowData || !field || field.type !== "rating" || isReadOnly(field))
+      return;
+    if (rowData.values[field.id] === value)
+      return;
+    s.setValue(rowData.id, field.id, value);
+    this.grid?.root.focus();
     this.afterChange();
   }
   // ---- switching cells while an editor is open (COD-70) ----
@@ -25635,7 +25976,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     }
     grid.scrollToRow(sel.row);
     const cell2 = this.cellElement(sel);
-    if (field.type === "single_select" || field.type === "multi_select" || field.type === "attachment" || field.type === "date" || field.type === "date_time" || field.type === "phone") {
+    if (field.type === "single_select" || field.type === "multi_select" || field.type === "attachment" || field.type === "date" || field.type === "date_time" || field.type === "phone" || field.type === "rating") {
       if (cell2)
         this.openCellPanel(row.id, field, cell2);
       return;
@@ -25736,6 +26077,34 @@ var TableView = class extends import_obsidian9.TextFileView {
         onCancel: () => finish(false)
       });
       panel2.open(anchor);
+      return;
+    }
+    if (field.type === "rating") {
+      if (isReadOnly(field))
+        return;
+      const stored = value();
+      let settled = false;
+      const finish = (commit, next) => {
+        if (settled)
+          return;
+        settled = true;
+        if (commit) {
+          const same = String(next ?? "") === String(stored ?? "");
+          if (!same) {
+            s.setValue(rowId, field.id, next ?? null);
+            this.afterChange();
+          }
+        }
+        grid.root.focus();
+      };
+      const ratingPanel = new RatingPanel({
+        field,
+        value: stored,
+        theme: this.isDark() ? "dark" : "light",
+        onCommit: (next) => finish(true, next),
+        onCancel: () => finish(false)
+      });
+      ratingPanel.open(anchor);
       return;
     }
     if (field.type === "attachment") {

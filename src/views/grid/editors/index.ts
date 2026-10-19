@@ -69,6 +69,8 @@ export function createEditor(
   if (field.type === 'date' || field.type === 'date_time') return null;
   // SAD-303: a phone cell is edited in the anchored phone panel (country + number + preview).
   if (field.type === 'phone') return null;
+  // SAD-304: a rating cell is edited in its star panel; a text input would undo the fractions.
+  if (field.type === 'rating') return null;
 
   const ft = getFieldType(field.type);
   const initial = ft.format(row.values[field.id] ?? null, field);

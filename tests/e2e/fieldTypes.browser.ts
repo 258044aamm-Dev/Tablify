@@ -217,7 +217,8 @@ const EDIT_CASES: EditCase[] = [
   { fieldId: 'fld_cur', label: 'currency', expect: 'editor', input: '1,234.56', expected: 123456 },
   { fieldId: 'fld_pct', label: 'percent', expect: 'editor', input: '25%', expected: 0.25 },
   { fieldId: 'fld_dur', label: 'duration', expect: 'editor', input: '1:30', expected: 90000 },
-  { fieldId: 'fld_rating', label: 'rating', expect: 'editor', input: '7', expected: 7 },
+  // SAD-304: rating opens the star panel; the stars are the editor, not a text input.
+  { fieldId: 'fld_rating', label: 'rating', expect: 'panel' },
   { fieldId: 'fld_check', label: 'checkbox', expect: 'editor', expected: true },
   // COD-75: date and date_time open the anchored picker, not an inline input.
   { fieldId: 'fld_date', label: 'date', expect: 'panel' },
@@ -285,6 +286,14 @@ async function runEditingMatrix(page: Page): Promise<void> {
       await page.waitForTimeout(160);
       const got = await stored(page, 0, c.fieldId);
       check('checkbox: commit stores true', got === true, `got ${JSON.stringify(got)}`);
+    } else if (shown.kind === 'panel' && c.fieldId === 'fld_rating') {
+      // SAD-304: End picks the top of the scale, Done commits it.
+      await page.locator('.tablify__rating-stars').press('End');
+      await page.locator('.tablify__rating-done').click();
+      await page.waitForTimeout(160);
+      const got = await stored(page, 0, 'fld_rating');
+      check('rating: a star press stores the value', got === 5, `got ${JSON.stringify(got)}`);
+      check('rating: the panel closes on Done', (await surface(page)).kind === 'none', 'panel still open');
     } else if (shown.kind === 'panel' && c.fieldId === 'fld_phone') {
       await page.locator('.tablify__phone-panel input.tablify__phone-input').first().fill('01712345678');
       await page.keyboard.press('Enter');
@@ -526,7 +535,7 @@ async function runCod73Rendering(page: Page): Promise<void> {
   check('number: stored value is still the number', (await stored(page, 0, 'fld_num')) === 42.5, `got ${JSON.stringify(await stored(page, 0, 'fld_num'))}`);
   check('currency: cell is right-aligned too', await cellHasClass(COL.fld_cur, 'tablify__cell--numeric'), 'no numeric class');
 
-  // rating 7 of a default scale of 5: five stars, all filled, and the label the group heading uses.
+  // rating 5 of a default scale of 5 (the value the panel wrote): five filled stars and the number.
   const stars = await page.evaluate(
     (c) =>
       Array.from(
@@ -538,7 +547,7 @@ async function runCod73Rendering(page: Page): Promise<void> {
   );
   check('rating: five stars', stars.length === 5, `got ${stars.length}`);
   check('rating: filled up to the value', stars.every(Boolean), `got ${JSON.stringify(stars)}`);
-  check('rating: label reads "7/5"', (await cellText(COL.fld_rating)) === '7/5', `got ${JSON.stringify(await cellText(COL.fld_rating))}`);
+  check('rating: label reads the number', (await cellText(COL.fld_rating)) === '5', `got ${JSON.stringify(await cellText(COL.fld_rating))}`);
 
   // date_time: the local wall clock, the same value the editor shows.
   const localStamp = await page.evaluate((iso) => {

@@ -126,6 +126,14 @@ export interface GridOptions {
    * so one click is one undo step. Without it the cell is a read-only box.
    */
   onToggleCheckbox?: (rowIndex: number, colIndex: number) => void;
+  /**
+   * SAD-304: a star in a rating cell was clicked. `value` is the star's own position (1…scale);
+   * the caller writes it through the command stack, so one click is one undo step. Without it
+   * the stars are decoration.
+   */
+  onRate?: (rowIndex: number, colIndex: number, value: number) => void;
+  /** SAD-304: whether a field's cells may be edited in place (read-only ratings draw no targets). */
+  canRate?: (field: FieldDefinition) => boolean;
 }
 
 /**
@@ -378,6 +386,17 @@ export class GridView {
       const row = Number(rowEl?.dataset.rowIndex);
       const col = Number(cell.dataset.colIndex);
       if (Number.isNaN(row) || Number.isNaN(col)) return;
+      // SAD-304: a click on a star rates the row. The star owns the click, so no cell click
+      // runs — on touch that is what keeps a rating tap from opening the editor as well.
+      const star = target?.closest?.('[data-rating-star]') as HTMLElement | null;
+      if (star && this.opts.onRate) {
+        const value = Number(star.dataset.ratingStar);
+        if (Number.isFinite(value)) {
+          this.setSelection({ row, col });
+          this.opts.onRate(row, col, value);
+          return;
+        }
+      }
       const wasSelected = this.selected?.row === row && this.selected?.col === col;
       this.setSelection({ row, col });
       this.opts.onCellClick?.(row, col);
@@ -1372,8 +1391,9 @@ export class GridView {
               ),
             );
           } else if (field.type === 'rating') {
-            // COD-73: the prototype's stars plus `4/5`, out of the field's own scale.
-            renderRatingStars(text, field, val);
+            // SAD-304: fractional stars plus the number; a writable field's stars are clickable.
+            const interactive = this.opts.onRate !== undefined && (this.opts.canRate?.(field) ?? true);
+            renderRatingStars(text, field, val, { interactive });
           } else if (isTimestampCellType(field)) {
             // COD-73: a stored UTC instant reads as the local wall clock, like its editor.
             text.textContent = localDateTimeText(val);

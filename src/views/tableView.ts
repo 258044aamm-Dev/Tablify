@@ -41,6 +41,7 @@ import { OptionManagerDialog } from './grid/select/OptionManager.js';
 import { AttachmentPanel } from './grid/AttachmentPanel.js';
 import { DatePicker } from './grid/date/DatePicker.js';
 import { PhonePanel } from './grid/phone/PhonePanel.js';
+import { RatingPanel } from './grid/rating/RatingPanel.js';
 import { readerLocale } from '../model/phone/phoneValue.js';
 import { equivalentStored } from './grid/date/draft.js';
 import { checkAttachmentPath, normalizeAttachmentPath } from './grid/attachment.js';
@@ -638,6 +639,9 @@ export class TableView extends TextFileView {
         onCellActivate: (row, col) => this.startEdit({ row, col }),
         // COD-71: a checkbox cell is a real box; one click is one undo step, saved like any edit.
         onToggleCheckbox: (row, col) => this.toggleCheckboxAt(row, col),
+        // SAD-304: a star in a rating cell is a one-click edit; read-only ratings stay decoration.
+        onRate: (row, col, value) => this.rateAt(row, col, value),
+        canRate: (field) => !isReadOnly(field),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -839,6 +843,23 @@ export class TableView extends TextFileView {
     const field = s.getVisibleFields()[col];
     if (!rowData || !field || field.type !== 'checkbox') return;
     s.setValue(rowData.id, field.id, rowData.values[field.id] !== true);
+    this.afterChange();
+  }
+
+  /**
+   * SAD-304: a click on the k-th star writes k. Same path as the checkbox — one `setValue`, so
+   * one undo step and one save — and clicking the star that already holds the value writes
+   * nothing (no empty entry in the undo history).
+   */
+  private rateAt(row: number, col: number, value: number): void {
+    const s = this.session;
+    if (!s) return;
+    const rowData = this.displayRows()[row];
+    const field = s.getVisibleFields()[col];
+    if (!rowData || !field || field.type !== 'rating' || isReadOnly(field)) return;
+    if (rowData.values[field.id] === value) return;
+    s.setValue(rowData.id, field.id, value);
+    this.grid?.root.focus();
     this.afterChange();
   }
 
@@ -1225,7 +1246,8 @@ export class TableView extends TextFileView {
       field.type === 'attachment' ||
       field.type === 'date' ||
       field.type === 'date_time' ||
-      field.type === 'phone'
+      field.type === 'phone' ||
+      field.type === 'rating'
     ) {
       if (cell) this.openCellPanel(row.id, field, cell);
       return;
@@ -1332,6 +1354,36 @@ export class TableView extends TextFileView {
         onCancel: () => finish(false),
       });
       panel.open(anchor);
+      return;
+    }
+
+    // SAD-304: rating — big stars, half-star zones and a numeric field. Like the phone panel,
+    // it hands back the value to store; an untouched panel hands back the stored one, and the
+    // comparison below turns that into "no write at all".
+    if (field.type === 'rating') {
+      if (isReadOnly(field)) return;
+      const stored = value();
+      let settled = false;
+      const finish = (commit: boolean, next?: CellValue): void => {
+        if (settled) return;
+        settled = true;
+        if (commit) {
+          const same = String(next ?? '') === String(stored ?? '');
+          if (!same) {
+            s.setValue(rowId, field.id, next ?? null);
+            this.afterChange();
+          }
+        }
+        grid.root.focus();
+      };
+      const ratingPanel = new RatingPanel({
+        field,
+        value: stored,
+        theme: this.isDark() ? 'dark' : 'light',
+        onCommit: (next) => finish(true, next),
+        onCancel: () => finish(false),
+      });
+      ratingPanel.open(anchor);
       return;
     }
 

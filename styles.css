@@ -4041,6 +4041,146 @@
   color: var(--tablify-text-muted);
 }
 
+/* SAD-304 — the interactive stars in a cell. The glyphs stay put; the hit area grows around
+   them (negative margins cancel the padding) so a mouse and a thumb both land on a star, and
+   the star under the pointer answers on hover. */
+.tablify__stars--interactive {
+  margin-right: 4px;
+}
+
+.tablify__stars--interactive .tablify__star {
+  padding: 4px 1.5px;
+  margin: -4px -1.5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tablify__stars--interactive .tablify__star-box {
+  transition: transform 90ms ease;
+}
+
+.tablify__stars--interactive .tablify__star:hover .tablify__star-box {
+  transform: scale(1.15);
+}
+
+.tablify__stars--interactive .tablify__star:hover .tablify__star-base {
+  color: var(--tablify-accent-primary);
+  opacity: 0.5;
+}
+
+/* SAD-304 — the rating panel. */
+.tablify__rating-panel {
+  width: 248px;
+  max-width: min(248px, calc(100vw - 16px));
+}
+
+.tablify__rating-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 10px;
+}
+
+.tablify__rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.tablify__rating-stars:focus-visible {
+  outline: 2px solid var(--tablify-accent-primary);
+  outline-offset: 2px;
+}
+
+.tablify__rating-stars .tablify__star {
+  line-height: 1;
+}
+
+.tablify__rating-stars .tablify__star-box {
+  width: 20px;
+  height: 20px;
+}
+
+.tablify__rating-caption {
+  font-family: var(--tablify-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11.5px;
+  line-height: 15px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__rating-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tablify__rating-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tablify__rating-scale {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__rating-hint {
+  min-height: 15px;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--tablify-danger, var(--tablify-text));
+}
+
+.tablify__rating-hint[hidden] {
+  display: none;
+}
+
+.tablify__rating-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  margin-top: 8px;
+  border-top: 1px solid var(--tablify-border-subtle);
+}
+
+.tablify.tablify__panel button.tablify__rating-clear {
+  margin: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--tablify-text-muted);
+  border: 0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.tablify.tablify__panel button.tablify__rating-clear:hover:not(:disabled) {
+  background: var(--tablify-bg-pill-hover);
+  color: var(--tablify-text);
+}
+
+.tablify.tablify__panel button.tablify__rating-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tablify.tablify__panel button.tablify__rating-done {
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 11.5px;
+}
+
 /* A URL / email / phone cell is a link. It keeps the cell's ink so the grid does not turn into
    a page of blue, and shows it is a link on hover — the prototype's `text-sky-600` reads as a
    browser, not as a table. */
