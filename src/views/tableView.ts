@@ -134,6 +134,7 @@ export class TableView extends TextFileView {
     // them even before a file loads. Plugin-scoped like every other applyTheme call —
     // document.body and the host Obsidian theme are never touched (branding §3).
     applyTheme(this.contentEl, this.currentTheme());
+    this.syncMobileBottomInset();
     // One rounded card around toolbar + grid, per the prototype's outer container.
     this.card = document.createElement('div');
     this.card.className = 'tablify__card';
@@ -196,6 +197,7 @@ export class TableView extends TextFileView {
     this.menuTarget = null;
     this.rowSelection = new Set();
     if (this.body) this.body.empty();
+    this.syncMobileBottomInset();
     this.syncLayoutFloor();
     this.syncToolbar();
   }
@@ -705,7 +707,92 @@ export class TableView extends TextFileView {
       this.grid.setModel(rows, fields, s.getView(), groups);
       this.grid.setRowSelection(this.rowSelection);
     }
+    this.syncMobileBottomInset();
     this.syncLayoutFloor();
+  }
+
+  /**
+   * SAD-307: detect whether the table view is running in a mobile context (Obsidian mobile,
+   * narrow pane/viewport ≤ 639px, or coarse-pointer mobile landscape).
+   */
+  private isMobileContext(): boolean {
+    if (typeof Platform !== 'undefined' && Platform.isMobile) return true;
+    if (typeof document !== 'undefined') {
+      if (
+        document.body.classList.contains('is-mobile') ||
+        document.body.classList.contains('is-phone')
+      ) {
+        return true;
+      }
+      if (document.querySelector('.mobile-navbar, .mobile-toolbar')) return true;
+    }
+    const paneW = this.contentEl.clientWidth;
+    if (paneW > 0 && paneW <= MOBILE_PANE_MAX_WIDTH) return true;
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth > 0 && window.innerWidth <= MOBILE_PANE_MAX_WIDTH) return true;
+      if (
+        window.innerHeight > 0 &&
+        window.innerHeight <= MOBILE_PANE_MAX_WIDTH &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(pointer: coarse)').matches
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * SAD-307: measure how many pixels at the bottom of `.tablify-view` are covered by Obsidian's
+   * native mobile bottom bar (`.mobile-navbar` / `.mobile-toolbar`) or `visualViewport`.
+   */
+  private measureMobileBottomBarOverlap(viewRect: DOMRect): number {
+    let overlap = 0;
+    if (typeof document !== 'undefined') {
+      const bars = document.querySelectorAll<HTMLElement>('.mobile-navbar, .mobile-toolbar');
+      for (const bar of Array.from(bars)) {
+        if (bar.hidden || bar.getAttribute('aria-hidden') === 'true') continue;
+        if (typeof getComputedStyle === 'function') {
+          const cs = getComputedStyle(bar);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        }
+        const barRect = bar.getBoundingClientRect();
+        const barH = barRect.height || bar.offsetHeight || 0;
+        if (barH <= 0) continue;
+        if (viewRect.height > 0 && barRect.height > 0) {
+          if (barRect.top < viewRect.bottom && barRect.bottom > viewRect.top) {
+            overlap = Math.max(overlap, Math.max(0, Math.ceil(viewRect.bottom - barRect.top)));
+          }
+        } else {
+          overlap = Math.max(overlap, Math.ceil(barH));
+        }
+      }
+    }
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (viewRect.height > 0 && vv && vv.height > 0) {
+      const vvOverlap = Math.max(0, Math.ceil(viewRect.bottom - (vv.offsetTop + vv.height)));
+      overlap = Math.max(overlap, vvOverlap);
+    }
+    return overlap;
+  }
+
+  /**
+   * SAD-307: expose the measured mobile bottom-bar / viewport overlap as
+   * `--tablify-mobile-bottom-inset` on `.tablify-view` so CSS bottom padding keeps the card and
+   * the Insert Row button above Obsidian's mobile bottom bar.
+   */
+  private syncMobileBottomInset(): void {
+    if (!this.isMobileContext()) {
+      this.contentEl.style.removeProperty('--tablify-mobile-bottom-inset');
+      return;
+    }
+    const viewRect = this.contentEl.getBoundingClientRect();
+    const inset = this.measureMobileBottomBarOverlap(viewRect);
+    if (inset > 0) {
+      this.contentEl.style.setProperty('--tablify-mobile-bottom-inset', `${inset}px`);
+    } else {
+      this.contentEl.style.removeProperty('--tablify-mobile-bottom-inset');
+    }
   }
 
   /**
@@ -1343,6 +1430,7 @@ export class TableView extends TextFileView {
    * outer scroll when the keyboard closes and the card fits again, and keep an open editor in view.
    */
   private handleViewportResize(): void {
+    this.syncMobileBottomInset();
     this.syncLayoutFloor();
     if (
       !this.editing &&
@@ -1371,8 +1459,10 @@ export class TableView extends TextFileView {
     const targetRect = target.getBoundingClientRect();
     if (!(viewRect.height > 0) || !(targetRect.height > 0)) return;
     const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-    const visibleBottom =
+    const vvBottom =
       vv && vv.height > 0 ? Math.min(viewRect.bottom, vv.offsetTop + vv.height) : viewRect.bottom;
+    const barOverlap = this.isMobileContext() ? this.measureMobileBottomBarOverlap(viewRect) : 0;
+    const visibleBottom = Math.min(vvBottom, viewRect.bottom - barOverlap);
     const pad = 12;
     if (targetRect.bottom > visibleBottom) {
       this.contentEl.scrollTop += targetRect.bottom - visibleBottom + pad;
