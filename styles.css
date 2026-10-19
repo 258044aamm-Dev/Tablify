@@ -1002,6 +1002,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow-y: auto;
   /* SAD-71 Step 6: the view is the app background the card sits on. applyTheme() puts
      the .tablify class on contentEl for the tokens; the base .tablify box styling
      (surface + border) must not double-frame the view, so it is overridden here. */
@@ -1041,11 +1042,17 @@
     0 8px 10px -6px rgba(0, 0, 0, 0.1);
 }
 
-/* Prototype `sm:` breakpoint (640px): phones get the compact card, gutter and title. */
+/* Prototype `sm:` breakpoint (640px): phones get the compact card, gutter and title.
+   SAD-307: reserve bottom clearance for Obsidian's mobile bottom bar (.mobile-navbar)
+   and device safe-area inset so the Insert Row button at the bottom of the grid is
+   never obscured when a table contains many rows. */
 @media (max-width: 639px) {
   .tablify-view,
   .view-content.tablify-view.tablify {
-    padding: 12px;
+    --tablify-mobile-bottom-pad: calc(
+      12px + max(var(--tablify-mobile-bottom-inset, 0px), 56px + env(safe-area-inset-bottom, 0px))
+    );
+    padding: 12px 12px var(--tablify-mobile-bottom-pad);
   }
 
   .tablify__card {
@@ -1057,6 +1064,34 @@
     font-size: 24px;
     line-height: 32px;
   }
+}
+
+/* SAD-307: mobile landscape (coarse pointer with compact height) and explicit Obsidian mobile
+   host classes (`body.is-mobile`, `body.is-phone`) also need bottom clearance for Obsidian's
+   floating `.mobile-navbar` and safe-area inset, plus compact card chrome in landscape. */
+@media (pointer: coarse) and (max-height: 639px) {
+  .tablify-view,
+  .view-content.tablify-view.tablify {
+    --tablify-mobile-bottom-pad: calc(
+      12px + max(var(--tablify-mobile-bottom-inset, 0px), 56px + env(safe-area-inset-bottom, 0px))
+    );
+    padding: 12px 12px var(--tablify-mobile-bottom-pad);
+  }
+
+  .tablify__card {
+    border-radius: 24px;
+    padding: 16px;
+  }
+}
+
+body.is-mobile .tablify-view,
+body.is-mobile .view-content.tablify-view.tablify,
+body.is-phone .tablify-view,
+body.is-phone .view-content.tablify-view.tablify {
+  --tablify-mobile-bottom-pad: calc(
+    12px + max(var(--tablify-mobile-bottom-inset, 0px), 56px + env(safe-area-inset-bottom, 0px))
+  );
+  padding: 12px 12px var(--tablify-mobile-bottom-pad);
 }
 
 .tablify__body {
