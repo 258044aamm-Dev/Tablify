@@ -1,8 +1,9 @@
 # SAD-304 — An interactive, star-based rating
 
 **Issue:** [SAD-304](https://linear.app/sad-mod/issue/SAD-304/rating) (Feature + Improvement, P2)
-**Project:** Tablify · **Branch:** `main` at `8820c97` · **Plan written:** 2026-10-19
-**Mode:** plan only. Nothing below is implemented yet; the only change in the tree is this file.
+**Project:** Tablify · **Branch:** `main` · **Plan written:** 2026-10-19 · **Status:** implemented
+in four commits (`0dbb36d`, `45037e5`, `ca96a24`, and the documentation commit that carries this
+line). See [`docs/evidence/SAD-304.md`](../evidence/SAD-304.md) for the measured result.
 
 ---
 

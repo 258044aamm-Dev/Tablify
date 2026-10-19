@@ -10,6 +10,7 @@ Everything in this guide covers the 1.0.0 (MVP) feature set, on desktop and mobi
 4. [Editing cells](#4-editing-cells)
    - [Picking a date or a time](#4a-picking-a-date-or-a-time)
    - [Phone numbers and countries](#4b-phone-numbers-and-countries)
+   - [Rating a row](#4c-rating-a-row)
 5. [Keyboard use](#5-keyboard-use)
 6. [Select options](#6-select-options)
 7. [Attachments](#7-attachments)
@@ -91,7 +92,7 @@ quietly missing. The field's current type is always selectable.
 The **Add New Field** dialog also takes, depending on the type:
 
 - **Options (one per line)** for Single select and Multi select; each line becomes an option with the next colour.
-- **Validation rules:** **Required** and **Unique** for every type, **Min** / **Max** for number, currency, percent, duration, rating, date and date-and-time fields (entered as you would type a cell), and a **Regex** for text, long text, URL, email and phone fields. An invalid bound or regex keeps the dialog open with a notice. The rules are saved with the field in the `.tablify` file. Cells are not checked against them yet; a rating's Max is used as the scale in its cells and group headings (for example `3/10`).
+- **Validation rules:** **Required** and **Unique** for every type, **Min** / **Max** for number, currency, percent, duration, rating, date and date-and-time fields (entered as you would type a cell), and a **Regex** for text, long text, URL, email and phone fields. An invalid bound or regex keeps the dialog open with a notice. The rules are saved with the field in the `.tablify` file. Cells are not checked against them yet; a rating's Max is the number of stars drawn (and the largest value the stars will choose).
 - **Formula**, with a live **Preview (row 1)** computed on the first row.
 - **Linked table** for Link fields.
 
@@ -120,6 +121,7 @@ another, which clears the cells that used it.
 | Text | any string |
 | Long text | multi-line strings |
 | Number | integers or decimals |
+| Rating | a number 0–10; the field's **Max** (5 when unset) is its star scale |
 | Date | ISO `yyyy-mm-dd` |
 | Checkbox | true/false |
 | Single select | one option from a list (with optional color) |
@@ -135,14 +137,14 @@ another, which clears the cells that used it.
 - a **Single select** cell shows the option as a coloured chip (its **Manage options…** colour), and a **Multi select** cell shows one smaller chip per value — cells store each option's identity, so renaming an option updates every cell;
 - **Currency** shows `1234.56`, **Percent** shows `25%` and **Duration** shows `1m 30s` (the file keeps cents, the 0–1 fraction and milliseconds);
 - a **Checkbox** is a box you click to tick or clear; each click is one undo step. An empty box is the same as `false`; a table reading `true`/`false` in the file shows a ticked/empty box;
-- a **Rating** is a row of stars filled up to the value, then the label (`4/5`). The scale is the field's **Max** (5 when unset), so a rating out of 10 draws ten stars and reads `7/10`;
+- a **Rating** is a row of stars filled up to the value — a fraction fills part of a star, so `4.5` is four full stars and half of the fifth — followed by the number. The scale is the field's **Max** (5 when unset), so a rating out of 10 draws ten stars;
 - **Date and time**, **Created time** and **Last modified** show your computer's local time as `2026-10-17T14:30` — the same wall clock the editor opens with — while the file keeps the UTC instant;
 - **URL**, **Email** and **Phone** cells are links: click the address to open it in your browser, mail app or phone app. A **Phone** cell shows the international form (`+880 1712 345678`) and dials `tel:+8801712345678`; the stored value and its tooltip stay `+8801712345678`, so copying and exporting keep the unformatted number;
 - **Number** cells group their digits (`1,234,567`), and the numeric columns — number, currency, percent, duration and auto number — are right-aligned;
 - an **Attachment** cell shows one paperclip chip per file, and **Long text** wraps to two lines before it is clipped.
 
 Copying a cell or a row and exporting use the stored value, not the display text — a number copies
-as `1234567`, a rating as `4`, a timestamp as its ISO instant — so what leaves the table can come
+as `1234567`, a rating as `4.5`, a timestamp as its ISO instant — so what leaves the table can come
 back unchanged. Searching and sorting also read the stored value.
 
 ## 4. Editing cells
@@ -218,6 +220,38 @@ imported as E.164; the field takes the column's country when every `+` value nam
 start in the right country. A national number is imported exactly as it appears — Tablify will not
 invent a country for it. A spreadsheet that turned your numbers into scientific notation
 (`8.8E+12`) has already lost the digits; retype those cells or export them as text.
+
+## 4c. Rating a row
+
+A **Rating** is a number, and its stars are a way of reading and choosing that number. A field's
+**Max** (*Add New Field* / *Modify Field*) is its scale: 5 stars when unset, up to 10.
+
+**Clicking a star.** Click the third star and the cell becomes `3` — one click, one undo step, no
+editor to dismiss. Clicking the star that already holds the value writes nothing. The stars in the
+cell are a mouse and trackpad shortcut; they are not in the tab order, because the arrow keys belong
+to the grid.
+
+**The panel.** Double-click the cell (or press **Enter**, or tap it again) for the full editor:
+
+- one big star per point of the Max (five by default); click the **left half** of a star for
+  `x.5` and the **right half** for `x`, or drag across them to scrub;
+- a numeric field for any value the stars cannot point at — type `3.7`, `4,5` or `0`, two decimals
+  at most; empty means no rating;
+- a caption that always reads the current draft (`4.5 out of 5 stars`);
+- **Done** or **Enter** saves (one undo step), **Clear** empties the cell, **Escape** throws the
+  draft away, and closing the panel without changing anything writes nothing.
+
+The star row is a slider for keyboard and screen readers: **← →** move by half a star, **PageUp /
+PageDown** by a whole one, **Home** and **End** jump to 0 and the Max, **Delete** clears, and a
+digit sets that value. The caption is announced as it changes, and the panel reports its value and
+range (`4.5 out of 5 stars`) rather than leaving five glyphs to be guessed.
+
+A rating above the Max already in a file keeps reading exactly as it is (all stars filled, its own
+number) until you change it; the panel offers `0` to `Max` for new values.
+
+**Airtable.** Airtable ratings are whole stars. Pushing a `4.5` sends `5` and the sync message says
+how many ratings were rounded (*1 rating(s) rounded for Airtable*); the `.tablify` file keeps
+`4.5` until you edit it. Nothing is refused and nothing is silently rewritten locally.
 
 ## 5. Keyboard use
 

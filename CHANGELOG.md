@@ -6,6 +6,15 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Ratings are stars you can click (SAD-304)** — a Rating cell now draws one star per point of the
+  field's **Max** and fills each by the value's fraction, so `4.5` is four full stars and half of
+  the fifth, followed by the number. Clicking a star writes that value (one undo step, no editor),
+  and double-click / **Enter** opens a panel with big stars, half-star zones, drag-to-scrub and a
+  numeric field that takes any decimal (`3.7`). The star row is a slider for keyboard and screen
+  readers: arrows move by half a star, Page keys by a whole one, Home/End jump, Delete clears, and
+  the panel reports `4.5 out of 5 stars`. Read-only ratings draw no targets. No new dependency, no
+  `formatVersion` change.
+
 - **Phone fields have a country, and the number is stored the way a phone system reads it
   (SAD-303)** — a Phone field can name a **default country** (*Add New Field* / *Modify Field* →
   *Default country*, a searchable list you can type into — `880`, `bangla`, `bd` or `uk` all find
@@ -29,6 +38,15 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Changed
 
+- **A rating accepts 0 and fractions, and its cell shows the number** — the type used to store only
+  whole numbers 1–10, so `4.5` was silently saved as `4`; it now stores any number in 0–10 with up
+  to two decimals (a field's **Max** is still what its stars draw and the largest value its stars
+  choose). The cell label is the number itself (`4.5`) instead of `4.5/5`; the scale moves to the
+  tooltip, the panel caption and the group headings, and a rating filter term may now name a
+  fraction.
+- **Airtable receives whole stars, and the sync message says so** — Airtable ratings are integers,
+  so a push rounds a fraction (`4.5` → `5`) and the report reads *1 rating(s) rounded for Airtable*.
+  The `.tablify` file keeps its fraction; nothing is refused and nothing is rewritten locally.
 - **Phone cells show the international form and dial in E.164** — the link text is
   `+1 555 123 4567` (the stored value and tooltip stay `+15551234567`, and `tel:` uses E.164), and
   the inline text editor is replaced by the panel described above.
