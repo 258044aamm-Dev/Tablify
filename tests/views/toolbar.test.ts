@@ -9,7 +9,15 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Toolbar, ROW_HEIGHTS, DEBOUNCE_MS, SEARCH_PLACEHOLDER, type ToolbarCallbacks, type ToolbarState } from '../../src/views/grid/toolbar.js';
+import {
+  Toolbar,
+  ROW_HEIGHTS,
+  DEBOUNCE_MS,
+  SEARCH_PLACEHOLDER,
+  MOBILE_SEARCH_PLACEHOLDER,
+  type ToolbarCallbacks,
+  type ToolbarState,
+} from '../../src/views/grid/toolbar.js';
 import { createDefaultView } from '../../src/model/view.js';
 import type { FieldDefinition } from '../../src/model/types.js';
 
@@ -109,6 +117,32 @@ describe('Toolbar — structure', () => {
     expect(box.getAttribute('aria-label')).toBe('Search or query rows');
     expect(box.placeholder).toBe(SEARCH_PLACEHOLDER);
     expect(SEARCH_PLACEHOLDER).toBe('Search or query — e.g. Status:Done Amount:>10');
+  });
+
+  it('uses the concise mobile placeholder on narrow panes or viewports (≤ 639px) and restores the full placeholder on desktop (SAD-306)', () => {
+    const { toolbar, state } = mount({ freezeUnavailable: true });
+    const box = q(toolbar.root, '[data-testid="tablify-search"]') as HTMLInputElement;
+    expect(box.placeholder).toBe(MOBILE_SEARCH_PLACEHOLDER);
+    expect(MOBILE_SEARCH_PLACEHOLDER).toBe('Search or query — e.g. Status:Done');
+
+    // Expanding the pane back to desktop width (> 639px) restores the full placeholder.
+    toolbar.update({ ...state, freezeUnavailable: false });
+    expect(box.placeholder).toBe(SEARCH_PLACEHOLDER);
+
+    // Resizing the browser viewport across the 639px breakpoint updates the placeholder too.
+    const originalWidth = window.innerWidth;
+    try {
+      Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true });
+      window.dispatchEvent(new Event('resize'));
+      expect(box.placeholder).toBe(MOBILE_SEARCH_PLACEHOLDER);
+
+      Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true });
+      window.dispatchEvent(new Event('resize'));
+      expect(box.placeholder).toBe(SEARCH_PLACEHOLDER);
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { value: originalWidth, configurable: true });
+    }
+    toolbar.destroy();
   });
 
   it('orders the buttons per SAD-308: ↶ · ↷ · Add Field · Add Row · Filter · Sync · Options', () => {

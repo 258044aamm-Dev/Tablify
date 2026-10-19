@@ -159,4 +159,18 @@ describe('SAD-308 — mobile 3-tools-at-a-time scrollable toolbar and desktop pr
 
     toolbar.destroy();
   });
+
+  it('truncates the search input and its placeholder with ellipsis so narrow mobile screens never clip mid-word (SAD-306)', () => {
+    const inputRule = bodies(desktopCss, '.tablify__toolbar input.tablify__search-input')[0] ?? '';
+    const placeholderRule = bodies(desktopCss, '.tablify__toolbar input.tablify__search-input::placeholder').join(' ');
+
+    expect(inputRule).toContain('min-width: 0');
+    expect(inputRule).toContain('overflow: hidden');
+    expect(inputRule).toContain('text-overflow: ellipsis');
+    expect(inputRule).toContain('white-space: nowrap');
+
+    expect(placeholderRule).toContain('overflow: hidden');
+    expect(placeholderRule).toContain('text-overflow: ellipsis');
+    expect(placeholderRule).toContain('white-space: nowrap');
+  });
 });
