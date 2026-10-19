@@ -46,6 +46,7 @@ import {
   localDateTimeText,
   renderAttachmentChips,
   renderContactLink,
+  ratingScale,
   renderRatingStars,
   renderSelectChips,
 } from './cellRender.js';
@@ -1421,6 +1422,16 @@ export class GridView {
           // SAD-109: the invalid-cell marker and rule message (P3-05), for cells whose tooltip is
           // not already owned by a formula error or broken link.
           if (!ownTitle) applyValidationState(cell, field, row, this.rows);
+          // SAD-304: the scale left the label, so a rating cell says it on hover — unless a
+          // validation rule owns the tooltip (SAD-109's rule: the message wins).
+          if (
+            field.type === 'rating' &&
+            !cell.classList.contains('tablify__cell--invalid') &&
+            typeof val === 'number' &&
+            Number.isFinite(val)
+          ) {
+            cell.title = `${val} out of ${ratingScale(field)}`;
+          }
           // COD-73: numeric cells sit right, like the prototype's `align: 'right'` types.
           if (isNumericCellType(field)) cell.classList.add('tablify__cell--numeric');
           // COD-73: long text takes two lines (the capsule's fixed height decides how many fit).

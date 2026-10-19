@@ -394,6 +394,20 @@ describe('SAD-304 — a rating cell is fractional stars plus the number', () => 
     grid.destroy();
   });
 
+  it('the scale lives in the tooltip now that the label is the number', () => {
+    const grid = mount({}, [row({ ...VALUES, f_rating: 4.5 })]);
+    expect(cellOf(grid, 'f_rating').getAttribute('title')).toBe('4.5 out of 5');
+    grid.destroy();
+  });
+
+  it('a validation message owns the tooltip when the cell breaks a rule', () => {
+    const fields = FIELDS.map((f) => (f.id === 'f_rating' ? { ...f, max: 5 } : f));
+    const grid = mount({}, [row({ ...VALUES, f_rating: 9 })], fields);
+    expect(cellOf(grid, 'f_rating').getAttribute('title')).toBe('Rating must be at most 5');
+    expect(cellOf(grid, 'f_rating').classList.contains('tablify__cell--invalid')).toBe(true);
+    grid.destroy();
+  });
+
   it('zero is a value, not an empty cell', () => {
     const grid = mount({}, [row({ ...VALUES, f_rating: 0 })]);
     expect(cellOf(grid, 'f_rating').querySelectorAll('.tablify__star--on')).toHaveLength(0);

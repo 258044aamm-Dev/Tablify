@@ -19589,6 +19589,9 @@ var GridView = class {
           cell2.appendChild(capsule);
           if (!ownTitle)
             applyValidationState(cell2, field, row, this.rows);
+          if (field.type === "rating" && !cell2.classList.contains("tablify__cell--invalid") && typeof val === "number" && Number.isFinite(val)) {
+            cell2.title = `${val} out of ${ratingScale(field)}`;
+          }
           if (isNumericCellType(field))
             cell2.classList.add("tablify__cell--numeric");
           if (field.type === "long_text")
