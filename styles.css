@@ -4268,3 +4268,174 @@
     min-height: 44px;
   }
 }
+
+/* ---- phone panel (SAD-303) -------------------------------------------------------------- */
+/* The fourth screen in `.tablify__panel`: country trigger + number field, a live preview, and
+   the searchable country list in the same card. Reuses the panel card, the dropdown input and
+   the dropdown list; nothing here paints outside the card. */
+
+.tablify__panel.tablify__phone-panel {
+  width: min(320px, calc(100vw - 24px));
+}
+
+.tablify__phone-view--number {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tablify__phone-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.tablify button.tablify__phone-country {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: 34px;
+  margin: 0;
+  padding: 0 8px;
+  background: var(--tablify-bg-inner);
+  color: var(--tablify-text);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  appearance: none;
+}
+
+.tablify button.tablify__phone-country:hover {
+  border-color: var(--tablify-border-pill-hover);
+}
+
+.tablify button.tablify__phone-country:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
+}
+
+.tablify__phone-country-chevron {
+  display: inline-flex;
+  color: var(--tablify-text-muted);
+}
+
+.tablify__phone-country-text {
+  white-space: nowrap;
+}
+
+.tablify .tablify__dropdown-input.tablify__phone-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tablify__phone-preview {
+  min-height: 15px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  line-height: 15px;
+  color: var(--tablify-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.tablify__phone-preview[data-state='valid'] {
+  color: var(--tablify-text);
+}
+
+.tablify__phone-preview[data-state='invalid'] {
+  color: var(--tablify-danger, var(--tablify-text));
+}
+
+.tablify__phone-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--tablify-border-subtle);
+}
+
+.tablify.tablify__panel button.tablify__phone-clear {
+  margin: 0;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--tablify-text-muted);
+  border: 0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.tablify.tablify__panel button.tablify__phone-clear:hover:not(:disabled) {
+  background: var(--tablify-bg-pill-hover);
+  color: var(--tablify-text);
+}
+
+.tablify.tablify__panel button.tablify__phone-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.tablify.tablify__panel button.tablify__phone-done {
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 11.5px;
+}
+
+/* Country view: a header row and the same searchable list the field window uses. */
+.tablify__phone-view--country {
+  display: flex;
+  flex-direction: column;
+}
+
+.tablify__phone-country-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.tablify.tablify__panel button.tablify__phone-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--tablify-text-muted);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tablify.tablify__panel button.tablify__phone-back:hover {
+  background: var(--tablify-bg-pill-hover);
+  color: var(--tablify-text);
+}
+
+.tablify__phone-panel .tablify__country-list {
+  max-height: 260px;
+}
+
+@media (pointer: coarse) {
+  .tablify__panel.tablify__phone-panel {
+    width: min(352px, calc(100vw - 24px));
+  }
+
+  .tablify button.tablify__phone-country,
+  .tablify .tablify__dropdown-input.tablify__phone-input {
+    height: 44px;
+  }
+}

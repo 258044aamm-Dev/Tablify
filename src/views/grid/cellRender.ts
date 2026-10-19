@@ -18,6 +18,7 @@ import { optionChipColors } from '../../ui/theme/tokens.js';
 import { faIcon } from '../../ui/faIcons.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { CellValue, FieldDefinition } from '../../model/types.js';
+import { formatPhoneDisplay, telHref } from '../../model/phone/phoneValue.js';
 
 export type CellTheme = 'light' | 'dark';
 
@@ -225,7 +226,9 @@ export function renderRatingStars(host: HTMLElement, field: FieldDefinition, val
 /** `mailto:` / `tel:` / bare `http(s)://`, or null when the value cannot be one. */
 function contactHref(field: FieldDefinition, value: string): string | null {
   if (field.type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? `mailto:${value}` : null;
-  if (field.type === 'phone') return /\+?[\d][\d\s\-().]{4,}$/.test(value) ? `tel:${value}` : null;
+  // SAD-303: E.164 for a number we can parse; the old loose rule for a legacy value, so a link
+  // that worked before the change still works.
+  if (field.type === 'phone') return telHref(value);
   if (field.type === 'url') return /^https?:\/\//i.test(value) ? value : null;
   return null;
 }
@@ -247,7 +250,9 @@ export function renderContactLink(host: HTMLElement, field: FieldDefinition, val
   const link = document.createElement('a');
   link.className = 'tablify__cell-link';
   link.href = href;
-  link.textContent = value;
+  // SAD-303: a phone cell shows the number in its international shape, while the file, copy,
+  // search, sort, grouping and export keep the raw E.164 (title shows what is stored).
+  link.textContent = field.type === 'phone' ? formatPhoneDisplay(value) : value;
   link.title = value;
   link.rel = 'noopener';
   link.target = '_blank';

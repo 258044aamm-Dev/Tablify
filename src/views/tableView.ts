@@ -40,6 +40,8 @@ import { SelectDropdown } from './grid/select/Dropdown.js';
 import { OptionManagerDialog } from './grid/select/OptionManager.js';
 import { AttachmentPanel } from './grid/AttachmentPanel.js';
 import { DatePicker } from './grid/date/DatePicker.js';
+import { PhonePanel } from './grid/phone/PhonePanel.js';
+import { readerLocale } from '../model/phone/phoneValue.js';
 import { equivalentStored } from './grid/date/draft.js';
 import { checkAttachmentPath, normalizeAttachmentPath } from './grid/attachment.js';
 import { createSetFieldOptionsCommand } from '../model/commands.js';
@@ -1222,7 +1224,8 @@ export class TableView extends TextFileView {
       field.type === 'multi_select' ||
       field.type === 'attachment' ||
       field.type === 'date' ||
-      field.type === 'date_time'
+      field.type === 'date_time' ||
+      field.type === 'phone'
     ) {
       if (cell) this.openCellPanel(row.id, field, cell);
       return;
@@ -1299,6 +1302,36 @@ export class TableView extends TextFileView {
         onCancel: () => finish(false),
       });
       picker.open(anchor);
+      return;
+    }
+
+    // SAD-303: phone — the country and the number in one card. The panel hands back the value
+    // the field type would store; an untouched panel hands back the stored value, and the
+    // comparison below turns that into "no write at all".
+    if (field.type === 'phone') {
+      const stored = value();
+      let settled = false;
+      const finish = (commit: boolean, next?: CellValue): void => {
+        if (settled) return;
+        settled = true;
+        if (commit) {
+          const same = String(next ?? '') === String(stored ?? '');
+          if (!same) {
+            s.setValue(rowId, field.id, next ?? null);
+            this.afterChange();
+          }
+        }
+        grid.root.focus();
+      };
+      const panel = new PhonePanel({
+        field,
+        value: stored,
+        theme: this.isDark() ? 'dark' : 'light',
+        locale: readerLocale(),
+        onCommit: (next) => finish(true, next),
+        onCancel: () => finish(false),
+      });
+      panel.open(anchor);
       return;
     }
 

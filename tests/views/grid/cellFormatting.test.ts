@@ -463,6 +463,22 @@ describe('COD-73 — url, email and phone cells are real links', () => {
     grid.destroy();
   });
 
+  it('a phone link shows the international form while the title and file keep the raw value', () => {
+    const grid = mount();
+    const link = cellOf(grid, 'f_phone').querySelector<HTMLAnchorElement>('a.tablify__cell-link');
+    // SAD-303: display is formatted; the stored value (and the tooltip) stay E.164.
+    expect(link?.textContent).toBe('+1 555 123 4567');
+    expect(link?.title).toBe('+15551234567');
+    grid.destroy();
+  });
+
+  it('a phone value that cannot be parsed shows exactly what is stored, and is not a link', () => {
+    const grid = mount({}, [row({ ...VALUES, f_phone: 'call me' })]);
+    expect(textOf(grid, 'f_phone')).toBe('call me');
+    expect(cellOf(grid, 'f_phone').querySelector('a')).toBeNull();
+    grid.destroy();
+  });
+
   it('a value that is not a usable address stays plain text, with no link', () => {
     const grid = mount({}, [row({ ...VALUES, f_url: 'not-a-url', f_email: 'nope', f_phone: '12' })]);
     expect(cellOf(grid, 'f_url').querySelector('a')).toBeNull();

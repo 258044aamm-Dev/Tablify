@@ -224,7 +224,9 @@ const EDIT_CASES: EditCase[] = [
   { fieldId: 'fld_dt', label: 'date_time', expect: 'panel' },
   { fieldId: 'fld_url', label: 'url', expect: 'editor', input: 'https://example.com/a', expected: 'https://example.com/a' },
   { fieldId: 'fld_email', label: 'email', expect: 'editor', input: 'User@Example.com', expected: 'user@example.com' },
-  { fieldId: 'fld_phone', label: 'phone', expect: 'editor', input: '+880 1712-345678', expected: '+880 1712-345678' },
+  // SAD-303: phone opens the anchored panel (country + number); a national number typed there is
+  // stored as E.164, exactly like the model's parse rule.
+  { fieldId: 'fld_phone', label: 'phone', expect: 'panel' },
   { fieldId: 'fld_single', label: 'single_select', expect: 'panel', expected: 'opt_a', noEscape: true },
   { fieldId: 'fld_multi', label: 'multi_select', expect: 'panel', expected: ['opt_a', 'opt_b'], noEscape: true },
   { fieldId: 'fld_attach', label: 'attachment', expect: 'panel', noEscape: true },
@@ -283,6 +285,12 @@ async function runEditingMatrix(page: Page): Promise<void> {
       await page.waitForTimeout(160);
       const got = await stored(page, 0, c.fieldId);
       check('checkbox: commit stores true', got === true, `got ${JSON.stringify(got)}`);
+    } else if (shown.kind === 'panel' && c.fieldId === 'fld_phone') {
+      await page.locator('.tablify__phone-panel input.tablify__phone-input').first().fill('01712345678');
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(160);
+      const got = await stored(page, 0, c.fieldId);
+      check('phone: commit stores E.164', got === '+8801712345678', `got ${JSON.stringify(got)}`);
     } else if (shown.kind === 'panel' && (c.fieldId === 'fld_single' || c.fieldId === 'fld_multi')) {
       const options = page.locator('.tablify__panel .tablify__dropdown-item');
       const count = await options.count();
@@ -555,7 +563,7 @@ async function runCod73Rendering(page: Page): Promise<void> {
   );
   check('url: cell is a link to the address', hrefs[0] === 'https://example.com/a', `got ${JSON.stringify(hrefs[0])}`);
   check('email: cell is a mailto: link', hrefs[1] === 'mailto:user@example.com', `got ${JSON.stringify(hrefs[1])}`);
-  check('phone: cell is a tel: link', hrefs[2] === 'tel:+880 1712-345678', `got ${JSON.stringify(hrefs[2])}`);
+  check('phone: cell is a tel: link in E.164', hrefs[2] === 'tel:+8801712345678', `got ${JSON.stringify(hrefs[2])}`);
 
   // attachment: one chip per path (row 1 carries the path; row 0's panel is only opened).
   const chips = await page.evaluate(

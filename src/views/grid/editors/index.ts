@@ -67,6 +67,8 @@ export function createEditor(
   // COD-75: a date or date_time cell is edited in the anchored picker panel, not in an input —
   // so no `<input type="date">` (and therefore no Chromium date dialog) is ever created.
   if (field.type === 'date' || field.type === 'date_time') return null;
+  // SAD-303: a phone cell is edited in the anchored phone panel (country + number + preview).
+  if (field.type === 'phone') return null;
 
   const ft = getFieldType(field.type);
   const initial = ft.format(row.values[field.id] ?? null, field);

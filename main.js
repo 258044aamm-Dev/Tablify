@@ -3766,17 +3766,17 @@ function map(node, tagName, func) {
   return results;
 }
 var NAMESPACE_REG_EXP = /.+\:/;
-function getTagName(element) {
-  return element.tagName.replace(NAMESPACE_REG_EXP, "");
+function getTagName(element2) {
+  return element2.tagName.replace(NAMESPACE_REG_EXP, "");
 }
 function isElement(node) {
   return node.nodeType === 1;
 }
-function getFirstElementChild(element) {
+function getFirstElementChild(element2) {
   var i = 0;
-  while (i < element.childNodes.length) {
-    if (isElement(element.childNodes[i])) {
-      return element.childNodes[i];
+  while (i < element2.childNodes.length) {
+    if (isElement(element2.childNodes[i])) {
+      return element2.childNodes[i];
     }
     i++;
   }
@@ -3813,11 +3813,11 @@ function getCellElements(document2) {
   });
   return cells;
 }
-function getCellValueElement(document2, element) {
-  return findChild(element, "v");
+function getCellValueElement(document2, element2) {
+  return findChild(element2, "v");
 }
-function getCellInlineStringValue(document2, element) {
-  var firstElementChild = getFirstElementChild(element);
+function getCellInlineStringValue(document2, element2) {
+  var firstElementChild = getFirstElementChild(element2);
   if (firstElementChild && getTagName(firstElementChild) === "is") {
     var firstElementChildFirstElementChild = getFirstElementChild(firstElementChild);
     if (firstElementChildFirstElementChild && getTagName(firstElementChildFirstElementChild) === "t") {
@@ -4559,23 +4559,23 @@ function getColumnNumberFromColumnLetters(columnLetters) {
 }
 
 // node_modules/read-excel-file/modules/xlsx/parseCell.js
-function parseCell(element, sheetDocument, sharedStrings, styles, epoch1904, options) {
-  var coordinates = parseCellCoordinates(element.getAttribute("r"));
-  var valueElement = getCellValueElement(sheetDocument, element);
+function parseCell(element2, sheetDocument, sharedStrings, styles, epoch1904, options) {
+  var coordinates = parseCellCoordinates(element2.getAttribute("r"));
+  var valueElement = getCellValueElement(sheetDocument, element2);
   var value = valueElement && valueElement.textContent;
-  var type = element.getAttribute("t");
+  var type = element2.getAttribute("t");
   return {
     row: coordinates[0],
     column: coordinates[1],
     value: parseCellValue(value, type, {
       getInlineStringValue: function getInlineStringValue() {
-        return getCellInlineStringValue(sheetDocument, element);
+        return getCellInlineStringValue(sheetDocument, element2);
       },
       getInlineStringXml: function getInlineStringXml() {
-        return getOuterXml(element);
+        return getOuterXml(element2);
       },
       getStyleId: function getStyleId() {
-        return element.getAttribute("s");
+        return element2.getAttribute("s");
       },
       styles,
       sharedStrings,
@@ -4591,8 +4591,8 @@ function parseCells(sheetDocument, sharedStrings, styles, epoch1904, options) {
   if (cells.length === 0) {
     return [];
   }
-  return cells.map(function(element) {
-    return parseCell(element, sheetDocument, sharedStrings, styles, epoch1904, options);
+  return cells.map(function(element2) {
+    return parseCell(element2, sheetDocument, sharedStrings, styles, epoch1904, options);
   });
 }
 
@@ -6979,9 +6979,9 @@ function _arrayLikeToArray9(r, a) {
 function mergeArrays(a, b) {
   var merged = a.slice();
   for (var _iterator = _createForOfIteratorHelperLoose7(b), _step; !(_step = _iterator()).done; ) {
-    var element = _step.value;
-    if (a.indexOf(element) < 0) {
-      merged.push(element);
+    var element2 = _step.value;
+    if (a.indexOf(element2) < 0) {
+      merged.push(element2);
     }
   }
   return merged.sort(function(a2, b3) {
@@ -8045,6 +8045,33 @@ function extractExtension(number) {
 }
 
 // node_modules/libphonenumber-js/es6/helpers/parseDigits.js
+function _createForOfIteratorHelperLoose10(r, e) {
+  var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+  if (t)
+    return (t = t.call(r)).next.bind(t);
+  if (Array.isArray(r) || (t = _unsupportedIterableToArray12(r)) || e && r && "number" == typeof r.length) {
+    t && (r = t);
+    var o = 0;
+    return function() {
+      return o >= r.length ? { done: true } : { done: false, value: r[o++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray12(r, a) {
+  if (r) {
+    if ("string" == typeof r)
+      return _arrayLikeToArray12(r, a);
+    var t = {}.toString.call(r).slice(8, -1);
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray12(r, a) : void 0;
+  }
+}
+function _arrayLikeToArray12(r, a) {
+  (null == a || a > r.length) && (a = r.length);
+  for (var e = 0, n = Array(a); e < a; e++)
+    n[e] = r[e];
+  return n;
+}
 var DIGITS = {
   "0": "0",
   "1": "1",
@@ -8120,13 +8147,24 @@ var DIGITS = {
 function parseDigit(character) {
   return DIGITS[character];
 }
+function parseDigits(string) {
+  var result2 = "";
+  for (var _iterator = _createForOfIteratorHelperLoose10(string.split("")), _step; !(_step = _iterator()).done; ) {
+    var character = _step.value;
+    var digit = parseDigit(character);
+    if (digit) {
+      result2 += digit;
+    }
+  }
+  return result2;
+}
 
 // node_modules/libphonenumber-js/es6/parseIncompletePhoneNumber.js
-function _createForOfIteratorHelperLoose10(r, e) {
+function _createForOfIteratorHelperLoose11(r, e) {
   var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
   if (t)
     return (t = t.call(r)).next.bind(t);
-  if (Array.isArray(r) || (t = _unsupportedIterableToArray12(r)) || e && r && "number" == typeof r.length) {
+  if (Array.isArray(r) || (t = _unsupportedIterableToArray13(r)) || e && r && "number" == typeof r.length) {
     t && (r = t);
     var o = 0;
     return function() {
@@ -8135,15 +8173,15 @@ function _createForOfIteratorHelperLoose10(r, e) {
   }
   throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray12(r, a) {
+function _unsupportedIterableToArray13(r, a) {
   if (r) {
     if ("string" == typeof r)
-      return _arrayLikeToArray12(r, a);
+      return _arrayLikeToArray13(r, a);
     var t = {}.toString.call(r).slice(8, -1);
-    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray12(r, a) : void 0;
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray13(r, a) : void 0;
   }
 }
-function _arrayLikeToArray12(r, a) {
+function _arrayLikeToArray13(r, a) {
   (null == a || a > r.length) && (a = r.length);
   for (var e = 0, n = Array(a); e < a; e++)
     n[e] = r[e];
@@ -8151,7 +8189,7 @@ function _arrayLikeToArray12(r, a) {
 }
 function parseIncompletePhoneNumber(string) {
   var result2 = "";
-  for (var _iterator = _createForOfIteratorHelperLoose10(string.split("")), _step; !(_step = _iterator()).done; ) {
+  for (var _iterator = _createForOfIteratorHelperLoose11(string.split("")), _step; !(_step = _iterator()).done; ) {
     var character = _step.value;
     result2 += parsePhoneNumberCharacter(character, result2) || "";
   }
@@ -8213,14 +8251,14 @@ function isPhoneContextValid(phoneContext) {
 
 // node_modules/libphonenumber-js/es6/helpers/extractFormattedPhoneNumberFromPossibleRfc3966NumberUri.js
 function extractFormattedPhoneNumberFromPossibleRfc3966NumberUri(numberToParse, _ref) {
-  var extractFormattedPhoneNumber = _ref.extractFormattedPhoneNumber;
+  var extractFormattedPhoneNumber2 = _ref.extractFormattedPhoneNumber;
   var phoneContext = extractPhoneContext(numberToParse);
   if (!isPhoneContextValid(phoneContext)) {
     throw new ParseError("NOT_A_NUMBER");
   }
   var phoneNumberString;
   if (phoneContext === null) {
-    phoneNumberString = extractFormattedPhoneNumber(numberToParse) || "";
+    phoneNumberString = extractFormattedPhoneNumber2(numberToParse) || "";
   } else {
     phoneNumberString = "";
     if (phoneContext.charAt(0) === PLUS_SIGN) {
@@ -8345,7 +8383,7 @@ function _extractFormattedPhoneNumber(text, extract, throwOnError) {
 }
 function parseInput(text, v2, extract) {
   var number = extractFormattedPhoneNumberFromPossibleRfc3966NumberUri(text, {
-    extractFormattedPhoneNumber: function extractFormattedPhoneNumber(text2) {
+    extractFormattedPhoneNumber: function extractFormattedPhoneNumber2(text2) {
       return _extractFormattedPhoneNumber(text2, extract, v2);
     }
   });
@@ -8540,20 +8578,20 @@ function _toPrimitive6(t, r) {
   return ("string" === r ? String : Number)(t);
 }
 function _slicedToArray4(r, e) {
-  return _arrayWithHoles4(r) || _iterableToArrayLimit4(r, e) || _unsupportedIterableToArray13(r, e) || _nonIterableRest4();
+  return _arrayWithHoles4(r) || _iterableToArrayLimit4(r, e) || _unsupportedIterableToArray14(r, e) || _nonIterableRest4();
 }
 function _nonIterableRest4() {
   throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray13(r, a) {
+function _unsupportedIterableToArray14(r, a) {
   if (r) {
     if ("string" == typeof r)
-      return _arrayLikeToArray13(r, a);
+      return _arrayLikeToArray14(r, a);
     var t = {}.toString.call(r).slice(8, -1);
-    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray13(r, a) : void 0;
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray14(r, a) : void 0;
   }
 }
-function _arrayLikeToArray13(r, a) {
+function _arrayLikeToArray14(r, a) {
   (null == a || a > r.length) && (a = r.length);
   for (var e = 0, n = Array(a); e < a; e++)
     n[e] = r[e];
@@ -8698,6 +8736,1953 @@ function parsePhoneNumber3() {
   return parsePhoneNumber2(text, options, metadata);
 }
 
+// node_modules/libphonenumber-js/es6/AsYouTypeState.js
+function _typeof8(o) {
+  "@babel/helpers - typeof";
+  return _typeof8 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+    return typeof o2;
+  } : function(o2) {
+    return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+  }, _typeof8(o);
+}
+function _classCallCheck4(a, n) {
+  if (!(a instanceof n))
+    throw new TypeError("Cannot call a class as a function");
+}
+function _defineProperties4(e, r) {
+  for (var t = 0; t < r.length; t++) {
+    var o = r[t];
+    o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey8(o.key), o);
+  }
+}
+function _createClass4(e, r, t) {
+  return r && _defineProperties4(e.prototype, r), t && _defineProperties4(e, t), Object.defineProperty(e, "prototype", { writable: false }), e;
+}
+function _toPropertyKey8(t) {
+  var i = _toPrimitive8(t, "string");
+  return "symbol" == _typeof8(i) ? i : i + "";
+}
+function _toPrimitive8(t, r) {
+  if ("object" != _typeof8(t) || !t)
+    return t;
+  var e = t[Symbol.toPrimitive];
+  if (void 0 !== e) {
+    var i = e.call(t, r || "default");
+    if ("object" != _typeof8(i))
+      return i;
+    throw new TypeError("@@toPrimitive must return a primitive value.");
+  }
+  return ("string" === r ? String : Number)(t);
+}
+var AsYouTypeState = /* @__PURE__ */ function() {
+  function AsYouTypeState2(_ref) {
+    var onCountryChange = _ref.onCountryChange, onCallingCodeChange = _ref.onCallingCodeChange;
+    _classCallCheck4(this, AsYouTypeState2);
+    this.onCountryChange = onCountryChange;
+    this.onCallingCodeChange = onCallingCodeChange;
+  }
+  return _createClass4(AsYouTypeState2, [{
+    key: "reset",
+    value: function reset(_ref2) {
+      var country = _ref2.country, callingCode = _ref2.callingCode;
+      this.international = false;
+      this.missingPlus = false;
+      this.IDDPrefix = void 0;
+      this.callingCode = void 0;
+      this.digits = "";
+      this.resetNationalSignificantNumber();
+      this.initCountryAndCallingCode(country, callingCode);
+    }
+  }, {
+    key: "resetNationalSignificantNumber",
+    value: function resetNationalSignificantNumber() {
+      this.nationalSignificantNumber = this.getNationalDigits();
+      this.nationalSignificantNumberIsModified = false;
+      this.nationalPrefix = void 0;
+      this.carrierCode = void 0;
+      this.prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix = void 0;
+    }
+  }, {
+    key: "update",
+    value: function update(properties) {
+      for (var _i = 0, _Object$keys = Object.keys(properties); _i < _Object$keys.length; _i++) {
+        var key = _Object$keys[_i];
+        this[key] = properties[key];
+      }
+    }
+  }, {
+    key: "initCountryAndCallingCode",
+    value: function initCountryAndCallingCode(country, callingCode) {
+      this.setCountry(country);
+      this.setCallingCode(callingCode);
+    }
+  }, {
+    key: "setCountry",
+    value: function setCountry(country) {
+      this.country = country;
+      this.onCountryChange(country);
+    }
+  }, {
+    key: "setCallingCode",
+    value: function setCallingCode(callingCode) {
+      this.callingCode = callingCode;
+      this.onCallingCodeChange(callingCode, this.country);
+    }
+  }, {
+    key: "startInternationalNumber",
+    value: function startInternationalNumber(country, callingCode) {
+      this.international = true;
+      this.initCountryAndCallingCode(country, callingCode);
+    }
+  }, {
+    key: "appendDigits",
+    value: function appendDigits(nextDigits) {
+      this.digits += nextDigits;
+    }
+  }, {
+    key: "appendNationalSignificantNumberDigits",
+    value: function appendNationalSignificantNumberDigits(nextDigits) {
+      this.nationalSignificantNumber += nextDigits;
+    }
+    /**
+     * Returns the part of `this.digits` that corresponds to the national number.
+     * Basically, all digits that have been input by the user, except for the
+     * international prefix and the country calling code part
+     * (if the number is an international one).
+     * @return {string}
+     */
+  }, {
+    key: "getNationalDigits",
+    value: function getNationalDigits() {
+      if (this.international) {
+        return this.digits.slice((this.IDDPrefix ? this.IDDPrefix.length : 0) + (this.callingCode ? this.callingCode.length : 0));
+      }
+      return this.digits;
+    }
+  }, {
+    key: "getDigitsWithoutInternationalPrefix",
+    value: function getDigitsWithoutInternationalPrefix() {
+      if (this.international) {
+        if (this.IDDPrefix) {
+          return this.digits.slice(this.IDDPrefix.length);
+        }
+      }
+      return this.digits;
+    }
+  }]);
+}();
+
+// node_modules/libphonenumber-js/es6/AsYouTypeFormatter.util.js
+function _createForOfIteratorHelperLoose12(r, e) {
+  var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+  if (t)
+    return (t = t.call(r)).next.bind(t);
+  if (Array.isArray(r) || (t = _unsupportedIterableToArray15(r)) || e && r && "number" == typeof r.length) {
+    t && (r = t);
+    var o = 0;
+    return function() {
+      return o >= r.length ? { done: true } : { done: false, value: r[o++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray15(r, a) {
+  if (r) {
+    if ("string" == typeof r)
+      return _arrayLikeToArray15(r, a);
+    var t = {}.toString.call(r).slice(8, -1);
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray15(r, a) : void 0;
+  }
+}
+function _arrayLikeToArray15(r, a) {
+  (null == a || a > r.length) && (a = r.length);
+  for (var e = 0, n = Array(a); e < a; e++)
+    n[e] = r[e];
+  return n;
+}
+var DIGIT_PLACEHOLDER = "x";
+var DIGIT_PLACEHOLDER_MATCHER = new RegExp(DIGIT_PLACEHOLDER);
+function repeat(string, times) {
+  if (times < 1) {
+    return "";
+  }
+  var result2 = "";
+  while (times > 1) {
+    if (times & 1) {
+      result2 += string;
+    }
+    times >>= 1;
+    string += string;
+  }
+  return result2 + string;
+}
+function cutAndStripNonPairedParens(string, cutBeforeIndex) {
+  if (string[cutBeforeIndex] === ")") {
+    cutBeforeIndex++;
+  }
+  return stripNonPairedParens(string.slice(0, cutBeforeIndex));
+}
+function stripNonPairedParens(string) {
+  var dangling_braces = [];
+  var i = 0;
+  while (i < string.length) {
+    if (string[i] === "(") {
+      dangling_braces.push(i);
+    } else if (string[i] === ")") {
+      dangling_braces.pop();
+    }
+    i++;
+  }
+  var start = 0;
+  var cleared_string = "";
+  dangling_braces.push(string.length);
+  for (var _i = 0, _dangling_braces = dangling_braces; _i < _dangling_braces.length; _i++) {
+    var index = _dangling_braces[_i];
+    cleared_string += string.slice(start, index);
+    start = index + 1;
+  }
+  return cleared_string;
+}
+function populateTemplateWithDigits(template, position, digits) {
+  for (var _iterator2 = _createForOfIteratorHelperLoose12(digits.split("")), _step2; !(_step2 = _iterator2()).done; ) {
+    var digit = _step2.value;
+    if (template.slice(position + 1).search(DIGIT_PLACEHOLDER_MATCHER) < 0) {
+      return;
+    }
+    position = template.search(DIGIT_PLACEHOLDER_MATCHER);
+    template = template.replace(DIGIT_PLACEHOLDER_MATCHER, digit);
+  }
+  return [template, position];
+}
+
+// node_modules/libphonenumber-js/es6/AsYouTypeFormatter.complete.js
+function formatCompleteNumber(state, format, _ref) {
+  var metadata = _ref.metadata, shouldTryNationalPrefixFormattingRule = _ref.shouldTryNationalPrefixFormattingRule, getSeparatorAfterNationalPrefix = _ref.getSeparatorAfterNationalPrefix;
+  var matcher = new RegExp("^(?:".concat(format.pattern(), ")$"));
+  if (matcher.test(state.nationalSignificantNumber)) {
+    return formatNationalNumberWithAndWithoutNationalPrefixFormattingRule(state, format, {
+      metadata,
+      shouldTryNationalPrefixFormattingRule,
+      getSeparatorAfterNationalPrefix
+    });
+  }
+}
+function canFormatCompleteNumber(nationalSignificantNumber, metadata) {
+  return checkNumberLength(nationalSignificantNumber, void 0, metadata) === "IS_POSSIBLE";
+}
+function formatNationalNumberWithAndWithoutNationalPrefixFormattingRule(state, format, _ref2) {
+  var metadata = _ref2.metadata, shouldTryNationalPrefixFormattingRule = _ref2.shouldTryNationalPrefixFormattingRule, getSeparatorAfterNationalPrefix = _ref2.getSeparatorAfterNationalPrefix;
+  var nationalSignificantNumber = state.nationalSignificantNumber, international = state.international, nationalPrefix = state.nationalPrefix, carrierCode = state.carrierCode;
+  if (shouldTryNationalPrefixFormattingRule(format)) {
+    var formattedNumber = formatNationalNumber2(state, format, {
+      useNationalPrefixFormattingRule: true,
+      getSeparatorAfterNationalPrefix,
+      metadata
+    });
+    if (formattedNumber) {
+      return formattedNumber;
+    }
+  }
+  return formatNationalNumber2(state, format, {
+    useNationalPrefixFormattingRule: false,
+    getSeparatorAfterNationalPrefix,
+    metadata
+  });
+}
+function formatNationalNumber2(state, format, _ref3) {
+  var metadata = _ref3.metadata, useNationalPrefixFormattingRule = _ref3.useNationalPrefixFormattingRule, getSeparatorAfterNationalPrefix = _ref3.getSeparatorAfterNationalPrefix;
+  var formattedNationalNumber = formatNationalNumberUsingFormat(state.nationalSignificantNumber, format, {
+    carrierCode: state.carrierCode,
+    useInternationalFormat: state.international,
+    withNationalPrefix: useNationalPrefixFormattingRule,
+    metadata
+  });
+  if (!useNationalPrefixFormattingRule) {
+    if (state.nationalPrefix) {
+      formattedNationalNumber = state.nationalPrefix + getSeparatorAfterNationalPrefix(format) + formattedNationalNumber;
+    } else if (state.prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix) {
+      formattedNationalNumber = state.prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix + " " + formattedNationalNumber;
+    }
+  }
+  if (isValidFormattedNationalNumber(formattedNationalNumber, state)) {
+    return formattedNationalNumber;
+  }
+}
+function isValidFormattedNationalNumber(formattedNationalNumber, state) {
+  return parseDigits(formattedNationalNumber) === state.getNationalDigits();
+}
+
+// node_modules/libphonenumber-js/es6/AsYouTypeFormatter.PatternParser.js
+function _typeof9(o) {
+  "@babel/helpers - typeof";
+  return _typeof9 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+    return typeof o2;
+  } : function(o2) {
+    return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+  }, _typeof9(o);
+}
+function _classCallCheck5(a, n) {
+  if (!(a instanceof n))
+    throw new TypeError("Cannot call a class as a function");
+}
+function _defineProperties5(e, r) {
+  for (var t = 0; t < r.length; t++) {
+    var o = r[t];
+    o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey9(o.key), o);
+  }
+}
+function _createClass5(e, r, t) {
+  return r && _defineProperties5(e.prototype, r), t && _defineProperties5(e, t), Object.defineProperty(e, "prototype", { writable: false }), e;
+}
+function _toPropertyKey9(t) {
+  var i = _toPrimitive9(t, "string");
+  return "symbol" == _typeof9(i) ? i : i + "";
+}
+function _toPrimitive9(t, r) {
+  if ("object" != _typeof9(t) || !t)
+    return t;
+  var e = t[Symbol.toPrimitive];
+  if (void 0 !== e) {
+    var i = e.call(t, r || "default");
+    if ("object" != _typeof9(i))
+      return i;
+    throw new TypeError("@@toPrimitive must return a primitive value.");
+  }
+  return ("string" === r ? String : Number)(t);
+}
+var PatternParser = /* @__PURE__ */ function() {
+  function PatternParser2() {
+    _classCallCheck5(this, PatternParser2);
+  }
+  return _createClass5(PatternParser2, [{
+    key: "parse",
+    value: function parse3(pattern) {
+      this.context = [{
+        or: true,
+        instructions: []
+      }];
+      this.parsePattern(pattern);
+      if (this.context.length !== 1) {
+        throw new Error("Non-finalized contexts left when pattern parse ended");
+      }
+      var _this$context$ = this.context[0], branches = _this$context$.branches, instructions = _this$context$.instructions;
+      if (branches) {
+        return {
+          op: "|",
+          args: branches.concat([expandSingleElementArray(instructions)])
+        };
+      }
+      if (instructions.length === 0) {
+        throw new Error("Pattern is required");
+      }
+      if (instructions.length === 1) {
+        return instructions[0];
+      }
+      return instructions;
+    }
+  }, {
+    key: "startContext",
+    value: function startContext(context) {
+      this.context.push(context);
+    }
+  }, {
+    key: "endContext",
+    value: function endContext() {
+      this.context.pop();
+    }
+  }, {
+    key: "getContext",
+    value: function getContext() {
+      return this.context[this.context.length - 1];
+    }
+  }, {
+    key: "parsePattern",
+    value: function parsePattern(pattern) {
+      if (!pattern) {
+        throw new Error("Pattern is required");
+      }
+      var match = pattern.match(OPERATOR);
+      if (!match) {
+        if (ILLEGAL_CHARACTER_REGEXP.test(pattern)) {
+          throw new Error("Illegal characters found in a pattern: ".concat(pattern));
+        }
+        this.getContext().instructions = this.getContext().instructions.concat(pattern.split(""));
+        return;
+      }
+      var operator = match[1];
+      var before = pattern.slice(0, match.index);
+      var rightPart = pattern.slice(match.index + operator.length);
+      switch (operator) {
+        case "(?:":
+          if (before) {
+            this.parsePattern(before);
+          }
+          this.startContext({
+            or: true,
+            instructions: [],
+            branches: []
+          });
+          break;
+        case ")":
+          if (!this.getContext().or) {
+            throw new Error('")" operator must be preceded by "(?:" operator');
+          }
+          if (before) {
+            this.parsePattern(before);
+          }
+          if (this.getContext().instructions.length === 0) {
+            throw new Error('No instructions found after "|" operator in an "or" group');
+          }
+          var _this$getContext = this.getContext(), branches = _this$getContext.branches;
+          branches.push(expandSingleElementArray(this.getContext().instructions));
+          this.endContext();
+          this.getContext().instructions.push({
+            op: "|",
+            args: branches
+          });
+          break;
+        case "|":
+          if (!this.getContext().or) {
+            throw new Error('"|" operator can only be used inside "or" groups');
+          }
+          if (before) {
+            this.parsePattern(before);
+          }
+          if (!this.getContext().branches) {
+            if (this.context.length === 1) {
+              this.getContext().branches = [];
+            } else {
+              throw new Error('"branches" not found in an "or" group context');
+            }
+          }
+          this.getContext().branches.push(expandSingleElementArray(this.getContext().instructions));
+          this.getContext().instructions = [];
+          break;
+        case "[":
+          if (before) {
+            this.parsePattern(before);
+          }
+          this.startContext({
+            oneOfSet: true
+          });
+          break;
+        case "]":
+          if (!this.getContext().oneOfSet) {
+            throw new Error('"]" operator must be preceded by "[" operator');
+          }
+          this.endContext();
+          this.getContext().instructions.push({
+            op: "[]",
+            args: parseOneOfSet(before)
+          });
+          break;
+        default:
+          throw new Error("Unknown operator: ".concat(operator));
+      }
+      if (rightPart) {
+        this.parsePattern(rightPart);
+      }
+    }
+  }]);
+}();
+function parseOneOfSet(pattern) {
+  var values = [];
+  var i = 0;
+  while (i < pattern.length) {
+    if (pattern[i] === "-") {
+      if (i === 0 || i === pattern.length - 1) {
+        throw new Error("Couldn't parse a one-of set pattern: ".concat(pattern));
+      }
+      var prevValue = pattern[i - 1].charCodeAt(0) + 1;
+      var nextValue = pattern[i + 1].charCodeAt(0) - 1;
+      var value = prevValue;
+      while (value <= nextValue) {
+        values.push(String.fromCharCode(value));
+        value++;
+      }
+    } else {
+      values.push(pattern[i]);
+    }
+    i++;
+  }
+  return values;
+}
+var ILLEGAL_CHARACTER_REGEXP = /[\(\)\[\]\?\:\|]/;
+var OPERATOR = new RegExp(
+  // any of:
+  "(\\||\\(\\?\\:|\\)|\\[|\\])"
+);
+function expandSingleElementArray(array) {
+  if (array.length === 1) {
+    return array[0];
+  }
+  return array;
+}
+
+// node_modules/libphonenumber-js/es6/AsYouTypeFormatter.PatternMatcher.js
+function _createForOfIteratorHelperLoose13(r, e) {
+  var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+  if (t)
+    return (t = t.call(r)).next.bind(t);
+  if (Array.isArray(r) || (t = _unsupportedIterableToArray16(r)) || e && r && "number" == typeof r.length) {
+    t && (r = t);
+    var o = 0;
+    return function() {
+      return o >= r.length ? { done: true } : { done: false, value: r[o++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray16(r, a) {
+  if (r) {
+    if ("string" == typeof r)
+      return _arrayLikeToArray16(r, a);
+    var t = {}.toString.call(r).slice(8, -1);
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray16(r, a) : void 0;
+  }
+}
+function _arrayLikeToArray16(r, a) {
+  (null == a || a > r.length) && (a = r.length);
+  for (var e = 0, n = Array(a); e < a; e++)
+    n[e] = r[e];
+  return n;
+}
+function _typeof10(o) {
+  "@babel/helpers - typeof";
+  return _typeof10 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+    return typeof o2;
+  } : function(o2) {
+    return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+  }, _typeof10(o);
+}
+function _classCallCheck6(a, n) {
+  if (!(a instanceof n))
+    throw new TypeError("Cannot call a class as a function");
+}
+function _defineProperties6(e, r) {
+  for (var t = 0; t < r.length; t++) {
+    var o = r[t];
+    o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey10(o.key), o);
+  }
+}
+function _createClass6(e, r, t) {
+  return r && _defineProperties6(e.prototype, r), t && _defineProperties6(e, t), Object.defineProperty(e, "prototype", { writable: false }), e;
+}
+function _toPropertyKey10(t) {
+  var i = _toPrimitive10(t, "string");
+  return "symbol" == _typeof10(i) ? i : i + "";
+}
+function _toPrimitive10(t, r) {
+  if ("object" != _typeof10(t) || !t)
+    return t;
+  var e = t[Symbol.toPrimitive];
+  if (void 0 !== e) {
+    var i = e.call(t, r || "default");
+    if ("object" != _typeof10(i))
+      return i;
+    throw new TypeError("@@toPrimitive must return a primitive value.");
+  }
+  return ("string" === r ? String : Number)(t);
+}
+var PatternMatcher = /* @__PURE__ */ function() {
+  function PatternMatcher2(pattern) {
+    _classCallCheck6(this, PatternMatcher2);
+    this.matchTree = new PatternParser().parse(pattern);
+  }
+  return _createClass6(PatternMatcher2, [{
+    key: "match",
+    value: function match(string) {
+      var _ref = arguments.length > 1 && arguments[1] !== void 0 ? arguments[1] : {}, allowOverflow = _ref.allowOverflow;
+      if (!string) {
+        throw new Error("String is required");
+      }
+      var result2 = _match(string.split(""), this.matchTree, true);
+      if (result2 && result2.match) {
+        delete result2.matchedChars;
+      }
+      if (result2 && result2.overflow) {
+        if (!allowOverflow) {
+          return;
+        }
+      }
+      return result2;
+    }
+  }]);
+}();
+function _match(characters, tree, last) {
+  if (typeof tree === "string") {
+    var characterString = characters.join("");
+    if (tree.indexOf(characterString) === 0) {
+      if (characters.length === tree.length) {
+        return {
+          match: true,
+          matchedChars: characters
+        };
+      }
+      return {
+        partialMatch: true
+        // matchedChars: characters
+      };
+    }
+    if (characterString.indexOf(tree) === 0) {
+      if (last) {
+        if (characters.length > tree.length) {
+          return {
+            overflow: true
+          };
+        }
+      }
+      return {
+        match: true,
+        matchedChars: characters.slice(0, tree.length)
+      };
+    }
+    return;
+  }
+  if (Array.isArray(tree)) {
+    var restCharacters = characters.slice();
+    var i = 0;
+    while (i < tree.length) {
+      var subtree = tree[i];
+      var result2 = _match(restCharacters, subtree, last && i === tree.length - 1);
+      if (!result2) {
+        return;
+      } else if (result2.overflow) {
+        return result2;
+      } else if (result2.match) {
+        restCharacters = restCharacters.slice(result2.matchedChars.length);
+        if (restCharacters.length === 0) {
+          if (i === tree.length - 1) {
+            return {
+              match: true,
+              matchedChars: characters
+            };
+          } else {
+            return {
+              partialMatch: true
+              // matchedChars: characters
+            };
+          }
+        }
+      } else {
+        if (result2.partialMatch) {
+          return {
+            partialMatch: true
+            // matchedChars: characters
+          };
+        } else {
+          throw new Error("Unsupported match result:\n".concat(JSON.stringify(result2, null, 2)));
+        }
+      }
+      i++;
+    }
+    if (last) {
+      return {
+        overflow: true
+      };
+    }
+    return {
+      match: true,
+      matchedChars: characters.slice(0, characters.length - restCharacters.length)
+    };
+  }
+  switch (tree.op) {
+    case "|":
+      var partialMatch;
+      for (var _iterator = _createForOfIteratorHelperLoose13(tree.args), _step; !(_step = _iterator()).done; ) {
+        var branch = _step.value;
+        var _result = _match(characters, branch, last);
+        if (_result) {
+          if (_result.overflow) {
+            return _result;
+          } else if (_result.match) {
+            return {
+              match: true,
+              matchedChars: _result.matchedChars
+            };
+          } else {
+            if (_result.partialMatch) {
+              partialMatch = true;
+            } else {
+              throw new Error("Unsupported match result:\n".concat(JSON.stringify(_result, null, 2)));
+            }
+          }
+        }
+      }
+      if (partialMatch) {
+        return {
+          partialMatch: true
+          // matchedChars: ...
+        };
+      }
+      return;
+    case "[]":
+      for (var _iterator2 = _createForOfIteratorHelperLoose13(tree.args), _step2; !(_step2 = _iterator2()).done; ) {
+        var _char = _step2.value;
+        if (characters[0] === _char) {
+          if (characters.length === 1) {
+            return {
+              match: true,
+              matchedChars: characters
+            };
+          }
+          if (last) {
+            return {
+              overflow: true
+            };
+          }
+          return {
+            match: true,
+            matchedChars: [_char]
+          };
+        }
+      }
+      return;
+    default:
+      throw new Error("Unsupported instruction tree: ".concat(tree));
+  }
+}
+
+// node_modules/libphonenumber-js/es6/AsYouTypeFormatter.js
+function _typeof11(o) {
+  "@babel/helpers - typeof";
+  return _typeof11 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+    return typeof o2;
+  } : function(o2) {
+    return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+  }, _typeof11(o);
+}
+function _createForOfIteratorHelperLoose14(r, e) {
+  var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+  if (t)
+    return (t = t.call(r)).next.bind(t);
+  if (Array.isArray(r) || (t = _unsupportedIterableToArray17(r)) || e && r && "number" == typeof r.length) {
+    t && (r = t);
+    var o = 0;
+    return function() {
+      return o >= r.length ? { done: true } : { done: false, value: r[o++] };
+    };
+  }
+  throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray17(r, a) {
+  if (r) {
+    if ("string" == typeof r)
+      return _arrayLikeToArray17(r, a);
+    var t = {}.toString.call(r).slice(8, -1);
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray17(r, a) : void 0;
+  }
+}
+function _arrayLikeToArray17(r, a) {
+  (null == a || a > r.length) && (a = r.length);
+  for (var e = 0, n = Array(a); e < a; e++)
+    n[e] = r[e];
+  return n;
+}
+function _classCallCheck7(a, n) {
+  if (!(a instanceof n))
+    throw new TypeError("Cannot call a class as a function");
+}
+function _defineProperties7(e, r) {
+  for (var t = 0; t < r.length; t++) {
+    var o = r[t];
+    o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey11(o.key), o);
+  }
+}
+function _createClass7(e, r, t) {
+  return r && _defineProperties7(e.prototype, r), t && _defineProperties7(e, t), Object.defineProperty(e, "prototype", { writable: false }), e;
+}
+function _toPropertyKey11(t) {
+  var i = _toPrimitive11(t, "string");
+  return "symbol" == _typeof11(i) ? i : i + "";
+}
+function _toPrimitive11(t, r) {
+  if ("object" != _typeof11(t) || !t)
+    return t;
+  var e = t[Symbol.toPrimitive];
+  if (void 0 !== e) {
+    var i = e.call(t, r || "default");
+    if ("object" != _typeof11(i))
+      return i;
+    throw new TypeError("@@toPrimitive must return a primitive value.");
+  }
+  return ("string" === r ? String : Number)(t);
+}
+var DUMMY_DIGIT = "9";
+var LONGEST_NATIONAL_PHONE_NUMBER_LENGTH = 15;
+var LONGEST_DUMMY_PHONE_NUMBER = repeat(DUMMY_DIGIT, LONGEST_NATIONAL_PHONE_NUMBER_LENGTH);
+var NATIONAL_PREFIX_SEPARATORS_PATTERN = /[- ]/;
+var SUPPORT_LEGACY_FORMATTING_PATTERNS = true;
+var CREATE_CHARACTER_CLASS_PATTERN = SUPPORT_LEGACY_FORMATTING_PATTERNS && function() {
+  return /\[([^\[\]])*\]/g;
+};
+var CREATE_STANDALONE_DIGIT_PATTERN = SUPPORT_LEGACY_FORMATTING_PATTERNS && function() {
+  return /\d(?=[^,}][^,}])/g;
+};
+var NON_ALTERING_FORMAT_REG_EXP = new RegExp("[" + VALID_PUNCTUATION + "]*\\$1[" + VALID_PUNCTUATION + "]*(\\$\\d[" + VALID_PUNCTUATION + "]*)*$");
+var MIN_LEADING_DIGITS_LENGTH = 3;
+var AsYouTypeFormatter = /* @__PURE__ */ function() {
+  function AsYouTypeFormatter2(_ref) {
+    var state = _ref.state, metadata = _ref.metadata;
+    _classCallCheck7(this, AsYouTypeFormatter2);
+    this.metadata = metadata;
+    this.resetFormat();
+  }
+  return _createClass7(AsYouTypeFormatter2, [{
+    key: "resetFormat",
+    value: function resetFormat() {
+      this.chosenFormat = void 0;
+      this.template = void 0;
+      this.nationalNumberTemplate = void 0;
+      this.populatedNationalNumberTemplate = void 0;
+      this.populatedNationalNumberTemplatePosition = -1;
+    }
+  }, {
+    key: "reset",
+    value: function reset(numberingPlan, state) {
+      this.resetFormat();
+      if (numberingPlan) {
+        this.isNANP = numberingPlan.callingCode() === "1";
+        this.matchingFormats = numberingPlan.formats();
+        if (state.nationalSignificantNumber) {
+          this.narrowDownMatchingFormats(state);
+        }
+      } else {
+        this.isNANP = void 0;
+        this.matchingFormats = [];
+      }
+    }
+    /**
+     * Formats an updated phone number.
+     * @param  {string} nextDigits — Additional phone number digits.
+     * @param  {object} state — `AsYouType` state.
+     * @return {[string]} Returns undefined if the updated phone number can't be formatted using any of the available formats.
+     */
+  }, {
+    key: "format",
+    value: function format(nextDigits, state) {
+      var _this = this;
+      if (canFormatCompleteNumber(state.nationalSignificantNumber, this.metadata)) {
+        for (var _iterator = _createForOfIteratorHelperLoose14(this.matchingFormats), _step; !(_step = _iterator()).done; ) {
+          var _format = _step.value;
+          var formattedCompleteNumber = formatCompleteNumber(state, _format, {
+            metadata: this.metadata,
+            shouldTryNationalPrefixFormattingRule: function shouldTryNationalPrefixFormattingRule(format2) {
+              return _this.shouldTryNationalPrefixFormattingRule(format2, {
+                international: state.international,
+                nationalPrefix: state.nationalPrefix
+              });
+            },
+            getSeparatorAfterNationalPrefix: function getSeparatorAfterNationalPrefix(format2) {
+              return _this.getSeparatorAfterNationalPrefix(format2);
+            }
+          });
+          if (formattedCompleteNumber) {
+            this.resetFormat();
+            this.chosenFormat = _format;
+            this.setNationalNumberTemplate(formattedCompleteNumber.replace(/\d/g, DIGIT_PLACEHOLDER), state);
+            this.populatedNationalNumberTemplate = formattedCompleteNumber;
+            this.populatedNationalNumberTemplatePosition = this.template.lastIndexOf(DIGIT_PLACEHOLDER);
+            return formattedCompleteNumber;
+          }
+        }
+      }
+      return this.formatNationalNumberWithNextDigits(nextDigits, state);
+    }
+    // Formats the next phone number digits.
+  }, {
+    key: "formatNationalNumberWithNextDigits",
+    value: function formatNationalNumberWithNextDigits(nextDigits, state) {
+      var previouslyChosenFormat = this.chosenFormat;
+      var newlyChosenFormat = this.chooseFormat(state);
+      if (newlyChosenFormat) {
+        if (newlyChosenFormat === previouslyChosenFormat) {
+          return this.formatNextNationalNumberDigits(nextDigits);
+        } else {
+          return this.formatNextNationalNumberDigits(state.getNationalDigits());
+        }
+      }
+    }
+  }, {
+    key: "narrowDownMatchingFormats",
+    value: function narrowDownMatchingFormats(_ref2) {
+      var _this2 = this;
+      var nationalSignificantNumber = _ref2.nationalSignificantNumber, nationalPrefix = _ref2.nationalPrefix, international = _ref2.international;
+      var leadingDigits = nationalSignificantNumber;
+      var leadingDigitsPatternIndex = leadingDigits.length - MIN_LEADING_DIGITS_LENGTH;
+      if (leadingDigitsPatternIndex < 0) {
+        leadingDigitsPatternIndex = 0;
+      }
+      this.matchingFormats = this.matchingFormats.filter(function(format) {
+        return _this2.formatSuits(format, international, nationalPrefix) && _this2.formatMatches(format, leadingDigits, leadingDigitsPatternIndex);
+      });
+      if (this.chosenFormat && this.matchingFormats.indexOf(this.chosenFormat) === -1) {
+        this.resetFormat();
+      }
+    }
+  }, {
+    key: "formatSuits",
+    value: function formatSuits(format, international, nationalPrefix) {
+      if (nationalPrefix && !format.usesNationalPrefix() && // !format.domesticCarrierCodeFormattingRule() &&
+      !format.nationalPrefixIsOptionalWhenFormattingInNationalFormat()) {
+        return false;
+      }
+      if (!international && !nationalPrefix && format.nationalPrefixIsMandatoryWhenFormattingInNationalFormat()) {
+        return false;
+      }
+      return true;
+    }
+  }, {
+    key: "formatMatches",
+    value: function formatMatches(format, leadingDigits, leadingDigitsPatternIndex) {
+      var leadingDigitsPatternsCount = format.leadingDigitsPatterns().length;
+      if (leadingDigitsPatternsCount === 0) {
+        return true;
+      }
+      leadingDigitsPatternIndex = Math.min(leadingDigitsPatternIndex, leadingDigitsPatternsCount - 1);
+      var leadingDigitsPattern = format.leadingDigitsPatterns()[leadingDigitsPatternIndex];
+      if (leadingDigits.length < MIN_LEADING_DIGITS_LENGTH) {
+        try {
+          return new PatternMatcher(leadingDigitsPattern).match(leadingDigits, {
+            allowOverflow: true
+          }) !== void 0;
+        } catch (error) {
+          console.error(error);
+          return true;
+        }
+      }
+      return new RegExp("^(".concat(leadingDigitsPattern, ")")).test(leadingDigits);
+    }
+  }, {
+    key: "getFormatFormat",
+    value: function getFormatFormat(format, international) {
+      return international ? format.internationalFormat() : format.format();
+    }
+  }, {
+    key: "chooseFormat",
+    value: function chooseFormat(state) {
+      var _this3 = this;
+      var _loop = function _loop2() {
+        var format = _step2.value;
+        if (_this3.chosenFormat === format) {
+          return 0;
+        }
+        if (!NON_ALTERING_FORMAT_REG_EXP.test(_this3.getFormatFormat(format, state.international))) {
+          return 1;
+        }
+        if (!_this3.createTemplateForFormat(format, state)) {
+          _this3.matchingFormats = _this3.matchingFormats.filter(function(_) {
+            return _ !== format;
+          });
+          return 1;
+        }
+        _this3.chosenFormat = format;
+        return 0;
+      }, _ret;
+      for (var _iterator2 = _createForOfIteratorHelperLoose14(this.matchingFormats.slice()), _step2; !(_step2 = _iterator2()).done; ) {
+        _ret = _loop();
+        if (_ret === 0)
+          break;
+        if (_ret === 1)
+          continue;
+      }
+      if (!this.chosenFormat) {
+        this.resetFormat();
+      }
+      return this.chosenFormat;
+    }
+  }, {
+    key: "createTemplateForFormat",
+    value: function createTemplateForFormat(format, state) {
+      if (SUPPORT_LEGACY_FORMATTING_PATTERNS && format.pattern().indexOf("|") >= 0) {
+        return;
+      }
+      var template = this.getTemplateForFormat(format, state);
+      if (template) {
+        this.setNationalNumberTemplate(template, state);
+        return true;
+      }
+    }
+  }, {
+    key: "getSeparatorAfterNationalPrefix",
+    value: function getSeparatorAfterNationalPrefix(format) {
+      if (this.isNANP) {
+        return " ";
+      }
+      if (format && format.nationalPrefixFormattingRule() && NATIONAL_PREFIX_SEPARATORS_PATTERN.test(format.nationalPrefixFormattingRule())) {
+        return " ";
+      }
+      return "";
+    }
+  }, {
+    key: "getInternationalPrefixBeforeCountryCallingCode",
+    value: function getInternationalPrefixBeforeCountryCallingCode(_ref3, options) {
+      var IDDPrefix = _ref3.IDDPrefix, missingPlus = _ref3.missingPlus;
+      if (IDDPrefix) {
+        return options && options.spacing === false ? IDDPrefix : IDDPrefix + " ";
+      }
+      if (missingPlus) {
+        return "";
+      }
+      return "+";
+    }
+  }, {
+    key: "getTemplate",
+    value: function getTemplate(state) {
+      if (!this.template) {
+        return;
+      }
+      var index = -1;
+      var i = 0;
+      var internationalPrefix = state.international ? this.getInternationalPrefixBeforeCountryCallingCode(state, {
+        spacing: false
+      }) : "";
+      while (i < internationalPrefix.length + state.getDigitsWithoutInternationalPrefix().length) {
+        index = this.template.indexOf(DIGIT_PLACEHOLDER, index + 1);
+        i++;
+      }
+      return cutAndStripNonPairedParens(this.template, index + 1);
+    }
+  }, {
+    key: "setNationalNumberTemplate",
+    value: function setNationalNumberTemplate(template, state) {
+      this.nationalNumberTemplate = template;
+      this.populatedNationalNumberTemplate = template;
+      this.populatedNationalNumberTemplatePosition = -1;
+      if (state.international) {
+        this.template = this.getInternationalPrefixBeforeCountryCallingCode(state).replace(/[\d\+]/g, DIGIT_PLACEHOLDER) + repeat(DIGIT_PLACEHOLDER, state.callingCode.length) + " " + template;
+      } else {
+        this.template = template;
+      }
+    }
+    /**
+     * Generates formatting template for a national phone number,
+     * optionally containing a national prefix, for a format.
+     * @param  {Format} format
+     * @param  {string} nationalPrefix
+     * @return {string}
+     */
+  }, {
+    key: "getTemplateForFormat",
+    value: function getTemplateForFormat(format, _ref4) {
+      var nationalSignificantNumber = _ref4.nationalSignificantNumber, international = _ref4.international, nationalPrefix = _ref4.nationalPrefix, prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix = _ref4.prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix;
+      var pattern = format.pattern();
+      if (SUPPORT_LEGACY_FORMATTING_PATTERNS) {
+        pattern = pattern.replace(CREATE_CHARACTER_CLASS_PATTERN(), "\\d").replace(CREATE_STANDALONE_DIGIT_PATTERN(), "\\d");
+      }
+      var digits = LONGEST_DUMMY_PHONE_NUMBER.match(pattern)[0];
+      if (nationalSignificantNumber.length > digits.length) {
+        return;
+      }
+      var strictPattern = new RegExp("^" + pattern + "$");
+      var nationalNumberDummyDigits = nationalSignificantNumber.replace(/\d/g, DUMMY_DIGIT);
+      if (strictPattern.test(nationalNumberDummyDigits)) {
+        digits = nationalNumberDummyDigits;
+      }
+      var numberFormat = this.getFormatFormat(format, international);
+      var nationalPrefixIncludedInTemplate;
+      if (this.shouldTryNationalPrefixFormattingRule(format, {
+        international,
+        nationalPrefix
+      })) {
+        var numberFormatWithNationalPrefix = numberFormat.replace(FIRST_GROUP_PATTERN, format.nationalPrefixFormattingRule());
+        if (parseDigits(format.nationalPrefixFormattingRule()) === (nationalPrefix || "") + parseDigits("$1")) {
+          numberFormat = numberFormatWithNationalPrefix;
+          nationalPrefixIncludedInTemplate = true;
+          if (nationalPrefix) {
+            var i = nationalPrefix.length;
+            while (i > 0) {
+              numberFormat = numberFormat.replace(/\d/, DIGIT_PLACEHOLDER);
+              i--;
+            }
+          }
+        }
+      }
+      var template = digits.replace(new RegExp(pattern), numberFormat).replace(new RegExp(DUMMY_DIGIT, "g"), DIGIT_PLACEHOLDER);
+      if (!nationalPrefixIncludedInTemplate) {
+        if (prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix) {
+          template = repeat(DIGIT_PLACEHOLDER, prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix.length) + " " + template;
+        } else if (nationalPrefix) {
+          template = repeat(DIGIT_PLACEHOLDER, nationalPrefix.length) + this.getSeparatorAfterNationalPrefix(format) + template;
+        }
+      }
+      if (international) {
+        template = applyInternationalSeparatorStyle(template);
+      }
+      return template;
+    }
+  }, {
+    key: "formatNextNationalNumberDigits",
+    value: function formatNextNationalNumberDigits(digits) {
+      var result2 = populateTemplateWithDigits(this.populatedNationalNumberTemplate, this.populatedNationalNumberTemplatePosition, digits);
+      if (!result2) {
+        this.resetFormat();
+        return;
+      }
+      this.populatedNationalNumberTemplate = result2[0];
+      this.populatedNationalNumberTemplatePosition = result2[1];
+      return cutAndStripNonPairedParens(this.populatedNationalNumberTemplate, this.populatedNationalNumberTemplatePosition + 1);
+    }
+  }, {
+    key: "shouldTryNationalPrefixFormattingRule",
+    value: function shouldTryNationalPrefixFormattingRule(format, _ref5) {
+      var international = _ref5.international, nationalPrefix = _ref5.nationalPrefix;
+      if (format.nationalPrefixFormattingRule()) {
+        var usesNationalPrefix = format.usesNationalPrefix();
+        if (usesNationalPrefix && nationalPrefix || !usesNationalPrefix && !international) {
+          return true;
+        }
+      }
+    }
+  }]);
+}();
+
+// node_modules/libphonenumber-js/es6/AsYouTypeParser.js
+function _typeof12(o) {
+  "@babel/helpers - typeof";
+  return _typeof12 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+    return typeof o2;
+  } : function(o2) {
+    return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+  }, _typeof12(o);
+}
+function _slicedToArray5(r, e) {
+  return _arrayWithHoles5(r) || _iterableToArrayLimit5(r, e) || _unsupportedIterableToArray18(r, e) || _nonIterableRest5();
+}
+function _nonIterableRest5() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray18(r, a) {
+  if (r) {
+    if ("string" == typeof r)
+      return _arrayLikeToArray18(r, a);
+    var t = {}.toString.call(r).slice(8, -1);
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray18(r, a) : void 0;
+  }
+}
+function _arrayLikeToArray18(r, a) {
+  (null == a || a > r.length) && (a = r.length);
+  for (var e = 0, n = Array(a); e < a; e++)
+    n[e] = r[e];
+  return n;
+}
+function _iterableToArrayLimit5(r, l) {
+  var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+  if (null != t) {
+    var e, n, i, u, a = [], f = true, o = false;
+    try {
+      if (i = (t = t.call(r)).next, 0 === l) {
+        if (Object(t) !== t)
+          return;
+        f = false;
+      } else
+        for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = true)
+          ;
+    } catch (r2) {
+      o = true, n = r2;
+    } finally {
+      try {
+        if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u))
+          return;
+      } finally {
+        if (o)
+          throw n;
+      }
+    }
+    return a;
+  }
+}
+function _arrayWithHoles5(r) {
+  if (Array.isArray(r))
+    return r;
+}
+function _classCallCheck8(a, n) {
+  if (!(a instanceof n))
+    throw new TypeError("Cannot call a class as a function");
+}
+function _defineProperties8(e, r) {
+  for (var t = 0; t < r.length; t++) {
+    var o = r[t];
+    o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey12(o.key), o);
+  }
+}
+function _createClass8(e, r, t) {
+  return r && _defineProperties8(e.prototype, r), t && _defineProperties8(e, t), Object.defineProperty(e, "prototype", { writable: false }), e;
+}
+function _toPropertyKey12(t) {
+  var i = _toPrimitive12(t, "string");
+  return "symbol" == _typeof12(i) ? i : i + "";
+}
+function _toPrimitive12(t, r) {
+  if ("object" != _typeof12(t) || !t)
+    return t;
+  var e = t[Symbol.toPrimitive];
+  if (void 0 !== e) {
+    var i = e.call(t, r || "default");
+    if ("object" != _typeof12(i))
+      return i;
+    throw new TypeError("@@toPrimitive must return a primitive value.");
+  }
+  return ("string" === r ? String : Number)(t);
+}
+var VALID_FORMATTED_PHONE_NUMBER_DIGITS_PART = "[" + VALID_PUNCTUATION + VALID_DIGITS + "]+";
+var VALID_FORMATTED_PHONE_NUMBER_DIGITS_PART_PATTERN = new RegExp("^" + VALID_FORMATTED_PHONE_NUMBER_DIGITS_PART + "$", "i");
+var VALID_FORMATTED_PHONE_NUMBER_PART = "(?:[" + PLUS_CHARS + "][" + VALID_PUNCTUATION + VALID_DIGITS + "]*|[" + VALID_PUNCTUATION + VALID_DIGITS + "]+)";
+var AFTER_PHONE_NUMBER_DIGITS_END_PATTERN = new RegExp("[^" + VALID_PUNCTUATION + VALID_DIGITS + "]+.*$");
+var COMPLEX_NATIONAL_PREFIX = /[^\d\[\]]/;
+var AsYouTypeParser = /* @__PURE__ */ function() {
+  function AsYouTypeParser2(_ref) {
+    var defaultCountry = _ref.defaultCountry, defaultCallingCode = _ref.defaultCallingCode, metadata = _ref.metadata, onNationalSignificantNumberChange = _ref.onNationalSignificantNumberChange;
+    _classCallCheck8(this, AsYouTypeParser2);
+    this.defaultCountry = defaultCountry;
+    this.defaultCallingCode = defaultCallingCode;
+    this.metadata = metadata;
+    this.onNationalSignificantNumberChange = onNationalSignificantNumberChange;
+  }
+  return _createClass8(AsYouTypeParser2, [{
+    key: "input",
+    value: function input(text, state) {
+      var _extractFormattedDigi = extractFormattedDigitsAndPlus(text), _extractFormattedDigi2 = _slicedToArray5(_extractFormattedDigi, 2), formattedDigits = _extractFormattedDigi2[0], hasPlus = _extractFormattedDigi2[1];
+      var digits = parseDigits(formattedDigits);
+      var justLeadingPlus;
+      if (hasPlus) {
+        if (!state.digits) {
+          state.startInternationalNumber(void 0, void 0);
+          if (!digits) {
+            justLeadingPlus = true;
+          }
+        }
+      }
+      if (digits) {
+        this.inputDigits(digits, state);
+      }
+      return {
+        digits,
+        justLeadingPlus
+      };
+    }
+    /**
+     * Inputs "next" phone number digits.
+     * @param  {string} digits
+     * @return {string} [formattedNumber] Formatted national phone number (if it can be formatted at this stage). Returning `undefined` means "don't format the national phone number at this stage".
+     */
+  }, {
+    key: "inputDigits",
+    value: function inputDigits(nextDigits, state) {
+      var digits = state.digits;
+      var hasReceivedThreeLeadingDigits = digits.length < 3 && digits.length + nextDigits.length >= 3;
+      state.appendDigits(nextDigits);
+      if (hasReceivedThreeLeadingDigits) {
+        this.extractIddPrefix(state);
+      }
+      if (this.isWaitingForCountryCallingCode(state)) {
+        if (!this.extractCountryCallingCode(state)) {
+          return;
+        }
+      } else {
+        state.appendNationalSignificantNumberDigits(nextDigits);
+      }
+      if (!state.international) {
+        if (!this.hasExtractedNationalSignificantNumber) {
+          this.extractNationalSignificantNumber(state.getNationalDigits(), function(stateUpdate) {
+            return state.update(stateUpdate);
+          });
+        }
+      }
+    }
+  }, {
+    key: "isWaitingForCountryCallingCode",
+    value: function isWaitingForCountryCallingCode(_ref2) {
+      var international = _ref2.international, callingCode = _ref2.callingCode;
+      return international && !callingCode;
+    }
+    // Extracts a country calling code from a number
+    // being entered in internatonal format.
+  }, {
+    key: "extractCountryCallingCode",
+    value: function extractCountryCallingCode2(state) {
+      var _extractCountryCallin = extractCountryCallingCode("+" + state.getDigitsWithoutInternationalPrefix(), state.country, this.defaultCountry, this.defaultCallingCode, this.metadata.metadata), countryCallingCode = _extractCountryCallin.countryCallingCode, number = _extractCountryCallin.number;
+      if (countryCallingCode) {
+        state.setCallingCode(countryCallingCode);
+        state.update({
+          nationalSignificantNumber: number
+        });
+        return true;
+      }
+    }
+  }, {
+    key: "reset",
+    value: function reset(numberingPlan) {
+      if (numberingPlan) {
+        this.hasSelectedNumberingPlan = true;
+        var nationalPrefixForParsing = numberingPlan._nationalPrefixForParsing();
+        this.couldPossiblyExtractAnotherNationalSignificantNumber = nationalPrefixForParsing && COMPLEX_NATIONAL_PREFIX.test(nationalPrefixForParsing);
+      } else {
+        this.hasSelectedNumberingPlan = void 0;
+        this.couldPossiblyExtractAnotherNationalSignificantNumber = void 0;
+      }
+    }
+    /**
+     * Extracts a national (significant) number from user input.
+     * Google's library is different in that it only applies `national_prefix_for_parsing`
+     * and doesn't apply `national_prefix_transform_rule` after that.
+     * https://github.com/google/libphonenumber/blob/a3d70b0487875475e6ad659af404943211d26456/java/libphonenumber/src/com/google/i18n/phonenumbers/AsYouTypeFormatter.java#L539
+     * @return {boolean} [extracted]
+     */
+  }, {
+    key: "extractNationalSignificantNumber",
+    value: function extractNationalSignificantNumber(nationalDigits, setState) {
+      if (!this.hasSelectedNumberingPlan) {
+        return;
+      }
+      var _extractNationalNumbe = extractNationalNumberFromPossiblyIncompleteNumber(nationalDigits, this.metadata), nationalPrefix = _extractNationalNumbe.nationalPrefix, nationalNumber = _extractNationalNumbe.nationalNumber, carrierCode = _extractNationalNumbe.carrierCode;
+      if (nationalNumber === nationalDigits) {
+        return;
+      }
+      this.onExtractedNationalNumber(nationalPrefix, carrierCode, nationalNumber, nationalDigits, setState);
+      return true;
+    }
+    /**
+     * In Google's code this function is called "attempt to extract longer NDD".
+     * "Some national prefixes are a substring of others", they say.
+     * @return {boolean} [result] — Returns `true` if extracting a national prefix produced different results from what they were.
+     */
+  }, {
+    key: "extractAnotherNationalSignificantNumber",
+    value: function extractAnotherNationalSignificantNumber(nationalDigits, prevNationalSignificantNumber, setState) {
+      if (!this.hasExtractedNationalSignificantNumber) {
+        return this.extractNationalSignificantNumber(nationalDigits, setState);
+      }
+      if (!this.couldPossiblyExtractAnotherNationalSignificantNumber) {
+        return;
+      }
+      var _extractNationalNumbe2 = extractNationalNumberFromPossiblyIncompleteNumber(nationalDigits, this.metadata), nationalPrefix = _extractNationalNumbe2.nationalPrefix, nationalNumber = _extractNationalNumbe2.nationalNumber, carrierCode = _extractNationalNumbe2.carrierCode;
+      if (nationalNumber === prevNationalSignificantNumber) {
+        return;
+      }
+      this.onExtractedNationalNumber(nationalPrefix, carrierCode, nationalNumber, nationalDigits, setState);
+      return true;
+    }
+  }, {
+    key: "onExtractedNationalNumber",
+    value: function onExtractedNationalNumber(nationalPrefix, carrierCode, nationalSignificantNumber, nationalDigits, setState) {
+      var nationalSignificantNumberIsModified = false;
+      var prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix;
+      var nationalSignificantNumberIndex = nationalDigits.lastIndexOf(nationalSignificantNumber);
+      if (nationalSignificantNumberIndex < 0 || nationalSignificantNumberIndex !== nationalDigits.length - nationalSignificantNumber.length) {
+        nationalSignificantNumberIsModified = true;
+      } else {
+        var prefixBeforeNationalNumber = nationalDigits.slice(0, nationalSignificantNumberIndex);
+        if (prefixBeforeNationalNumber) {
+          if (prefixBeforeNationalNumber !== nationalPrefix) {
+            prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix = prefixBeforeNationalNumber;
+          }
+        }
+      }
+      setState({
+        nationalPrefix,
+        carrierCode,
+        nationalSignificantNumber,
+        nationalSignificantNumberIsModified,
+        prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix
+      });
+      this.hasExtractedNationalSignificantNumber = true;
+      this.onNationalSignificantNumberChange();
+    }
+  }, {
+    key: "reExtractNationalSignificantNumber",
+    value: function reExtractNationalSignificantNumber(state) {
+      if (this.extractAnotherNationalSignificantNumber(state.getNationalDigits(), state.nationalSignificantNumber, function(stateUpdate) {
+        return state.update(stateUpdate);
+      })) {
+        return true;
+      }
+      if (this.extractIddPrefix(state)) {
+        this.extractCallingCodeAndNationalSignificantNumber(state);
+        return true;
+      }
+      if (this.fixMissingPlus(state)) {
+        this.extractCallingCodeAndNationalSignificantNumber(state);
+        return true;
+      }
+    }
+  }, {
+    key: "extractIddPrefix",
+    value: function extractIddPrefix(state) {
+      var international = state.international, IDDPrefix = state.IDDPrefix, digits = state.digits, nationalSignificantNumber = state.nationalSignificantNumber;
+      if (international || IDDPrefix) {
+        return;
+      }
+      var numberWithoutIDD = stripIddPrefix(digits, this.defaultCountry, this.defaultCallingCode, this.metadata.metadata);
+      if (numberWithoutIDD !== void 0 && numberWithoutIDD !== digits) {
+        state.update({
+          IDDPrefix: digits.slice(0, digits.length - numberWithoutIDD.length)
+        });
+        this.startInternationalNumber(state, {
+          country: void 0,
+          callingCode: void 0
+        });
+        return true;
+      }
+    }
+  }, {
+    key: "fixMissingPlus",
+    value: function fixMissingPlus(state) {
+      if (!state.international) {
+        var _extractCountryCallin2 = extractCountryCallingCodeFromInternationalNumberWithoutPlusSign(state.digits, state.country, this.defaultCountry, this.defaultCallingCode, this.metadata.metadata), newCallingCode = _extractCountryCallin2.countryCallingCode;
+        if (newCallingCode) {
+          state.update({
+            missingPlus: true
+          });
+          this.startInternationalNumber(state, {
+            country: state.country,
+            callingCode: newCallingCode
+          });
+          return true;
+        }
+      }
+    }
+  }, {
+    key: "startInternationalNumber",
+    value: function startInternationalNumber(state, _ref3) {
+      var country = _ref3.country, callingCode = _ref3.callingCode;
+      state.startInternationalNumber(country, callingCode);
+      if (state.nationalSignificantNumber) {
+        state.resetNationalSignificantNumber();
+        this.onNationalSignificantNumberChange();
+        this.hasExtractedNationalSignificantNumber = void 0;
+      }
+    }
+  }, {
+    key: "extractCallingCodeAndNationalSignificantNumber",
+    value: function extractCallingCodeAndNationalSignificantNumber(state) {
+      if (this.extractCountryCallingCode(state)) {
+        this.extractNationalSignificantNumber(state.getNationalDigits(), function(stateUpdate) {
+          return state.update(stateUpdate);
+        });
+      }
+    }
+  }]);
+}();
+function extractFormattedPhoneNumber(text) {
+  var startsAt = text.search(VALID_FORMATTED_PHONE_NUMBER_PART);
+  if (startsAt < 0) {
+    return;
+  }
+  text = text.slice(startsAt);
+  var hasPlus;
+  if (text[0] === "+") {
+    hasPlus = true;
+    text = text.slice("+".length);
+  }
+  text = text.replace(AFTER_PHONE_NUMBER_DIGITS_END_PATTERN, "");
+  if (hasPlus) {
+    text = "+" + text;
+  }
+  return text;
+}
+function _extractFormattedDigitsAndPlus(text) {
+  var extractedNumber = extractFormattedPhoneNumber(text) || "";
+  if (extractedNumber[0] === "+") {
+    return [extractedNumber.slice("+".length), true];
+  }
+  return [extractedNumber];
+}
+function extractFormattedDigitsAndPlus(text) {
+  var _extractFormattedDigi3 = _extractFormattedDigitsAndPlus(text), _extractFormattedDigi4 = _slicedToArray5(_extractFormattedDigi3, 2), formattedDigits = _extractFormattedDigi4[0], hasPlus = _extractFormattedDigi4[1];
+  if (!VALID_FORMATTED_PHONE_NUMBER_DIGITS_PART_PATTERN.test(formattedDigits)) {
+    formattedDigits = "";
+  }
+  return [formattedDigits, hasPlus];
+}
+
+// node_modules/libphonenumber-js/es6/AsYouType.js
+function _typeof13(o) {
+  "@babel/helpers - typeof";
+  return _typeof13 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(o2) {
+    return typeof o2;
+  } : function(o2) {
+    return o2 && "function" == typeof Symbol && o2.constructor === Symbol && o2 !== Symbol.prototype ? "symbol" : typeof o2;
+  }, _typeof13(o);
+}
+function _slicedToArray6(r, e) {
+  return _arrayWithHoles6(r) || _iterableToArrayLimit6(r, e) || _unsupportedIterableToArray19(r, e) || _nonIterableRest6();
+}
+function _nonIterableRest6() {
+  throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+}
+function _unsupportedIterableToArray19(r, a) {
+  if (r) {
+    if ("string" == typeof r)
+      return _arrayLikeToArray19(r, a);
+    var t = {}.toString.call(r).slice(8, -1);
+    return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray19(r, a) : void 0;
+  }
+}
+function _arrayLikeToArray19(r, a) {
+  (null == a || a > r.length) && (a = r.length);
+  for (var e = 0, n = Array(a); e < a; e++)
+    n[e] = r[e];
+  return n;
+}
+function _iterableToArrayLimit6(r, l) {
+  var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"];
+  if (null != t) {
+    var e, n, i, u, a = [], f = true, o = false;
+    try {
+      if (i = (t = t.call(r)).next, 0 === l) {
+        if (Object(t) !== t)
+          return;
+        f = false;
+      } else
+        for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = true)
+          ;
+    } catch (r2) {
+      o = true, n = r2;
+    } finally {
+      try {
+        if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u))
+          return;
+      } finally {
+        if (o)
+          throw n;
+      }
+    }
+    return a;
+  }
+}
+function _arrayWithHoles6(r) {
+  if (Array.isArray(r))
+    return r;
+}
+function _classCallCheck9(a, n) {
+  if (!(a instanceof n))
+    throw new TypeError("Cannot call a class as a function");
+}
+function _defineProperties9(e, r) {
+  for (var t = 0; t < r.length; t++) {
+    var o = r[t];
+    o.enumerable = o.enumerable || false, o.configurable = true, "value" in o && (o.writable = true), Object.defineProperty(e, _toPropertyKey13(o.key), o);
+  }
+}
+function _createClass9(e, r, t) {
+  return r && _defineProperties9(e.prototype, r), t && _defineProperties9(e, t), Object.defineProperty(e, "prototype", { writable: false }), e;
+}
+function _toPropertyKey13(t) {
+  var i = _toPrimitive13(t, "string");
+  return "symbol" == _typeof13(i) ? i : i + "";
+}
+function _toPrimitive13(t, r) {
+  if ("object" != _typeof13(t) || !t)
+    return t;
+  var e = t[Symbol.toPrimitive];
+  if (void 0 !== e) {
+    var i = e.call(t, r || "default");
+    if ("object" != _typeof13(i))
+      return i;
+    throw new TypeError("@@toPrimitive must return a primitive value.");
+  }
+  return ("string" === r ? String : Number)(t);
+}
+var USE_NON_GEOGRAPHIC_COUNTRY_CODE4 = false;
+var AsYouType = /* @__PURE__ */ function() {
+  function AsYouType3(optionsOrDefaultCountry, metadata) {
+    _classCallCheck9(this, AsYouType3);
+    this.metadata = new Metadata(metadata);
+    var _this$getCountryAndCa = this.getCountryAndCallingCode(optionsOrDefaultCountry), _this$getCountryAndCa2 = _slicedToArray6(_this$getCountryAndCa, 2), defaultCountry = _this$getCountryAndCa2[0], defaultCallingCode = _this$getCountryAndCa2[1];
+    this.defaultCountry = defaultCountry;
+    this.defaultCallingCode = defaultCallingCode;
+    this.reset();
+  }
+  return _createClass9(AsYouType3, [{
+    key: "getCountryAndCallingCode",
+    value: function getCountryAndCallingCode(optionsOrDefaultCountry) {
+      var defaultCountry;
+      var defaultCallingCode;
+      if (optionsOrDefaultCountry) {
+        if (isObject(optionsOrDefaultCountry)) {
+          defaultCountry = optionsOrDefaultCountry.defaultCountry;
+          defaultCallingCode = optionsOrDefaultCountry.defaultCallingCode;
+        } else {
+          defaultCountry = optionsOrDefaultCountry;
+        }
+      }
+      if (defaultCountry && !this.metadata.hasCountry(defaultCountry)) {
+        defaultCountry = void 0;
+      }
+      if (defaultCallingCode) {
+        if (USE_NON_GEOGRAPHIC_COUNTRY_CODE4) {
+          if (this.metadata.isNonGeographicCallingCode(defaultCallingCode)) {
+            defaultCountry = "001";
+          }
+        }
+      }
+      return [defaultCountry, defaultCallingCode];
+    }
+    /**
+     * Inputs "next" phone number characters.
+     * @param  {string} text
+     * @return {string} Formatted phone number characters that have been input so far.
+     */
+  }, {
+    key: "input",
+    value: function input(text) {
+      var _this$parser$input = this.parser.input(text, this.state), digits = _this$parser$input.digits, justLeadingPlus = _this$parser$input.justLeadingPlus;
+      if (justLeadingPlus) {
+        this.formattedOutput = "+";
+      } else if (digits) {
+        this.determineTheCountryIfNeeded();
+        if (this.state.nationalSignificantNumber) {
+          this.formatter.narrowDownMatchingFormats(this.state);
+        }
+        var formattedNationalNumber;
+        if (this.metadata.hasSelectedNumberingPlan()) {
+          formattedNationalNumber = this.formatter.format(digits, this.state);
+        }
+        if (formattedNationalNumber === void 0) {
+          if (this.parser.reExtractNationalSignificantNumber(this.state)) {
+            this.determineTheCountryIfNeeded();
+            var nationalDigits = this.state.getNationalDigits();
+            if (nationalDigits) {
+              formattedNationalNumber = this.formatter.format(nationalDigits, this.state);
+            }
+          }
+        }
+        this.formattedOutput = formattedNationalNumber ? this.getFullNumber(formattedNationalNumber) : this.getNonFormattedNumber();
+      }
+      return this.formattedOutput;
+    }
+  }, {
+    key: "reset",
+    value: function reset() {
+      var _this = this;
+      this.state = new AsYouTypeState({
+        onCountryChange: function onCountryChange(country) {
+          _this.country = country;
+        },
+        onCallingCodeChange: function onCallingCodeChange(callingCode, country) {
+          _this.metadata.selectNumberingPlan(country || callingCode);
+          _this.formatter.reset(_this.metadata.numberingPlan, _this.state);
+          _this.parser.reset(_this.metadata.numberingPlan);
+        }
+      });
+      this.formatter = new AsYouTypeFormatter({
+        state: this.state,
+        metadata: this.metadata
+      });
+      this.parser = new AsYouTypeParser({
+        defaultCountry: this.defaultCountry,
+        defaultCallingCode: this.defaultCallingCode,
+        metadata: this.metadata,
+        state: this.state,
+        onNationalSignificantNumberChange: function onNationalSignificantNumberChange() {
+          _this.determineTheCountryIfNeeded();
+          _this.formatter.reset(_this.metadata.numberingPlan, _this.state);
+        }
+      });
+      this.state.reset({
+        country: this.defaultCountry,
+        callingCode: this.defaultCallingCode
+      });
+      this.formattedOutput = "";
+      return this;
+    }
+    /**
+     * Returns `true` if the phone number is being input in international format.
+     * In other words, returns `true` if and only if the parsed phone number starts with a `"+"`.
+     * @return {boolean}
+     */
+  }, {
+    key: "isInternational",
+    value: function isInternational() {
+      return this.state.international;
+    }
+    /**
+     * Returns the "calling code" part of the phone number when it's being input
+     * in an international format.
+     * If no valid calling code has been entered so far, returns `undefined`.
+     * @return {string} [callingCode]
+     */
+  }, {
+    key: "getCallingCode",
+    value: function getCallingCode() {
+      if (this.isInternational()) {
+        return this.state.callingCode;
+      }
+    }
+    // A legacy alias.
+  }, {
+    key: "getCountryCallingCode",
+    value: function getCountryCallingCode3() {
+      return this.getCallingCode();
+    }
+    /**
+     * Returns a two-letter country code of the phone number.
+     * Returns `undefined` for "non-geographic" phone numbering plans.
+     * Returns `undefined` if no phone number has been input yet.
+     * @return {string} [country]
+     */
+  }, {
+    key: "getCountry",
+    value: function getCountry() {
+      var digits = this.state.digits;
+      if (digits) {
+        return this._getCountry();
+      }
+    }
+    /**
+     * Returns a two-letter country code of the phone number.
+     * Returns `undefined` for "non-geographic" phone numbering plans.
+     * @return {string} [country]
+     */
+  }, {
+    key: "_getCountry",
+    value: function _getCountry() {
+      var country = this.state.country;
+      if (USE_NON_GEOGRAPHIC_COUNTRY_CODE4) {
+        if (country === "001") {
+          return;
+        }
+      }
+      return country;
+    }
+  }, {
+    key: "determineTheCountryIfNeeded",
+    value: function determineTheCountryIfNeeded() {
+      if (!this.state.country || this.isCountryCallingCodeAmbiguous()) {
+        this.determineTheCountry();
+      }
+    }
+    // Prepends `+CountryCode ` in case of an international phone number
+  }, {
+    key: "getFullNumber",
+    value: function getFullNumber(formattedNationalNumber) {
+      var _this2 = this;
+      if (this.isInternational()) {
+        var prefix = function prefix2(text) {
+          return _this2.formatter.getInternationalPrefixBeforeCountryCallingCode(_this2.state, {
+            spacing: text ? true : false
+          }) + text;
+        };
+        var callingCode = this.state.callingCode;
+        if (!callingCode) {
+          return prefix("".concat(this.state.getDigitsWithoutInternationalPrefix()));
+        }
+        if (!formattedNationalNumber) {
+          return prefix(callingCode);
+        }
+        return prefix("".concat(callingCode, " ").concat(formattedNationalNumber));
+      }
+      return formattedNationalNumber;
+    }
+  }, {
+    key: "getNonFormattedNationalNumberWithPrefix",
+    value: function getNonFormattedNationalNumberWithPrefix() {
+      var _this$state = this.state, nationalSignificantNumber = _this$state.nationalSignificantNumber, prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix = _this$state.prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix, nationalPrefix = _this$state.nationalPrefix;
+      var number = nationalSignificantNumber;
+      var prefix = prefixBeforeNationalSignificantNumberThatIsNotNationalPrefix || nationalPrefix;
+      if (prefix) {
+        number = prefix + number;
+      }
+      return number;
+    }
+  }, {
+    key: "getNonFormattedNumber",
+    value: function getNonFormattedNumber() {
+      var nationalSignificantNumberIsModified = this.state.nationalSignificantNumberIsModified;
+      return this.getFullNumber(nationalSignificantNumberIsModified ? this.state.getNationalDigits() : this.getNonFormattedNationalNumberWithPrefix());
+    }
+  }, {
+    key: "getNonFormattedTemplate",
+    value: function getNonFormattedTemplate() {
+      var number = this.getNonFormattedNumber();
+      if (number) {
+        return number.replace(/[\+\d]/g, DIGIT_PLACEHOLDER);
+      }
+    }
+  }, {
+    key: "isCountryCallingCodeAmbiguous",
+    value: function isCountryCallingCodeAmbiguous() {
+      var callingCode = this.state.callingCode;
+      var countryCodes = this.metadata.getCountryCodesForCallingCode(callingCode);
+      return countryCodes && countryCodes.length > 1;
+    }
+    // Determines the exact country of the phone number
+    // entered so far based on the country phone code
+    // and the national phone number.
+  }, {
+    key: "determineTheCountry",
+    value: function determineTheCountry() {
+      var country = getCountryByCallingCode(this.isInternational() ? this.state.callingCode : this.defaultCallingCode, {
+        nationalNumber: this.state.nationalSignificantNumber,
+        metadata: this.metadata
+      });
+      if (country !== this.state.country) {
+        this.state.setCountry(country);
+        if (country) {
+          this.metadata.selectNumberingPlan(country);
+        }
+      }
+    }
+    /**
+     * Returns a E.164 phone number value for the user's input.
+     *
+     * For example, for country `"US"` and input `"(222) 333-4444"`
+     * it will return `"+12223334444"`.
+     *
+     * For international phone number input, it will also auto-correct
+     * some minor errors such as using a national prefix when writing
+     * an international phone number. For example, if the user inputs
+     * `"+44 0 7400 000000"` then it will return an auto-corrected
+     * `"+447400000000"` phone number value.
+     *
+     * Will return `undefined` if no digits have been input,
+     * or when inputting a phone number in national format and no
+     * default country or default "country calling code" have been set.
+     *
+     * @return {string} [value]
+     */
+  }, {
+    key: "getNumberValue",
+    value: function getNumberValue() {
+      var _this$state2 = this.state, digits = _this$state2.digits, callingCode = _this$state2.callingCode, country = _this$state2.country, nationalSignificantNumber = _this$state2.nationalSignificantNumber;
+      if (!digits) {
+        return;
+      }
+      if (this.isInternational()) {
+        if (callingCode) {
+          return "+" + callingCode + nationalSignificantNumber;
+        } else {
+          return "+" + digits;
+        }
+      } else {
+        if (country || callingCode) {
+          var callingCode_ = country ? this.metadata.countryCallingCode() : callingCode;
+          return "+" + callingCode_ + nationalSignificantNumber;
+        }
+      }
+    }
+    /**
+     * Returns an instance of `PhoneNumber` class.
+     * Will return `undefined` if no national (significant) number
+     * digits have been entered so far, or if no `defaultCountry` has been
+     * set and the user enters a phone number not in international format.
+     */
+  }, {
+    key: "getNumber",
+    value: function getNumber() {
+      var _this$state3 = this.state, nationalSignificantNumber = _this$state3.nationalSignificantNumber, carrierCode = _this$state3.carrierCode, callingCode = _this$state3.callingCode;
+      if (!nationalSignificantNumber) {
+        return;
+      }
+      var country = this._getCountry();
+      if (!country && !callingCode) {
+        return;
+      }
+      if (country) {
+        if (country === this.defaultCountry) {
+          var countryCallingCode = this.metadata.numberingPlan.callingCode();
+          var exactCountry = getExactCountryForMultiCountryCallingCode(countryCallingCode, nationalSignificantNumber, this.metadata);
+          if (exactCountry) {
+            country = exactCountry;
+          }
+        }
+      }
+      var phoneNumber = new PhoneNumber(country || callingCode, nationalSignificantNumber, this.metadata.metadata);
+      if (carrierCode) {
+        phoneNumber.carrierCode = carrierCode;
+      }
+      return phoneNumber;
+    }
+    /**
+     * Returns `true` if the phone number is "possible".
+     * Is just a shortcut for `PhoneNumber.isPossible()`.
+     * @return {boolean}
+     */
+  }, {
+    key: "isPossible",
+    value: function isPossible() {
+      var phoneNumber = this.getNumber();
+      if (!phoneNumber) {
+        return false;
+      }
+      return phoneNumber.isPossible();
+    }
+    /**
+     * Returns `true` if the phone number is "valid".
+     * Is just a shortcut for `PhoneNumber.isValid()`.
+     * @return {boolean}
+     */
+  }, {
+    key: "isValid",
+    value: function isValid() {
+      var phoneNumber = this.getNumber();
+      if (!phoneNumber) {
+        return false;
+      }
+      return phoneNumber.isValid();
+    }
+    /**
+     * Checks if the phone number length is valid.
+     * If it is, nothing is returned.
+     * Otherwise, a rejection reason is returned.
+     * @return {string?}
+     */
+  }, {
+    key: "validateLength",
+    value: function validateLength() {
+      var _this$state4 = this.state, digits = _this$state4.digits, nationalSignificantNumber = _this$state4.nationalSignificantNumber;
+      if (!digits) {
+        return "NOT_A_NUMBER";
+      }
+      if (!this.metadata.numberingPlan) {
+        return "INVALID_COUNTRY";
+      }
+      if (!nationalSignificantNumber) {
+        return "TOO_SHORT";
+      }
+      var result2 = checkNumberLength(nationalSignificantNumber, void 0, this.metadata);
+      if (result2 !== "IS_POSSIBLE") {
+        return result2;
+      }
+    }
+    /**
+     * @deprecated
+     * This method is used in `react-phone-number-input/source/input-control.js`
+     * in versions before `3.0.16`.
+     */
+  }, {
+    key: "getNationalNumber",
+    value: function getNationalNumber() {
+      return this.state.nationalSignificantNumber;
+    }
+    /**
+     * Returns the phone number characters entered by the user.
+     * @return {string}
+     */
+  }, {
+    key: "getChars",
+    value: function getChars() {
+      return (this.state.international ? "+" : "") + this.state.digits;
+    }
+    /**
+     * Returns the template for the formatted phone number.
+     * @return {string}
+     */
+  }, {
+    key: "getTemplate",
+    value: function getTemplate() {
+      return this.formatter.getTemplate(this.state) || this.getNonFormattedTemplate() || "";
+    }
+  }]);
+}();
+function getExactCountryForMultiCountryCallingCode(callingCode, nationalSignificantNumber, metadata) {
+  var ambiguousCountries = metadata.getCountryCodesForCallingCode(callingCode);
+  if (ambiguousCountries.length > 1) {
+    return getCountryByNationalNumber(nationalSignificantNumber, ambiguousCountries, metadata.metadata);
+  }
+}
+
 // node_modules/libphonenumber-js/es6/getCountries.js
 function getCountries(metadata) {
   return new Metadata(metadata).getCountries();
@@ -8707,6 +10692,13 @@ function getCountries(metadata) {
 function parsePhoneNumber4() {
   return withMetadataArgument(parsePhoneNumber3, arguments);
 }
+
+// node_modules/libphonenumber-js/min/exports/AsYouType.js
+function AsYouType2(country) {
+  return AsYouType.call(this, country, metadata_min_json_default);
+}
+AsYouType2.prototype = Object.create(AsYouType.prototype, {});
+AsYouType2.prototype.constructor = AsYouType2;
 
 // node_modules/libphonenumber-js/min/exports/isSupportedCountry.js
 function isSupportedCountry2() {
@@ -8768,8 +10760,63 @@ function parsePhone(input, country) {
     e164: parsed.number
   };
 }
+function possibleNumber(text, country) {
+  const parsed = parsePhoneNumber4(text, isSupportedCountryCode(country) ? country : void 0);
+  if (!parsed)
+    return null;
+  return parsed.isPossible() || parsed.isValid() ? parsed : null;
+}
 function toE164(input, country) {
   return parsePhone(input, country).e164;
+}
+function formatPhoneDisplay(value) {
+  if (value === null || value === void 0)
+    return "";
+  if (typeof value !== "string")
+    return String(value);
+  const text = value.trim();
+  if (text === "")
+    return "";
+  const parsed = possibleNumber(text);
+  return parsed ? parsed.formatInternational() : text;
+}
+function formatAsYouType(input, country) {
+  if (!/^[\d\s+\-().]*$/.test(input))
+    return input;
+  const c = isSupportedCountryCode(country) ? country : void 0;
+  try {
+    return new AsYouType2(c).input(input);
+  } catch {
+    return input;
+  }
+}
+function splitStored(value, field, locale) {
+  const fallback = defaultCountryFor(field, locale);
+  if (typeof value !== "string")
+    return { country: fallback, national: "", e164: null };
+  const text = value.trim();
+  if (text === "")
+    return { country: fallback, national: "", e164: null };
+  const parsed = parsePhoneNumber4(text, fallback);
+  if (parsed?.isValid()) {
+    return {
+      country: parsed.country ?? fallback,
+      national: parsed.formatNational(),
+      e164: parsed.number
+    };
+  }
+  return { country: fallback, national: text, e164: null };
+}
+function telHref(value) {
+  if (typeof value !== "string")
+    return null;
+  const text = value.trim();
+  if (text === "")
+    return null;
+  const parsed = possibleNumber(text);
+  if (parsed)
+    return `tel:${parsed.number}`;
+  return /^\+?[\d][\d\s\-().]{4,}$/.test(text) ? `tel:${text}` : null;
 }
 
 // src/model/fieldTypes/string.ts
@@ -13585,26 +15632,26 @@ function convertDateToExcelSerial(date) {
 }
 
 // node_modules/write-excel-file/modules/write/cell.js
-function _slicedToArray5(arr, i) {
-  return _arrayWithHoles5(arr) || _iterableToArrayLimit5(arr, i) || _unsupportedIterableToArray14(arr, i) || _nonIterableRest5();
+function _slicedToArray7(arr, i) {
+  return _arrayWithHoles7(arr) || _iterableToArrayLimit7(arr, i) || _unsupportedIterableToArray20(arr, i) || _nonIterableRest7();
 }
-function _nonIterableRest5() {
+function _nonIterableRest7() {
   throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray14(o, minLen) {
+function _unsupportedIterableToArray20(o, minLen) {
   if (!o)
     return;
   if (typeof o === "string")
-    return _arrayLikeToArray14(o, minLen);
+    return _arrayLikeToArray20(o, minLen);
   var n = Object.prototype.toString.call(o).slice(8, -1);
   if (n === "Object" && o.constructor)
     n = o.constructor.name;
   if (n === "Map" || n === "Set")
     return Array.from(o);
   if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray14(o, minLen);
+    return _arrayLikeToArray20(o, minLen);
 }
-function _arrayLikeToArray14(arr, len) {
+function _arrayLikeToArray20(arr, len) {
   if (len == null || len > arr.length)
     len = arr.length;
   for (var i = 0, arr2 = new Array(len); i < len; i++) {
@@ -13612,7 +15659,7 @@ function _arrayLikeToArray14(arr, len) {
   }
   return arr2;
 }
-function _iterableToArrayLimit5(arr, i) {
+function _iterableToArrayLimit7(arr, i) {
   var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
   if (_i == null)
     return;
@@ -13640,7 +15687,7 @@ function _iterableToArrayLimit5(arr, i) {
   }
   return _arr;
 }
-function _arrayWithHoles5(arr) {
+function _arrayWithHoles7(arr) {
   if (Array.isArray(arr))
     return arr;
 }
@@ -13665,7 +15712,7 @@ function generateCell(rowNumber, columnIndex, value, type, cellStyleId, getShare
   if (type) {
     xml += ' t="'.concat(type, '"');
   }
-  var _getOpeningAndClosing = getOpeningAndClosingTags(type), _getOpeningAndClosing2 = _slicedToArray5(_getOpeningAndClosing, 2), openingTags = _getOpeningAndClosing2[0], closingTags = _getOpeningAndClosing2[1];
+  var _getOpeningAndClosing = getOpeningAndClosingTags(type), _getOpeningAndClosing2 = _slicedToArray7(_getOpeningAndClosing, 2), openingTags = _getOpeningAndClosing2[0], closingTags = _getOpeningAndClosing2[1];
   return xml + ">" + openingTags + value + closingTags + "</c>";
 }
 function getXlsxType(type) {
@@ -13771,13 +15818,13 @@ function omitUndefinedProperties(object) {
 }
 
 // node_modules/write-excel-file/modules/write/row.js
-function _typeof8(obj) {
+function _typeof14(obj) {
   "@babel/helpers - typeof";
-  return _typeof8 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(obj2) {
+  return _typeof14 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function(obj2) {
     return typeof obj2;
   } : function(obj2) {
     return obj2 && "function" == typeof Symbol && obj2.constructor === Symbol && obj2 !== Symbol.prototype ? "symbol" : typeof obj2;
-  }, _typeof8(obj);
+  }, _typeof14(obj);
 }
 function generateRow(row, rowIndex, _ref) {
   var getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat, usesSchema = _ref.usesSchema;
@@ -13831,7 +15878,7 @@ function isEmpty2(value) {
   return value === void 0 || value === null || value === "";
 }
 function detectValueType(value) {
-  switch (_typeof8(value)) {
+  switch (_typeof14(value)) {
     case "string":
       return String;
     case "number":
@@ -13875,11 +15922,11 @@ function _defineProperty6(obj, key, value) {
   }
   return obj;
 }
-function _createForOfIteratorHelperLoose11(o, allowArrayLike) {
+function _createForOfIteratorHelperLoose15(o, allowArrayLike) {
   var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
   if (it)
     return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray15(o)) || allowArrayLike && o && typeof o.length === "number") {
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray21(o)) || allowArrayLike && o && typeof o.length === "number") {
     if (it)
       o = it;
     var i = 0;
@@ -13891,20 +15938,20 @@ function _createForOfIteratorHelperLoose11(o, allowArrayLike) {
   }
   throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray15(o, minLen) {
+function _unsupportedIterableToArray21(o, minLen) {
   if (!o)
     return;
   if (typeof o === "string")
-    return _arrayLikeToArray15(o, minLen);
+    return _arrayLikeToArray21(o, minLen);
   var n = Object.prototype.toString.call(o).slice(8, -1);
   if (n === "Object" && o.constructor)
     n = o.constructor.name;
   if (n === "Map" || n === "Set")
     return Array.from(o);
   if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray15(o, minLen);
+    return _arrayLikeToArray21(o, minLen);
 }
-function _arrayLikeToArray15(arr, len) {
+function _arrayLikeToArray21(arr, len) {
   if (len == null || len > arr.length)
     len = arr.length;
   for (var i = 0, arr2 = new Array(len); i < len; i++) {
@@ -13916,7 +15963,7 @@ function generateRows(data, _ref) {
   var schema = _ref.schema, headerStyle = _ref.headerStyle, getStyle = _ref.getStyle, getSharedString = _ref.getSharedString, customFont = _ref.customFont, dateFormat = _ref.dateFormat;
   if (schema) {
     var header = [];
-    for (var _iterator = _createForOfIteratorHelperLoose11(schema), _step; !(_step = _iterator()).done; ) {
+    for (var _iterator = _createForOfIteratorHelperLoose15(schema), _step; !(_step = _iterator()).done; ) {
       var column = _step.value;
       if (column.column) {
         header = [schema.map(function(column2) {
@@ -14056,26 +16103,26 @@ function processSpanningCells(_ref2) {
 }
 
 // node_modules/write-excel-file/modules/write/generateMergedCellsDescription.js
-function _slicedToArray6(arr, i) {
-  return _arrayWithHoles6(arr) || _iterableToArrayLimit6(arr, i) || _unsupportedIterableToArray16(arr, i) || _nonIterableRest6();
+function _slicedToArray8(arr, i) {
+  return _arrayWithHoles8(arr) || _iterableToArrayLimit8(arr, i) || _unsupportedIterableToArray22(arr, i) || _nonIterableRest8();
 }
-function _nonIterableRest6() {
+function _nonIterableRest8() {
   throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray16(o, minLen) {
+function _unsupportedIterableToArray22(o, minLen) {
   if (!o)
     return;
   if (typeof o === "string")
-    return _arrayLikeToArray16(o, minLen);
+    return _arrayLikeToArray22(o, minLen);
   var n = Object.prototype.toString.call(o).slice(8, -1);
   if (n === "Object" && o.constructor)
     n = o.constructor.name;
   if (n === "Map" || n === "Set")
     return Array.from(o);
   if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray16(o, minLen);
+    return _arrayLikeToArray22(o, minLen);
 }
-function _arrayLikeToArray16(arr, len) {
+function _arrayLikeToArray22(arr, len) {
   if (len == null || len > arr.length)
     len = arr.length;
   for (var i = 0, arr2 = new Array(len); i < len; i++) {
@@ -14083,7 +16130,7 @@ function _arrayLikeToArray16(arr, len) {
   }
   return arr2;
 }
-function _iterableToArrayLimit6(arr, i) {
+function _iterableToArrayLimit8(arr, i) {
   var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
   if (_i == null)
     return;
@@ -14111,7 +16158,7 @@ function _iterableToArrayLimit6(arr, i) {
   }
   return _arr;
 }
-function _arrayWithHoles6(arr) {
+function _arrayWithHoles8(arr) {
   if (Array.isArray(arr))
     return arr;
 }
@@ -14120,7 +16167,7 @@ function generateMergedCellsDescription(mergedCells) {
     return "";
   }
   return '<mergeCells count="'.concat(mergedCells.length, '">') + mergedCells.map(function(_ref) {
-    var _ref2 = _slicedToArray6(_ref, 2), from = _ref2[0], to = _ref2[1];
+    var _ref2 = _slicedToArray8(_ref, 2), from = _ref2[0], to = _ref2[1];
     var coordinates = generateCellNumber(from[1], from[0] + 1) + ":" + generateCellNumber(to[1], to[0] + 1);
     return '<mergeCell ref="'.concat(coordinates, '"/>');
   }).join("") + "</mergeCells>";
@@ -14226,11 +16273,11 @@ function validateData(data, _ref2) {
 }
 
 // node_modules/write-excel-file/modules/write/styles.js
-function _createForOfIteratorHelperLoose12(o, allowArrayLike) {
+function _createForOfIteratorHelperLoose16(o, allowArrayLike) {
   var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
   if (it)
     return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray17(o)) || allowArrayLike && o && typeof o.length === "number") {
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray23(o)) || allowArrayLike && o && typeof o.length === "number") {
     if (it)
       o = it;
     var i = 0;
@@ -14242,20 +16289,20 @@ function _createForOfIteratorHelperLoose12(o, allowArrayLike) {
   }
   throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray17(o, minLen) {
+function _unsupportedIterableToArray23(o, minLen) {
   if (!o)
     return;
   if (typeof o === "string")
-    return _arrayLikeToArray17(o, minLen);
+    return _arrayLikeToArray23(o, minLen);
   var n = Object.prototype.toString.call(o).slice(8, -1);
   if (n === "Object" && o.constructor)
     n = o.constructor.name;
   if (n === "Map" || n === "Set")
     return Array.from(o);
   if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray17(o, minLen);
+    return _arrayLikeToArray23(o, minLen);
 }
-function _arrayLikeToArray17(arr, len) {
+function _arrayLikeToArray23(arr, len) {
   if (len == null || len > arr.length)
     len = arr.length;
   for (var i = 0, arr2 = new Array(len); i < len; i++) {
@@ -14409,7 +16456,7 @@ function generateXml(_ref4) {
     xml += "</numFmts>";
   }
   xml += '<fonts count="'.concat(fonts.length, '">');
-  for (var _iterator = _createForOfIteratorHelperLoose12(fonts), _step; !(_step = _iterator()).done; ) {
+  for (var _iterator = _createForOfIteratorHelperLoose16(fonts), _step; !(_step = _iterator()).done; ) {
     var font = _step.value;
     var size = font.size, family = font.family, color = font.color, weight = font.weight, style = font.style, custom = font.custom;
     xml += "<font>";
@@ -14430,7 +16477,7 @@ function generateXml(_ref4) {
   }
   xml += "</fonts>";
   xml += '<fills count="'.concat(fills.length, '">');
-  for (var _iterator2 = _createForOfIteratorHelperLoose12(fills), _step2; !(_step2 = _iterator2()).done; ) {
+  for (var _iterator2 = _createForOfIteratorHelperLoose16(fills), _step2; !(_step2 = _iterator2()).done; ) {
     var fill = _step2.value;
     var _color = fill.color, gray125 = fill.gray125;
     xml += "<fill>";
@@ -14448,7 +16495,7 @@ function generateXml(_ref4) {
   }
   xml += "</fills>";
   xml += '<borders count="'.concat(borders.length, '">');
-  for (var _iterator3 = _createForOfIteratorHelperLoose12(borders), _step3; !(_step3 = _iterator3()).done; ) {
+  for (var _iterator3 = _createForOfIteratorHelperLoose16(borders), _step3; !(_step3 = _iterator3()).done; ) {
     var border = _step3.value;
     var left = border.left, right = border.right, top = border.top, bottom = border.bottom;
     var getBorderXml = function getBorderXml2(direction, _ref5) {
@@ -14469,7 +16516,7 @@ function generateXml(_ref4) {
   }
   xml += "</borders>";
   xml += '<cellXfs count="'.concat(styles.length, '">');
-  for (var _iterator4 = _createForOfIteratorHelperLoose12(styles), _step4; !(_step4 = _iterator4()).done; ) {
+  for (var _iterator4 = _createForOfIteratorHelperLoose16(styles), _step4; !(_step4 = _iterator4()).done; ) {
     var cellStyle = _step4.value;
     var fontId = cellStyle.fontId, fillId = cellStyle.fillId, borderId = cellStyle.borderId, align = cellStyle.align, alignVertical = cellStyle.alignVertical, textRotation = cellStyle.textRotation, wrap = cellStyle.wrap, formatId = cellStyle.formatId;
     xml += "<xf " + [
@@ -14516,11 +16563,11 @@ function getTextRotation(textRotation) {
 }
 
 // node_modules/write-excel-file/modules/write/sharedStrings.js
-function _createForOfIteratorHelperLoose13(o, allowArrayLike) {
+function _createForOfIteratorHelperLoose17(o, allowArrayLike) {
   var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
   if (it)
     return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray18(o)) || allowArrayLike && o && typeof o.length === "number") {
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray24(o)) || allowArrayLike && o && typeof o.length === "number") {
     if (it)
       o = it;
     var i = 0;
@@ -14532,20 +16579,20 @@ function _createForOfIteratorHelperLoose13(o, allowArrayLike) {
   }
   throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray18(o, minLen) {
+function _unsupportedIterableToArray24(o, minLen) {
   if (!o)
     return;
   if (typeof o === "string")
-    return _arrayLikeToArray18(o, minLen);
+    return _arrayLikeToArray24(o, minLen);
   var n = Object.prototype.toString.call(o).slice(8, -1);
   if (n === "Object" && o.constructor)
     n = o.constructor.name;
   if (n === "Map" || n === "Set")
     return Array.from(o);
   if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray18(o, minLen);
+    return _arrayLikeToArray24(o, minLen);
 }
-function _arrayLikeToArray18(arr, len) {
+function _arrayLikeToArray24(arr, len) {
   if (len == null || len > arr.length)
     len = arr.length;
   for (var i = 0, arr2 = new Array(len); i < len; i++) {
@@ -14574,7 +16621,7 @@ function initSharedStrings() {
 function generateXml2(sharedStrings) {
   var xml = '<?xml version="1.0"?>';
   xml += '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
-  for (var _iterator = _createForOfIteratorHelperLoose13(sharedStrings), _step; !(_step = _iterator()).done; ) {
+  for (var _iterator = _createForOfIteratorHelperLoose17(sharedStrings), _step; !(_step = _iterator()).done; ) {
     var string = _step.value;
     var attributes = string.trim().length === string.length ? "" : ' xml:space="preserve"';
     xml += "<si><t".concat(attributes, ">");
@@ -14600,11 +16647,11 @@ function validateSheetName(sheetName) {
 }
 
 // node_modules/write-excel-file/modules/write/writeXlsxFile.common.js
-function _createForOfIteratorHelperLoose14(o, allowArrayLike) {
+function _createForOfIteratorHelperLoose18(o, allowArrayLike) {
   var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
   if (it)
     return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray19(o)) || allowArrayLike && o && typeof o.length === "number") {
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray25(o)) || allowArrayLike && o && typeof o.length === "number") {
     if (it)
       o = it;
     var i = 0;
@@ -14616,20 +16663,20 @@ function _createForOfIteratorHelperLoose14(o, allowArrayLike) {
   }
   throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray19(o, minLen) {
+function _unsupportedIterableToArray25(o, minLen) {
   if (!o)
     return;
   if (typeof o === "string")
-    return _arrayLikeToArray19(o, minLen);
+    return _arrayLikeToArray25(o, minLen);
   var n = Object.prototype.toString.call(o).slice(8, -1);
   if (n === "Object" && o.constructor)
     n = o.constructor.name;
   if (n === "Map" || n === "Set")
     return Array.from(o);
   if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray19(o, minLen);
+    return _arrayLikeToArray25(o, minLen);
 }
-function _arrayLikeToArray19(arr, len) {
+function _arrayLikeToArray25(arr, len) {
   if (len == null || len > arr.length)
     len = arr.length;
   for (var i = 0, arr2 = new Array(len); i < len; i++) {
@@ -14661,13 +16708,13 @@ function generateSheets(_ref) {
       schema = [schema];
     }
   }
-  for (var _iterator = _createForOfIteratorHelperLoose14(sheetNames), _step; !(_step = _iterator()).done; ) {
+  for (var _iterator = _createForOfIteratorHelperLoose18(sheetNames), _step; !(_step = _iterator()).done; ) {
     var _sheetName = _step.value;
     validateSheetName(_sheetName);
   }
   var worksheets = [];
   var sheetIndex = 0;
-  for (var _iterator2 = _createForOfIteratorHelperLoose14(sheetNames), _step2; !(_step2 = _iterator2()).done; ) {
+  for (var _iterator2 = _createForOfIteratorHelperLoose18(sheetNames), _step2; !(_step2 = _iterator2()).done; ) {
     var sheet = _step2.value;
     worksheets.push(generateWorksheet(data[sheetIndex], {
       schema: schema && schema[sheetIndex],
@@ -14699,11 +16746,11 @@ function generateSheets(_ref) {
 
 // node_modules/write-excel-file/modules/write/writeXlsxFileBrowser.js
 var _excluded = ["fileName"];
-function _createForOfIteratorHelperLoose15(o, allowArrayLike) {
+function _createForOfIteratorHelperLoose19(o, allowArrayLike) {
   var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"];
   if (it)
     return (it = it.call(o)).next.bind(it);
-  if (Array.isArray(o) || (it = _unsupportedIterableToArray20(o)) || allowArrayLike && o && typeof o.length === "number") {
+  if (Array.isArray(o) || (it = _unsupportedIterableToArray26(o)) || allowArrayLike && o && typeof o.length === "number") {
     if (it)
       o = it;
     var i = 0;
@@ -14715,20 +16762,20 @@ function _createForOfIteratorHelperLoose15(o, allowArrayLike) {
   }
   throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
 }
-function _unsupportedIterableToArray20(o, minLen) {
+function _unsupportedIterableToArray26(o, minLen) {
   if (!o)
     return;
   if (typeof o === "string")
-    return _arrayLikeToArray20(o, minLen);
+    return _arrayLikeToArray26(o, minLen);
   var n = Object.prototype.toString.call(o).slice(8, -1);
   if (n === "Object" && o.constructor)
     n = o.constructor.name;
   if (n === "Map" || n === "Set")
     return Array.from(o);
   if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-    return _arrayLikeToArray20(o, minLen);
+    return _arrayLikeToArray26(o, minLen);
 }
-function _arrayLikeToArray20(arr, len) {
+function _arrayLikeToArray26(arr, len) {
   if (len == null || len > arr.length)
     len = arr.length;
   for (var i = 0, arr2 = new Array(len); i < len; i++) {
@@ -14807,7 +16854,7 @@ function generateXlsxFile(data, _ref2) {
   }));
   xl.file("styles.xml", getStylesXml());
   xl.file("sharedStrings.xml", getSharedStringsXml());
-  for (var _iterator = _createForOfIteratorHelperLoose15(sheets), _step; !(_step = _iterator()).done; ) {
+  for (var _iterator = _createForOfIteratorHelperLoose19(sheets), _step; !(_step = _iterator()).done; ) {
     var _step$value = _step.value, id = _step$value.id, _data = _step$value.data;
     xl.file("worksheets/sheet".concat(id, ".xml"), _data);
   }
@@ -15763,6 +17810,8 @@ function createEditor(field, row, store, stack, onDone) {
     return null;
   if (field.type === "date" || field.type === "date_time")
     return null;
+  if (field.type === "phone")
+    return null;
   const ft = getFieldType(field.type);
   const initial = ft.format(row.values[field.id] ?? null, field);
   let input;
@@ -16090,7 +18139,7 @@ function contactHref(field, value) {
   if (field.type === "email")
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? `mailto:${value}` : null;
   if (field.type === "phone")
-    return /\+?[\d][\d\s\-().]{4,}$/.test(value) ? `tel:${value}` : null;
+    return telHref(value);
   if (field.type === "url")
     return /^https?:\/\//i.test(value) ? value : null;
   return null;
@@ -16106,7 +18155,7 @@ function renderContactLink(host, field, value) {
   const link = document.createElement("a");
   link.className = "tablify__cell-link";
   link.href = href;
-  link.textContent = value;
+  link.textContent = field.type === "phone" ? formatPhoneDisplay(value) : value;
   link.title = value;
   link.rel = "noopener";
   link.target = "_blank";
@@ -18005,8 +20054,8 @@ var Toolbar = class _Toolbar {
         this.opts.callbacks.onRowHeight(height);
         return;
       }
-      const button = target.closest("[data-action]");
-      const action = button?.dataset.action;
+      const button2 = target.closest("[data-action]");
+      const action = button2?.dataset.action;
       if (action)
         this.handleAction(action);
     });
@@ -18742,11 +20791,11 @@ var FieldTypePicker = class {
       const empty = el("div", "tablify__tp-empty");
       const p = el("p");
       p.textContent = `No field type matches \u201C${this.query.trim()}\u201D.`;
-      const button = el("button", "tablify__tp-empty-btn");
-      button.type = "button";
-      button.dataset.clear = "true";
-      button.textContent = "Clear search";
-      empty.append(p, button);
+      const button2 = el("button", "tablify__tp-empty-btn");
+      button2.type = "button";
+      button2.dataset.clear = "true";
+      button2.textContent = "Clear search";
+      empty.append(p, button2);
       list.appendChild(empty);
     }
     if (this.countEl) {
@@ -19175,13 +21224,13 @@ var CountryList = class {
     return out;
   }
   rowButton(row, id) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "tablify__dropdown-item tablify__country-row";
-    button.id = id;
-    button.dataset.iso = row.iso;
-    button.setAttribute("role", "option");
-    button.setAttribute("aria-selected", row.iso === this.selected ? "true" : "false");
+    const button2 = document.createElement("button");
+    button2.type = "button";
+    button2.className = "tablify__dropdown-item tablify__country-row";
+    button2.id = id;
+    button2.dataset.iso = row.iso;
+    button2.setAttribute("role", "option");
+    button2.setAttribute("aria-selected", row.iso === this.selected ? "true" : "false");
     const badge = document.createElement("span");
     badge.className = "tablify__country-badge";
     badge.setAttribute("aria-hidden", "true");
@@ -19192,17 +21241,17 @@ var CountryList = class {
     const dial = document.createElement("span");
     dial.className = "tablify__country-dial";
     dial.textContent = `+${row.dial}`;
-    button.appendChild(badge);
-    button.appendChild(name);
-    button.appendChild(dial);
+    button2.appendChild(badge);
+    button2.appendChild(name);
+    button2.appendChild(dial);
     if (row.iso === this.selected) {
       const check = document.createElement("span");
       check.className = "tablify__dropdown-check";
       check.innerHTML = faIcon("check", 12);
-      button.appendChild(check);
+      button2.appendChild(check);
     }
-    button.addEventListener("click", () => this.pick(row));
-    return button;
+    button2.addEventListener("click", () => this.pick(row));
+    return button2;
   }
   heading(text) {
     const el4 = document.createElement("div");
@@ -19244,9 +21293,9 @@ var CountryList = class {
   }
   appendRow(row) {
     const id = `${this.idPrefix}-row-${row.iso}`;
-    const button = this.rowButton(row, id);
-    this.list.appendChild(button);
-    this.rows.push(button);
+    const button2 = this.rowButton(row, id);
+    this.list.appendChild(button2);
+    this.rows.push(button2);
   }
   // ---- keyboard -----------------------------------------------------------------------
   onKey(event) {
@@ -19289,15 +21338,15 @@ var CountryList = class {
   }
   pick(row) {
     this.selected = row.iso;
-    for (const button of this.rows) {
-      const chosen = button.dataset.iso === row.iso;
-      button.setAttribute("aria-selected", chosen ? "true" : "false");
-      const existing = button.querySelector(".tablify__dropdown-check");
+    for (const button2 of this.rows) {
+      const chosen = button2.dataset.iso === row.iso;
+      button2.setAttribute("aria-selected", chosen ? "true" : "false");
+      const existing = button2.querySelector(".tablify__dropdown-check");
       if (chosen && !existing) {
         const check = document.createElement("span");
         check.className = "tablify__dropdown-check";
         check.innerHTML = faIcon("check", 12);
-        button.appendChild(check);
+        button2.appendChild(check);
       } else if (!chosen) {
         existing?.remove();
       }
@@ -20020,7 +22069,7 @@ var FormulaEditModal = class extends import_obsidian7.Modal {
       })
     );
     new import_obsidian7.Setting(this.contentEl).addButton(
-      (button) => button.setButtonText("Save formula").setCta().onClick(() => this.submit())
+      (button2) => button2.setButtonText("Save formula").setCta().onClick(() => this.submit())
     );
     this.contentEl.addEventListener("keydown", (event) => {
       const evt = event;
@@ -21068,13 +23117,13 @@ var OptionManagerDialog = class {
       }
       ev.stopPropagation();
     });
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "tablify__optmgr-addbtn";
-    button.textContent = "Add";
-    button.addEventListener("click", submit);
+    const button2 = document.createElement("button");
+    button2.type = "button";
+    button2.className = "tablify__optmgr-addbtn";
+    button2.textContent = "Add";
+    button2.addEventListener("click", submit);
     add.appendChild(input);
-    add.appendChild(button);
+    add.appendChild(button2);
     this.body.appendChild(add);
     const hint = document.createElement("p");
     hint.className = "tablify__optmgr-hint";
@@ -21130,13 +23179,13 @@ var OptionManagerDialog = class {
     return row;
   }
   glyphButton(glyph, label, onClick) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "tablify__optmgr-move";
-    button.setAttribute("aria-label", label);
-    button.innerHTML = faIcon(glyph, 10);
-    button.addEventListener("click", onClick);
-    return button;
+    const button2 = document.createElement("button");
+    button2.type = "button";
+    button2.className = "tablify__optmgr-move";
+    button2.setAttribute("aria-label", label);
+    button2.innerHTML = faIcon(glyph, 10);
+    button2.addEventListener("click", onClick);
+    return button2;
   }
   moveBy(index, delta) {
     const ids = (this.field.options ?? []).map((o) => o.id);
@@ -21933,8 +23982,8 @@ var DatePicker = class {
     return (weekday - this.weekStart + 7) % 7;
   }
   focusDay(parts) {
-    const button = this.grid.querySelector(`[data-date="${formatYmd(parts)}"]`);
-    button?.focus();
+    const button2 = this.grid.querySelector(`[data-date="${formatYmd(parts)}"]`);
+    button2?.focus();
   }
   // ---- rendering -------------------------------------------------------------------------
   showError(message) {
@@ -21980,29 +24029,341 @@ var DatePicker = class {
       const row = el2("div", "tablify__date-week");
       row.setAttribute("role", "row");
       for (const parts of week) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "tablify__date-day";
-        button.setAttribute("role", "gridcell");
-        button.setAttribute("aria-label", dayLabel(parts));
-        button.dataset.date = formatYmd(parts);
-        button.textContent = String(parts.day);
+        const button2 = document.createElement("button");
+        button2.type = "button";
+        button2.className = "tablify__date-day";
+        button2.setAttribute("role", "gridcell");
+        button2.setAttribute("aria-label", dayLabel(parts));
+        button2.dataset.date = formatYmd(parts);
+        button2.textContent = String(parts.day);
         if (parts.month !== this.view.month)
-          button.classList.add("is-outside");
+          button2.classList.add("is-outside");
         if (sameDay(parts, todayParts))
-          button.classList.add("is-today");
+          button2.classList.add("is-today");
         const isSelected = sameDay(parts, selected);
         if (isSelected) {
-          button.classList.add("is-selected");
-          button.setAttribute("aria-selected", "true");
+          button2.classList.add("is-selected");
+          button2.setAttribute("aria-selected", "true");
         }
-        button.tabIndex = sameDay(parts, this.focusDate) ? 0 : -1;
-        button.addEventListener("click", () => this.pick(parts));
-        button.addEventListener("keydown", (ev) => this.onGridKey(ev, parts));
-        row.appendChild(button);
+        button2.tabIndex = sameDay(parts, this.focusDate) ? 0 : -1;
+        button2.addEventListener("click", () => this.pick(parts));
+        button2.addEventListener("keydown", (ev) => this.onGridKey(ev, parts));
+        row.appendChild(button2);
       }
       this.grid.appendChild(row);
     }
+  }
+};
+
+// src/views/grid/phone/PhonePanel.ts
+var uid3 = 0;
+function element(tag, className) {
+  const node = document.createElement(tag);
+  node.className = className;
+  return node;
+}
+function button(className, label) {
+  const node = document.createElement("button");
+  node.type = "button";
+  node.className = className;
+  node.setAttribute("aria-label", label);
+  return node;
+}
+var PhonePanel = class {
+  opts;
+  locale;
+  card;
+  body;
+  numberView;
+  countryView;
+  trigger;
+  triggerBadge;
+  triggerText;
+  input;
+  preview;
+  clearBtn;
+  backBtn;
+  ids = { number: `tablify-phone-number-${uid3 += 1}`, preview: `tablify-phone-preview-${uid3}` };
+  /** The country the national text is being read in. */
+  country;
+  /** The stored value as it arrived — returned untouched while the panel is clean. */
+  original;
+  dirty = false;
+  showCountry = false;
+  list = null;
+  closed = false;
+  unwire = null;
+  constructor(options) {
+    this.opts = options;
+    this.locale = options.locale ?? "";
+    this.original = options.value ?? null;
+    const { card, body } = createPanelCard("tablify-phone-panel", options.theme ?? "light", "tablify__dropdown-body");
+    card.setAttribute("aria-label", `Phone: ${options.field.name}`);
+    card.classList.add("tablify__phone-panel");
+    this.card = card;
+    this.body = body;
+    this.numberView = element("div", "tablify__phone-view tablify__phone-view--number");
+    const row = element("div", "tablify__phone-row");
+    this.trigger = button("tablify__phone-country", "Change country");
+    this.trigger.setAttribute("aria-haspopup", "listbox");
+    this.trigger.setAttribute("aria-expanded", "false");
+    this.triggerBadge = element("span", "tablify__country-badge");
+    this.triggerBadge.setAttribute("aria-hidden", "true");
+    this.triggerText = element("span", "tablify__phone-country-text");
+    this.trigger.appendChild(this.triggerBadge);
+    this.trigger.appendChild(this.triggerText);
+    const chevron = element("span", "tablify__phone-country-chevron");
+    chevron.innerHTML = faIcon("chevron-down", 11);
+    chevron.setAttribute("aria-hidden", "true");
+    this.trigger.appendChild(chevron);
+    this.trigger.addEventListener("click", () => this.openCountryView());
+    this.input = document.createElement("input");
+    this.input.type = "tel";
+    this.input.className = "tablify__dropdown-input tablify__phone-input";
+    this.input.id = this.ids.number;
+    this.input.autocomplete = "tel-national";
+    this.input.spellcheck = false;
+    this.input.setAttribute("aria-label", "Phone number");
+    this.input.setAttribute("aria-describedby", this.ids.preview);
+    row.appendChild(this.trigger);
+    row.appendChild(this.input);
+    this.numberView.appendChild(row);
+    this.preview = element("div", "tablify__phone-preview");
+    this.preview.id = this.ids.preview;
+    this.preview.setAttribute("role", "status");
+    this.preview.setAttribute("aria-live", "polite");
+    this.numberView.appendChild(this.preview);
+    const foot = element("div", "tablify__phone-foot");
+    this.clearBtn = button("tablify__phone-clear", "Clear");
+    this.clearBtn.textContent = "Clear";
+    this.clearBtn.addEventListener("click", () => this.clear());
+    const done = button("tablify__phone-done tablify__pmodal-btn tablify__pmodal-btn--primary", "Done");
+    done.textContent = "Done";
+    done.addEventListener("click", () => this.commit());
+    foot.appendChild(this.clearBtn);
+    foot.appendChild(done);
+    this.numberView.appendChild(foot);
+    this.countryView = element("div", "tablify__phone-view tablify__phone-view--country");
+    this.countryView.hidden = true;
+    const head = element("div", "tablify__phone-country-head");
+    this.backBtn = button("tablify__phone-back", "Back to the number");
+    this.backBtn.innerHTML = faIcon("chevron-left", 12);
+    this.backBtn.addEventListener("click", () => this.closeCountryView());
+    const headTitle = element("span", "tablify__phone-country-title");
+    headTitle.textContent = "Country";
+    head.appendChild(this.backBtn);
+    head.appendChild(headTitle);
+    this.countryView.appendChild(head);
+    this.body.appendChild(this.numberView);
+    this.body.appendChild(this.countryView);
+    this.input.addEventListener("compositionstart", () => this.composing = true);
+    this.input.addEventListener("compositionend", () => {
+      this.composing = false;
+      this.onInput();
+    });
+    this.input.addEventListener("input", () => {
+      if (!this.composing)
+        this.onInput();
+    });
+    this.input.addEventListener("keydown", (event) => this.onKey(event));
+    const parts = splitStored(this.original, options.field, this.locale);
+    this.country = parts.country ?? defaultCountryFor(options.field, this.locale);
+    if (this.original !== null && this.original !== "") {
+      this.input.value = parts.e164 ? parts.national : String(this.original);
+    }
+    this.paintCountry();
+    this.paintPreview();
+  }
+  composing = false;
+  get element() {
+    return this.card;
+  }
+  /** Anchor under the cell and take the dismiss bindings. Focus lands in the number field. */
+  open(anchor) {
+    if (this.closed)
+      return;
+    document.body.appendChild(this.card);
+    anchorPanel(this.card, anchor);
+    const onPress = (ev) => {
+      if (this.card.contains(ev.target))
+        return;
+      if (this.dirty)
+        this.commit();
+      else
+        this.cancel();
+    };
+    const onKey = (ev) => {
+      if (ev.key !== "Escape")
+        return;
+      ev.preventDefault();
+      if (this.showCountry) {
+        this.closeCountryView();
+        return;
+      }
+      this.cancel();
+    };
+    document.addEventListener("mousedown", onPress);
+    document.addEventListener("touchstart", onPress, { passive: true });
+    document.addEventListener("keydown", onKey);
+    this.unwire = () => {
+      document.removeEventListener("mousedown", onPress);
+      document.removeEventListener("touchstart", onPress, { passive: true });
+      document.removeEventListener("keydown", onKey);
+    };
+    this.input.focus();
+    const end = this.input.value.length;
+    try {
+      this.input.setSelectionRange(end, end);
+    } catch {
+    }
+  }
+  close() {
+    if (this.closed)
+      return;
+    this.closed = true;
+    this.unwire?.();
+    this.unwire = null;
+    this.list?.destroy();
+    this.list = null;
+    this.card.remove();
+  }
+  // ---- number view -------------------------------------------------------------------
+  onInput() {
+    this.dirty = true;
+    const text = this.input.value.trim();
+    if (text.startsWith("+")) {
+      const parsed = parsePhone(text, this.country);
+      if (parsed.e164 && parsed.country && parsed.country !== this.country) {
+        this.country = parsed.country;
+        this.paintCountry();
+      }
+    }
+    const formatted = formatAsYouType(this.input.value, this.country);
+    if (formatted !== this.input.value) {
+      const end = formatted.length;
+      this.input.value = formatted;
+      try {
+        this.input.setSelectionRange(end, end);
+      } catch {
+      }
+    }
+    this.paintPreview();
+  }
+  onKey(event) {
+    if (event.isComposing)
+      return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      this.commit();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (this.showCountry)
+        this.closeCountryView();
+      else
+        this.cancel();
+      return;
+    }
+    if (event.key === "ArrowDown" && event.altKey) {
+      event.preventDefault();
+      this.openCountryView();
+    }
+  }
+  paintCountry() {
+    const row = countryRow(this.country, this.locale);
+    this.triggerBadge.textContent = row ? row.iso : "\u2014";
+    this.triggerText.textContent = row ? `+${row.dial}` : "";
+    this.trigger.title = row ? `${row.name} (+${row.dial})` : "Choose a country";
+  }
+  paintPreview() {
+    const text = this.input.value.trim();
+    this.clearBtn.disabled = this.original === null && text === "";
+    if (text === "") {
+      this.preview.textContent = "Empty \u2014 the cell will be cleared.";
+      this.preview.dataset.state = "empty";
+      return;
+    }
+    const parsed = parsePhone(text, this.country);
+    if (parsed.e164) {
+      this.preview.textContent = `${formatPhoneDisplay(parsed.e164)}  \u2713`;
+      this.preview.dataset.state = "valid";
+      return;
+    }
+    const row = countryRow(this.country, this.locale);
+    this.preview.textContent = row ? `Not a valid number for ${row.name}.` : "Not a valid number.";
+    this.preview.dataset.state = "invalid";
+  }
+  /** What a commit would store, following the field type's own parse rule. */
+  storedNow() {
+    const text = this.input.value.trim();
+    if (text === "")
+      return null;
+    return toE164(text, this.country) ?? text;
+  }
+  commit() {
+    if (this.closed)
+      return;
+    const next = this.dirty ? this.storedNow() : this.original;
+    this.close();
+    this.opts.onCommit(next ?? null);
+  }
+  clear() {
+    if (this.closed)
+      return;
+    this.dirty = true;
+    this.input.value = "";
+    this.paintPreview();
+    this.commit();
+  }
+  cancel() {
+    if (this.closed)
+      return;
+    this.close();
+    this.opts.onCancel?.();
+  }
+  // ---- country view ------------------------------------------------------------------
+  openCountryView() {
+    if (this.closed || this.showCountry)
+      return;
+    this.showCountry = true;
+    this.numberView.hidden = true;
+    this.countryView.hidden = false;
+    this.trigger.setAttribute("aria-expanded", "true");
+    if (!this.list) {
+      const suggested = [this.country, defaultCountryFor(this.opts.field, this.locale)].concat(regionOfLocale(this.locale || (typeof navigator !== "undefined" ? navigator.language : "")) ?? []);
+      this.list = new CountryList({
+        locale: this.locale || "en",
+        suggested,
+        selected: this.country,
+        idPrefix: `tablify-phone-countries-${uid3}`,
+        onPick: (row) => this.pickCountry(row),
+        // Escape inside the list leaves the country view, then the panel handles its own Escape.
+        onCancel: () => this.closeCountryView()
+      });
+      this.countryView.appendChild(this.list.element);
+    } else {
+      this.list.setSelected(this.country);
+    }
+    this.list.focus();
+  }
+  closeCountryView() {
+    if (!this.showCountry)
+      return;
+    this.showCountry = false;
+    this.countryView.hidden = true;
+    this.numberView.hidden = false;
+    this.trigger.setAttribute("aria-expanded", "false");
+    this.input.focus();
+  }
+  pickCountry(row) {
+    this.country = row.iso;
+    this.dirty = true;
+    this.paintCountry();
+    this.list?.setSelected(row.iso);
+    this.closeCountryView();
+    this.input.value = formatAsYouType(this.input.value, this.country);
+    this.paintPreview();
   }
 };
 
@@ -23107,7 +25468,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     }
     grid.scrollToRow(sel.row);
     const cell2 = this.cellElement(sel);
-    if (field.type === "single_select" || field.type === "multi_select" || field.type === "attachment" || field.type === "date" || field.type === "date_time") {
+    if (field.type === "single_select" || field.type === "multi_select" || field.type === "attachment" || field.type === "date" || field.type === "date_time" || field.type === "phone") {
       if (cell2)
         this.openCellPanel(row.id, field, cell2);
       return;
@@ -23181,6 +25542,33 @@ var TableView = class extends import_obsidian9.TextFileView {
         onCancel: () => finish(false)
       });
       picker.open(anchor);
+      return;
+    }
+    if (field.type === "phone") {
+      const stored = value();
+      let settled = false;
+      const finish = (commit, next) => {
+        if (settled)
+          return;
+        settled = true;
+        if (commit) {
+          const same = String(next ?? "") === String(stored ?? "");
+          if (!same) {
+            s.setValue(rowId, field.id, next ?? null);
+            this.afterChange();
+          }
+        }
+        grid.root.focus();
+      };
+      const panel2 = new PhonePanel({
+        field,
+        value: stored,
+        theme: this.isDark() ? "dark" : "light",
+        locale: readerLocale(),
+        onCommit: (next) => finish(true, next),
+        onCancel: () => finish(false)
+      });
+      panel2.open(anchor);
       return;
     }
     if (field.type === "attachment") {
