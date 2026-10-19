@@ -1,22 +1,29 @@
 /**
- * SAD-92 Step 10 — phone-width toolbar parity (owner decision D-1, 2026-10-11: match the
- * prototype exactly).
+ * @vitest-environment jsdom
  *
- * At 390 px the prototype's toolbar buttons are plain flex items: they shrink and their labels
- * wrap ("Add Row" becomes two lines, so the pill is 74×54 and the row is 102 px tall, which is
- * what makes the card 588 px). The plugin pinned every button with `white-space: nowrap;
- * flex: 0 0 auto`, so the pills kept their intrinsic size and the row scrolled sideways
- * instead — the card measured 572 px and twelve mobile regions sat 26–61 % off the prototype.
+ * SAD-308 — scrollable mobile toolbar below the search input box & desktop/mobile tool order.
  *
- * The fix is scoped to the phone breakpoint; the actions row keeps `overflow-x: auto` so a
- * shrunk row that still exceeds the viewport stays reachable (the prototype simply clips it).
+ * Mobile (`@media (max-width: 639px)`):
+ *   - `.tablify__toolbar-actions` spans full width below `.tablify__search` and scrolls
+ *     horizontally (`overflow-x: auto`, `scroll-behavior: smooth`).
+ *   - Each `.tablify button.tablify__toolbar-button` is sized to `calc((100% - 16px) / 3)`
+ *     (`flex: 0 0 calc((100% - 16px) / 3)`, `white-space: nowrap`) so only 3 tools are
+ *     visible at a time while the remaining tools are reachable by horizontal scrolling.
+ *   - `Sync` and `Options` hide their text labels on mobile so they render as icon-only pills.
  *
- * Fails on 6dbdf00 (no such rules inside the 639 px block).
+ * Desktop (outside `@media (max-width: 639px)`):
+ *   - Preserves existing desktop layout, spacing, and sizing (`flex: 0 0 auto`, no 1/3 width cap,
+ *     and `Options` keeps its label visible).
+ *   - Both desktop and mobile arrange the 7 tools in the SAD-308 order:
+ *     Undo · Redo · Add Field · Add Row · Filter · Sync · Options.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Toolbar, type ToolbarCallbacks } from '../../src/views/grid/toolbar.js';
+import { createDefaultView } from '../../src/model/view.js';
+import type { FieldDefinition } from '../../src/model/types.js';
 
 const css = fs.readFileSync(path.resolve(process.cwd(), 'styles.css'), 'utf8');
 
@@ -38,39 +45,118 @@ function phoneBlock(source: string): string {
 /** Every declaration body of a rule whose selector list contains `selector`. */
 function bodies(block: string, selector: string): string[] {
   const out: string[] = [];
-  const re = new RegExp(`([^{}]*\\${selector}[^{}]*)\\{([^}]*)\\}`, 'g');
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`([^{}]*${escaped}[^{}]*)\\{([^}]*)\\}`, 'g');
   let m: RegExpExecArray | null;
   while ((m = re.exec(block)) !== null) out.push(m[2].replace(/\s+/g, ' ').trim());
   return out;
 }
 
-describe('SAD-92 — the phone toolbar shrinks and wraps like the prototype', () => {
-  const block = phoneBlock(css);
+const FIELDS: FieldDefinition[] = [
+  { id: 'fld_name', name: 'Name', type: 'text', primary: true },
+];
 
-  it('has a phone-width block that touches the toolbar buttons', () => {
+function makeCallbacks(): ToolbarCallbacks {
+  const noop = (): void => undefined;
+  return {
+    onFilter: noop,
+    onSync: noop,
+    onOpenFilter: noop,
+    onAddRow: noop,
+    onAddField: noop,
+    onRowHeight: noop,
+    onFreezeColumns: noop,
+    onShowField: noop,
+    onClearFilters: noop,
+    onUndo: noop,
+    onRedo: noop,
+  };
+}
+
+describe('SAD-308 — mobile 3-tools-at-a-time scrollable toolbar and desktop preservation', () => {
+  const block = phoneBlock(css);
+  const desktopCss = css.replace(block, '');
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('has a phone-width block that configures both .tablify__toolbar-actions and .tablify__toolbar-button', () => {
     expect(block).not.toBe('');
+    expect(bodies(block, '.tablify__toolbar-actions').length).toBeGreaterThan(0);
     expect(bodies(block, '.tablify__toolbar-button').length).toBeGreaterThan(0);
   });
 
-  it('lets the labelled buttons wrap their text instead of forcing one line', () => {
+  it('sizes each mobile toolbar button to 1/3 of the row width so only 3 tools are visible at a time', () => {
     const all = bodies(block, '.tablify__toolbar-button').join(' ');
-    expect(all).toContain('white-space: normal');
-    expect(all).not.toContain('white-space: nowrap');
+    expect(all).toContain('flex: 0 0 calc((100% - 16px) / 3)');
+    expect(all).toContain('min-width: calc((100% - 16px) / 3)');
+    expect(all).toContain('max-width: calc((100% - 16px) / 3)');
+    expect(all).toContain('box-sizing: border-box');
+    expect(all).toContain('white-space: nowrap');
+    expect(all).not.toContain('white-space: normal');
   });
 
-  it('lets the buttons shrink (flex 0 1 auto), never pins them (flex 0 0 auto)', () => {
-    const all = bodies(block, '.tablify__toolbar-button').join(' ');
-    expect(all).toContain('flex: 0 1 auto');
-    expect(all).not.toContain('flex: 0 0 auto');
+  it('makes the mobile actions bar full-width below the search input and smoothly horizontally scrollable', () => {
+    const baseActions = bodies(desktopCss, '.tablify__toolbar-actions').join(' ');
+    const mobileActions = bodies(block, '.tablify__toolbar-actions').join(' ');
+    expect(baseActions).toContain('overflow-x: auto');
+    expect(mobileActions).toContain('flex: 1 1 100%');
+    expect(mobileActions).toContain('width: 100%');
+    expect(mobileActions).toContain('scroll-behavior: smooth');
   });
 
-  it('keeps the actions row scrollable so every control stays reachable', () => {
-    const actions = bodies(css, '.tablify__toolbar-actions');
-    expect(actions.join(' ')).toContain('overflow-x: auto');
+  it('hides the text label on Sync and Options on mobile so they render as icon-only buttons', () => {
+    const syncLabel = bodies(block, ".tablify button.tablify__toolbar-button[data-action='sync'] .tablify__btn-label").join(' ');
+    const optionsLabel = bodies(block, ".tablify button.tablify__toolbar-button[data-action='options'] .tablify__btn-label").join(' ');
+    expect(syncLabel).toContain('display: none');
+    expect(optionsLabel).toContain('display: none');
   });
 
-  it('does not change the desktop button rule (the pin stays outside the phone block)', () => {
-    const desktop = bodies(css.replace(block, ''), '.tablify__toolbar-button').join(' ');
-    expect(desktop).toContain('flex: 0 0 auto');
+  it('preserves the desktop toolbar layout and does not leak the 3-tool width cap or Options label hiding to desktop', () => {
+    const desktopButton = bodies(desktopCss, '.tablify__toolbar-button').join(' ');
+    const desktopActions = bodies(desktopCss, '.tablify__toolbar-actions').join(' ');
+    const desktopOptionsLabel = bodies(
+      desktopCss,
+      ".tablify button.tablify__toolbar-button[data-action='options'] .tablify__btn-label",
+    ).join(' ');
+
+    expect(desktopButton).toContain('flex: 0 0 auto');
+    expect(desktopButton).toContain('white-space: nowrap');
+    expect(desktopButton).not.toContain('calc((100% - 16px) / 3)');
+    expect(desktopActions).toContain('flex: 0 1 auto');
+    expect(desktopOptionsLabel).toBe('');
+  });
+
+  it('renders all 7 tools in the SAD-308 order with accessible labels on both mobile and desktop', () => {
+    const toolbar = new Toolbar({
+      fields: FIELDS,
+      view: createDefaultView(FIELDS),
+      visibleRowCount: 5,
+      totalRowCount: 5,
+      search: '',
+      query: '',
+      queryError: null,
+      theme: 'light',
+      callbacks: makeCallbacks(),
+    });
+    document.body.appendChild(toolbar.root);
+
+    const buttons = [...toolbar.root.querySelectorAll<HTMLButtonElement>('.tablify__toolbar-actions > button')];
+    expect(buttons.map((b) => b.dataset.action)).toEqual([
+      'undo',
+      'redo',
+      'add-field',
+      'add-row',
+      'filter',
+      'sync',
+      'options',
+    ]);
+    for (const btn of buttons) {
+      expect(btn.getAttribute('aria-label'), `${btn.dataset.action} aria-label`).toBeTruthy();
+      expect(btn.querySelector('svg.tablify__fa'), `${btn.dataset.action} icon`).not.toBeNull();
+    }
+
+    toolbar.destroy();
   });
 });
