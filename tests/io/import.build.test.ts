@@ -83,3 +83,74 @@ describe('buildTable', () => {
     expect(r.ok).toBe(false);
   });
 });
+
+// SAD-303 — the import keeps email, URL and phone columns as their own field types.
+describe('buildTable — address columns (SAD-303)', () => {
+  const rows = [
+    ['Name', 'Email', 'Website', 'Phone', 'Mobile'],
+    ['Rahim', 'Rahim@Example.com ', 'https://example.com/r', '+880 1712-345678', '01712345678'],
+    ['Ada', 'ada@example.org', 'http://example.org/a', '+14155552671', '01812345678'],
+  ];
+
+  it('maps the three inferred types onto the matching field types', () => {
+    const r = buildTable({ tableName: 'T', rows }, { now: NOW });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.file.fields.map((f) => f.type)).toEqual(['text', 'email', 'url', 'phone', 'phone']);
+    expect(r.report.columns.map((c) => c.type)).toEqual(['text', 'email', 'url', 'phone', 'phone']);
+  });
+
+  it('normalises each value the way its field type does', () => {
+    const r = buildTable({ tableName: 'T', rows }, { now: NOW });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const [email, url, phone, mobile] = r.file.fields.slice(1);
+    // Email is lower-cased and trimmed, exactly like the field type's parse.
+    expect(r.file.rows.map((row) => row.values[email.id])).toEqual(['rahim@example.com', 'ada@example.org']);
+    expect(r.file.rows.map((row) => row.values[url.id])).toEqual([
+      'https://example.com/r',
+      'http://example.org/a',
+    ]);
+    // International values become E.164; a national number has no country to assume here.
+    expect(r.file.rows.map((row) => row.values[phone.id])).toEqual(['+8801712345678', '+14155552671']);
+    expect(r.file.rows.map((row) => row.values[mobile.id])).toEqual(['01712345678', '01812345678']);
+  });
+
+  it('records the shared country of a "+" column, and leaves it absent when countries mix', () => {
+    const r = buildTable({ tableName: 'T', rows }, { now: NOW });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const [email, url, phone, mobile] = r.file.fields.slice(1);
+    // The Phone column names BD and US, so there is no honest default.
+    expect(phone).not.toHaveProperty('phoneCountry');
+    // The Mobile column is national digits: nothing can be said about its country.
+    expect(mobile).not.toHaveProperty('phoneCountry');
+    expect(email).not.toHaveProperty('phoneCountry');
+    expect(url).not.toHaveProperty('phoneCountry');
+
+    const bd = buildTable(
+      {
+        tableName: 'T',
+        rows: [
+          ['Phone'],
+          ['+880 1712-345678'],
+          ['+880 1812-345678'],
+        ],
+      },
+      { now: NOW },
+    );
+    expect(bd.ok).toBe(true);
+    if (!bd.ok) return;
+    expect(bd.file.fields[0].phoneCountry).toBe('BD');
+  });
+
+  it('a phone column survives the serializer and comes back as a phone column', () => {
+    const r = buildTable({ tableName: 'T', rows }, { now: NOW });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const parsed = parse(r.content);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.fields.find((f) => f.name === 'Phone')?.type).toBe('phone');
+  });
+});

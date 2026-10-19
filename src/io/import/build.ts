@@ -7,6 +7,7 @@ import { parse as parseFile } from '../../format/parse.js';
 import { serialize as serializeFile } from '../../format/serialize.js';
 import { validateTable } from '../../model/validation.js';
 import { getFieldType } from '../../model/fieldTypes/index.js';
+import { parsePhone, toE164 } from '../../model/phone/phoneValue.js';
 import { createDefaultView } from '../../model/view.js';
 import { generateFieldId, generateOptionId, generateRowId, generateTableId } from '../../utils/idGen.js';
 import { OPTION_COLORS, type CellValue, type FieldDefinition, type FieldTypeName, type Row, type SelectOption, type TablifyFile } from '../../model/types.js';
@@ -48,7 +49,18 @@ const TYPE_MAP: Record<InferredType, FieldTypeName> = {
   date: 'date',
   checkbox: 'checkbox',
   single_select: 'single_select',
+  // SAD-303: a column the import can prove is an address keeps that type on the way in.
+  email: 'email',
+  url: 'url',
+  phone: 'phone',
 };
+
+/** An integer cell (XLSX) or digit text read as a phone number, or null. */
+function phoneText(v: InputCell): string | null {
+  if (typeof v === 'number') return Number.isInteger(v) ? String(v) : null;
+  if (typeof v === 'string') return v.trim();
+  return null;
+}
 
 /** Field names: trimmed header; empty → "Column N"; duplicates → "Name 2", "Name 3", ... */
 export function uniqueFieldNames(headers: readonly string[]): string[] {
@@ -97,6 +109,24 @@ function convertCell(v: InputCell, field: FieldDefinition, selectIds: Map<string
       if (id !== undefined) return id;
       break;
     }
+    case 'email': {
+      // The field type lower-cases on entry; the import does the same, so a round-trip is stable.
+      const email = String(v).trim().toLowerCase();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return email;
+      break;
+    }
+    case 'url': {
+      const url = String(v).trim();
+      if (/^https?:\/\//i.test(url)) return url;
+      break;
+    }
+    case 'phone': {
+      const text = phoneText(v);
+      if (text === null) break;
+      // An international number is normalised to E.164; a national one has no country to
+      // assume here, so it is kept exactly as it arrived.
+      return text.startsWith('+') ? (toE164(text) ?? text) : text;
+    }
     case 'text':
       if (v instanceof Date) return v.toISOString();
       return String(v);
@@ -136,7 +166,8 @@ function buildUnchecked(source: ImportSource, options: BuildOptions): BuildResul
     return h === undefined || h === null ? '' : String(h);
   });
   const names = uniqueFieldNames(headers);
-  const inferences = inferTable(data, columnCount);
+  // SAD-303: the header is the only column-level evidence CSV keeps, so the phone rule gets it.
+  const inferences = inferTable(data, columnCount, {}, headers);
 
   const fields: FieldDefinition[] = [];
   const selectMaps: (Map<string, string> | undefined)[] = [];
@@ -147,6 +178,18 @@ function buildUnchecked(source: ImportSource, options: BuildOptions): BuildResul
     const type = TYPE_MAP[inf.type];
     const field: FieldDefinition = { id: generateFieldId(), name: names[i], type };
     if (i === 0) field.primary = true;
+    // SAD-303: a phone column whose "+" values all name one country gets it as the default, so
+    // rows added later start in the right country. Mixed countries leave the key absent.
+    if (type === 'phone') {
+      const countries = new Set<string>();
+      for (const row of data) {
+        const text = phoneText(row[i]);
+        if (text === null || !text.startsWith('+')) continue;
+        const country = parsePhone(text).country;
+        if (country) countries.add(country);
+      }
+      if (countries.size === 1) field.phoneCountry = [...countries][0];
+    }
     if (type === 'single_select') {
       const opts: SelectOption[] = (inf.selectOptions ?? []).map((name, k) => ({
         id: generateOptionId(),

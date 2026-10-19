@@ -16,17 +16,26 @@
 //     - A/B/YYYY or A.B.YYYY          (one part > 12 decides day vs month;
 //                                      if both parts <= 12 the value is AMBIGUOUS and not a date)
 //     All dates must be valid calendar dates (e.g. 2026-02-30 is not a date).
-//  4. single_select — the column is not checkbox, number, or date, AND the number of distinct
-//     non-empty values is <= 20 AND distinct / non-empty rows <= 0.5. Thresholds are *proposed*
-//     (G-P3) and recorded in the decision log. Values are compared after trimming.
-//  5. text     — everything else, including all ambiguous columns (G-P3).
+//  4. email    — every non-empty value matches the email shape and is <= 254 chars (SAD-303).
+//  5. url      — every non-empty value is an http(s) URL with a scheme (SAD-303).
+//  6. phone    — every non-empty value has 7-15 digits and only the phone alphabet, AND either
+//                (a) it starts with "+" and parses as a valid international number, or
+//                (b) the column header is phone-like (SAD-303). Date runs before phone, so a
+//                date can never be read as a number; number runs after, so a plain count
+//                column still lands on number.
+//  7. number   — every non-empty value is a finite number, or text matching
+//                [+-]?(digits[.digits?] | .digits)([eE][+-]?digits)?  (decimal point only, G-A5).
+//                "1,5", "1,000", "NaN", "Infinity" are not numbers.
+//  8. single_select — the column is not one of the above, AND the number of distinct non-empty
+//     values is <= 20 AND distinct / non-empty rows <= 0.5. Values are compared after trimming.
+//  9. text     — everything else, including all ambiguous columns (G-P3).
 //
 // Tolerance: by default a type applies only when 100% of non-empty values match (no cell
 // would be lost or altered on import). An optional `tolerance` (e.g. 0.05) allows that
 // fraction of non-matching values. Those cells would then be lost on import, so this is
 // for accuracy sensitivity analysis only and is NOT the default.
 
-export type InferredType = 'text' | 'number' | 'date' | 'checkbox' | 'single_select';
+export type InferredType = 'text' | 'number' | 'date' | 'checkbox' | 'single_select' | 'email' | 'url' | 'phone';
 
 /** A raw cell as read from CSV (string) or XLSX (number, boolean, Date, string, null). */
 export type InputCell = string | number | boolean | Date | null | undefined;
@@ -34,6 +43,8 @@ export type InputCell = string | number | boolean | Date | null | undefined;
 export interface InferenceOptions {
   /** Fraction of non-empty values allowed to not match. Default 0 (strict). */
   tolerance?: number;
+  /** The column's header text, when the source has one. Only the phone rule uses it. */
+  header?: string;
   /** Max distinct values for single_select. Default 20 (proposed). */
   maxSelectDistinct?: number;
   /** Max distinct / non-empty ratio for single_select. Default 0.5 (proposed). */
@@ -53,6 +64,9 @@ export interface ColumnInference {
   /** Distinct trimmed values, in first-seen order. Only set for single_select. */
   selectOptions?: string[];
 }
+
+import { isPhoneHeader } from '../model/phone/countries.js';
+import { isValidPhone } from '../model/phone/phoneValue.js';
 
 const NUMBER_RE = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
 const ISO_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -168,11 +182,55 @@ function matchesDate(v: InputCell): boolean {
   return false;
 }
 
-const MATCHERS: ReadonlyArray<readonly [InferredType, (v: InputCell) => boolean]> = [
-  ['checkbox', matchesCheckbox],
-  ['number', matchesNumber],
-  ['date', matchesDate],
-];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const URL_RE = /^https?:\/\/\S+$/i;
+/** The characters a phone number may contain. Anything else (a letter, a comma) disqualifies it. */
+const PHONE_ALPHABET_RE = /^[+\d\s\-().]+$/;
+
+function digitCount(text: string): number {
+  let n = 0;
+  for (const ch of text) if (ch >= '0' && ch <= '9') n++;
+  return n;
+}
+
+function matchesEmail(v: InputCell): boolean {
+  if (typeof v !== 'string') return false;
+  const t = v.trim();
+  return t.length <= 254 && EMAIL_RE.test(t);
+}
+
+function matchesUrl(v: InputCell): boolean {
+  return typeof v === 'string' && URL_RE.test(v.trim());
+}
+
+/** 7-15 digits, only the phone alphabet, and not a plain number that a numeric column owns. */
+function phoneShape(v: InputCell): string | null {
+  if (typeof v === 'number') {
+    // XLSX: an integer cell can legitimately be a phone number.
+    if (!Number.isInteger(v)) return null;
+    const t = String(v);
+    return t.length >= 7 && t.length <= 15 ? t : null;
+  }
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  if (!PHONE_ALPHABET_RE.test(t)) return null;
+  const digits = digitCount(t);
+  return digits >= 7 && digits <= 15 ? t : null;
+}
+
+function matchesInternationalPhone(v: InputCell): boolean {
+  const t = phoneShape(v);
+  if (t === null || !t.startsWith('+')) return false;
+  // The header assist exists because a national number has no country of its own; here the "+"
+  // says it is international, so the parser can decide without guessing.
+  return isValidPhone(t);
+}
+
+function matchesPhoneWithHeader(v: InputCell, header: string | undefined): boolean {
+  if (phoneShape(v) === null) return false;
+  if (matchesInternationalPhone(v)) return true;
+  return header !== undefined && isPhoneHeader(header);
+}
 
 /** Infer the type of one column from its raw cell values. */
 export function inferColumn(values: readonly InputCell[], options: InferenceOptions = {}): ColumnInference {
@@ -199,14 +257,38 @@ export function inferColumn(values: readonly InputCell[], options: InferenceOpti
     return { type: 'text', reason: 'no non-empty values', nonEmpty, distinct, matchRatio: 1 };
   }
 
-  for (const [type, matches] of MATCHERS) {
+  // Every matcher's reason names what it saw, so the import report can explain the choice.
+  // Order matters: date before phone (a date is never a number), phone before number (an
+  // integer phone column must not be claimed by the numeric rule), checkbox first of all.
+  const matchers: ReadonlyArray<readonly [InferredType, (v: InputCell) => boolean, string]> = [
+    ['checkbox', matchesCheckbox, `all ${nonEmpty} non-empty values match checkbox`],
+    ['date', matchesDate, `all ${nonEmpty} non-empty values match date`],
+    ['email', matchesEmail, `all ${nonEmpty} non-empty values look like email addresses`],
+    ['url', matchesUrl, `all ${nonEmpty} non-empty values are http(s) URLs`],
+    [
+      'phone',
+      (v) => matchesPhoneWithHeader(v, options.header),
+      // Decided only when the phone rule is actually evaluated (see the loop), so a numeric or
+      // text column never pays for phone parsing.
+      '' as string,
+    ],
+    ['number', matchesNumber, `all ${nonEmpty} non-empty values match number`],
+  ];
+
+  for (const [type, matches, fixedReason] of matchers) {
     let ok = 0;
     for (const v of nonEmptyValues) if (matches(v)) ok++;
     const ratio = ok / nonEmpty;
     if (ratio >= 1 - tolerance) {
+      const reason =
+        fixedReason !== ''
+          ? fixedReason
+          : nonEmptyValues.every((v) => matchesInternationalPhone(v))
+            ? `all ${nonEmpty} non-empty values are valid international phone numbers`
+            : `all ${nonEmpty} non-empty values are 7-15 digit phone numbers and the header says "Phone"`;
       return {
         type,
-        reason: ratio === 1 ? `all ${nonEmpty} non-empty values match ${type}` : `${(ratio * 100).toFixed(1)}% of values match ${type}`,
+        reason: ratio === 1 ? reason : `${(ratio * 100).toFixed(1)}% of values match ${type}`,
         nonEmpty,
         distinct,
         matchRatio: ratio,
@@ -235,12 +317,18 @@ export function inferColumn(values: readonly InputCell[], options: InferenceOpti
 }
 
 /** Infer every column of a row-major table. Rows may be ragged; missing cells count as empty. */
-export function inferTable(rows: readonly (readonly InputCell[])[], columnCount: number, options: InferenceOptions = {}): ColumnInference[] {
+export function inferTable(
+  rows: readonly (readonly InputCell[])[],
+  columnCount: number,
+  options: InferenceOptions = {},
+  headers?: readonly string[],
+): ColumnInference[] {
   const out: ColumnInference[] = [];
   for (let c = 0; c < columnCount; c++) {
     const column: InputCell[] = new Array<InputCell>(rows.length);
     for (let r = 0; r < rows.length; r++) column[r] = rows[r][c];
-    out.push(inferColumn(column, options));
+    const header = headers?.[c];
+    out.push(inferColumn(column, header === undefined ? options : { ...options, header }));
   }
   return out;
 }

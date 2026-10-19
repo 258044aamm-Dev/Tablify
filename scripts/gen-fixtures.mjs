@@ -267,7 +267,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // FX-LABELED (P4-03): 30 columns × 100 values with known intended types.
 // AUTHORED BY THE AGENT (see C5 in docs/plan/phase-4-plan.md). Includes noisy values
 // and deliberate hard cases so the measured accuracy is not flattered.
-// Intended-type labels: text | number | date | checkbox | single_select
+// Intended-type labels: text | number | date | checkbox | single_select | email | url | phone
+// SAD-303: the set gained email/url/phone columns, and `Email` is now labelled email (it was
+// text before the detectors existed). The rest of the set is untouched, so the numbers stay
+// comparable with the P4-03 baseline.
 // ---------------------------------------------------------------------------
 export function buildLabeledSet() {
   const rand = mulberry32(31337);
@@ -290,7 +293,7 @@ export function buildLabeledSet() {
   add('Customer', 'text', rows((i) => `Customer ${String.fromCharCode(65 + (i % 26))}${i}`));
   add('Description', 'text', rows((i) => `Line item ${i}: ${pick(['shipped late', 'damaged box', 're-ordered', 'bulk item'])} #${i}`));
   add('Code', 'text', rows((i) => `X${pad(i, 4)}${pick(['A', 'B', 'C'])}`));
-  add('Email', 'text', rows((i) => `user${i}@example.com`));
+  add('Email', 'email', rows((i) => `user${i}@example.com`));
   add('Comment', 'text', rows(() => pick(['ok', 'fine', 'see note'])));               // HARD: few distinct values, labeled text
   add('Address line', 'text', rows((i) => `${ri(1, 999)} Main Street, Unit ${i}`));
 
@@ -325,6 +328,15 @@ export function buildLabeledSet() {
   add('Team', 'single_select', rows((i) => `Team ${i % 25}`)); // HARD: 25 distinct values, above the 20-option cap
   add('Tag', 'single_select', withNoise(rows(() => pick(['red', 'green', 'blue'])), ['???'], 1));
   add('Size', 'single_select', rows(() => (rand() < 0.2 ? '' : pick(['S', 'M', 'L', 'XL']))));
+
+  // ---- address types (SAD-303) ----
+  // International numbers: the "+" and the parser decide, no header needed.
+  add('Phone', 'phone', rows((i) => `+880 17${10000000 + i}`));
+  // National digits: only the header ("Mobile") can tell the rule what these are.
+  add('Mobile', 'phone', rows((i) => `017${10000000 + i}`));
+  add('Website', 'url', rows((i) => `https://example.com/item/${i}`));
+  // Negative control: bare digits under a header that is not a phone word stay a number.
+  add('Order ID', 'number', rows((i) => String(100000000 + i)));
 
   return { rows: N, columns: cols };
 }

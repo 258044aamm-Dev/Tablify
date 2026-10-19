@@ -10,7 +10,8 @@ import { inferColumn, type InferredType, type InputCell } from '../src/io/infer.
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SET_PATH = join(ROOT, 'samples', 'fixtures', 'labeled', 'labeled-set.json');
 const REPORT_PATH = join(ROOT, 'docs', 'reports', 'p4-03-accuracy.md');
-const TYPES: InferredType[] = ['text', 'number', 'date', 'checkbox', 'single_select'];
+// SAD-303: the three address types are labelled now, so they are part of the measurement.
+const TYPES: InferredType[] = ['text', 'number', 'date', 'checkbox', 'single_select', 'email', 'url', 'phone'];
 const THRESHOLD = 0.9; // proposed (P4-03 acceptance), owner must confirm
 
 interface LabeledColumn { name: string; label: InferredType; values: InputCell[] }
@@ -23,7 +24,9 @@ const set = JSON.parse(raw) as { rows: number; columns: LabeledColumn[] };
 interface Run { column: LabeledColumn; inferred: InferredType; ratio: number; reason: string }
 function run(tolerance: number): Run[] {
   return set.columns.map((c) => {
-    const r = inferColumn(c.values, { tolerance });
+    // SAD-303: the column's name is its header — the phone rule's header assist needs it, and
+    // the import passes the real header the same way.
+    const r = inferColumn(c.values, { tolerance, header: c.name });
     return { column: c, inferred: r.type, ratio: r.matchRatio, reason: r.reason };
   });
 }

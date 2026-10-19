@@ -158,3 +158,73 @@ describe('Date values (native)', () => {
     expect(inferColumn([new Date(Date.UTC(2026, 0, 2, 12, 30)), new Date(Date.UTC(2026, 0, 3))]).type).toBe('text');
   });
 });
+
+// SAD-303 — address columns keep their type on the way in.
+describe('email, URL and phone rules (SAD-303)', () => {
+  it('detects an email column', () => {
+    const r = inferColumn(['rahim@example.com', 'Ada@Example.org ', '', null]);
+    expect(r.type).toBe('email');
+    expect(r.reason).toBe('all 2 non-empty values look like email addresses');
+  });
+
+  it('does not call a list of names with an @ sign email', () => {
+    expect(inferColumn(['team@', '@example.com', 'a b@example.com']).type).not.toBe('email');
+    expect(inferColumn(['ok@example.com', 'not-an-email']).type).not.toBe('email');
+  });
+
+  it('detects an http(s) URL column, and only with a scheme', () => {
+    expect(inferColumn(['https://example.com/a', 'http://example.org']).type).toBe('url');
+    expect(inferColumn(['example.com', 'www.example.org']).type).not.toBe('url');
+    expect(inferColumn(['https://example.com', 'nope']).type).not.toBe('url');
+  });
+
+  it('detects a column of valid international phone numbers', () => {
+    const r = inferColumn(['+880 1712-345678', '+14155552671']);
+    expect(r.type).toBe('phone');
+    expect(r.reason).toBe('all 2 non-empty values are valid international phone numbers');
+  });
+
+  it('does not call a malformed international column phone', () => {
+    expect(inferColumn(['+1', '+880 abc', '+']).type).not.toBe('phone');
+    expect(inferColumn(['+1234567890123456']).type).not.toBe('phone'); // 16 digits: over E.164
+  });
+
+  it('needs the header for a national column', () => {
+    expect(inferColumn(['01712345678', '01812345678']).type).toBe('number');
+    const withHeader = inferColumn(['01712345678', '01812345678'], { header: 'Mobile' });
+    expect(withHeader.type).toBe('phone');
+    expect(withHeader.reason).toBe(
+      'all 2 non-empty values are 7-15 digit phone numbers and the header says "Phone"',
+    );
+  });
+
+  it('a header alone is not enough: the values must also be phone-shaped', () => {
+    expect(inferColumn(['not a number', '12345'], { header: 'Phone' }).type).toBe('text');
+    // 5 digits is under the 7-digit floor (a postal code, an extension).
+    expect(inferColumn(['12345', '67890'], { header: 'Phone' }).type).not.toBe('phone');
+  });
+
+  it('the header match is whole-token, so Phonebook ID is not a phone column', () => {
+    expect(inferColumn(['4155552671'], { header: 'Phonebook ID' }).type).not.toBe('phone');
+    expect(inferColumn(['4155552671'], { header: 'Telephone notes' }).type).toBe('phone');
+  });
+
+  it('a date column is never read as a phone number', () => {
+    expect(inferColumn(['2026-10-19', '2024-01-01'], { header: 'Phone' }).type).toBe('date');
+  });
+
+  it('a real numeric column still lands on number', () => {
+    expect(inferColumn([1, 2, 42, 1000]).type).toBe('number');
+    expect(inferColumn(['1.5', '-3']).type).toBe('number');
+  });
+
+  it('inferTable passes each column its own header', () => {
+    const rows = [
+      ['Mobile', 'Notes'],
+      ['01712345678', '01712345678'],
+    ];
+    const [mobile, notes] = inferTable(rows.slice(1), 2, {}, rows[0]);
+    expect(mobile.type).toBe('phone');
+    expect(notes.type).toBe('number');
+  });
+});
