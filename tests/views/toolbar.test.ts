@@ -111,21 +111,22 @@ describe('Toolbar — structure', () => {
     expect(SEARCH_PLACEHOLDER).toBe('Search or query — e.g. Status:Done Amount:>10');
   });
 
-  it('orders the buttons like the prototype: Sync · ↶ · ↷ · Filter · Add Row · Add Field · Options', () => {
+  it('orders the buttons per SAD-308: ↶ · ↷ · Add Field · Add Row · Filter · Sync · Options', () => {
     const { toolbar } = mount();
     const actions = [...toolbar.root.querySelectorAll<HTMLElement>('.tablify__toolbar-actions > button')].map(
       (b) => b.dataset.action,
     );
-    expect(actions).toEqual(['sync', 'undo', 'redo', 'filter', 'add-row', 'add-field', 'options']);
+    expect(actions).toEqual(['undo', 'redo', 'add-field', 'add-row', 'filter', 'sync', 'options']);
     const label = (a: string) => buttonByAction(toolbar.root, a)?.querySelector('.tablify__btn-label')?.textContent;
-    expect([label('sync'), label('filter'), label('add-row'), label('add-field'), label('options')]).toEqual([
-      'Sync',
-      'Filter',
-      'Add Row',
+    expect([label('add-field'), label('add-row'), label('filter'), label('sync'), label('options')]).toEqual([
       'Add Field',
+      'Add Row',
+      'Filter',
+      'Sync',
       'Options',
     ]);
     expect(buttonByAction(toolbar.root, 'undo')?.querySelector('.tablify__btn-label')).toBeNull();
+    expect(buttonByAction(toolbar.root, 'redo')?.querySelector('.tablify__btn-label')).toBeNull();
     for (const a of actions) {
       expect(buttonByAction(toolbar.root, a ?? '')?.querySelector('svg.tablify__fa'), `${a} glyph`).not.toBeNull();
     }

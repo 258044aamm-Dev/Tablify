@@ -6,8 +6,8 @@
  * it is what makes the toolbar testable in jsdom. The Obsidian-facing layer (TableView)
  * only mounts it and hands it callbacks.
  *
- * Layout follows the prototype's #toolbarRow (SAD-78, owner decision S-3): one "Search or
- * query" capsule on the left, then Sync · ↶ · ↷ · Filter · Add Row · Add Field · Options, with
+ * Layout follows #toolbarRow (SAD-78, owner decision S-3; reordered in SAD-308): one "Search or
+ * query" capsule on the left, then ↶ · ↷ · Add Field · Add Row · Filter · Sync · Options, with
  * the query's inline error beneath and the meta row (row count) below that. The box's text is
  * split into the persisted view.search + view.query halves by src/query/combined.ts.
  *
@@ -211,17 +211,17 @@ export class Toolbar {
     searchWrap.appendChild(searchIcon);
     searchWrap.appendChild(this.searchInput);
 
-    // Prototype order: Sync · ↶ · ↷ · Filter · Add Row · Add Field · Options.
+    // SAD-308 order: ↶ · ↷ · Add Field · Add Row · Filter · Sync · Options.
     const actions = document.createElement('div');
     actions.className = 'tablify__toolbar-actions';
-    actions.appendChild(this.makeButton(ACTIONS.sync, 'Sync', 'Airtable sync for this table', 'sync'));
     actions.appendChild(this.makeButton(ACTIONS.undo, '', 'Undo', 'undo'));
     actions.appendChild(this.makeButton(ACTIONS.redo, '', 'Redo', 'redo'));
+    actions.appendChild(this.makeButton(ACTIONS.addField, 'Add Field', 'Add field', 'columns'));
+    actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add Row', 'Add row', 'plus'));
     const filterButton = this.makeButton(ACTIONS.filter, 'Filter', 'Filter builder', 'filter');
     filterButton.setAttribute('aria-haspopup', 'dialog');
     actions.appendChild(filterButton);
-    actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add Row', 'Add row', 'plus'));
-    actions.appendChild(this.makeButton(ACTIONS.addField, 'Add Field', 'Add field', 'columns'));
+    actions.appendChild(this.makeButton(ACTIONS.sync, 'Sync', 'Airtable sync for this table', 'sync'));
     this.optionsButton = this.makeButton(ACTIONS.options, 'Options', 'View settings', 'sliders');
     this.optionsButton.setAttribute('aria-haspopup', 'true');
     this.optionsButton.setAttribute('aria-expanded', 'false');
