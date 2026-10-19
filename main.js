@@ -20233,6 +20233,7 @@ var PANEL_MAX_WIDTH = 320;
 var PANEL_GAP = 6;
 var DEBOUNCE_MS2 = 200;
 var SEARCH_PLACEHOLDER = "Search or query \u2014 e.g. Status:Done Amount:>10";
+var MOBILE_SEARCH_PLACEHOLDER = "Search or query \u2014 e.g. Status:Done";
 var ICONS = {
   search: "magnifying-glass",
   sync: "cloud-arrow-up",
@@ -20383,6 +20384,7 @@ var Toolbar = class _Toolbar {
     metaRow.appendChild(badges);
     this.root.appendChild(metaRow);
     this.wireEvents();
+    window.addEventListener("resize", this.syncPlaceholder);
     this.update(options);
   }
   // ---- construction helpers ----
@@ -20535,6 +20537,7 @@ var Toolbar = class _Toolbar {
     this.opts.selectedCount = state.selectedCount;
     this.opts.totalFieldCount = state.totalFieldCount;
     this.opts.freezeUnavailable = state.freezeUnavailable === true;
+    this.syncPlaceholder();
     this.renderSelection();
     this.renderFieldCount();
     if (state.theme !== this.opts.theme) {
@@ -20582,9 +20585,25 @@ var Toolbar = class _Toolbar {
     this.searchTimer = null;
     document.removeEventListener("pointerdown", this.outsideClose);
     window.removeEventListener("resize", this.reposition);
+    window.removeEventListener("resize", this.syncPlaceholder);
     this.root.remove();
   }
   // ---- rendering ----
+  /** SAD-306: true when the table pane or viewport is at or below the phone breakpoint (≤ 639px). */
+  isMobileWidth() {
+    if (this.opts.freezeUnavailable === true)
+      return true;
+    const win = this.root.ownerDocument?.defaultView ?? (typeof window !== "undefined" ? window : null);
+    const w = win?.innerWidth ?? 0;
+    return w > 0 && w <= MOBILE_PANE_MAX_WIDTH;
+  }
+  /** SAD-306: adapt the search box placeholder to mobile vs. desktop widths. */
+  syncPlaceholder = () => {
+    const next = this.isMobileWidth() ? MOBILE_SEARCH_PLACEHOLDER : SEARCH_PLACEHOLDER;
+    if (this.searchInput.placeholder !== next) {
+      this.searchInput.placeholder = next;
+    }
+  };
   showQueryError(raw) {
     const split = splitSearchQuery(raw ?? "");
     const query = split.query.trim();

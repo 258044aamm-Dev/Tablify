@@ -23,6 +23,7 @@ import { joinSearchQuery, splitSearchQuery, toInputPosition } from '../../query/
 import { faIcon, type FaGlyph } from '../../ui/faIcons.js';
 import { selectionLabel } from './selection.js';
 import { isGroupable } from './grouping.js';
+import { MOBILE_PANE_MAX_WIDTH } from '../../model/view.js';
 import type { FieldDefinition, SortEntry, ViewDefinition } from '../../model/types.js';
 
 /**
@@ -51,6 +52,9 @@ export const DEBOUNCE_MS = 200;
 
 /** Placeholder of the single box: the prototype's wording with a generic example (S-3). */
 export const SEARCH_PLACEHOLDER = 'Search or query — e.g. Status:Done Amount:>10';
+
+/** SAD-306: concise mobile placeholder so the example text fits narrow screens (≤ 639px). */
+export const MOBILE_SEARCH_PLACEHOLDER = 'Search or query — e.g. Status:Done';
 
 export interface ToolbarCallbacks {
   /**
@@ -299,6 +303,7 @@ export class Toolbar {
     this.root.appendChild(metaRow);
 
     this.wireEvents();
+    window.addEventListener('resize', this.syncPlaceholder);
     this.update(options);
   }
 
@@ -461,6 +466,7 @@ export class Toolbar {
     this.opts.selectedCount = state.selectedCount;
     this.opts.totalFieldCount = state.totalFieldCount;
     this.opts.freezeUnavailable = state.freezeUnavailable === true;
+    this.syncPlaceholder();
     this.renderSelection();
     this.renderFieldCount();
 
@@ -520,10 +526,27 @@ export class Toolbar {
     this.searchTimer = null;
     document.removeEventListener('pointerdown', this.outsideClose);
     window.removeEventListener('resize', this.reposition);
+    window.removeEventListener('resize', this.syncPlaceholder);
     this.root.remove();
   }
 
   // ---- rendering ----
+
+  /** SAD-306: true when the table pane or viewport is at or below the phone breakpoint (≤ 639px). */
+  private isMobileWidth(): boolean {
+    if (this.opts.freezeUnavailable === true) return true;
+    const win = this.root.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : null);
+    const w = win?.innerWidth ?? 0;
+    return w > 0 && w <= MOBILE_PANE_MAX_WIDTH;
+  }
+
+  /** SAD-306: adapt the search box placeholder to mobile vs. desktop widths. */
+  private readonly syncPlaceholder = (): void => {
+    const next = this.isMobileWidth() ? MOBILE_SEARCH_PLACEHOLDER : SEARCH_PLACEHOLDER;
+    if (this.searchInput.placeholder !== next) {
+      this.searchInput.placeholder = next;
+    }
+  };
 
   private showQueryError(raw: string): void {
     const split = splitSearchQuery(raw ?? '');
