@@ -100,8 +100,28 @@ export function localToRemote(field: FieldDefinition, value: CellValue | undefin
     return (v as string[]).map((id) => requireOptionName(field, id));
   }
   if (field.type === 'checkbox') return v === true;
+  if (field.type === 'rating') {
+    // SAD-304: an Airtable rating is a whole star, so a fraction is rounded at the boundary. The
+    // file keeps its fraction; the push records the server's echo as the remote hash, so the next
+    // sync does not read the rounding back as a remote change.
+    return typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : v;
+  }
   if (v === '') return null;
   return v;
+}
+
+/**
+ * SAD-304: how many of a row's writable rating cells hold a fraction. The caller adds this to the
+ * report so the sync message can say how many ratings Airtable received rounded.
+ */
+export function fractionalRatingCount(fields: readonly FieldDefinition[], row: Pick<Row, 'values'>): number {
+  let count = 0;
+  for (const f of fields) {
+    if (f.type !== 'rating' || !isWritable(f)) continue;
+    const v = row.values[f.id];
+    if (typeof v === 'number' && Number.isFinite(v) && v !== Math.round(v)) count += 1;
+  }
+  return count;
 }
 
 /** Normalized value used for hashing and comparison. Empty and absent values have one form. */

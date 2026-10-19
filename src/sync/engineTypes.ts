@@ -39,6 +39,8 @@ export interface SyncReport {
   remoteChangedNotPushed: number;
   conflicts: ConflictItem[];
   failures: RowFailure[];
+  /** SAD-304: writable rating cells whose fraction was rounded for Airtable on this push. */
+  roundedRatings: number;
   ok: boolean;
   summary: string;
 }
@@ -57,6 +59,7 @@ export function emptyReport(direction: 'pull' | 'push'): SyncReport {
     remoteChangedNotPushed: 0,
     conflicts: [],
     failures: [],
+    roundedRatings: 0,
     ok: true,
     summary: '',
   };
@@ -72,6 +75,8 @@ export function summarize(report: SyncReport): string {
   }
   if (report.conflicts.length) parts.push(`${report.conflicts.length} conflict(s)`);
   if (report.failures.length) parts.push(`${report.failures.length} failed`);
+  // SAD-304: say it out loud — Airtable stores whole stars, so a 4.5 arrives as 5.
+  if (report.roundedRatings) parts.push(`${report.roundedRatings} rating(s) rounded for Airtable`);
   if (report.remoteDeleted) parts.push(`${report.remoteDeleted} deleted in Airtable`);
   if (report.localDeletedKept) parts.push(`${report.localDeletedKept} deleted locally, kept in Airtable`);
   return parts.join(', ').slice(0, 300);

@@ -27556,9 +27556,23 @@ function localToRemote(field, value) {
   }
   if (field.type === "checkbox")
     return v === true;
+  if (field.type === "rating") {
+    return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : v;
+  }
   if (v === "")
     return null;
   return v;
+}
+function fractionalRatingCount(fields, row) {
+  let count = 0;
+  for (const f of fields) {
+    if (f.type !== "rating" || !isWritable(f))
+      continue;
+    const v = row.values[f.id];
+    if (typeof v === "number" && Number.isFinite(v) && v !== Math.round(v))
+      count += 1;
+  }
+  return count;
 }
 function normalize(field, value) {
   const v = value ?? null;
@@ -27651,6 +27665,7 @@ function emptyReport(direction) {
     remoteChangedNotPushed: 0,
     conflicts: [],
     failures: [],
+    roundedRatings: 0,
     ok: true,
     summary: ""
   };
@@ -27666,6 +27681,8 @@ function summarize(report) {
     parts.push(`${report.conflicts.length} conflict(s)`);
   if (report.failures.length)
     parts.push(`${report.failures.length} failed`);
+  if (report.roundedRatings)
+    parts.push(`${report.roundedRatings} rating(s) rounded for Airtable`);
   if (report.remoteDeleted)
     parts.push(`${report.remoteDeleted} deleted in Airtable`);
   if (report.localDeletedKept)
@@ -27833,6 +27850,7 @@ async function pushToAirtable(ctx) {
   for (const row of ctx.session.store.getAllRows()) {
     if (!row.sync) {
       creates.push({ row, sentRev: row.rev, airtableId: null, payload: writePayload(fields, row) });
+      report.roundedRatings += fractionalRatingCount(fields, row);
       continue;
     }
     linkedIds.add(row.sync.airtableId);
@@ -27842,6 +27860,7 @@ async function pushToAirtable(ctx) {
     switch (cls.action) {
       case "push":
         updates.push({ row, sentRev: row.rev, airtableId: row.sync.airtableId, payload: writePayload(fields, row) });
+        report.roundedRatings += fractionalRatingCount(fields, row);
         break;
       case "adopt":
         localOnly.push({ row, kind: "adopt", remoteHash });

@@ -6,7 +6,7 @@ import { AIRTABLE_WRITE_BATCH, AirtableError, type AirtableRecord } from './airt
 import { classifyLinked, linkedFacts, remoteHashFor } from './rules.js';
 import { emptyReport, finishRun, requireLink, safeReason, summarize, type RowFailure, type SyncContext, type SyncReport } from './engineTypes.js';
 import { nextSync, conflictItem } from './pull.js';
-import { remoteValues, hashValues, writePayload } from './values.js';
+import { remoteValues, hashValues, writePayload, fractionalRatingCount } from './values.js';
 
 interface WriteItem {
   row: Row;
@@ -33,6 +33,7 @@ export async function pushToAirtable(ctx: SyncContext): Promise<SyncReport> {
   for (const row of ctx.session.store.getAllRows()) {
     if (!row.sync) {
       creates.push({ row, sentRev: row.rev, airtableId: null, payload: writePayload(fields, row) });
+      report.roundedRatings += fractionalRatingCount(fields, row);
       continue;
     }
     linkedIds.add(row.sync.airtableId);
@@ -42,6 +43,7 @@ export async function pushToAirtable(ctx: SyncContext): Promise<SyncReport> {
     switch (cls.action) {
       case 'push':
         updates.push({ row, sentRev: row.rev, airtableId: row.sync.airtableId, payload: writePayload(fields, row) });
+        report.roundedRatings += fractionalRatingCount(fields, row);
         break;
       case 'adopt':
         localOnly.push({ row, kind: 'adopt', remoteHash: remoteHash! });
