@@ -4,6 +4,39 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- **Phone fields have a country, and the number is stored the way a phone system reads it
+  (SAD-303)** — a Phone field can name a **default country** (*Add New Field* / *Modify Field* →
+  *Default country*, a searchable list you can type into — `880`, `bangla`, `bd` or `uk` all find
+  the right one). Editing a cell opens a small panel with the country and the number side by side:
+  a national number is formatted as you type, the preview shows the international form, and what is
+  saved is **E.164** (`+8801712345678`) — one unambiguous form that sorts, compares and exports as
+  text, and that Airtable accepts. A pasted `+…` number switches the panel to its own country; a
+  national number is never guessed into the wrong one. Because display is derived, cells read
+  `+880 1712 345678` while the file, copy, tooltip, search, sort, grouping and export keep the
+  stored value. Numbers that cannot be validated are kept exactly as typed, and opening a cell and
+  closing it still writes nothing.
+
+- **Import recognises email, website and phone columns (SAD-303)** — they used to arrive as text
+  (or, worse, as a select field when a column had few distinct values). A column is now Email or
+  URL when every value is one, and Phone when every value is 7–15 digits in the phone alphabet
+  **and** either starts with `+` and parses as a valid international number, or sits under a
+  phone-like header (`Phone`, `Mobile`, `Tel`, `Telephone`, `মোবাইল`, `手机`…). International numbers
+  are stored as E.164 and the field takes the column's country when every `+` value names one; a
+  national number is kept exactly as it arrived. A CSV or XLSX exported from Tablify and imported
+  again keeps all three types, which is asserted end to end for both formats.
+
+### Changed
+
+- **Phone cells show the international form and dial in E.164** — the link text is
+  `+1 555 123 4567` (the stored value and tooltip stay `+15551234567`, and `tel:` uses E.164), and
+  the inline text editor is replaced by the panel described above.
+- **The P4-03 labelled set gained four columns** (`Phone`, `Mobile`, `Website`, an `Order ID`
+  negative control) and `Email` is now labelled email. Strict accuracy is **76.5 % (26/34)**,
+  measured, up from 73.3 % (22/30) — still below the *proposed* 90 % threshold; the
+  [accuracy report](docs/reports/p4-03-accuracy.md) says so.
+
 ## [2.0.0-beta.5] — 2026-10-18
 
 ### Added

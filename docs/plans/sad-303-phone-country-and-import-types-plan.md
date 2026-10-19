@@ -1,6 +1,6 @@
 # SAD-303 — Country codes for phone fields, and keeping email / phone field types through import and export
 
-**Status:** Plan for approval — no production code changed yet.
+**Status:** **Implemented and delivered** in five commits (`1d55035`, `b5a5cdc`, `efb6c85`, `88a0a7f`, and the docs commit) — see [`docs/evidence/SAD-303.md`](../evidence/SAD-303.md). This file is kept as the approved design record; the code now differs from it only where the notes below say so.
 **Issue:** [SAD-303](https://linear.app/sad-mod/issue/SAD-303/please-address-the-following-two-issues) · priority **2** · labels *Improvement*, *Feature*
 **Repository baseline:** `main` at `5927997` (`release: v2.0.0-beta.5 metadata and notes`), 2026-10-18.
 **Plan date:** 2026-10-19.

@@ -9,6 +9,7 @@ Everything in this guide covers the 1.0.0 (MVP) feature set, on desktop and mobi
 3. [Fields and field types](#3-fields-and-field-types)
 4. [Editing cells](#4-editing-cells)
    - [Picking a date or a time](#4a-picking-a-date-or-a-time)
+   - [Phone numbers and countries](#4b-phone-numbers-and-countries)
 5. [Keyboard use](#5-keyboard-use)
 6. [Select options](#6-select-options)
 7. [Attachments](#7-attachments)
@@ -122,6 +123,9 @@ another, which clears the cells that used it.
 | Date | ISO `yyyy-mm-dd` |
 | Checkbox | true/false |
 | Single select | one option from a list (with optional color) |
+| Email | an email address, lower-cased; the cell is a `mailto:` link |
+| URL | an `http(s)://` address; the cell is a link |
+| Phone | a phone number, stored as E.164 (`+8801712345678`) with an optional default country (section 4b) |
 | Attachment | references to files in your vault |
 | Formula | the result of an expression over other fields in the same row. Read-only (section 18) |
 | Link | rows in another table (section 18) |
@@ -133,7 +137,7 @@ another, which clears the cells that used it.
 - a **Checkbox** is a box you click to tick or clear; each click is one undo step. An empty box is the same as `false`; a table reading `true`/`false` in the file shows a ticked/empty box;
 - a **Rating** is a row of stars filled up to the value, then the label (`4/5`). The scale is the field's **Max** (5 when unset), so a rating out of 10 draws ten stars and reads `7/10`;
 - **Date and time**, **Created time** and **Last modified** show your computer's local time as `2026-10-17T14:30` — the same wall clock the editor opens with — while the file keeps the UTC instant;
-- **URL**, **Email** and **Phone** cells are links: click the address to open it in your browser, mail app or phone app;
+- **URL**, **Email** and **Phone** cells are links: click the address to open it in your browser, mail app or phone app. A **Phone** cell shows the international form (`+880 1712 345678`) and dials `tel:+8801712345678`; the stored value and its tooltip stay `+8801712345678`, so copying and exporting keep the unformatted number;
 - **Number** cells group their digits (`1,234,567`), and the numeric columns — number, currency, percent, duration and auto number — are right-aligned;
 - an **Attachment** cell shows one paperclip chip per file, and **Long text** wraps to two lines before it is clipped.
 
@@ -175,6 +179,45 @@ time means whole minutes. Nothing is written if you close the card without chang
 Keyboard: **Tab** moves through the card, the arrow keys move by day and by week, **PageUp** and
 **PageDown** change the month (with **Shift**, the year), **Home** and **End** go to the ends of the
 week, **Enter** picks the focused day, and **Escape** closes.
+
+## 4b. Phone numbers and countries
+
+A **Phone** field stores one canonical form, **E.164**: `+`, the country code and the number, no
+spaces (`+8801712345678`). That is what the file holds, so it sorts, filters, compares and exports
+as plain text and cannot be mistaken for a different number.
+
+**The default country.** *Add New Field* / *Modify Field* → **Default country** for a Phone field
+opens a searchable list of every country Tablify can validate. Type a country name, a two-letter
+code or a calling code, with or without `+`: `880`, `bangla`, `bd` and `uk` all find their country.
+The chosen country is saved with the field; **No default (use my region)** removes it. With no
+default, the country comes from your computer's own region (and, failing that, the United States).
+
+**Editing a phone cell.** Double-click (or press **Enter**, or tap the cell again) and a panel
+opens under the cell:
+
+- the country on the left (its code and calling code) and the number field on the right;
+- typing a national number formats it the way that country writes it — `01712345678` becomes
+  `01712-345678` — while the line under it shows the form that will be saved, `+880 1712 345678`;
+- a number that is not valid for the country says so (*Not a valid number for Bangladesh*) and is
+  still saved exactly as you typed it — Tablify never refuses a value or rewrites one it is not
+  sure about;
+- pressing the country opens the searchable list in the same card (**Esc** goes back one step);
+- a pasted number that starts with `+` switches the country to the one it names, so pasting
+  `+1 415 555 2671` gives you the United States and the same number. A national number never
+  changes the country — guessing is what corrupts a phone list;
+- **Done** or **Enter** saves (one undo step), **Clear** empties the cell, **Escape** throws the
+  edit away, and closing the panel without changing anything writes nothing.
+
+Cells show the international form with spaces (`+880 1712 345678`) and dial `tel:+8801712345678`.
+The tooltip, copy, search, sort, grouping and export all use the stored E.164 value.
+
+**Import.** A phone column is recognised when every value is 7–15 digits in the phone alphabet
+**and** either starts with `+` and is a valid international number, or sits under a header that
+says what it is (`Phone`, `Mobile`, `Tel`, `Telephone`, `মোবাইল`, `手机`…). International numbers are
+imported as E.164; the field takes the column's country when every `+` value names one, so new rows
+start in the right country. A national number is imported exactly as it appears — Tablify will not
+invent a country for it. A spreadsheet that turned your numbers into scientific notation
+(`8.8E+12`) has already lost the digits; retype those cells or export them as text.
 
 ## 5. Keyboard use
 
@@ -317,6 +360,7 @@ Right-click a folder → **Import CSV / Excel as table**, or run the command **I
 - **CSV**: RFC 4180 (quoted fields, CRLF, embedded newlines, BOM handled; delimiter detection).
 - **XLSX**: reads the first sheet; dates come in as dates.
 - Column types are **inferred** from the values with strict, documented rules (ambiguous values become text rather than a wrong type — see the measured accuracy note in the [changelog](../CHANGELOG.md#known-limitations)).
+- **Email**, **URL** and **Phone** columns keep their own type: a column of addresses becomes an Email or URL field, and a column of phone numbers becomes a Phone field when every value is 7–15 digits and either starts with `+` and is valid, or sits under a phone-like header (**Phone**, **Mobile**, **Telephone**…). International numbers are stored as E.164 and the field takes their country, so a table that is exported and imported again comes back with the same types (section 4b).
 - The new file opens in the grid; import is atomic — a failure leaves **no partial file**.
 
 ## 13. Exporting CSV, Excel, Markdown
