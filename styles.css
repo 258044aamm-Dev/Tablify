@@ -4224,9 +4224,10 @@ body.is-phone .view-content.tablify-view.tablify {
 .tablify__stars {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   flex: 0 0 auto;
-  margin-right: 6px;
+  margin-right: 8px;
+  padding: 2px 0;
 }
 
 .tablify__star {
@@ -4240,8 +4241,19 @@ body.is-phone .view-content.tablify-view.tablify {
 .tablify__star-box {
   position: relative;
   display: inline-flex;
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
+}
+
+/* Row-height variants keep stars proportional to capsule height */
+.tablify--rh-small .tablify__star-box {
+  width: 10px;
+  height: 10px;
+}
+
+.tablify--rh-large .tablify__star-box {
+  width: 13px;
+  height: 13px;
 }
 
 .tablify__star-base,
@@ -4266,17 +4278,22 @@ body.is-phone .view-content.tablify-view.tablify {
   flex: 0 0 auto;
 }
 
-/* Prototype `text-[10px] font-mono text-tablify-clay`: the `4/5` label. */
+/* Prototype `text-[10px] font-mono text-tablify-clay`: the `4/5` label — now 11px/500 for hierarchy. */
 .tablify__rating-text {
   flex: 0 0 auto;
   font-family: var(--tablify-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 10px;
-  color: var(--tablify-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--tablify-text);
+  font-variant-numeric: tabular-nums;
+  transform: translateY(0.5px);
 }
 
 /* SAD-304 — the interactive stars in a cell. The glyphs stay put; the hit area grows around
    them (negative margins cancel the padding) so a mouse and a thumb both land on a star, and
-   the star under the pointer answers on hover. */
+   the star under the pointer answers on hover.
+   SAD-354: bordered affordance + softer scale, preview uses accent at full opacity with subtle bg. */
 .tablify__stars--interactive {
   margin-right: 4px;
 }
@@ -4284,27 +4301,35 @@ body.is-phone .view-content.tablify-view.tablify {
 .tablify__stars--interactive .tablify__star {
   padding: 4px 1.5px;
   margin: -4px -1.5px;
-  border-radius: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.tablify__stars--interactive .tablify__star:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
 }
 
 .tablify__stars--interactive .tablify__star-box {
-  transition: transform 90ms ease;
+  transition: transform 80ms ease;
 }
 
 .tablify__stars--interactive .tablify__star:hover .tablify__star-box {
-  transform: scale(1.15);
+  transform: scale(1.08);
 }
 
-/* SAD-304: the hovered star and every star before it show the value a click would write. The
+/* SAD-354: the hovered star and every star before it show the value a click would write. The
    class is set by `wireStarPreview`; a CSS `~` rule would light the wrong side of the row. */
-.tablify__stars--interactive .tablify__star--preview .tablify__star-base,
-.tablify__stars--interactive .tablify__star--preview .tablify__star-box {
-  opacity: 0.55;
+.tablify__stars--interactive .tablify__star--preview {
+  background: color-mix(in srgb, var(--tablify-accent-primary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--tablify-accent-primary) 18%, transparent);
 }
 
 .tablify__stars--interactive .tablify__star--preview .tablify__star-base {
   color: var(--tablify-accent-primary);
+  opacity: 1;
 }
 
 /* SAD-304 — the rating panel. */

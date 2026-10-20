@@ -264,12 +264,12 @@ export function renderRatingStars(
     box.className = 'tablify__star-box';
     const base = document.createElement('span');
     base.className = 'tablify__star-base';
-    base.innerHTML = faIcon('star', 11);
+    base.innerHTML = faIcon('star', 12);
     const painted = document.createElement('span');
     painted.className = 'tablify__star-fill';
     // Three decimals kill the float dust (3.7 - 3 = 0.7000000000000002) without losing a pixel.
     painted.style.width = `${Math.round(fill * 1000) / 10}%`;
-    painted.innerHTML = faIcon('star', 11);
+    painted.innerHTML = faIcon('star', 12);
     box.appendChild(base);
     box.appendChild(painted);
     star.appendChild(box);

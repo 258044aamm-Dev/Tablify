@@ -18809,11 +18809,11 @@ function renderRatingStars(host, field, value, options = {}) {
     box.className = "tablify__star-box";
     const base = document.createElement("span");
     base.className = "tablify__star-base";
-    base.innerHTML = faIcon("star", 11);
+    base.innerHTML = faIcon("star", 12);
     const painted = document.createElement("span");
     painted.className = "tablify__star-fill";
     painted.style.width = `${Math.round(fill * 1e3) / 10}%`;
-    painted.innerHTML = faIcon("star", 11);
+    painted.innerHTML = faIcon("star", 12);
     box.appendChild(base);
     box.appendChild(painted);
     star.appendChild(box);
