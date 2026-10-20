@@ -4333,24 +4333,63 @@ body.is-phone .view-content.tablify-view.tablify {
 }
 
 /* SAD-304 — the rating panel. */
+/* SAD-354 — widened to PANEL_WIDTH family, sectioned like date/phone. */
 .tablify__rating-panel {
-  width: 248px;
-  max-width: min(248px, calc(100vw - 16px));
+  width: 300px;
+  max-width: min(320px, calc(100vw - 24px));
+}
+
+.tablify__rating-body {
+  box-sizing: border-box;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .tablify__rating-head {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.tablify__rating-head-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: 'Poppins', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--tablify-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tablify__rating-head-dot {
+  flex: 0 0 auto;
+  color: var(--tablify-text-muted);
+  font-weight: 400;
+}
+
+.tablify__rating-slider-wrap {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 0 10px;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 10px;
+  background: var(--tablify-bg-capsule);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 10px;
 }
 
 .tablify__rating-stars {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 4px;
+  gap: 6px;
+  padding: 4px;
   border-radius: 8px;
   cursor: pointer;
   outline: none;
@@ -4365,29 +4404,52 @@ body.is-phone .view-content.tablify-view.tablify {
 
 .tablify__rating-stars .tablify__star {
   line-height: 1;
-  /* SAD-304: the glyph is 20 px; the padding makes a 24 × 28 px target without moving it, and
-     the negative margin keeps the row exactly as wide as the stars. */
   padding: 4px 2px;
   margin: -4px -2px;
   border-radius: 4px;
+  border: 1px solid transparent;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.tablify__rating-stars .tablify__star:hover {
+  background: var(--tablify-bg-pill-hover);
+  border-color: var(--tablify-border-pill-hover);
 }
 
 .tablify__rating-stars .tablify__star--preview .tablify__star-base,
 .tablify__rating-stars .tablify__star:hover .tablify__star-base {
   color: var(--tablify-accent-primary);
-  opacity: 0.55;
+  opacity: 1;
+}
+
+.tablify__rating-stars .tablify__star--preview {
+  background: color-mix(in srgb, var(--tablify-accent-primary) 8%, transparent);
+  border-color: color-mix(in srgb, var(--tablify-accent-primary) 18%, transparent);
 }
 
 .tablify__rating-stars .tablify__star-box {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+}
+
+/* Adaptive: 10-star scale fits 300px — shrink glyph and gaps */
+.tablify__rating-stars[data-scale="10"] {
+  gap: 4px;
+}
+
+.tablify__rating-stars[data-scale="10"] .tablify__star-box {
+  width: 18px;
+  height: 18px;
 }
 
 .tablify__rating-caption {
+  flex: 0 0 auto;
   font-family: var(--tablify-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 15px;
   color: var(--tablify-text-muted);
+  text-align: right;
+  white-space: nowrap;
 }
 
 .tablify__rating-row {
@@ -4424,7 +4486,7 @@ body.is-phone .view-content.tablify-view.tablify {
   justify-content: space-between;
   gap: 8px;
   padding-top: 8px;
-  margin-top: 8px;
+  margin-top: 2px;
   border-top: 1px solid var(--tablify-border-subtle);
 }
 

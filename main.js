@@ -25572,12 +25572,26 @@ var RatingPanel = class {
     this.scale = ratingScale(options.field);
     this.original = options.value ?? null;
     this.draft = ratingNumber(options.value);
-    const { card, body } = createPanelCard("tablify-rating-panel", options.theme ?? "light", "tablify__dropdown-body");
+    const { card, body } = createPanelCard("tablify-rating-panel", options.theme ?? "light", "tablify__rating-body");
     card.classList.add("tablify__rating-panel");
     card.setAttribute("aria-label", `Rating: ${options.field.name}`);
+    card.dataset.scale = String(this.scale);
     this.card = card;
-    const head = element2("div", "tablify__rating-head");
+    const header = element2("div", "tablify__rating-head");
+    const headName = element2("span", "tablify__rating-head-name");
+    headName.textContent = options.field.name;
+    const headDot = element2("span", "tablify__rating-head-dot");
+    headDot.textContent = "\xB7";
+    headDot.setAttribute("aria-hidden", "true");
+    this.caption = element2("span", "tablify__rating-caption");
+    this.caption.setAttribute("aria-live", "polite");
+    header.appendChild(headName);
+    header.appendChild(headDot);
+    header.appendChild(this.caption);
+    body.appendChild(header);
+    const sliderWrap = element2("div", "tablify__rating-slider-wrap");
     this.slider = element2("div", "tablify__rating-stars");
+    this.slider.dataset.scale = String(this.scale);
     this.slider.setAttribute("role", "slider");
     this.slider.setAttribute("tabindex", "0");
     this.slider.setAttribute("aria-label", `Rating for ${options.field.name}`);
@@ -25596,11 +25610,8 @@ var RatingPanel = class {
     this.slider.addEventListener("pointercancel", () => {
       this.dragging = false;
     });
-    head.appendChild(this.slider);
-    this.caption = element2("div", "tablify__rating-caption");
-    this.caption.setAttribute("aria-live", "polite");
-    head.appendChild(this.caption);
-    body.appendChild(head);
+    sliderWrap.appendChild(this.slider);
+    body.appendChild(sliderWrap);
     const row = element2("div", "tablify__rating-row");
     this.input = document.createElement("input");
     this.input.type = "text";
@@ -25790,6 +25801,7 @@ var RatingPanel = class {
   // ---- paint --------------------------------------------------------------------------
   paint() {
     const fills = starFills(this.draft, this.scale);
+    const iconSize = this.scale >= 10 ? 18 : 22;
     this.slider.replaceChildren();
     for (let i = 0; i < this.scale; i += 1) {
       const fill = fills[i] ?? 0;
@@ -25799,10 +25811,10 @@ var RatingPanel = class {
       );
       const box = element2("span", "tablify__star-box");
       const base = element2("span", "tablify__star-base");
-      base.innerHTML = faIcon("star", 20);
+      base.innerHTML = faIcon("star", iconSize);
       const painted = element2("span", "tablify__star-fill");
       painted.style.width = `${Math.round(fill * 1e3) / 10}%`;
-      painted.innerHTML = faIcon("star", 20);
+      painted.innerHTML = faIcon("star", iconSize);
       box.appendChild(base);
       box.appendChild(painted);
       star.appendChild(box);
