@@ -22,6 +22,20 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **The Default country pop-up now looks like the rest of the field window (SAD-355)** — the card
+  that opens from **Default country** in *Add / Modify Field* was rendering **320 px wide under a
+  528 px field**, because a panel-wide cap quietly beat the width the control computed; it now
+  matches the field exactly, and at a phone viewport it no longer overflows it. Around that, the
+  internals were brought onto the same rules as the Field-type picker beside it: a borderless search
+  header band instead of a box painted the same colour as the card, a placeholder you can actually
+  read (2.54:1 → 5.71:1), one consistent inset with group headings that stay pinned while the list
+  scrolls, a real grid so dial codes line up and **no longer jump sideways when you pick a country**,
+  the chosen country tinted and bolded with its tick, the clear action moved into a footer band that
+  hovers to red like every other clear action, an empty state, and the picker's own 130 ms entrance
+  (skipped under *Reduce motion*). Every country row, and both country triggers, now lead with the
+  country's **flag** — bundled vector SVG, 245 of 245 regions, no runtime dependency and still no
+  external request, measured at +163,891 B against 186,095 B of headroom under the size cap. Order, search, keyboard, ARIA and
+  the write path are untouched; no `formatVersion` change.
 - **Export now works on mobile (SAD-350)** — both export entry points (the file-explorer menu's
   **Export Tablify Table** and the **Export…** button / export commands) previously reported
   "Download started" on phones and tablets while writing nothing: mobile WebViews silently ignore
