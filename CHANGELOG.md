@@ -6,6 +6,14 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **The mobile toolbar now says it can be swiped (SAD-375)** — on phones (`≤ 639px`) the tool row
+  scrolls horizontally three tools at a time (SAD-308), but nothing told new users the gesture was
+  there. A soft card-coloured gradient fade now sits over the row's scroll edges: while more tools
+  remain off-screen the right edge fades (and once you scroll, the left one joins it); at either
+  end the matching fade retires, and nothing shows when the row fits. The fades are scroll-aware
+  (no lag, no misleading edge at the end), `pointer-events: none` so every pill stays tappable,
+  honour *Reduce motion*, and exist only on phones — the desktop toolbar is pixel-identical, and
+  toolbar behaviour, sizing and order are untouched.
 - **An Attachment cell can take a file from your device (SAD-356)** — tapping an **empty** Attachment
   cell now opens a small menu with the two ways in the report asked for: **Choose a file…** opens your
   device's picker and copies the picked file into the vault (using the folder you configured in

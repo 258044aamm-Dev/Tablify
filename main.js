@@ -20813,6 +20813,9 @@ var Toolbar = class _Toolbar {
   fieldSep;
   selectionSummary;
   selectedCount;
+  /** SAD-375: the tool-row scroller and its fade wrapper. */
+  actions;
+  actionsWrap;
   searchTimer = null;
   constructor(options) {
     this.opts = options;
@@ -20836,22 +20839,25 @@ var Toolbar = class _Toolbar {
     this.searchInput.dataset.testid = "tablify-search";
     searchWrap.appendChild(searchIcon);
     searchWrap.appendChild(this.searchInput);
-    const actions = document.createElement("div");
-    actions.className = "tablify__toolbar-actions";
-    actions.appendChild(this.makeButton(ACTIONS.undo, "", "Undo", "undo"));
-    actions.appendChild(this.makeButton(ACTIONS.redo, "", "Redo", "redo"));
-    actions.appendChild(this.makeButton(ACTIONS.addField, "Add Field", "Add field", "columns"));
-    actions.appendChild(this.makeButton(ACTIONS.addRow, "Add Row", "Add row", "plus"));
+    this.actions = document.createElement("div");
+    this.actions.className = "tablify__toolbar-actions";
+    this.actions.appendChild(this.makeButton(ACTIONS.undo, "", "Undo", "undo"));
+    this.actions.appendChild(this.makeButton(ACTIONS.redo, "", "Redo", "redo"));
+    this.actions.appendChild(this.makeButton(ACTIONS.addField, "Add Field", "Add field", "columns"));
+    this.actions.appendChild(this.makeButton(ACTIONS.addRow, "Add Row", "Add row", "plus"));
     const filterButton = this.makeButton(ACTIONS.filter, "Filter", "Filter builder", "filter");
     filterButton.setAttribute("aria-haspopup", "dialog");
-    actions.appendChild(filterButton);
-    actions.appendChild(this.makeButton(ACTIONS.sync, "Sync", "Airtable sync for this table", "sync"));
+    this.actions.appendChild(filterButton);
+    this.actions.appendChild(this.makeButton(ACTIONS.sync, "Sync", "Airtable sync for this table", "sync"));
     this.optionsButton = this.makeButton(ACTIONS.options, "Options", "View settings", "sliders");
     this.optionsButton.setAttribute("aria-haspopup", "true");
     this.optionsButton.setAttribute("aria-expanded", "false");
-    actions.appendChild(this.optionsButton);
+    this.actions.appendChild(this.optionsButton);
+    this.actionsWrap = document.createElement("div");
+    this.actionsWrap.className = "tablify__toolbar-actions-wrap";
+    this.actionsWrap.appendChild(this.actions);
     topRow.appendChild(searchWrap);
-    topRow.appendChild(actions);
+    topRow.appendChild(this.actionsWrap);
     this.root.appendChild(topRow);
     this.queryError = document.createElement("div");
     this.queryError.className = "tablify__query-error";
@@ -20912,6 +20918,7 @@ var Toolbar = class _Toolbar {
     this.root.appendChild(metaRow);
     this.wireEvents();
     window.addEventListener("resize", this.syncPlaceholder);
+    window.addEventListener("resize", this.syncFade);
     this.update(options);
   }
   // ---- construction helpers ----
@@ -20987,6 +20994,7 @@ var Toolbar = class _Toolbar {
         this.opts.callbacks.onSortChange?.([...this.currentSort(), { fieldId, direction: "asc" }]);
       }
     });
+    this.actions.addEventListener("scroll", this.syncFade, { passive: true });
   }
   /** SAD-81: sort entries whose field still exists (prototype skips the rest). */
   currentSort() {
@@ -21065,6 +21073,7 @@ var Toolbar = class _Toolbar {
     this.opts.totalFieldCount = state.totalFieldCount;
     this.opts.freezeUnavailable = state.freezeUnavailable === true;
     this.syncPlaceholder();
+    this.syncFade();
     this.renderSelection();
     this.renderFieldCount();
     if (state.theme !== this.opts.theme) {
@@ -21110,9 +21119,11 @@ var Toolbar = class _Toolbar {
     if (this.searchTimer !== null)
       clearTimeout(this.searchTimer);
     this.searchTimer = null;
+    this.actions.removeEventListener("scroll", this.syncFade);
     document.removeEventListener("pointerdown", this.outsideClose);
     window.removeEventListener("resize", this.reposition);
     window.removeEventListener("resize", this.syncPlaceholder);
+    window.removeEventListener("resize", this.syncFade);
     this.root.remove();
   }
   // ---- rendering ----
@@ -21130,6 +21141,18 @@ var Toolbar = class _Toolbar {
     if (this.searchInput.placeholder !== next) {
       this.searchInput.placeholder = next;
     }
+  };
+  /**
+   * SAD-375: track the tool row's scroll position for the phone edge fades — the right fade
+   * shows while tools remain off-screen, the left one once the row is scrolled. The 1px
+   * tolerance absorbs subpixel rounding so the fades never flicker at the exact ends.
+   */
+  syncFade = () => {
+    const el4 = this.actions;
+    const overflow = el4.scrollWidth - el4.clientWidth;
+    const scrollable = overflow > 1;
+    this.actionsWrap.classList.toggle("is-fade-end", scrollable && el4.scrollLeft < overflow - 1);
+    this.actionsWrap.classList.toggle("is-fade-start", scrollable && el4.scrollLeft > 1);
   };
   showQueryError(raw) {
     const split = splitSearchQuery(raw ?? "");

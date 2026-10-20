@@ -1,7 +1,7 @@
 # SAD-375 — Mobile toolbar swipe discoverability: implementation plan
 
 **Issue:** [SAD-375](https://linear.app/sad-mod/issue/SAD-375/the-mobile-toolbar-supports-horizontal-swiping) (Improvement, P2)
-**Status:** Plan only — implementation not started
+**Status:** delivered; **In Review** (implementation: steps 1–4 below, evidence in [`docs/evidence/SAD-375.md`](../evidence/SAD-375.md))
 **Baseline:** `325faf8` — `npm test` = **140 files / 2232 tests, all passing** (measured 2026-10-20, sandbox)
 
 ---
