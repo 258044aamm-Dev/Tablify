@@ -30,8 +30,14 @@ import { snapshotTable, summarizeLinks } from '../model/link.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 import { TitleRow, type TitleRowCallbacks, type TitleRowState } from './titleRow.js';
-import { openExportModal } from '../commands/export.js';
-import { beginExportSave, browserExportSaveRuntime, saveExportArtifact } from '../io/export/destination.js';
+import { ExportShareRetryModal, openExportModal } from '../commands/export.js';
+import {
+  beginExportSave,
+  browserExportSaveRuntime,
+  exportDeliveryMethod,
+  saveExportArtifact,
+  shareExportArtifact,
+} from '../io/export/destination.js';
 import { buildExportArtifact, exportFileName, exportMimeType } from '../io/export/exporter.js';
 import { toMarkdown } from '../io/export/markdown.js';
 import type { ExportTable } from '../io/export/view.js';
@@ -325,6 +331,37 @@ export class TableView extends TextFileView {
     if (!file || !this.session) return;
 
     const runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
+
+    // SAD-350: on a share-destination device (iOS), build the CSV from the in-memory view —
+    // synchronous work, so the command's tap still holds user activation for the share call.
+    // A lost-activation refusal falls back to the retry modal with the already-built file.
+    if (exportDeliveryMethod(runtime) === 'share') {
+      const table = this.currentViewTable();
+      if (!table) return;
+      let artifact;
+      try {
+        artifact = await buildExportArtifact(table, 'csv', file.basename);
+      } catch (error) {
+        new Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
+        return;
+      }
+      const shared = await shareExportArtifact(artifact, runtime);
+      if (shared.ok) {
+        new Notice(exportSuccessMessage('share', shared.fileName, table.rows.length, table.fields.length));
+        return;
+      }
+      if (shared.kind === 'cancelled') {
+        new Notice('Export cancelled. No file was saved.');
+        return;
+      }
+      if (shared.kind === 'activation') {
+        new ExportShareRetryModal(this.app, { artifact, rowCount: table.rows.length, columnCount: table.fields.length }, runtime).open();
+        return;
+      }
+      new Notice(`Export failed. No file was saved. ${shared.error}`);
+      return;
+    }
+
     const pickerStart = beginExportSave(exportFileName(file.basename, 'csv'), exportMimeType('csv'), runtime);
     const picker = await pickerStart;
     if (picker.kind === 'cancelled') {

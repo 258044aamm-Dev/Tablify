@@ -51,6 +51,51 @@ export type ExportSaveResult =
   | { ok: false; cancelled?: false; error: string };
 
 /**
+ * SAD-350: how an export leaves the device, decided from the runtime's actual capabilities.
+ * 'picker' — system save dialog (desktop Electron; Android WebViews that surface the File
+ * System Access API). 'share' — system sheet with the file attached (iOS "Save to Files";
+ * Android WebView has no Web Share API, so it never resolves to 'share'). 'download' —
+ * desktop-only anchor download. 'none' — nothing available; callers must report an error.
+ */
+export type ExportDeliveryMethod = 'picker' | 'share' | 'download' | 'none';
+
+export function exportDeliveryMethod(runtime: ExportSaveRuntime): ExportDeliveryMethod {
+  if (runtime.showSaveFilePicker) return 'picker';
+  if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile) return 'share';
+  if (!runtime.isMobile && runtime.downloadFile) return 'download';
+  return 'none';
+}
+
+/** Outcome of handing a file to the system sheet. 'activation' = WebKit refused because the
+ * user's tap was already spent (NotAllowedError) — callers may retry from a fresh tap. */
+export type ShareAttempt =
+  | { ok: true; fileName: string }
+  | { ok: false; kind: 'cancelled' | 'activation' | 'unsupported' | 'failed'; error: string };
+
+/**
+ * SAD-350: give a finished artifact to the system share sheet (iOS "Save to Files").
+ * `runtime.shareFile` requires transient user activation, so call this while the user's tap is
+ * still on the stack — everything up to the shareFile call runs synchronously.
+ */
+export async function shareExportArtifact(artifact: ExportArtifact, runtime: ExportSaveRuntime): Promise<ShareAttempt> {
+  if (!runtime.createFile || !runtime.canShareFile || !runtime.shareFile) {
+    return { ok: false, kind: 'unsupported', error: 'File sharing is not available on this device.' };
+  }
+  try {
+    const file = runtime.createFile(artifact);
+    if (!runtime.canShareFile(file)) {
+      return { ok: false, kind: 'unsupported', error: 'The system cannot share this file type.' };
+    }
+    await runtime.shareFile(file);
+    return { ok: true, fileName: file.name || artifact.fileName };
+  } catch (error) {
+    if (isAbortError(error)) return { ok: false, kind: 'cancelled', error: errorMessage(error) };
+    if (isNotAllowedError(error)) return { ok: false, kind: 'activation', error: errorMessage(error) };
+    return { ok: false, kind: 'failed', error: errorMessage(error) };
+  }
+}
+
+/**
  * Start the native picker immediately from the Export button's click handler, before file reads
  * and XLSX generation can consume the browser's transient user activation.
  */
@@ -117,17 +162,10 @@ export async function saveExportArtifact(
   if (picker.kind === 'failed') reasons.push(`Save picker failed: ${picker.error}.`);
 
   if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile) {
-    try {
-      const file = runtime.createFile(artifact);
-      if (runtime.canShareFile(file)) {
-        await runtime.shareFile(file);
-        return { ok: true, method: 'share', fileName: file.name || artifact.fileName };
-      }
-      reasons.push('The system cannot share this file type.');
-    } catch (error) {
-      if (isAbortError(error)) return { ok: false, cancelled: true };
-      reasons.push(`Share failed: ${errorMessage(error)}.`);
-    }
+    const shared = await shareExportArtifact(artifact, runtime);
+    if (shared.ok) return { ok: true, method: 'share', fileName: shared.fileName };
+    if (shared.kind === 'cancelled') return { ok: false, cancelled: true };
+    reasons.push(shared.kind === 'unsupported' ? shared.error : `Share failed: ${shared.error}.`);
   }
 
   // SAD-350: desktop only. The anchor-click blob download is a silent no-op in mobile WebViews
@@ -194,6 +232,11 @@ function descriptionFor(mimeType: string): string {
 
 function isAbortError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'name' in error && (error as { name?: unknown }).name === 'AbortError';
+}
+
+/** WebKit rejects navigator.share with NotAllowedError when transient user activation is gone. */
+function isNotAllowedError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'name' in error && (error as { name?: unknown }).name === 'NotAllowedError';
 }
 
 function errorMessage(error: unknown): string {

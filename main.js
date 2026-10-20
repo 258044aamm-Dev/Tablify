@@ -11787,6 +11787,34 @@ var FolderPicker = class extends import_obsidian.FuzzySuggestModal {
 var import_obsidian2 = require("obsidian");
 
 // src/io/export/destination.ts
+function exportDeliveryMethod(runtime) {
+  if (runtime.showSaveFilePicker)
+    return "picker";
+  if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile)
+    return "share";
+  if (!runtime.isMobile && runtime.downloadFile)
+    return "download";
+  return "none";
+}
+async function shareExportArtifact(artifact, runtime) {
+  if (!runtime.createFile || !runtime.canShareFile || !runtime.shareFile) {
+    return { ok: false, kind: "unsupported", error: "File sharing is not available on this device." };
+  }
+  try {
+    const file = runtime.createFile(artifact);
+    if (!runtime.canShareFile(file)) {
+      return { ok: false, kind: "unsupported", error: "The system cannot share this file type." };
+    }
+    await runtime.shareFile(file);
+    return { ok: true, fileName: file.name || artifact.fileName };
+  } catch (error) {
+    if (isAbortError(error))
+      return { ok: false, kind: "cancelled", error: errorMessage(error) };
+    if (isNotAllowedError(error))
+      return { ok: false, kind: "activation", error: errorMessage(error) };
+    return { ok: false, kind: "failed", error: errorMessage(error) };
+  }
+}
 function beginExportSave(fileName, mimeType, runtime) {
   if (!runtime.showSaveFilePicker)
     return Promise.resolve({ kind: "unavailable" });
@@ -11830,19 +11858,18 @@ async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resol
       return { ok: false, error: `Could not save the file: ${errorMessage(error)}` };
     }
   }
+  const reasons = [];
+  if (picker.kind === "failed")
+    reasons.push(`Save picker failed: ${picker.error}.`);
   if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile) {
-    try {
-      const file = runtime.createFile(artifact);
-      if (runtime.canShareFile(file)) {
-        await runtime.shareFile(file);
-        return { ok: true, method: "share", fileName: file.name || artifact.fileName };
-      }
-    } catch (error) {
-      if (isAbortError(error))
-        return { ok: false, cancelled: true };
-    }
+    const shared = await shareExportArtifact(artifact, runtime);
+    if (shared.ok)
+      return { ok: true, method: "share", fileName: shared.fileName };
+    if (shared.kind === "cancelled")
+      return { ok: false, cancelled: true };
+    reasons.push(shared.kind === "unsupported" ? shared.error : `Share failed: ${shared.error}.`);
   }
-  if (runtime.downloadFile) {
+  if (!runtime.isMobile && runtime.downloadFile) {
     try {
       const blob = new Blob([artifact.data], { type: artifact.mimeType });
       runtime.downloadFile(blob, artifact.fileName);
@@ -11851,8 +11878,8 @@ async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resol
       return { ok: false, error: `Could not start the download: ${errorMessage(error)}` };
     }
   }
-  const pickerError = picker.kind === "failed" ? ` Save picker failed: ${picker.error}.` : "";
-  return { ok: false, error: `No supported save or download method is available.${pickerError}` };
+  const detail = reasons.length > 0 ? ` ${reasons.join(" ")}` : "";
+  return { ok: false, error: `No supported save or download method is available.${detail}` };
 }
 function browserExportSaveRuntime(isMobile) {
   const win = window;
@@ -11897,6 +11924,9 @@ function descriptionFor(mimeType) {
 }
 function isAbortError(error) {
   return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
+}
+function isNotAllowedError(error) {
+  return typeof error === "object" && error !== null && "name" in error && error.name === "NotAllowedError";
 }
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -17277,33 +17307,137 @@ function exportSuccessMessage(method, fileName, rowCount, columnCount) {
     return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
+function shareWithFeedback(app, payload, runtime, stale) {
+  const attempt = shareExportArtifact(payload.artifact, runtime);
+  void attempt.then((shared) => {
+    if (shared.ok) {
+      new import_obsidian2.Notice(exportSuccessMessage("share", shared.fileName, payload.rowCount, payload.columnCount));
+      stale?.close();
+      return;
+    }
+    if (shared.kind === "cancelled") {
+      new import_obsidian2.Notice("Export cancelled. No file was saved.");
+      return;
+    }
+    if (shared.kind === "activation") {
+      new ExportShareRetryModal(app, payload, runtime).open();
+      stale?.close();
+      return;
+    }
+    new import_obsidian2.Notice(`Export failed. No file was saved. ${shared.error}`);
+  });
+}
+var ExportShareRetryModal = class extends import_obsidian2.Modal {
+  constructor(app, payload, runtime) {
+    super(app);
+    this.payload = payload;
+    this.runtime = runtime;
+  }
+  onOpen() {
+    this.setTitle(`Export ${this.payload.artifact.fileName}`);
+    new import_obsidian2.Setting(this.contentEl).setName("Your file is ready").setDesc("The system needs a fresh tap to open the save dialog.").addButton(
+      (b) => b.setButtonText("Save file").setCta().onClick(() => shareWithFeedback(this.app, this.payload, this.runtime, this))
+    );
+  }
+};
 var ExportModal = class extends import_obsidian2.Modal {
   constructor(app, source) {
     super(app);
     this.source = source;
+    this.runtime = browserExportSaveRuntime(typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile);
   }
   format = "csv";
   fullTable = false;
+  runtime;
+  prepared = null;
+  flushed = null;
   onOpen() {
     this.setTitle(`Export ${this.source.basename}`);
     new import_obsidian2.Setting(this.contentEl).setName("Format").addDropdown(
       (d) => d.addOption("csv", "CSV").addOption("xlsx", "Excel (.xlsx)").addOption("md", "Markdown table").setValue(this.format).onChange((v) => {
         this.format = v;
+        this.startPreparation();
       })
     );
     new import_obsidian2.Setting(this.contentEl).setName("Full table").setDesc("Off: current view (saved filters, sort, visible fields and order). On: every field and row.").addToggle(
       (t) => t.setValue(this.fullTable).onChange((v) => {
         this.fullTable = v;
+        this.startPreparation();
       })
     );
     new import_obsidian2.Setting(this.contentEl).addButton(
-      (b) => b.setButtonText("Export").setCta().onClick(() => void this.run())
+      (b) => b.setButtonText("Export").setCta().onClick(() => {
+        if (exportDeliveryMethod(this.runtime) === "share") {
+          this.runShare();
+          return;
+        }
+        void this.run();
+      })
+    );
+    this.startPreparation();
+  }
+  /**
+   * Prepare the export for the current (format, fullTable) choice. Share destinations only;
+   * a no-op elsewhere. The table cannot be edited while this modal is open, so the snapshot
+   * cannot go stale; pending edits are flushed once before the first read.
+   */
+  startPreparation() {
+    if (exportDeliveryMethod(this.runtime) !== "share")
+      return;
+    const key = `${this.format}|${this.fullTable}`;
+    if (this.prepared?.key === key)
+      return;
+    this.flushed ??= flushPendingExportEdits(this.app, this.source);
+    const format = this.format;
+    const fullTable = this.fullTable;
+    const entry = {
+      key,
+      settled: null,
+      promise: (async () => {
+        try {
+          await this.flushed;
+        } catch (error) {
+          return {
+            ok: false,
+            error: `Pending table edits could not be saved: ${error instanceof Error ? error.message : String(error)}`
+          };
+        }
+        return prepareExportFile(() => this.app.vault.read(this.source), this.source.basename, format, { fullTable });
+      })()
+    };
+    void entry.promise.then((result2) => {
+      entry.settled = result2;
+    });
+    this.prepared = entry;
+  }
+  /** Share path (iOS). When preparation has settled, the share starts inside this very tap. */
+  runShare() {
+    this.startPreparation();
+    const entry = this.prepared;
+    if (!entry)
+      return;
+    if (entry.settled) {
+      this.shareResult(entry.settled);
+      return;
+    }
+    void entry.promise.then((result2) => this.shareResult(result2));
+  }
+  shareResult(result2) {
+    if (!result2.ok) {
+      new import_obsidian2.Notice(`Export failed. No file was saved. ${result2.error}`);
+      return;
+    }
+    shareWithFeedback(
+      this.app,
+      { artifact: result2.artifact, rowCount: result2.rowCount, columnCount: result2.columnCount },
+      this.runtime,
+      this
     );
   }
   async run() {
     const format = this.format;
     const baseName2 = this.source.basename;
-    const runtime = browserExportSaveRuntime(typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile);
+    const runtime = this.runtime;
     const pickerStart = beginExportSave(exportFileName(baseName2, format), exportMimeType(format), runtime);
     const picker = await pickerStart;
     if (picker.kind === "cancelled") {
@@ -25408,6 +25542,33 @@ var TableView = class extends import_obsidian10.TextFileView {
     if (!file || !this.session)
       return;
     const runtime = browserExportSaveRuntime(typeof import_obsidian10.Platform === "undefined" ? false : import_obsidian10.Platform.isMobile);
+    if (exportDeliveryMethod(runtime) === "share") {
+      const table2 = this.currentViewTable();
+      if (!table2)
+        return;
+      let artifact2;
+      try {
+        artifact2 = await buildExportArtifact(table2, "csv", file.basename);
+      } catch (error) {
+        new import_obsidian10.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
+        return;
+      }
+      const shared = await shareExportArtifact(artifact2, runtime);
+      if (shared.ok) {
+        new import_obsidian10.Notice(exportSuccessMessage2("share", shared.fileName, table2.rows.length, table2.fields.length));
+        return;
+      }
+      if (shared.kind === "cancelled") {
+        new import_obsidian10.Notice("Export cancelled. No file was saved.");
+        return;
+      }
+      if (shared.kind === "activation") {
+        new ExportShareRetryModal(this.app, { artifact: artifact2, rowCount: table2.rows.length, columnCount: table2.fields.length }, runtime).open();
+        return;
+      }
+      new import_obsidian10.Notice(`Export failed. No file was saved. ${shared.error}`);
+      return;
+    }
     const pickerStart = beginExportSave(exportFileName(file.basename, "csv"), exportMimeType("csv"), runtime);
     const picker = await pickerStart;
     if (picker.kind === "cancelled") {

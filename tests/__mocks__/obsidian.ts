@@ -802,6 +802,9 @@ export const Platform = {
   isMacOS: false,
   isWin: false,
   isLinux: true,
+  // SAD-350: the mobile-export delivery reads these; desktop defaults, flipped per test.
+  isIosApp: false,
+  isAndroidApp: false,
 };
 
 export class Component {

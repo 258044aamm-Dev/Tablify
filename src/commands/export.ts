@@ -3,9 +3,16 @@
 // explicit system save/share/download destination outside the vault. Failures are reported to the user.
 
 import { App, Modal, Notice, Platform, Plugin, Setting, TFile } from 'obsidian';
-import { beginExportSave, browserExportSaveRuntime, saveExportArtifact } from '../io/export/destination.js';
-import { prepareExportFile } from '../io/export/prepare.js';
-import { exportFileName, exportMimeType, type ExportFormat } from '../io/export/exporter.js';
+import {
+  beginExportSave,
+  browserExportSaveRuntime,
+  exportDeliveryMethod,
+  saveExportArtifact,
+  shareExportArtifact,
+  type ExportSaveRuntime,
+} from '../io/export/destination.js';
+import { prepareExportFile, type PreparedExportResult } from '../io/export/prepare.js';
+import { exportFileName, exportMimeType, type ExportArtifact, type ExportFormat } from '../io/export/exporter.js';
 
 export const EXPORT_COMMAND_ID = 'export-table';
 export const EXPORT_COMMAND_NAME = 'Export table (CSV, Excel, Markdown)';
@@ -96,12 +103,84 @@ function exportSuccessMessage(
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 
+/** The numbers a share notice reports, carried next to the artifact they describe. */
+interface SharePayload {
+  artifact: ExportArtifact;
+  rowCount: number;
+  columnCount: number;
+}
+
+/**
+ * SAD-350: hand `payload.artifact` to the system sheet and report the outcome. Must be called
+ * while the user's tap is still on the stack — shareExportArtifact reaches the share call
+ * synchronously. On a lost-activation refusal (WebKit NotAllowedError) a retry modal is opened
+ * so the next tap shares the already-built file; `stale` is that modal to close on success.
+ */
+function shareWithFeedback(app: App, payload: SharePayload, runtime: ExportSaveRuntime, stale: Modal | null): void {
+  const attempt = shareExportArtifact(payload.artifact, runtime);
+  void attempt.then((shared) => {
+    if (shared.ok) {
+      new Notice(exportSuccessMessage('share', shared.fileName, payload.rowCount, payload.columnCount));
+      stale?.close();
+      return;
+    }
+    if (shared.kind === 'cancelled') {
+      new Notice('Export cancelled. No file was saved.');
+      return;
+    }
+    if (shared.kind === 'activation') {
+      new ExportShareRetryModal(app, payload, runtime).open();
+      stale?.close();
+      return;
+    }
+    new Notice(`Export failed. No file was saved. ${shared.error}`);
+  });
+}
+
+/**
+ * SAD-350: shown only when the system refused a share because the triggering tap was spent
+ * (slow preparation, e.g. a huge XLSX). The file is already built; a fresh tap shares it.
+ */
+export class ExportShareRetryModal extends Modal {
+  constructor(
+    app: App,
+    private readonly payload: SharePayload,
+    private readonly runtime: ExportSaveRuntime,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.setTitle(`Export ${this.payload.artifact.fileName}`);
+    new Setting(this.contentEl)
+      .setName('Your file is ready')
+      .setDesc('The system needs a fresh tap to open the save dialog.')
+      .addButton((b) =>
+        b
+          .setButtonText('Save file')
+          .setCta()
+          .onClick(() => shareWithFeedback(this.app, this.payload, this.runtime, this)),
+      );
+  }
+}
+
+/** One pre-built export per (format, fullTable) choice, so a tap can share without waiting. */
+interface PreparedEntry {
+  key: string;
+  settled: PreparedExportResult | null;
+  promise: Promise<PreparedExportResult>;
+}
+
 class ExportModal extends Modal {
   private format: ExportFormat = 'csv';
   private fullTable = false;
+  private readonly runtime: ExportSaveRuntime;
+  private prepared: PreparedEntry | null = null;
+  private flushed: Promise<void> | null = null;
 
   constructor(app: App, private readonly source: TFile) {
     super(app);
+    this.runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
   }
 
   onOpen(): void {
@@ -116,6 +195,7 @@ class ExportModal extends Modal {
           .setValue(this.format)
           .onChange((v) => {
             this.format = v as ExportFormat;
+            this.startPreparation();
           }),
       );
     new Setting(this.contentEl)
@@ -124,20 +204,92 @@ class ExportModal extends Modal {
       .addToggle((t) =>
         t.setValue(this.fullTable).onChange((v) => {
           this.fullTable = v;
+          this.startPreparation();
         }),
       );
     new Setting(this.contentEl).addButton((b) =>
       b
         .setButtonText('Export')
         .setCta()
-        .onClick(() => void this.run()),
+        .onClick(() => {
+          // SAD-350: the share destination (iOS Files dialog) needs the user's tap intact, so
+          // it takes the pre-built artifact path; every other destination keeps the P4-05 flow.
+          if (exportDeliveryMethod(this.runtime) === 'share') {
+            this.runShare();
+            return;
+          }
+          void this.run();
+        }),
+    );
+    // SAD-350: on a share-destination device, build the export while the user looks at the
+    // options — the Export tap must reach the system share call without awaiting anything.
+    this.startPreparation();
+  }
+
+  /**
+   * Prepare the export for the current (format, fullTable) choice. Share destinations only;
+   * a no-op elsewhere. The table cannot be edited while this modal is open, so the snapshot
+   * cannot go stale; pending edits are flushed once before the first read.
+   */
+  private startPreparation(): void {
+    if (exportDeliveryMethod(this.runtime) !== 'share') return;
+    const key = `${this.format}|${this.fullTable}`;
+    if (this.prepared?.key === key) return;
+    this.flushed ??= flushPendingExportEdits(this.app, this.source);
+    const format = this.format;
+    const fullTable = this.fullTable;
+    const entry: PreparedEntry = {
+      key,
+      settled: null,
+      promise: (async (): Promise<PreparedExportResult> => {
+        try {
+          await this.flushed;
+        } catch (error) {
+          return {
+            ok: false,
+            error: `Pending table edits could not be saved: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+        return prepareExportFile(() => this.app.vault.read(this.source), this.source.basename, format, { fullTable });
+      })(),
+    };
+    void entry.promise.then((result) => {
+      entry.settled = result;
+    });
+    this.prepared = entry;
+  }
+
+  /** Share path (iOS). When preparation has settled, the share starts inside this very tap. */
+  private runShare(): void {
+    this.startPreparation();
+    const entry = this.prepared;
+    if (!entry) return;
+    if (entry.settled) {
+      this.shareResult(entry.settled);
+      return;
+    }
+    // Still preparing (large table): finish first, then attempt. If the tap expired meanwhile,
+    // shareWithFeedback opens the retry modal so the next tap shares the finished file.
+    void entry.promise.then((result) => this.shareResult(result));
+  }
+
+  private shareResult(result: PreparedExportResult): void {
+    if (!result.ok) {
+      new Notice(`Export failed. No file was saved. ${result.error}`);
+      return;
+    }
+    shareWithFeedback(
+      this.app,
+      { artifact: result.artifact, rowCount: result.rowCount, columnCount: result.columnCount },
+      this.runtime,
+      this,
     );
   }
 
   private async run(): Promise<void> {
     const format = this.format;
     const baseName = this.source.basename;
-    const runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
+    const runtime = this.runtime;
     // Start a native picker directly from the button click so it retains user activation.
     const pickerStart = beginExportSave(exportFileName(baseName, format), exportMimeType(format), runtime);
     const picker = await pickerStart;
