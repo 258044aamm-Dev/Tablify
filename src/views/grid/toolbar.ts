@@ -184,6 +184,9 @@ export class Toolbar {
   private readonly fieldSep: HTMLElement;
   private readonly selectionSummary: HTMLElement;
   private readonly selectedCount: HTMLElement;
+  /** SAD-375: the tool-row scroller and its fade wrapper. */
+  private readonly actions: HTMLElement;
+  private readonly actionsWrap: HTMLElement;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: ToolbarOptions) {
@@ -216,23 +219,28 @@ export class Toolbar {
     searchWrap.appendChild(this.searchInput);
 
     // SAD-308 order: ↶ · ↷ · Add Field · Add Row · Filter · Sync · Options.
-    const actions = document.createElement('div');
-    actions.className = 'tablify__toolbar-actions';
-    actions.appendChild(this.makeButton(ACTIONS.undo, '', 'Undo', 'undo'));
-    actions.appendChild(this.makeButton(ACTIONS.redo, '', 'Redo', 'redo'));
-    actions.appendChild(this.makeButton(ACTIONS.addField, 'Add Field', 'Add field', 'columns'));
-    actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add Row', 'Add row', 'plus'));
+    this.actions = document.createElement('div');
+    this.actions.className = 'tablify__toolbar-actions';
+    this.actions.appendChild(this.makeButton(ACTIONS.undo, '', 'Undo', 'undo'));
+    this.actions.appendChild(this.makeButton(ACTIONS.redo, '', 'Redo', 'redo'));
+    this.actions.appendChild(this.makeButton(ACTIONS.addField, 'Add Field', 'Add field', 'columns'));
+    this.actions.appendChild(this.makeButton(ACTIONS.addRow, 'Add Row', 'Add row', 'plus'));
     const filterButton = this.makeButton(ACTIONS.filter, 'Filter', 'Filter builder', 'filter');
     filterButton.setAttribute('aria-haspopup', 'dialog');
-    actions.appendChild(filterButton);
-    actions.appendChild(this.makeButton(ACTIONS.sync, 'Sync', 'Airtable sync for this table', 'sync'));
+    this.actions.appendChild(filterButton);
+    this.actions.appendChild(this.makeButton(ACTIONS.sync, 'Sync', 'Airtable sync for this table', 'sync'));
     this.optionsButton = this.makeButton(ACTIONS.options, 'Options', 'View settings', 'sliders');
     this.optionsButton.setAttribute('aria-haspopup', 'true');
     this.optionsButton.setAttribute('aria-expanded', 'false');
-    actions.appendChild(this.optionsButton);
+    this.actions.appendChild(this.optionsButton);
+
+    // SAD-375: fade wrapper — the edge fades must sit on a non-scrolling box (plan §3.2).
+    this.actionsWrap = document.createElement('div');
+    this.actionsWrap.className = 'tablify__toolbar-actions-wrap';
+    this.actionsWrap.appendChild(this.actions);
 
     topRow.appendChild(searchWrap);
-    topRow.appendChild(actions);
+    topRow.appendChild(this.actionsWrap);
     this.root.appendChild(topRow);
 
     // ---- inline query error (the box's `field:value` part) ----
@@ -304,6 +312,7 @@ export class Toolbar {
 
     this.wireEvents();
     window.addEventListener('resize', this.syncPlaceholder);
+    window.addEventListener('resize', this.syncFade);
     this.update(options);
   }
 
@@ -384,6 +393,9 @@ export class Toolbar {
         this.opts.callbacks.onSortChange?.([...this.currentSort(), { fieldId, direction: 'asc' }]);
       }
     });
+
+    // SAD-375: the edge fades follow the tool row's scroll position.
+    this.actions.addEventListener('scroll', this.syncFade, { passive: true });
   }
 
   /** SAD-81: sort entries whose field still exists (prototype skips the rest). */
@@ -467,6 +479,7 @@ export class Toolbar {
     this.opts.totalFieldCount = state.totalFieldCount;
     this.opts.freezeUnavailable = state.freezeUnavailable === true;
     this.syncPlaceholder();
+    this.syncFade();
     this.renderSelection();
     this.renderFieldCount();
 
@@ -524,9 +537,11 @@ export class Toolbar {
   destroy(): void {
     if (this.searchTimer !== null) clearTimeout(this.searchTimer);
     this.searchTimer = null;
+    this.actions.removeEventListener('scroll', this.syncFade);
     document.removeEventListener('pointerdown', this.outsideClose);
     window.removeEventListener('resize', this.reposition);
     window.removeEventListener('resize', this.syncPlaceholder);
+    window.removeEventListener('resize', this.syncFade);
     this.root.remove();
   }
 
@@ -546,6 +561,19 @@ export class Toolbar {
     if (this.searchInput.placeholder !== next) {
       this.searchInput.placeholder = next;
     }
+  };
+
+  /**
+   * SAD-375: track the tool row's scroll position for the phone edge fades — the right fade
+   * shows while tools remain off-screen, the left one once the row is scrolled. The 1px
+   * tolerance absorbs subpixel rounding so the fades never flicker at the exact ends.
+   */
+  private readonly syncFade = (): void => {
+    const el = this.actions;
+    const overflow = el.scrollWidth - el.clientWidth;
+    const scrollable = overflow > 1;
+    this.actionsWrap.classList.toggle('is-fade-end', scrollable && el.scrollLeft < overflow - 1);
+    this.actionsWrap.classList.toggle('is-fade-start', scrollable && el.scrollLeft > 1);
   };
 
   private showQueryError(raw: string): void {
