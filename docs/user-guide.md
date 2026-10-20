@@ -281,7 +281,23 @@ Single-select cells open a searchable dropdown:
 
 ## 7. Attachments
 
-Attachment cells reference files **already in your vault** (for example a PDF or image next to your table). Tablify validates the path and asks for confirmation; it never copies or moves your files.
+An Attachment cell can hold a file from your device, a path to a file in your vault, or a URL. Opening
+an **empty** cell asks which one you want:
+
+- **Choose a file…** opens your device's file picker. The file you pick is **copied into your vault**,
+  in the folder Obsidian uses for new attachments (*Settings → Files and links → Default location for
+  new attachments*), and the cell stores that vault path. The file keeps its own name; a name that is
+  already taken becomes `photo 1.png`, `photo 2.png`, and so on. A notice tells you where it landed.
+- **Enter a URL or file path…** opens the path field. Type a path to a file that is already in your
+  vault (Tablify checks it and asks before saving an unknown one), or paste a link (`https://…`) or an
+  embedded image (`data:image/…`) — those are stored exactly as you typed them.
+
+A cell that already holds an attachment opens the **Attachments** panel as before, now with a
+**Choose a file…** button, so you can replace the file from your device without leaving the panel.
+
+If a device refuses to open a file picker, Tablify says so and leaves you on the path field — nothing
+fails silently. Undo (Ctrl/Cmd+Z) takes back the cell value in one step; a file that was already copied
+into your vault stays there, so you can attach it again or delete it like any other vault file.
 
 When an attachment path points to a supported image (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.bmp`, `.avif`, `.ico`) that exists in your vault, the cell renders a rounded inline thumbnail beside the path text, scaled to your table's row height (**Small**, **Medium** or **Large**).
 

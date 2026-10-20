@@ -4,6 +4,22 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+
+- **An Attachment cell can take a file from your device (SAD-356)** — tapping an **empty** Attachment
+  cell now opens a small menu with the two ways in the report asked for: **Choose a file…** opens your
+  device's picker and copies the picked file into the vault (using the folder you configured in
+  *Files and links*, keeping its name and numbering a collision `photo 1.png`), storing the vault
+  path in the cell and naming the destination in a notice; **Enter a URL or file path…** opens the
+  path field, where a `https://…` link or a `data:image/…` URI is stored exactly as typed (no vault
+  check applies to it) and a vault path keeps the existing check and *Save anyway* confirmation. A
+  cell that already holds an attachment opens the **Attachments** panel as before, now with a
+  **Choose a file…** button, so a file can be replaced from the device without leaving the panel.
+  Each write is one undo step. If a device refuses to open a picker, the menu says so and leaves you
+  on the path field instead of failing silently. The file-copy is not part of undo — the copied file
+  stays in the vault, like any other file you put there. No new dependency, no `formatVersion`
+  change, no change to how a stored attachment value is read, exported or synced.
+
 ### Fixed
 
 - **Export now works on mobile (SAD-350)** — both export entry points (the file-explorer menu's

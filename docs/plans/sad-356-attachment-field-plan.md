@@ -2,7 +2,33 @@
 
 **Issue:** [SAD-356](https://linear.app/sad-mod/issue/SAD-356/attachment-field) · priority **2** · label *Bug*
 **Project:** Tablify · **Repo:** `MakeTheNewHistory/Tablify` @ `9ff1a61` (v2.0.0-beta.6)
-**Plan date:** 2026-10-20 · **Mode:** plan only (no implementation yet)
+**Plan date:** 2026-10-20 · **Status: executed 2026-10-20** (all four steps landed on `main`, pushed, tracked in Linear; issue **In Review**)
+
+> **Execution status — COMPLETE.** Evidence: [`docs/evidence/SAD-356.md`](../evidence/SAD-356.md).
+>
+> | Step | Commit | Result |
+> |---|---|---|
+> | 1 | `69d6bdc` | `isRemoteAttachmentPath` + `isAttachmentValueEmpty` (append-only), `attachmentImport.ts` (`pickFileFromDevice` / `importPickedFile` / `sanitizeAttachmentFileName` / `uniqueAttachmentPath`), 14 tests |
+> | 2 | `4ab5dbe` | `AttachmentMenu.ts` (two entries, `setBusy` / `setMessage`, Escape + outside-press dismissal), one SAD-356 CSS block, 8 tests |
+> | 3 | `954fbd9` | `AttachmentPanel` (`onChooseFile`, `setBusy`, `setMessage`, URL skips the vault check), `tableView` (`openAttachmentPanelAt`, `openAttachmentMenu`, `chooseAttachmentFile`), 2 mock stubs, 9 new `selectPanels` cases + the 3 re-pointed artefacts |
+> | 4 | this commit | user guide §7, `CHANGELOG` (`Unreleased → Added`), `docs/evidence/SAD-356.md`, the two visual-parity notes, this block |
+>
+> **Gate at close-out:** `npm run check` green — lint **0 errors / 119 warnings** (unchanged),
+> **140 files / 2231 tests** (baseline 138 / 2200), guard, docs links, icons, build
+> (`main.js` 1,191,142 → 1,199,934 B).
+>
+> **As-built deviations from this plan** (all owner decisions or facts found while implementing):
+> 1. **No import size cap** (owner decision D5) — `MAX_IMPORT_BYTES`, the `too-large` outcome and its
+>    test were dropped from §4.2; `importPickedFile` copies whatever the picker returns.
+> 2. **`normalizeAttachmentPath` was mangling URLs** — it collapses `//`, so the first URL typed into
+>    the panel was stored as `https:/…`. `onAdd` now stores remote values verbatim (found by the new
+>    *"stores a URL as typed"* test, not by reading the code).
+> 3. **`setBusy(null)` left the busy label on screen** after a cancel; both panels now treat the
+>    message line as one channel (busy label clears when the work ends, failures are set afterwards).
+> 4. **`isRemoteAttachmentPath` had to be added to `tableView.ts`'s import list** as well as the
+>    panel's — the first full run failed on the missing binding, which is why the suite is run before
+>    every commit rather than after the last one.
+> 5. The three artefacts of §4.8 were re-pointed exactly as planned, with no assertion weakened.
 
 > Everything marked *(verified)* was read in this clone, run in it, or read in the Obsidian typings —
 > not recalled. Line numbers are from `9ff1a61`. Measured baselines are at the end of §1.

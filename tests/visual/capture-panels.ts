@@ -195,12 +195,15 @@ const SCREENS: Screen[] = [
     note:
       'the plugin hint reads "Vault-relative path — the file is checked when you press Enter. An unknown path still saves once you confirm."; the prototype line is demo narration ("... (spec §2.3). File picking is Obsidian-side — simulated here.") — the hint band is the bulk of the crop difference. ' +
       'The `empty` part\'s `margin-bottom` differs structurally (the plugin puts the 8px after the list, the prototype on the empty row itself) and the card box is identical in every combo. ' +
-      'The remainder is glyph rasterisation: Chromium paints the inlined Font Awesome paths and Lora about a pixel differently from the prototype\'s webfont at 10–12 px (the accepted AA class, see docs/evidence/SAD-90.md).',
+      'The remainder is glyph rasterisation: Chromium paints the inlined Font Awesome paths and Lora about a pixel differently from the prototype\'s webfont at 10–12 px (the accepted AA class, see docs/evidence/SAD-90.md). ' +
+      'SAD-356: an empty Attachment cell now opens a two-entry menu first (docs/plans/sad-356-attachment-field-plan.md); the capture takes "Enter a URL or file path…", which is the screen compared here. The panel then carries a plugin-only "Choose a file…" button and a status line below the hint — no prototype equivalent, the same call the plugin-only "Save anyway" row makes — so the card is taller by that row.',
   },
   {
     // Same card, one attachment in it: both sides type the same path, so the row layout compares
     // like for like. (The plugin warns about a path that is not in the vault and offers
     // "Save anyway" — the seeded interaction clicks it, which is the production path.)
+    // SAD-356: a filled cell goes straight to the panel, which now also carries the plugin-only
+    // "Choose a file…" button and status line — one row taller than the prototype, as above.
     id: 'attachment-row',
     plugin: '[data-testid="tablify-attachment-panel"]',
     prototype: '#floatPanel',
