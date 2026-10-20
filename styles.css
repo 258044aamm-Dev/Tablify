@@ -4634,12 +4634,18 @@ body.is-phone .view-content.tablify-view.tablify {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding-left: 8px;
+  /* SAD-355: the row's grid gap now separates the mark from the name (padding would double it). */
+  padding-left: 0;
 }
 
 .tablify__country-dial {
   flex: 0 0 auto;
-  margin-left: 8px;
+  /* SAD-355: a fixed, right-aligned column; `tabular-nums` lines +7 / +880 / +1 246 up on the
+     digit instead of leaving them ragged. */
+  min-width: 46px;
+  margin-left: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   color: var(--tablify-text-muted);
@@ -4647,6 +4653,22 @@ body.is-phone .view-content.tablify-view.tablify {
 
 .tablify__country-row[aria-selected='true'] .tablify__country-dial {
   color: var(--tablify-text);
+}
+
+/* SAD-355: four fixed tracks instead of `space-between`. The old flex row appended the tick only
+   when a row was selected, so picking a country shifted its dial left by the tick's width — a
+   12 px jump on the one interaction the list exists for. A grid keeps a gutter for the tick
+   whether or not it is drawn, and gives every dial a right-aligned column of its own
+   (`tabular-nums` makes +7 / +880 / +1 246 line up on the digit, not on the plus). */
+.tablify button.tablify__dropdown-item.tablify__country-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto 14px;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  justify-content: normal;
 }
 
 /* SAD-355: the list carries its own inset (the body is unpadded now) and the headings stick, so
