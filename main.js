@@ -11792,6 +11792,8 @@ function exportDeliveryMethod(runtime) {
     return "picker";
   if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile)
     return "share";
+  if (runtime.isMobile && runtime.saveToFallbackFolder)
+    return "folder";
   if (!runtime.isMobile && runtime.downloadFile)
     return "download";
   return "none";
@@ -11869,6 +11871,12 @@ async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resol
       return { ok: false, cancelled: true };
     reasons.push(shared.kind === "unsupported" ? shared.error : `Share failed: ${shared.error}.`);
   }
+  if (runtime.isMobile && runtime.saveToFallbackFolder) {
+    const saved = await runtime.saveToFallbackFolder(artifact);
+    if (saved.ok)
+      return { ok: true, method: "folder", fileName: saved.fileName, displayPath: saved.displayPath };
+    reasons.push(saved.error);
+  }
   if (!runtime.isMobile && runtime.downloadFile) {
     try {
       const blob = new Blob([artifact.data], { type: artifact.mimeType });
@@ -11880,6 +11888,74 @@ async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resol
   }
   const detail = reasons.length > 0 ? ` ${reasons.join(" ")}` : "";
   return { ok: false, error: `No supported save or download method is available.${detail}` };
+}
+var FALLBACK_EXPORT_FOLDER = "Download/Tablify";
+var FALLBACK_DIRECTORIES = ["EXTERNAL_STORAGE", "EXTERNAL", "DOCUMENTS"];
+async function writeToCapacitorFolder(bridge, folder, artifact) {
+  const isText = typeof artifact.data === "string";
+  const payload = isText ? artifact.data : arrayBufferToBase64(artifact.data);
+  const failures = [];
+  for (const directory of FALLBACK_DIRECTORIES) {
+    try {
+      const fileName = await freeFallbackName(bridge, folder, artifact.fileName, directory);
+      const path = `${folder}/${fileName}`;
+      const written = await bridge.writeFile({
+        path,
+        data: payload,
+        directory,
+        ...isText ? { encoding: "utf8" } : {},
+        recursive: true
+      });
+      const uri = written?.uri ?? (await bridge.getUri?.({ path, directory }))?.uri;
+      return { ok: true, fileName, displayPath: uri ? displayPathOf(uri) : path };
+    } catch (error) {
+      failures.push(`${directory}: ${errorMessage(error)}`);
+    }
+  }
+  return { ok: false, error: `Could not write to a shared folder. ${failures.join(" / ")}` };
+}
+async function freeFallbackName(bridge, folder, fileName, directory) {
+  const dot = fileName.lastIndexOf(".");
+  const base = dot === -1 ? fileName : fileName.slice(0, dot);
+  const ext = dot === -1 ? "" : fileName.slice(dot);
+  const stat = bridge.stat;
+  if (!stat) {
+    const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/:/g, "-").slice(0, 19);
+    return `${base} ${stamp}${ext}`;
+  }
+  const exists = async (candidate) => {
+    try {
+      await stat.call(bridge, { path: `${folder}/${candidate}`, directory });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (!await exists(fileName))
+    return fileName;
+  for (let n = 2; n < 1e3; n++) {
+    const candidate = `${base} ${n}${ext}`;
+    if (!await exists(candidate))
+      return candidate;
+  }
+  return `${base} ${Date.now()}${ext}`;
+}
+function displayPathOf(uri) {
+  let path = uri.replace(/^file:\/\//, "");
+  try {
+    path = decodeURIComponent(path);
+  } catch {
+  }
+  return path.replace(/^\/storage\/emulated\/0\//, "").replace(/^\/sdcard\//, "");
+}
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunk = 32768;
+  let binary2 = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary2 += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary2);
 }
 function browserExportSaveRuntime(isMobile) {
   const win = window;
@@ -11913,6 +11989,10 @@ function browserExportSaveRuntime(isMobile) {
   const share = nav.share;
   if (typeof share === "function")
     runtime.shareFile = (file) => share.call(nav, { files: [file], title: file.name });
+  const bridge = window.Capacitor?.Plugins?.Filesystem;
+  if (isMobile && typeof bridge?.writeFile === "function") {
+    runtime.saveToFallbackFolder = (artifact) => writeToCapacitorFolder(bridge, FALLBACK_EXPORT_FOLDER, artifact);
+  }
   return runtime;
 }
 function descriptionFor(mimeType) {
@@ -17300,11 +17380,13 @@ async function flushPendingExportEdits(app, source) {
   if (view?.save)
     await view.save();
 }
-function exportSuccessMessage(method, fileName, rowCount, columnCount) {
+function exportSuccessMessage(method, fileName, rowCount, columnCount, displayPath) {
   if (method === "picker")
     return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
   if (method === "share")
     return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
+  if (method === "folder")
+    return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? "a shared folder"}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 function shareWithFeedback(app, payload, runtime, stale) {
@@ -17468,7 +17550,7 @@ var ExportModal = class extends import_obsidian2.Modal {
         new import_obsidian2.Notice("Export cancelled. No file was saved.");
       return;
     }
-    new import_obsidian2.Notice(exportSuccessMessage(saved.method, saved.fileName, prepared.rowCount, prepared.columnCount));
+    new import_obsidian2.Notice(exportSuccessMessage(saved.method, saved.fileName, prepared.rowCount, prepared.columnCount, saved.displayPath));
     this.close();
   }
 };
@@ -25593,7 +25675,7 @@ var TableView = class extends import_obsidian10.TextFileView {
         new import_obsidian10.Notice("Export cancelled. No file was saved.");
       return;
     }
-    new import_obsidian10.Notice(exportSuccessMessage2(saved.method, saved.fileName, table.rows.length, table.fields.length));
+    new import_obsidian10.Notice(exportSuccessMessage2(saved.method, saved.fileName, table.rows.length, table.fields.length, saved.displayPath));
   }
   /**
    * Copy current view as Markdown (SAD-98 command target; was the title-row Copy Markdown
@@ -26885,11 +26967,13 @@ var TableView = class extends import_obsidian10.TextFileView {
     }, { stacked: onClose !== void 0 }).open();
   }
 };
-function exportSuccessMessage2(method, fileName, rowCount, columnCount) {
+function exportSuccessMessage2(method, fileName, rowCount, columnCount, displayPath) {
   if (method === "picker")
     return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
   if (method === "share")
     return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
+  if (method === "folder")
+    return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? "a shared folder"}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 function formatValue(value, field) {

@@ -70,8 +70,10 @@ beforeEach(() => {
 afterEach(() => {
   Platform.isMobile = false;
   Platform.isIosApp = false;
+  Platform.isAndroidApp = false;
   Reflect.deleteProperty(window.navigator, 'canShare');
   Reflect.deleteProperty(window.navigator, 'share');
+  Reflect.deleteProperty(window, 'Capacitor');
 });
 
 describe('Export modal on a share-destination device (SAD-350)', () => {
@@ -195,6 +197,42 @@ describe('Export modal on a share-destination device (SAD-350)', () => {
     expect(Notice.messages.at(-1)).toBe(
       'Export failed. No file was saved. Could not read the table file: source is unavailable',
     );
+  });
+
+  it('Android without a dialog falls back to the Capacitor shared folder and names the path', async () => {
+    Platform.isIosApp = false;
+    Platform.isAndroidApp = true; // Android WebView: no picker, no Web Share API
+    const writes: Array<{ path: string; directory: string; encoding?: string }> = [];
+    Object.defineProperty(window, 'Capacitor', {
+      value: {
+        Plugins: {
+          Filesystem: {
+            writeFile: vi.fn(async (opts: { path: string; directory: string; encoding?: string }) => {
+              writes.push(opts);
+              return { uri: `file:///storage/emulated/0/${opts.path}` };
+            }),
+            stat: vi.fn(async () => {
+              throw new Error('File does not exist');
+            }),
+          },
+        },
+      },
+      configurable: true,
+    });
+    const file = tableFile();
+    const app = createApp(async () => serialize(makeFile(2)));
+
+    openExportModal(app, file);
+    await flush();
+    const modal = Modal.opened.at(-1);
+    modal?.contentEl.querySelector('button')?.click();
+    await flush();
+
+    expect(writes).toEqual([
+      expect.objectContaining({ path: 'Download/Tablify/Budget.csv', directory: 'EXTERNAL_STORAGE', encoding: 'utf8' }),
+    ]);
+    expect(Notice.messages.at(-1)).toBe('Saved Budget.csv (2 rows, 11 columns) to Download/Tablify/Budget.csv.');
+    expect(modal?.isOpen).toBe(false);
   });
 
   it('mobile without any delivery method fails honestly instead of claiming a download', async () => {

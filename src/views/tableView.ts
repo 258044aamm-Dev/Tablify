@@ -384,7 +384,7 @@ export class TableView extends TextFileView {
       else new Notice('Export cancelled. No file was saved.');
       return;
     }
-    new Notice(exportSuccessMessage(saved.method, saved.fileName, table.rows.length, table.fields.length));
+    new Notice(exportSuccessMessage(saved.method, saved.fileName, table.rows.length, table.fields.length, saved.displayPath));
   }
 
   /**
@@ -1763,13 +1763,15 @@ export class TableView extends TextFileView {
 }
 
 function exportSuccessMessage(
-  method: 'picker' | 'share' | 'download',
+  method: 'picker' | 'share' | 'download' | 'folder',
   fileName: string,
   rowCount: number,
   columnCount: number,
+  displayPath?: string,
 ): string {
   if (method === 'picker') return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
   if (method === 'share') return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
+  if (method === 'folder') return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? 'a shared folder'}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 

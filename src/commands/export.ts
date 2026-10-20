@@ -93,13 +93,15 @@ export async function flushPendingExportEdits(app: App, source: TFile): Promise<
 }
 
 function exportSuccessMessage(
-  method: 'picker' | 'share' | 'download',
+  method: 'picker' | 'share' | 'download' | 'folder',
   fileName: string,
   rowCount: number,
   columnCount: number,
+  displayPath?: string,
 ): string {
   if (method === 'picker') return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
   if (method === 'share') return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
+  if (method === 'folder') return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? 'a shared folder'}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 
@@ -323,7 +325,7 @@ class ExportModal extends Modal {
       return;
     }
 
-    new Notice(exportSuccessMessage(saved.method, saved.fileName, prepared.rowCount, prepared.columnCount));
+    new Notice(exportSuccessMessage(saved.method, saved.fileName, prepared.rowCount, prepared.columnCount, saved.displayPath));
     this.close();
   }
 }

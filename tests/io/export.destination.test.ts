@@ -1,7 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
+  arrayBufferToBase64,
   beginExportSave,
+  exportDeliveryMethod,
   saveExportArtifact,
+  writeToCapacitorFolder,
+  type CapacitorFilesystemBridge,
   type ExportArtifact,
   type ExportSaveRuntime,
   type SaveFileHandle,
@@ -151,6 +155,54 @@ describe('export destination', () => {
     expect(runtime.downloadFile).not.toHaveBeenCalled();
   });
 
+  it('picks the delivery method from actual capabilities (SAD-350)', () => {
+    const picker: ExportSaveRuntime['showSaveFilePicker'] = vi.fn();
+    const share = {
+      createFile: vi.fn(),
+      canShareFile: vi.fn(),
+      shareFile: vi.fn(),
+    };
+    const folder = { saveToFallbackFolder: vi.fn() };
+    expect(exportDeliveryMethod({ isMobile: false, showSaveFilePicker: picker })).toBe('picker');
+    expect(exportDeliveryMethod({ isMobile: true, showSaveFilePicker: picker, ...share, ...folder })).toBe('picker');
+    expect(exportDeliveryMethod({ isMobile: true, ...share, ...folder })).toBe('share');
+    expect(exportDeliveryMethod({ isMobile: true, ...folder })).toBe('folder');
+    expect(exportDeliveryMethod({ isMobile: false, downloadFile: vi.fn() })).toBe('download');
+    expect(exportDeliveryMethod({ isMobile: true, downloadFile: vi.fn() })).toBe('none');
+    expect(exportDeliveryMethod({ isMobile: false, ...share, ...folder })).toBe('none');
+  });
+
+  it('saves through the Android fallback folder and reports the real path (SAD-350)', async () => {
+    const runtime: ExportSaveRuntime = {
+      isMobile: true,
+      saveToFallbackFolder: vi.fn(async () => ({
+        ok: true as const,
+        fileName: 'Budget.csv',
+        displayPath: 'Download/Tablify/Budget.csv',
+      })),
+    };
+    const result = await saveExportArtifact(artifact, runtime);
+    expect(runtime.saveToFallbackFolder).toHaveBeenCalledWith(artifact);
+    expect(result).toEqual({
+      ok: true,
+      method: 'folder',
+      fileName: 'Budget.csv',
+      displayPath: 'Download/Tablify/Budget.csv',
+    });
+  });
+
+  it('surfaces the fallback-folder failure instead of claiming success (SAD-350)', async () => {
+    const runtime: ExportSaveRuntime = {
+      isMobile: true,
+      saveToFallbackFolder: vi.fn(async () => ({ ok: false as const, error: 'Could not write to a shared folder. denied' })),
+    };
+    const result = await saveExportArtifact(artifact, runtime);
+    expect(result).toEqual({
+      ok: false,
+      error: 'No supported save or download method is available. Could not write to a shared folder. denied',
+    });
+  });
+
   it('aborts a failed write and returns a visible error instead of silently using another destination', async () => {
     const writer: SaveFileWriter = {
       write: vi.fn(async () => {
@@ -166,5 +218,114 @@ describe('export destination', () => {
     expect(writer.abort).toHaveBeenCalledOnce();
     expect(runtime.downloadFile).not.toHaveBeenCalled();
     expect(result).toEqual({ ok: false, error: 'Could not save the file: disk full' });
+  });
+});
+
+/** A fake Capacitor Filesystem bridge: `existing` paths resolve on stat, others reject. */
+function fakeBridge(options: {
+  existing?: string[];
+  failDirs?: string[];
+  stat?: boolean;
+  uri?: (path: string) => string | undefined;
+}): CapacitorFilesystemBridge & { writes: Array<{ path: string; data: string; directory: string; encoding?: string }> } {
+  const existing = new Set(options.existing ?? []);
+  const failDirs = new Set(options.failDirs ?? []);
+  const writes: Array<{ path: string; data: string; directory: string; encoding?: string }> = [];
+  const bridge: CapacitorFilesystemBridge & { writes: typeof writes } = {
+    writes,
+    async writeFile(opts) {
+      if (failDirs.has(opts.directory)) throw new Error(`${opts.directory} is not allowed`);
+      writes.push({ path: opts.path, data: opts.data, directory: opts.directory, encoding: opts.encoding });
+      const uri = options.uri?.(opts.path);
+      return uri === undefined ? {} : { uri };
+    },
+  };
+  if (options.stat !== false) {
+    bridge.stat = async ({ path }) => {
+      if (existing.has(path)) return {};
+      throw new Error('File does not exist');
+    };
+  }
+  return bridge;
+}
+
+const csvArtifact: ExportArtifact = {
+  fileName: 'Budget.csv',
+  mimeType: 'text/csv',
+  data: '\uFEFFName,Amount\r\nAlpha,12\r\n',
+};
+
+describe('Android fallback folder writer (SAD-350)', () => {
+  it('writes text with utf8 encoding into the first allowed directory, keeping the BOM', async () => {
+    const bridge = fakeBridge({ uri: (p) => `file:///storage/emulated/0/${p}` });
+    const saved = await writeToCapacitorFolder(bridge, 'Download/Tablify', csvArtifact);
+    expect(bridge.writes).toEqual([
+      {
+        path: 'Download/Tablify/Budget.csv',
+        data: csvArtifact.data,
+        directory: 'EXTERNAL_STORAGE',
+        encoding: 'utf8',
+      },
+    ]);
+    expect(saved).toEqual({ ok: true, fileName: 'Budget.csv', displayPath: 'Download/Tablify/Budget.csv' });
+  });
+
+  it('falls through EXTERNAL_STORAGE and EXTERNAL to DOCUMENTS when scoped storage blocks them', async () => {
+    const bridge = fakeBridge({ failDirs: ['EXTERNAL_STORAGE', 'EXTERNAL'] });
+    const saved = await writeToCapacitorFolder(bridge, 'Download/Tablify', csvArtifact);
+    expect(bridge.writes.map((w) => w.directory)).toEqual(['DOCUMENTS']);
+    expect(saved).toEqual({ ok: true, fileName: 'Budget.csv', displayPath: 'Download/Tablify/Budget.csv' });
+  });
+
+  it('aggregates every directory failure into one honest error', async () => {
+    const bridge = fakeBridge({ failDirs: ['EXTERNAL_STORAGE', 'EXTERNAL', 'DOCUMENTS'] });
+    const saved = await writeToCapacitorFolder(bridge, 'Download/Tablify', csvArtifact);
+    expect(saved).toEqual({
+      ok: false,
+      error:
+        'Could not write to a shared folder. EXTERNAL_STORAGE: EXTERNAL_STORAGE is not allowed / EXTERNAL: EXTERNAL is not allowed / DOCUMENTS: DOCUMENTS is not allowed',
+    });
+  });
+
+  it('never overwrites: numbered name on collision, timestamped name when stat is unavailable', async () => {
+    const colliding = fakeBridge({ existing: ['Download/Tablify/Budget.csv', 'Download/Tablify/Budget 2.csv'] });
+    const saved = await writeToCapacitorFolder(colliding, 'Download/Tablify', csvArtifact);
+    expect(saved.ok && saved.fileName).toBe('Budget 3.csv');
+
+    const blind = fakeBridge({ stat: false });
+    const stamped = await writeToCapacitorFolder(blind, 'Download/Tablify', csvArtifact);
+    expect(stamped.ok && stamped.fileName).toMatch(/^Budget \d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.csv$/);
+  });
+
+  it('writes binary artifacts as base64 that decodes back byte-for-byte', async () => {
+    const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x00, 0xff, 0x80, 0x7f]);
+    const xlsx: ExportArtifact = {
+      fileName: 'Budget.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      data: bytes.buffer,
+    };
+    const bridge = fakeBridge({});
+    const saved = await writeToCapacitorFolder(bridge, 'Download/Tablify', xlsx);
+    expect(saved.ok).toBe(true);
+    expect(bridge.writes[0].encoding).toBeUndefined();
+    expect(new Uint8Array(Buffer.from(bridge.writes[0].data, 'base64'))).toEqual(bytes);
+  });
+
+  it('decodes and shortens the reported path like a file manager shows it', async () => {
+    const bridge = fakeBridge({ uri: (p) => `file:///storage/emulated/0/${encodeURI(p)}` });
+    const spaced: ExportArtifact = { ...csvArtifact, fileName: 'My Budget.csv' };
+    const saved = await writeToCapacitorFolder(bridge, 'Download/Tablify', spaced);
+    expect(saved).toEqual({ ok: true, fileName: 'My Budget.csv', displayPath: 'Download/Tablify/My Budget.csv' });
+  });
+});
+
+describe('arrayBufferToBase64 (SAD-350)', () => {
+  it('matches Node base64 for empty, tiny, chunk-boundary and large buffers', () => {
+    const sizes = [0, 1, 3, 0x8000 - 1, 0x8000, 0x8000 + 1, 100_000];
+    for (const size of sizes) {
+      const bytes = new Uint8Array(size);
+      for (let i = 0; i < size; i++) bytes[i] = (i * 31 + 7) % 256;
+      expect(arrayBufferToBase64(bytes.buffer)).toBe(Buffer.from(bytes).toString('base64'));
+    }
   });
 });
