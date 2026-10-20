@@ -62,6 +62,7 @@ export class RatingPanel {
   private readonly slider: HTMLElement;
   private readonly caption: HTMLElement;
   private readonly input: HTMLInputElement;
+  private readonly fieldWrap: HTMLElement;
   private readonly hint: HTMLElement;
   private readonly clearBtn: HTMLButtonElement;
   private readonly doneBtn: HTMLButtonElement;
@@ -129,13 +130,15 @@ export class RatingPanel {
     sliderWrap.appendChild(this.slider);
     body.appendChild(sliderWrap);
 
-    const row = element('div', 'tablify__rating-row');
+    // Field capsule: numeric input + scale suffix (like date's input capsule)
+    this.fieldWrap = element('div', 'tablify__rating-field');
     this.input = document.createElement('input');
     this.input.type = 'text';
     this.input.className = 'tablify__dropdown-input tablify__rating-input';
     this.input.inputMode = 'decimal';
     this.input.autocomplete = 'off';
     this.input.spellcheck = false;
+    this.input.placeholder = 'No rating';
     this.input.setAttribute('aria-label', 'Rating value');
     this.input.setAttribute('aria-describedby', this.ids.hint);
     this.input.addEventListener('input', () => this.onInput());
@@ -146,13 +149,13 @@ export class RatingPanel {
         if (!this.invalid) this.commit();
       }
     });
-    row.appendChild(this.input);
+    this.fieldWrap.appendChild(this.input);
 
     const scaleText = element('span', 'tablify__rating-scale');
     scaleText.textContent = `/ ${this.scale}`;
     scaleText.setAttribute('aria-hidden', 'true');
-    row.appendChild(scaleText);
-    body.appendChild(row);
+    this.fieldWrap.appendChild(scaleText);
+    body.appendChild(this.fieldWrap);
 
     this.hint = element('div', 'tablify__rating-hint');
     this.hint.id = this.ids.hint;
@@ -362,8 +365,13 @@ export class RatingPanel {
     this.slider.setAttribute('aria-valuenow', String(this.draft ?? 0));
     this.slider.setAttribute('aria-valuetext', ratingValueText(this.draft, this.scale));
     this.caption.textContent = ratingValueText(this.draft, this.scale);
-    if (this.invalid) this.input.setAttribute('aria-invalid', 'true');
-    else this.input.removeAttribute('aria-invalid');
+    if (this.invalid) {
+      this.input.setAttribute('aria-invalid', 'true');
+      this.fieldWrap.setAttribute('aria-invalid', 'true');
+    } else {
+      this.input.removeAttribute('aria-invalid');
+      this.fieldWrap.removeAttribute('aria-invalid');
+    }
     this.hint.hidden = !this.invalid;
     this.hint.textContent = this.invalid ? this.errorText : '';
     this.doneBtn.disabled = this.invalid;

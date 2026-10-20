@@ -4452,6 +4452,50 @@ body.is-phone .view-content.tablify-view.tablify {
   white-space: nowrap;
 }
 
+/* SAD-354 — field capsule like date's input capsule */
+.tablify__rating-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--tablify-bg-capsule);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+}
+
+.tablify__rating-field:focus-within {
+  border-color: var(--tablify-accent-primary);
+  box-shadow: 0 0 0 2px var(--tablify-focus-ring);
+}
+
+.tablify__rating-field .tablify__rating-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--tablify-text);
+  font-family: var(--tablify-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  line-height: 16px;
+  padding: 0;
+}
+
+.tablify__rating-field .tablify__rating-input::placeholder {
+  color: var(--tablify-text-muted);
+}
+
+.tablify__rating-field .tablify__rating-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.tablify__rating-field[aria-invalid='true'] {
+  border-color: var(--tablify-text-danger);
+}
+
+/* Legacy row class kept for compatibility — maps to field */
 .tablify__rating-row {
   display: flex;
   align-items: center;
@@ -4465,15 +4509,18 @@ body.is-phone .view-content.tablify-view.tablify {
 
 .tablify__rating-scale {
   flex: 0 0 auto;
-  font-size: 11.5px;
+  font-size: 11px;
+  font-family: var(--tablify-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   color: var(--tablify-text-muted);
 }
 
 .tablify__rating-hint {
-  min-height: 15px;
+  min-height: 14px;
+  margin: -2px 0 0;
+  font-family: 'Poppins', Arial, sans-serif;
   font-size: 11px;
-  line-height: 15px;
-  color: var(--tablify-danger, var(--tablify-text));
+  line-height: 14px;
+  color: var(--tablify-text-danger, var(--tablify-text-danger));
 }
 
 .tablify__rating-hint[hidden] {
@@ -4483,9 +4530,9 @@ body.is-phone .view-content.tablify-view.tablify {
 .tablify__rating-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
-  padding-top: 8px;
+  padding-top: 10px;
   margin-top: 2px;
   border-top: 1px solid var(--tablify-border-subtle);
 }

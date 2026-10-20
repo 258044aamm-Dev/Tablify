@@ -25553,6 +25553,7 @@ var RatingPanel = class {
   slider;
   caption;
   input;
+  fieldWrap;
   hint;
   clearBtn;
   doneBtn;
@@ -25612,13 +25613,14 @@ var RatingPanel = class {
     });
     sliderWrap.appendChild(this.slider);
     body.appendChild(sliderWrap);
-    const row = element2("div", "tablify__rating-row");
+    this.fieldWrap = element2("div", "tablify__rating-field");
     this.input = document.createElement("input");
     this.input.type = "text";
     this.input.className = "tablify__dropdown-input tablify__rating-input";
     this.input.inputMode = "decimal";
     this.input.autocomplete = "off";
     this.input.spellcheck = false;
+    this.input.placeholder = "No rating";
     this.input.setAttribute("aria-label", "Rating value");
     this.input.setAttribute("aria-describedby", this.ids.hint);
     this.input.addEventListener("input", () => this.onInput());
@@ -25630,12 +25632,12 @@ var RatingPanel = class {
           this.commit();
       }
     });
-    row.appendChild(this.input);
+    this.fieldWrap.appendChild(this.input);
     const scaleText = element2("span", "tablify__rating-scale");
     scaleText.textContent = `/ ${this.scale}`;
     scaleText.setAttribute("aria-hidden", "true");
-    row.appendChild(scaleText);
-    body.appendChild(row);
+    this.fieldWrap.appendChild(scaleText);
+    body.appendChild(this.fieldWrap);
     this.hint = element2("div", "tablify__rating-hint");
     this.hint.id = this.ids.hint;
     this.hint.hidden = true;
@@ -25823,10 +25825,13 @@ var RatingPanel = class {
     this.slider.setAttribute("aria-valuenow", String(this.draft ?? 0));
     this.slider.setAttribute("aria-valuetext", ratingValueText(this.draft, this.scale));
     this.caption.textContent = ratingValueText(this.draft, this.scale);
-    if (this.invalid)
+    if (this.invalid) {
       this.input.setAttribute("aria-invalid", "true");
-    else
+      this.fieldWrap.setAttribute("aria-invalid", "true");
+    } else {
       this.input.removeAttribute("aria-invalid");
+      this.fieldWrap.removeAttribute("aria-invalid");
+    }
     this.hint.hidden = !this.invalid;
     this.hint.textContent = this.invalid ? this.errorText : "";
     this.doneBtn.disabled = this.invalid;
