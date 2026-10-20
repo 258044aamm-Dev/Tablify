@@ -403,6 +403,7 @@ To guarantee that SAD-347 has **zero unintended side effects** on existing featu
 // src/views/grid/attachment.ts
 export const IMAGE_EXTENSIONS: ReadonlySet<string>;
 export function isImageAttachmentPath(rawPath: string): boolean;
+export function attachmentFileName(rawPath: string): string;
 export function resolveAttachmentImageUrl(raw: string, vault?: VaultLike): string | null;
 
 // src/views/grid/cellRender.ts
@@ -420,14 +421,11 @@ export function renderAttachmentChips(
 export interface ImagePreviewModalOptions {
   path: string;
   url: string;
-  theme?: 'light' | 'dark';
-  onClose?: () => void;
 }
-export class ImagePreviewModal {
-  constructor(options: ImagePreviewModalOptions);
-  get element(): HTMLElement;
-  open(): void;
-  close(): void;
+export class ImagePreviewModal extends Modal {
+  constructor(app: App, opts: ImagePreviewModalOptions);
+  onOpen(): void;
+  onClose(): void;
 }
 ```
 
@@ -435,4 +433,5 @@ export class ImagePreviewModal {
 
 - **Grid cell & chip:** `.tablify__cell--attachment`, `.tablify__chip--image`, `.tablify button.tablify__chip-thumb-btn`, `.tablify__chip-thumb-wrap`, `.tablify__chip-thumb`
 - **Attachment panel:** `.tablify__attach-preview`, `[data-testid="tablify-attachment-preview"]`, `.tablify__attach-preview-img`, `.tablify__attach-row-thumb`
-- **Image lightbox:** `.tablify__lightbox-backdrop`, `[data-testid="tablify-image-lightbox"]`, `.tablify__lightbox-card`, `.tablify__lightbox-head`, `.tablify__lightbox-title`, `.tablify__lightbox-path`, `.tablify button.tablify__lightbox-close`, `.tablify__lightbox-stage`, `.tablify__lightbox-img`, `.tablify__lightbox-fallback`
+- **Image lightbox:** `[data-testid="tablify-image-preview-modal"]`, `.tablify__image-lightbox`, `.tablify__image-lightbox-stage` (`[data-testid="tablify-image-preview-stage"]`), `.tablify__image-lightbox-img` (`[data-testid="tablify-image-preview-img"]`), `.tablify__image-lightbox-meta` (`[data-testid="tablify-image-preview-meta"]`), `.tablify__image-lightbox-error` (`[data-testid="tablify-image-preview-error"]`)
+- **Evidence report:** [`docs/evidence/SAD-347.md`](../evidence/SAD-347.md)

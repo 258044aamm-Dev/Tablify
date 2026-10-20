@@ -6,6 +6,18 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **Inline image thumbnails and lightbox preview in Attachment cells (SAD-347)** — when an
+  Attachment cell points to a supported image in your vault (`.png`, `.jpg`, `.jpeg`, `.gif`,
+  `.webp`, `.svg`, `.bmp`, `.avif`, `.ico`), its chip now renders a rounded inline thumbnail
+  beside the filename, scaled for **Small** (`16×16` in `28px`), **Medium** (`20×20` in `34px`)
+  and **Large** (`26×26` in `40px`) row heights without changing row pitch or virtual-scroll math.
+  Clicking the thumbnail opens a themed lightbox dialog (`ImagePreviewModal`) with the full-size
+  image and its dimensions; clicking or double-clicking the rest of the cell selects or edits as
+  before, and the **Attachments** panel also shows a clickable preview banner above the file row.
+  Missing vault files or broken images fall back automatically to the paperclip chip with the
+  filename intact. Works in both the full `.tablify` view and note embeds. No new dependency, no
+  `formatVersion` change.
+
 - **Ratings are stars you can click (SAD-304)** — a Rating cell now draws one star per point of the
   field's **Max** and fills each by the value's fraction, so `4.5` is four full stars and half of
   the fifth, followed by the number. Clicking a star writes that value (one undo step, no editor),

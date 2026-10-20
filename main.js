@@ -2817,7 +2817,7 @@ __export(main_exports, {
   default: () => TablifyPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian16 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 
 // src/commands/import.ts
 var import_obsidian = require("obsidian");
@@ -18033,7 +18033,7 @@ var LinkIntegrityModal = class extends import_obsidian3.Modal {
 };
 
 // src/views/tableView.ts
-var import_obsidian9 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 
 // src/views/grid/editors/index.ts
 var READONLY_TYPES = /* @__PURE__ */ new Set(["auto_number", "created_time", "modified_time", "formula"]);
@@ -18308,6 +18308,91 @@ function ratingValueText(value, scale) {
   return `${value} out of ${scale} ${stars}`;
 }
 
+// src/views/grid/attachment.ts
+function normalizeAttachmentPath(input) {
+  let p = input.trim().replace(/\\/g, "/");
+  p = p.replace(/^\/+/, "");
+  p = p.replace(/\/{2,}/g, "/");
+  return p;
+}
+var IMAGE_EXTENSIONS = /* @__PURE__ */ new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "bmp",
+  "avif",
+  "ico"
+]);
+function isImageAttachmentPath(rawPath) {
+  const trimmed = rawPath.trim();
+  if (!trimmed)
+    return false;
+  if (/^data:image\/(png|jpe?g|gif|webp|bmp|avif|svg\+xml|x-icon)[;,]/i.test(trimmed)) {
+    return true;
+  }
+  const clean = trimmed.split(/[?#]/, 1)[0] ?? "";
+  const dot = clean.lastIndexOf(".");
+  if (dot < 0 || dot === clean.length - 1)
+    return false;
+  const ext = clean.slice(dot + 1).toLowerCase();
+  return IMAGE_EXTENSIONS.has(ext);
+}
+function attachmentFileName(rawPath) {
+  const trimmed = rawPath.trim();
+  if (!trimmed)
+    return "";
+  if (/^data:image\//i.test(trimmed))
+    return "Embedded image";
+  const clean = (trimmed.split(/[?#]/, 1)[0] ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
+  const slash = clean.lastIndexOf("/");
+  const base = slash >= 0 ? clean.slice(slash + 1) : clean;
+  return base || trimmed;
+}
+function resolveAttachmentImageUrl(raw, vault) {
+  const trimmed = raw.trim();
+  if (!isImageAttachmentPath(trimmed))
+    return null;
+  if (/^data:image\//i.test(trimmed) || /^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  const path = normalizeAttachmentPath(trimmed);
+  if (!path || !vault)
+    return null;
+  const file = vault.getAbstractFileByPath(path);
+  if (file === null || file === void 0)
+    return null;
+  if (typeof file === "object" && "children" in file)
+    return null;
+  if (typeof vault.getResourcePath === "function") {
+    const uri = vault.getResourcePath(file);
+    if (typeof uri === "string" && uri.trim() !== "")
+      return uri;
+  }
+  if (typeof vault.adapter?.getResourcePath === "function") {
+    const uri = vault.adapter.getResourcePath(path);
+    if (typeof uri === "string" && uri.trim() !== "")
+      return uri;
+  }
+  return null;
+}
+function checkAttachmentPath(raw, vault) {
+  const path = normalizeAttachmentPath(raw);
+  if (path === "")
+    return { ok: true, path: "" };
+  const exists = vault.getAbstractFileByPath(path) !== null;
+  if (exists)
+    return { ok: true, path };
+  return {
+    ok: false,
+    needsConfirm: true,
+    path,
+    message: `File not found in vault: "${path}". Save anyway?`
+  };
+}
+
 // src/views/grid/cellRender.ts
 function isFormattedCellType(field) {
   switch (field.type) {
@@ -18505,7 +18590,7 @@ function attachmentPaths(value) {
     return value.map((entry) => String(entry)).filter((p) => p !== "");
   return typeof value === "string" && value !== "" ? [value] : [];
 }
-function renderAttachmentChips(host, value) {
+function renderAttachmentChips(host, value, options = {}) {
   let first = true;
   for (const path of attachmentPaths(value)) {
     if (!first)
@@ -18517,6 +18602,46 @@ function renderAttachmentChips(host, value) {
     const icon = document.createElement("span");
     icon.className = "tablify__chip-icon";
     icon.innerHTML = faIcon("paperclip", 9);
+    const imageUrl = isImageAttachmentPath(path) ? options.resolveUrl?.(path) ?? null : null;
+    if (imageUrl) {
+      chip.classList.add("tablify__chip--image");
+      icon.hidden = true;
+      const onPreview = options.onPreview;
+      const thumbWrap = document.createElement(onPreview ? "button" : "span");
+      if (onPreview) {
+        const btn = thumbWrap;
+        btn.type = "button";
+        btn.className = "tablify__chip-thumb-btn";
+        btn.setAttribute("aria-label", `Preview ${path}`);
+        btn.title = `Preview ${path}`;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onPreview(path, imageUrl);
+        });
+        btn.addEventListener("dblclick", (e) => e.stopPropagation());
+        btn.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ")
+            e.stopPropagation();
+        });
+      } else {
+        thumbWrap.className = "tablify__chip-thumb-wrap";
+      }
+      const img = document.createElement("img");
+      img.className = "tablify__chip-thumb";
+      img.src = imageUrl;
+      img.alt = attachmentFileName(path);
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.draggable = false;
+      img.addEventListener("error", () => {
+        chip.classList.remove("tablify__chip--image");
+        thumbWrap.remove();
+        icon.hidden = false;
+      });
+      thumbWrap.appendChild(img);
+      chip.appendChild(thumbWrap);
+    }
     chip.appendChild(icon);
     chip.appendChild(document.createTextNode(path));
     host.appendChild(chip);
@@ -19634,7 +19759,11 @@ var GridView = class {
           } else if (field.type === "url" || field.type === "email" || field.type === "phone") {
             renderContactLink(text, field, val);
           } else if (field.type === "attachment") {
-            renderAttachmentChips(text, val);
+            cell2.classList.add("tablify__cell--attachment");
+            renderAttachmentChips(text, val, {
+              resolveUrl: this.opts.resolveAttachmentUrl,
+              onPreview: this.opts.onPreviewAttachment
+            });
           } else if (field.type === "number") {
             text.textContent = groupedNumberText(val);
           } else if (isFormattedCellType(field)) {
@@ -23601,9 +23730,47 @@ var AttachmentPanel = class {
     this.list.textContent = "";
     const paths = this.paths();
     paths.forEach((path, index) => {
+      const imageUrl = isImageAttachmentPath(path) ? this.opts.resolveImageUrl?.(path) ?? null : null;
+      if (imageUrl) {
+        const onPreview = this.opts.onPreviewImage;
+        const previewEl = document.createElement(onPreview ? "button" : "div");
+        previewEl.className = "tablify__attach-preview";
+        previewEl.dataset.testid = "tablify-attachment-preview";
+        if (onPreview) {
+          const btn = previewEl;
+          btn.type = "button";
+          btn.setAttribute("aria-label", `Preview ${path}`);
+          btn.title = "Click to view full size";
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            onPreview(path, imageUrl);
+          });
+        }
+        const previewImg = document.createElement("img");
+        previewImg.className = "tablify__attach-preview-img";
+        previewImg.src = imageUrl;
+        previewImg.alt = attachmentFileName(path);
+        previewImg.decoding = "async";
+        previewImg.addEventListener("error", () => {
+          previewEl.remove();
+        });
+        previewEl.appendChild(previewImg);
+        this.list.appendChild(previewEl);
+      }
       const row = document.createElement("div");
       row.className = "tablify__attach-row";
       row.dataset.testid = "tablify-attachment-row";
+      if (imageUrl) {
+        const rowThumb = document.createElement("img");
+        rowThumb.className = "tablify__attach-row-thumb";
+        rowThumb.src = imageUrl;
+        rowThumb.alt = attachmentFileName(path);
+        rowThumb.decoding = "async";
+        rowThumb.addEventListener("error", () => {
+          rowThumb.remove();
+        });
+        row.appendChild(rowThumb);
+      }
       const label = document.createElement("span");
       label.className = "tablify__attach-path";
       label.textContent = path;
@@ -23634,6 +23801,60 @@ var AttachmentPanel = class {
     this.opts.onRemove(index);
     this.warn = null;
     this.render();
+  }
+};
+
+// src/views/grid/ImagePreviewModal.ts
+var import_obsidian9 = require("obsidian");
+var ImagePreviewModal = class extends import_obsidian9.Modal {
+  opts;
+  constructor(app, opts) {
+    super(app);
+    this.opts = opts;
+  }
+  onOpen() {
+    const { path, url } = this.opts;
+    const name = attachmentFileName(path) || path;
+    this.setTitle(name);
+    dressProtoModal(this, {
+      icon: "paperclip",
+      subtitle: path !== name ? path : "Image attachment preview",
+      size: "xl"
+    });
+    this.modalEl.dataset.testid = "tablify-image-preview-modal";
+    this.contentEl.empty();
+    this.contentEl.classList.add("tablify__image-lightbox");
+    const stage = document.createElement("div");
+    stage.className = "tablify__image-lightbox-stage";
+    stage.dataset.testid = "tablify-image-preview-stage";
+    const img = document.createElement("img");
+    img.className = "tablify__image-lightbox-img";
+    img.dataset.testid = "tablify-image-preview-img";
+    img.src = url;
+    img.alt = name;
+    img.decoding = "async";
+    const meta = document.createElement("div");
+    meta.className = "tablify__image-lightbox-meta";
+    meta.dataset.testid = "tablify-image-preview-meta";
+    meta.textContent = path;
+    img.addEventListener("load", () => {
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        meta.textContent = `${path} \xB7 ${img.naturalWidth} \xD7 ${img.naturalHeight} px`;
+      }
+    });
+    img.addEventListener("error", () => {
+      img.remove();
+      const err3 = document.createElement("div");
+      err3.className = "tablify__image-lightbox-error";
+      err3.dataset.testid = "tablify-image-preview-error";
+      err3.textContent = `Could not load image preview for "${path}".`;
+      stage.appendChild(err3);
+    });
+    stage.appendChild(img);
+    this.contentEl.append(stage, meta);
+  }
+  onClose() {
+    this.contentEl.empty();
   }
 };
 
@@ -24952,31 +25173,9 @@ var RatingPanel = class {
   }
 };
 
-// src/views/grid/attachment.ts
-function normalizeAttachmentPath(input) {
-  let p = input.trim().replace(/\\/g, "/");
-  p = p.replace(/^\/+/, "");
-  p = p.replace(/\/{2,}/g, "/");
-  return p;
-}
-function checkAttachmentPath(raw, vault) {
-  const path = normalizeAttachmentPath(raw);
-  if (path === "")
-    return { ok: true, path: "" };
-  const exists = vault.getAbstractFileByPath(path) !== null;
-  if (exists)
-    return { ok: true, path };
-  return {
-    ok: false,
-    needsConfirm: true,
-    path,
-    message: `File not found in vault: "${path}". Save anyway?`
-  };
-}
-
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
-var TableView = class extends import_obsidian9.TextFileView {
+var TableView = class extends import_obsidian10.TextFileView {
   constructor(leaf, hooks = {}) {
     super(leaf);
     this.hooks = hooks;
@@ -25159,7 +25358,7 @@ var TableView = class extends import_obsidian9.TextFileView {
   titleCallbacks() {
     return {
       onRename: (name) => this.renameTable(name),
-      onInvalidName: (message) => new import_obsidian9.Notice(message),
+      onInvalidName: (message) => new import_obsidian10.Notice(message),
       onExport: () => void this.openExport()
     };
   }
@@ -25173,14 +25372,14 @@ var TableView = class extends import_obsidian9.TextFileView {
     if (newPath === file.path)
       return true;
     if (this.app.vault.getAbstractFileByPath(newPath)) {
-      new import_obsidian9.Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
+      new import_obsidian10.Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
       return false;
     }
     try {
       await this.app.fileManager.renameFile(file, newPath);
       return true;
     } catch (e) {
-      new import_obsidian9.Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian10.Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
       return false;
     }
   }
@@ -25208,11 +25407,11 @@ var TableView = class extends import_obsidian9.TextFileView {
     const file = this.file;
     if (!file || !this.session)
       return;
-    const runtime = browserExportSaveRuntime(typeof import_obsidian9.Platform === "undefined" ? false : import_obsidian9.Platform.isMobile);
+    const runtime = browserExportSaveRuntime(typeof import_obsidian10.Platform === "undefined" ? false : import_obsidian10.Platform.isMobile);
     const pickerStart = beginExportSave(exportFileName(file.basename, "csv"), exportMimeType("csv"), runtime);
     const picker = await pickerStart;
     if (picker.kind === "cancelled") {
-      new import_obsidian9.Notice("Export cancelled. No file was saved.");
+      new import_obsidian10.Notice("Export cancelled. No file was saved.");
       return;
     }
     const table = this.currentViewTable();
@@ -25222,18 +25421,18 @@ var TableView = class extends import_obsidian9.TextFileView {
     try {
       artifact = await buildExportArtifact(table, "csv", file.basename);
     } catch (error) {
-      new import_obsidian9.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
+      new import_obsidian10.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
       return;
     }
     const saved = await saveExportArtifact(artifact, runtime, Promise.resolve(picker));
     if (!saved.ok) {
       if (!saved.cancelled)
-        new import_obsidian9.Notice(`Export failed. No file was saved. ${saved.error}`);
+        new import_obsidian10.Notice(`Export failed. No file was saved. ${saved.error}`);
       else
-        new import_obsidian9.Notice("Export cancelled. No file was saved.");
+        new import_obsidian10.Notice("Export cancelled. No file was saved.");
       return;
     }
-    new import_obsidian9.Notice(exportSuccessMessage2(saved.method, saved.fileName, table.rows.length, table.fields.length));
+    new import_obsidian10.Notice(exportSuccessMessage2(saved.method, saved.fileName, table.rows.length, table.fields.length));
   }
   /**
    * Copy current view as Markdown (SAD-98 command target; was the title-row Copy Markdown
@@ -25248,9 +25447,9 @@ var TableView = class extends import_obsidian9.TextFileView {
       if (!navigator.clipboard)
         throw new Error("clipboard unavailable");
       await navigator.clipboard.writeText(markdown);
-      new import_obsidian9.Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"} as a Markdown table.`);
+      new import_obsidian10.Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"} as a Markdown table.`);
     } catch {
-      new import_obsidian9.Notice("Could not copy to the clipboard.");
+      new import_obsidian10.Notice("Could not copy to the clipboard.");
     }
   }
   syncToolbar() {
@@ -25279,7 +25478,7 @@ var TableView = class extends import_obsidian9.TextFileView {
       onSortChange: (sort) => this.applyViewChange((view, fields) => setSort(view, sort, fields)),
       onClearFilters: () => {
         this.applyFilter({ search: "", query: "" });
-        new import_obsidian9.Notice("Search & filters cleared");
+        new import_obsidian10.Notice("Search & filters cleared");
       },
       onUndo: () => this.mutate((s) => s.undo()),
       onRedo: () => this.mutate((s) => s.redo()),
@@ -25295,7 +25494,7 @@ var TableView = class extends import_obsidian9.TextFileView {
     const deleted = s.deleteRows([...this.rowSelection]);
     this.rowSelection = /* @__PURE__ */ new Set();
     if (deleted > 0)
-      new import_obsidian9.Notice(`Deleted ${deleted} ${deleted === 1 ? "row" : "rows"}`);
+      new import_obsidian10.Notice(`Deleted ${deleted} ${deleted === 1 ? "row" : "rows"}`);
     this.afterChange();
   }
   /**
@@ -25336,7 +25535,7 @@ var TableView = class extends import_obsidian9.TextFileView {
   /** Toolbar Sync: the plugin's sync entry point, same as the command. */
   openSync() {
     if (!this.hooks.openSync) {
-      new import_obsidian9.Notice("Airtable sync is not available here.");
+      new import_obsidian10.Notice("Airtable sync is not available here.");
       return;
     }
     this.hooks.openSync(this);
@@ -25448,7 +25647,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         onEdit: (edit) => {
           const result2 = s.editField(field.id, edit);
           if (!result2.ok)
-            new import_obsidian9.Notice(result2.reason);
+            new import_obsidian10.Notice(result2.reason);
           this.afterChange();
         }
       }
@@ -25529,6 +25728,9 @@ var TableView = class extends import_obsidian9.TextFileView {
         // SAD-304: a star in a rating cell is a one-click edit; read-only ratings stay decoration.
         onRate: (row, col, value) => this.rateAt(row, col, value),
         canRate: (field) => !isReadOnly(field),
+        // SAD-347: inline image thumbnails in attachment cells and click-to-preview lightbox.
+        resolveAttachmentUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
+        onPreviewAttachment: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -25557,12 +25759,12 @@ var TableView = class extends import_obsidian9.TextFileView {
         // SAD-80: `#`-cell drag to reorder.
         onRowMove: (rowId, beforeRowId) => {
           if (this.session?.moveRowBefore(rowId, beforeRowId)) {
-            new import_obsidian9.Notice("Row moved");
+            new import_obsidian10.Notice("Row moved");
             this.afterChange();
           }
         },
         rowMoveBlocked: () => this.rowMoveBlocked(),
-        onRowMoveBlocked: (reason) => new import_obsidian9.Notice(reason),
+        onRowMoveBlocked: (reason) => new import_obsidian10.Notice(reason),
         // SAD-81: Options → Group by headers; a click collapses or expands one group.
         groups,
         onToggleGroup: (key) => this.toggleGroup(key)
@@ -25588,7 +25790,7 @@ var TableView = class extends import_obsidian9.TextFileView {
    * narrow pane/viewport ≤ 639px, or coarse-pointer mobile landscape).
    */
   isMobileContext() {
-    if (typeof import_obsidian9.Platform !== "undefined" && import_obsidian9.Platform.isMobile)
+    if (typeof import_obsidian10.Platform !== "undefined" && import_obsidian10.Platform.isMobile)
       return true;
     if (typeof document !== "undefined") {
       if (document.body.classList.contains("is-mobile") || document.body.classList.contains("is-phone")) {
@@ -26115,7 +26317,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         new FormulaEditModal(this.app, current, (expression) => {
           const result2 = s.setFormula(field.id, expression);
           if (!result2.ok)
-            new import_obsidian9.Notice(result2.reason);
+            new import_obsidian10.Notice(result2.reason);
           this.afterChange();
         }).open();
         return;
@@ -26136,16 +26338,16 @@ var TableView = class extends import_obsidian9.TextFileView {
   }
   pasteInto(row, field) {
     if (field.type === "link") {
-      new import_obsidian9.Notice("Use Choose linked rows to change links.");
+      new import_obsidian10.Notice("Use Choose linked rows to change links.");
       return;
     }
     if (this.clipboardText === null) {
-      new import_obsidian9.Notice("Nothing copied yet.");
+      new import_obsidian10.Notice("Nothing copied yet.");
       return;
     }
     const res = parseInput2(field, this.clipboardText);
     if (!res.ok) {
-      new import_obsidian9.Notice(`Cannot paste here: ${res.error}`);
+      new import_obsidian10.Notice(`Cannot paste here: ${res.error}`);
       return;
     }
     this.session?.setValue(row.id, field.id, res.value);
@@ -26411,6 +26613,8 @@ var TableView = class extends import_obsidian9.TextFileView {
         value: value(),
         theme: this.isDark() ? "dark" : "light",
         checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
+        resolveImageUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
+        onPreviewImage: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
         onAdd: (raw) => {
           const path = normalizeAttachmentPath(raw);
           if (!path)
@@ -26472,7 +26676,7 @@ var TableView = class extends import_obsidian9.TextFileView {
         this.afterChange();
         panel.setField(s.getField(field.id) ?? live);
         if (plan.created)
-          new import_obsidian9.Notice(`Created option "${plan.option.name}"`);
+          new import_obsidian10.Notice(`Created option "${plan.option.name}"`);
         return plan.option;
       },
       // `createOption` already wrote the cell, so only the panel's own state is left to settle.
@@ -26535,7 +26739,7 @@ function isEmptyValue(v) {
 }
 
 // src/menus/fileMenu.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // src/menus/fileMenuModel.ts
 var NEW_TABLE_ROW_COUNT = 3;
@@ -26648,7 +26852,7 @@ function registerFileMenu(plugin) {
         const added = menu.items.splice(before);
         menu.items.unshift(...added);
       }
-      if (file instanceof import_obsidian10.TFile && file.extension === "tablify") {
+      if (file instanceof import_obsidian11.TFile && file.extension === "tablify") {
         const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
         if (cached.kind === "reissue") {
           menu.addItem(
@@ -26666,52 +26870,52 @@ async function reissueFile(app, file) {
   const decision = decideReissue(idx.index.duplicates(), file.path, openPaths);
   switch (decision.kind) {
     case "not-duplicated":
-      new import_obsidian10.Notice("This table ID is not shared. Nothing to change.");
+      new import_obsidian11.Notice("This table ID is not shared. Nothing to change.");
       return;
     case "keeps-id":
-      new import_obsidian10.Notice("This file keeps the table ID. Give the other copy a new ID instead.");
+      new import_obsidian11.Notice("This file keeps the table ID. Give the other copy a new ID instead.");
       return;
     case "open":
-      new import_obsidian10.Notice("Close this table tab first, then try again.");
+      new import_obsidian11.Notice("Close this table tab first, then try again.");
       return;
     case "reissue":
       break;
   }
   const result2 = reissueTableIdText(await app.vault.read(file));
   if (!result2.ok) {
-    new import_obsidian10.Notice(`Could not give a new ID: ${result2.error}`);
+    new import_obsidian11.Notice(`Could not give a new ID: ${result2.error}`);
     return;
   }
   await app.vault.modify(file, result2.text);
-  new import_obsidian10.Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
+  new import_obsidian11.Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
 }
 function targetOf(file) {
-  if (file instanceof import_obsidian10.TFile)
+  if (file instanceof import_obsidian11.TFile)
     return { kind: "file", extension: file.extension };
-  if (file instanceof import_obsidian10.TFolder)
+  if (file instanceof import_obsidian11.TFolder)
     return { kind: "folder", path: file.isRoot() ? "" : file.path };
   return { kind: "other" };
 }
 async function run(app, file, action) {
   switch (action) {
     case "open":
-      if (file instanceof import_obsidian10.TFile)
+      if (file instanceof import_obsidian11.TFile)
         await app.workspace.getLeaf(false).openFile(file);
       return;
     case "export":
-      if (file instanceof import_obsidian10.TFile)
+      if (file instanceof import_obsidian11.TFile)
         openExportModal(app, file);
       return;
     case "duplicate":
-      if (file instanceof import_obsidian10.TFile)
+      if (file instanceof import_obsidian11.TFile)
         await duplicateFile(app, file);
       return;
     case "newTable":
-      if (file instanceof import_obsidian10.TFolder)
+      if (file instanceof import_obsidian11.TFolder)
         await createNewTable(app, file.path);
       return;
     case "importTable":
-      if (file instanceof import_obsidian10.TFolder)
+      if (file instanceof import_obsidian11.TFolder)
         startImport(app, file.path);
       return;
   }
@@ -26723,12 +26927,12 @@ async function duplicateFile(app, source) {
   const text = await app.vault.read(source);
   const result2 = duplicateTableText(text, name);
   if (!result2.ok) {
-    new import_obsidian10.Notice(`Duplicate failed. The table file could not be read: ${result2.error}`);
+    new import_obsidian11.Notice(`Duplicate failed. The table file could not be read: ${result2.error}`);
     return;
   }
   const path = joinPath(folder, `${name}.tablify`);
   await app.vault.create(path, result2.text);
-  new import_obsidian10.Notice(`Created ${path}.`);
+  new import_obsidian11.Notice(`Created ${path}.`);
 }
 async function createNewTable(app, folder) {
   const exists = (name2) => app.vault.getAbstractFileByPath(joinPath(folder, `${name2}.tablify`)) !== null;
@@ -26739,7 +26943,7 @@ async function createNewTable(app, folder) {
 }
 
 // src/settings.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 var DEFAULT_SETTINGS = Object.freeze({ airtableToken: "" });
 var MAX_TOKEN_LENGTH = 512;
 function normalizeSettings(raw) {
@@ -26765,7 +26969,7 @@ async function saveSettings(store, settings) {
   const clean = normalizeSettings(settings);
   await store.saveData({ airtableToken: clean.airtableToken });
 }
-var TablifySettingTab = class extends import_obsidian11.PluginSettingTab {
+var TablifySettingTab = class extends import_obsidian12.PluginSettingTab {
   host;
   constructor(app, host) {
     super(app, host);
@@ -26774,8 +26978,8 @@ var TablifySettingTab = class extends import_obsidian11.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian11.Setting(containerEl).setName("Airtable").setHeading();
-    new import_obsidian11.Setting(containerEl).setName("Personal access token").setDesc(
+    new import_obsidian12.Setting(containerEl).setName("Airtable").setHeading();
+    new import_obsidian12.Setting(containerEl).setName("Personal access token").setDesc(
       "Used only for Airtable sync. Stored in this plugin\u2019s settings. It is never written to .tablify files or exports."
     ).addText((text) => {
       text.inputEl.type = "password";
@@ -26793,7 +26997,7 @@ var TablifySettingTab = class extends import_obsidian11.PluginSettingTab {
 };
 
 // src/embed/register.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 
 // src/embed/embedDocument.ts
 var EmbedDocument = class {
@@ -26941,7 +27145,7 @@ var EmbedRegistry = class {
 };
 
 // src/embed/embedView.ts
-var import_obsidian12 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 var EMBED_VIEWPORT_HEIGHT = 320;
 var EmbedView = class {
   root;
@@ -27029,7 +27233,7 @@ var EmbedView = class {
     if (!storeRow)
       return false;
     if (field.type === "link") {
-      new import_obsidian12.Notice("Open the full table to change links.");
+      new import_obsidian13.Notice("Open the full table to change links.");
       return false;
     }
     const editor = createEditor(field, storeRow, s.store, s.stack, (committed) => {
@@ -27106,6 +27310,8 @@ var EmbedView = class {
         this.sel = { row, col };
       },
       linkSummary: links ? (value) => summarizeLinks(value, links.index) : void 0,
+      resolveAttachmentUrl: this.opts.resolveAttachmentUrl,
+      onPreviewAttachment: this.opts.onPreviewAttachment,
       // COD-71: the checkbox box is clickable in an embed too; the write goes through the
       // shared document, so both embeds and the full view see it and it is saved once.
       onToggleCheckbox: (rowIndex, colIndex) => {
@@ -27243,7 +27449,7 @@ var EMBED_FENCE_LANGUAGE = "tablify";
 function vaultEmbedIO(app) {
   const fileAt = (path) => {
     const f = app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof import_obsidian13.TFile))
+    if (!(f instanceof import_obsidian14.TFile))
       throw new Error("file not found");
     return f;
   };
@@ -27254,7 +27460,7 @@ function vaultEmbedIO(app) {
     }
   };
 }
-var EmbedRenderChild = class extends import_obsidian13.MarkdownRenderChild {
+var EmbedRenderChild = class extends import_obsidian14.MarkdownRenderChild {
   onDone;
   constructor(containerEl, onDone) {
     super(containerEl);
@@ -27287,7 +27493,9 @@ function registerEmbedProcessor(plugin) {
         onOpenFull: (p) => {
           void app.workspace.openLinkText(p, "", false);
         },
-        links: linkIndexFor(app)
+        links: linkIndexFor(app),
+        resolveAttachmentUrl: (p) => resolveAttachmentImageUrl(p, app.vault),
+        onPreviewAttachment: (p, url) => new ImagePreviewModal(app, { path: p, url }).open()
       });
       el4.appendChild(view.root);
       ctx.addChild(
@@ -27300,7 +27508,7 @@ function registerEmbedProcessor(plugin) {
   );
   plugin.registerEvent(
     app.vault.on("modify", (file) => {
-      if (file instanceof import_obsidian13.TFile)
+      if (file instanceof import_obsidian14.TFile)
         void registry2.fileChanged(file.path);
     })
   );
@@ -27308,10 +27516,10 @@ function registerEmbedProcessor(plugin) {
 }
 
 // src/views/sync/SyncModal.ts
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 
 // src/sync/airtableClient.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // src/sync/rateLimiter.ts
 var defaultClock = () => Date.now();
@@ -27383,7 +27591,7 @@ var BASE_ID = /^app[A-Za-z0-9]+$/;
 var TABLE_ID = /^tbl[A-Za-z0-9]+$/;
 var RECORD_ID = /^rec[A-Za-z0-9]+$/;
 function transportDefault(param) {
-  return (0, import_obsidian14.requestUrl)(param);
+  return (0, import_obsidian15.requestUrl)(param);
 }
 function headerValue(headers, name) {
   if (!headers)
@@ -28628,7 +28836,7 @@ function el3(parent, tag, opts = {}) {
 }
 var SCOPES_TEXT = "data.records:read \xB7 data.records:write \xB7 schema.bases:read";
 var CREATE_SCOPE_TEXT = "schema.bases:write is needed only to create fields.";
-var SyncModal = class extends import_obsidian15.Modal {
+var SyncModal = class extends import_obsidian16.Modal {
   constructor(app, deps) {
     super(app);
     this.deps = deps;
@@ -28915,7 +29123,7 @@ var SyncModal = class extends import_obsidian15.Modal {
 };
 
 // src/main.ts
-var TablifyPlugin = class extends import_obsidian16.Plugin {
+var TablifyPlugin = class extends import_obsidian17.Plugin {
   // P7-03: plugin settings. The Airtable token lives only here (plugin data).
   settings = { ...DEFAULT_SETTINGS };
   async onload() {
@@ -28944,7 +29152,7 @@ var TablifyPlugin = class extends import_obsidian16.Plugin {
   openSyncFor(view) {
     const session = view?.syncSession();
     if (!view || !session) {
-      new import_obsidian16.Notice("Open a .tablify table first.");
+      new import_obsidian17.Notice("Open a .tablify table first.");
       return;
     }
     const token = this.settings.airtableToken.trim() || null;

@@ -141,7 +141,7 @@ another, which clears the cells that used it.
 - **Date and time**, **Created time** and **Last modified** show your computer's local time as `2026-10-17T14:30` — the same wall clock the editor opens with — while the file keeps the UTC instant;
 - **URL**, **Email** and **Phone** cells are links: click the address to open it in your browser, mail app or phone app. A **Phone** cell shows the international form (`+880 1712 345678`) and dials `tel:+8801712345678`; the stored value and its tooltip stay `+8801712345678`, so copying and exporting keep the unformatted number;
 - **Number** cells group their digits (`1,234,567`), and the numeric columns — number, currency, percent, duration and auto number — are right-aligned;
-- an **Attachment** cell shows one paperclip chip per file, and **Long text** wraps to two lines before it is clipped.
+- an **Attachment** cell shows one chip per file: when the path points to an image in your vault (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.bmp`, `.avif`, `.ico`), the chip shows a rounded inline thumbnail beside the filename (click the thumbnail to open a full-size preview dialog); non-image files and missing paths show the paperclip chip; **Long text** wraps to two lines before it is clipped.
 
 Copying a cell or a row and exporting use the stored value, not the display text — a number copies
 as `1234567`, a rating as `4.5`, a timestamp as its ISO instant — so what leaves the table can come
@@ -281,7 +281,13 @@ Single-select cells open a searchable dropdown:
 
 ## 7. Attachments
 
-Attachment cells reference files **already in your vault** (for example a PDF next to your table). Tablify validates the path and asks for confirmation; it never copies or moves your files.
+Attachment cells reference files **already in your vault** (for example a PDF or image next to your table). Tablify validates the path and asks for confirmation; it never copies or moves your files.
+
+When an attachment path points to a supported image (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.bmp`, `.avif`, `.ico`) that exists in your vault, the cell renders a rounded inline thumbnail beside the path text, scaled to your table's row height (**Small**, **Medium** or **Large**).
+
+- **Click the thumbnail** to open a full-size lightbox preview showing the image and its dimensions (`{path} · {width} × {height} px`).
+- **Click or double-click the rest of the cell** (or press **Enter**) to select or open the **Attachments** panel as usual. When the current attachment is an image, the panel also shows a preview banner above the file row that you can click to open the lightbox.
+- If an image file is missing from the vault or cannot be decoded, Tablify automatically falls back to the standard paperclip chip with the path text intact.
 
 ## 8. Validation
 
