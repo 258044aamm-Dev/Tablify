@@ -290,6 +290,17 @@
   display: none;
 }
 
+/* SAD-375: non-scrolling wrapper for the tool row's edge fades (the fades must paint above the
+   scrolling pills, so they cannot live on the scroller or in its background). Desktop geometry is
+   unchanged: the wrapper is a same-sized flex shell. */
+.tablify__toolbar-actions-wrap {
+  position: relative;
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Prototype pill buttons (`.pill-btn py-2.5 text-xs rounded-2xl gap-1.5 active:scale-95`).
    SAD-76 (RC-B): every control rule is element-qualified inside the .tablify scope (0,2,1, hover
    0,3,1) and resets the properties Obsidian's `button:not(.clickable-icon)` (0,1,1 / hover 0,2,1)
@@ -420,6 +431,42 @@
   .tablify button.tablify__toolbar-button[data-action='sync'] .tablify__btn-label,
   .tablify button.tablify__toolbar-button[data-action='options'] .tablify__btn-label {
     display: none;
+  }
+
+  .tablify__toolbar-actions-wrap {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  /* SAD-375: swipe discoverability — card-coloured fades over the tool row's scroll edges,
+     shown only while more tools lie beyond them (is-fade-start / is-fade-end, set by Toolbar).
+     pointer-events: none keeps every pill tappable underneath. */
+  .tablify__toolbar-actions-wrap::before,
+  .tablify__toolbar-actions-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 24px;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .tablify__toolbar-actions-wrap::before {
+    left: 0;
+    background: linear-gradient(to right, var(--tablify-bg-card) 30%, transparent);
+  }
+
+  .tablify__toolbar-actions-wrap::after {
+    right: 0;
+    background: linear-gradient(to left, var(--tablify-bg-card) 30%, transparent);
+  }
+
+  .tablify__toolbar-actions-wrap.is-fade-start::before,
+  .tablify__toolbar-actions-wrap.is-fade-end::after {
+    opacity: 1;
   }
 }
 
@@ -3692,6 +3739,12 @@ body.is-phone .view-content.tablify-view.tablify {
   }
 
   .tablify__tp-chevron {
+    transition: none;
+  }
+
+  /* SAD-375: the tool-row edge fades appear without their 150 ms transition. */
+  .tablify__toolbar-actions-wrap::before,
+  .tablify__toolbar-actions-wrap::after {
     transition: none;
   }
 }
