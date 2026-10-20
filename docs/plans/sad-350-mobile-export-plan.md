@@ -420,7 +420,49 @@ no notice other than "Export cancelled".
   evidence (repo convention, cf. `sad-129-…`, `sad-347-…`).
 - Changelog entry for the next beta.
 
-## 7. Suggested commit slicing
+## 7. Implementation record (2026-10-20)
+
+Implementation was authorized on 2026-10-20 with two owner decisions: commit directly to
+`main`, and build the §3.3 Android fallback now (feature-detected; the §3.0 on-device probe
+remains open and only documents which path a given device takes — no outcome requires a code
+change).
+
+Delivered, as the commit slicing below:
+
+1. `16752ab` — the download fallback is desktop-only; a mobile failure reports the real
+   reason every method was skipped or failed (§3.1.d). 3 regression tests.
+2. `195f3dd` — iOS: `exportDeliveryMethod()` + `shareExportArtifact()` (outcome taxonomy:
+   cancelled / activation / unsupported / failed); the Export modal pre-builds per
+   (format, fullTable) choice and the tap reaches the share call synchronously;
+   `ExportShareRetryModal` covers a preparation that outlives the tap; the current-view CSV
+   command shares the in-memory view the same way (§3.2, §3.4). 6 jsdom modal tests pin the
+   tap→share ordering, re-preparation, cancel, retry and honest failures.
+3. `e094f3f` — Android: the SAF dialog needs no new delivery code (picker-first, started
+   inside the tap — §3.2); the §3.3 fallback ships as `writeToCapacitorFolder()` behind
+   runtime feature detection (`EXTERNAL_STORAGE → EXTERNAL → DOCUMENTS`, numbered or
+   timestamped collision-free names, utf8 for text with the CSV BOM preserved, chunked
+   base64 for XLSX, decoded display paths, aggregated honest errors). 11 tests including an
+   Android modal end-to-end.
+4. Docs: user guide §13 rewritten per platform, changelog entry, this record.
+
+Deviation from §3.1.a: the planned `mobilePlatform` runtime tag was **not** added — every
+decision is capability-based (`exportDeliveryMethod`), so the tag would have been dead code.
+All other sections were implemented as written.
+
+### Verification results
+
+- Full suite after each commit; final state: **137 files, 2,191 tests, all passing**
+  (2,171 at baseline → 20 new tests).
+- `npm run lint`: 0 errors; the 119 pre-existing warnings are unchanged.
+- `npm run build`, `npm run check:docs`, `npm run check:icons`, `npm run check:guard`: pass.
+- Desktop regression: the pre-existing export modal, destination, title-row and view suites
+  run unmodified except for the three new mobile expectations; all pass.
+- **Outstanding manual step (§4.3):** the §3.0 Android probe and the device matrix (iPhone /
+  iPad / Android phone, three formats, both entry points, cancel paths) still need a run on
+  real hardware before release — the same step SAD-129 recorded as skipped. Probe results
+  should be appended here.
+
+## 8. Suggested commit slicing (as planned)
 
 1. `fix(export): SAD-350 remove false download success on mobile` (§3.1.d + its tests) —
    smallest honest-failure fix, independently shippable before the probe.

@@ -4,6 +4,22 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+
+- **Export now works on mobile (SAD-350)** — both export entry points (the file-explorer menu's
+  **Export Tablify Table** and the **Export…** button / export commands) previously reported
+  "Download started" on phones and tablets while writing nothing: mobile WebViews silently ignore
+  the anchor-click download, iOS refused the share because the tap's transient activation was
+  spent on reads before it, and Android's WebView has no Web Share API at all. Exports now use
+  each platform's standard save mechanism: desktop keeps the system save picker; **iOS** pre-builds
+  the file while the Export dialog is open so the tap immediately opens the system sheet
+  (**Save to Files**), with a one-tap retry if preparing a huge table outlives the gesture;
+  **Android** uses the system "Save as" dialog where the WebView supports it, and otherwise saves
+  to the shared `Download/Tablify` folder through the Capacitor bridge (never overwriting, the
+  notice names the exact path). When no method exists, the export fails with an honest message —
+  a success notice now always means a real destination accepted the file. Desktop behavior is
+  unchanged. No new dependency, no `formatVersion` change.
+
 ## [2.0.0-beta.6] — 2026-10-20
 
 ### Added

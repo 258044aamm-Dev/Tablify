@@ -411,7 +411,13 @@ Run **Export table (CSV, Excel, Markdown)** from the command palette or the file
 - **Format** — CSV, XLSX, or Markdown.
 - **Full table** checkbox — **off (default): export the current view** (saved search and query, sort, visible fields and column order); **on**: every field and row. Formula columns contain their computed values in either scope.
 
-Click **Export** to open the system save-location picker with the table name and format extension prefilled. The picker starts in **Downloads** where the platform supports that location; choose another folder if needed. Exports are saved outside the vault and never modify the table. If the platform has no save picker, Tablify uses the mobile share sheet when it can share a file, otherwise it starts a browser/Electron download. These are explicit save/share/download destinations—exports are never silently written into the vault. Any overwrite or collision behavior is handled by the picker or host platform's normal download/share flow.
+Click **Export** and Tablify uses the platform's standard save mechanism. Exports are saved outside the vault and never modify the table; none of these destinations silently writes into the vault.
+
+- **Desktop** — the system save-location picker opens with the table name and format extension prefilled, starting in **Downloads** where the platform supports that location; choose another folder if needed. If the platform has no save picker, a browser/Electron download starts instead. Overwrite and collision behavior is handled by the picker or the platform's normal download flow.
+- **iOS / iPadOS** — the file is built while the dialog is open, so tapping **Export** immediately opens the system sheet with the finished file attached: choose **Save to Files** to store it (or AirDrop, etc.). Dismissing the sheet cancels the export and saves nothing. If preparing a very large table outlives the tap, a one-button **Save file** step appears so a fresh tap opens the sheet.
+- **Android** — the system **"Save as"** dialog opens where the device's WebView supports it (the same picker flow as desktop). Where it does not, the file is saved to the shared **Download/Tablify** folder (or the app's Documents folder on devices that restrict shared storage), and the notice names the exact path. Existing files are never overwritten — a numbered name is chosen instead.
+
+If no save method is available at all, the export fails with a clear message and nothing is written — a success notice always means a real destination accepted the file.
 
 For the format dialog, pending edits in an open copy of the table are saved before the file is read; **Export current view as CSV** uses the open table's live view. To create a Markdown file, choose **Markdown table** in the dialog; **Copy current view as Markdown** remains a separate clipboard action.
 
