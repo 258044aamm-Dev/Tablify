@@ -7,6 +7,7 @@ import {
   beginExportSave,
   browserExportSaveRuntime,
   exportDeliveryMethod,
+  lastExportPickerAttempt,
   saveExportArtifact,
   shareExportArtifact,
   type ExportSaveRuntime,
@@ -197,7 +198,18 @@ export function exportDiagnosticsReport(): string {
     `Capacitor plugins: ${plugins ? Object.keys(plugins).sort().join(', ') || '(no enumerable keys)' : 'absent'}`,
     `Filesystem.writeFile: ${typeof fs?.writeFile} / Filesystem.stat: ${typeof fs?.stat}`,
     `chosen delivery method: ${exportDeliveryMethod(runtime)}`,
+    // SAD-350 round 2: what the last real export attempt did — the one thing a capability
+    // probe cannot answer, and the difference between "the dialog was dismissed" and
+    // "the dialog never opened".
+    `last picker attempt: ${describeLastPickerAttempt()}`,
   ].join('\n');
+}
+
+function describeLastPickerAttempt(): string {
+  const attempt = lastExportPickerAttempt();
+  if (!attempt) return 'none yet (run an export first)';
+  const focus = attempt.presented ? 'focus lost, a dialog was shown' : 'no focus change, no dialog';
+  return `${attempt.elapsedMs} ms, ${focus}, ${attempt.errorName} -> ${attempt.outcome}`;
 }
 
 /** SAD-350 §3.0: palette command that copies the probe report (console fallback). */

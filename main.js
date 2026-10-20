@@ -11819,6 +11819,9 @@ async function shareExportArtifact(artifact, runtime) {
 }
 var PICKER_SILENT_ABORT_MS = 1e3;
 var lastPickerAttempt = null;
+function lastExportPickerAttempt() {
+  return lastPickerAttempt;
+}
 function watchPickerPresentation(enabled) {
   const noSignal = { presented: () => false, stop: () => void 0 };
   if (!enabled || typeof window === "undefined")
@@ -17500,8 +17503,19 @@ function exportDiagnosticsReport() {
     `window.Capacitor: ${win.Capacitor ? `present${win.Capacitor.getPlatform ? ` (${win.Capacitor.getPlatform()})` : ""}` : "absent"}`,
     `Capacitor plugins: ${plugins ? Object.keys(plugins).sort().join(", ") || "(no enumerable keys)" : "absent"}`,
     `Filesystem.writeFile: ${typeof fs?.writeFile} / Filesystem.stat: ${typeof fs?.stat}`,
-    `chosen delivery method: ${exportDeliveryMethod(runtime)}`
+    `chosen delivery method: ${exportDeliveryMethod(runtime)}`,
+    // SAD-350 round 2: what the last real export attempt did — the one thing a capability
+    // probe cannot answer, and the difference between "the dialog was dismissed" and
+    // "the dialog never opened".
+    `last picker attempt: ${describeLastPickerAttempt()}`
   ].join("\n");
+}
+function describeLastPickerAttempt() {
+  const attempt = lastExportPickerAttempt();
+  if (!attempt)
+    return "none yet (run an export first)";
+  const focus = attempt.presented ? "focus lost, a dialog was shown" : "no focus change, no dialog";
+  return `${attempt.elapsedMs} ms, ${focus}, ${attempt.errorName} -> ${attempt.outcome}`;
 }
 function registerExportDiagnosticsCommand(plugin) {
   plugin.addCommand({

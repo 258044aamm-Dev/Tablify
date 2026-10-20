@@ -576,3 +576,47 @@ outcomes is already handled by the chain in §4.2/§4.5.
 ---
 
 *Round 1 record (unchanged, kept for history): `docs/plans/sad-350-mobile-export-plan.md`.*
+
+---
+
+## 12. Implementation record (2026-10-20)
+
+Authorized and delivered in four pushed steps, each with its own Linear progress note.
+
+| # | Commit | What shipped |
+|---|---|---|
+| 1 | `019abd6` | This investigation and fix plan. |
+| 2 | `d85d9dd` | The fix: Android picker abort policy + platform tag + `deviceExportRuntime()` + tests. |
+| 3 | `02287df` | Opt-in vault last resort (`exportVaultFallback`, default off) + setting + tests. |
+| 4 | *(this commit)* | Diagnostics `last picker attempt` line, user guide §13, changelog, this record. |
+
+### Deviations from the plan, and why
+
+1. **The vault tier is ordered after the desktop download**, not before it as §4.5 sketched.
+   Enabling the setting must be unable to change a desktop export; a unit test pins that the
+   desktop path still returns `method: 'download'`.
+2. **`PICKER_SILENT_ABORT_MS` is 1000 ms** (the plan's illustrative constant). It is exported
+   and asserted, not copied around.
+3. **Two extra tests** beyond the plan's list cover the settings-merge bug the new toggle would
+   have exposed: editing the Airtable token rebuilt settings from scratch and would have turned
+   the flag back off. The token `onChange` now merges.
+
+### Verification
+
+- `npm run check` — **exit 0**: lint (0 errors, 119 pre-existing warnings unchanged) ·
+  **142 files / 2,259 tests** · guard · docs (links) · icons · flags · build.
+- Baseline on the same machine at the starting `HEAD`: **2,232 tests**. Final: **2,259** —
+  **+27 new**, and the only pre-existing assertions edited are the five settings deep-equals that
+  gained the new field.
+- **The regression test genuinely fails on the old code.** Running the new end-to-end test with
+  `src/` stashed (`git stash push -- src/`) produced
+  `FAIL … saves to the shared folder instead of reporting a cancellation`; it passes with the fix.
+- TypeScript: the repository already carries **383** `tsc` errors at baseline (tsc is not part of
+  the gate; esbuild builds). After all four steps: **383, the exact same set — 0 new**.
+- Desktop and iOS: their suites (`destination`, `export.modal`, `export.modal.mobile`,
+  `currentViewExport`, `tableViewTitleRow`) run **unmodified** and pass.
+
+### Still hardware-only (unchanged from §10)
+
+The on-device matrix in §6.6 — in particular step 1, whose `last picker attempt` line now
+distinguishes the two Android outcomes in one measurement.

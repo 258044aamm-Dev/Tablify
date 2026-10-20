@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { Platform } from 'obsidian';
 import { exportDiagnosticsReport } from '../../src/commands/export.js';
+import { beginExportSave } from '../../src/io/export/destination.js';
 
 beforeEach(() => {
   Reflect.deleteProperty(window, 'showSaveFilePicker');
@@ -73,5 +74,26 @@ describe('export destination diagnostics (SAD-350)', () => {
     const report = exportDiagnosticsReport();
     expect(report).toContain('window.Capacitor: absent');
     expect(report).toContain('chosen delivery method: none');
+  });
+
+  it('reports what the last real export attempt did, not just what the device supports (round 2)', async () => {
+    Platform.isMobile = true;
+    Platform.isAndroidApp = true;
+    const abort = async (): Promise<never> => {
+      const error = new Error('The user aborted a request.');
+      error.name = 'AbortError';
+      throw error;
+    };
+    // The exact reported situation: the picker exists, and answers with no dialog at all.
+    await beginExportSave('Budget.csv', 'text/csv', {
+      isMobile: true,
+      mobilePlatform: 'android',
+      showSaveFilePicker: vi.fn(abort),
+    });
+
+    const report = exportDiagnosticsReport();
+    expect(report).toContain('last picker attempt:');
+    expect(report).toContain('no focus change, no dialog');
+    expect(report).toContain('AbortError -> unavailable');
   });
 });

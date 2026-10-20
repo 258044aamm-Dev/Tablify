@@ -22,6 +22,19 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Fixed
 
+- **Export no longer reports a cancellation when Android never opens the save dialog (SAD-350)** —
+  on Android, the WebView exposes the File System Access save picker but only shows a dialog when
+  the host app implements it; Obsidian does not, so the call returned an immediate `AbortError`
+  and the export ended with *"Export cancelled. No file was saved."* while writing nothing at all.
+  Tablify now distinguishes *"the dialog was dismissed"* from *"no dialog ever appeared"* using the
+  same signal it already uses for device file pickers (a real dialog takes the app's focus), so the
+  export continues to the shared **Download/Tablify** folder and names the exact path. A genuine
+  cancellation still cancels, and desktop and iOS run exactly as before. New opt-in **Settings →
+  Export → Save into the vault when no save destination works** (off by default) guarantees a file
+  on devices where every destination is unavailable; it is never reached on desktop, never
+  overwrites, and leaves the "exports never write into the vault" rule in force unless you enable
+  it. The read-only **Export destination diagnostics** command now also reports what the last real
+  attempt did (`… no focus change, no dialog, AbortError -> unavailable`).
 - **The Default country pop-up now looks like the rest of the field window (SAD-355)** — the card
   that opens from **Default country** in *Add / Modify Field* was rendering **320 px wide under a
   528 px field**, because a panel-wide cap quietly beat the width the control computed; it now
