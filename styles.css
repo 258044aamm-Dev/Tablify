@@ -4700,7 +4700,17 @@ body.is-phone .view-content.tablify-view.tablify {
   color: var(--tablify-text-muted);
 }
 
-/* The popover above the window. `.tablify__panel` paints the card; this only sizes the body. */
+/* The popover above the window. `.tablify__panel` paints the card; this only sizes the body.
+   SAD-355: `.tablify__panel` carries `max-width: 320px`, which belongs to the view-layer card —
+   but this popover hangs off a `width: 100%` row inside a 576 px window (528 px of content), and
+   `CountrySelect.position()` already computes exactly that width. Releasing the cap here is the
+   whole fix for a popover that used to stop 208 px short of its own field. `overflow: hidden`
+   rounds the header and footer bands into the card, nothing else. */
+.tablify__country-popover {
+  max-width: none;
+  overflow: hidden;
+}
+
 .tablify__country-popover-body {
   display: flex;
   flex-direction: column;
