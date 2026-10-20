@@ -96,7 +96,8 @@ export class AttachmentMenu {
   setBusy(label: string | null): void {
     this.container.setAttribute('aria-busy', label ? 'true' : 'false');
     for (const button of this.buttons) button.disabled = label !== null;
-    if (label) this.setMessage(label);
+    // One message channel: the busy label shows while work runs, and clears when it ends.
+    this.setMessage(label ?? '');
   }
 
   close(): void {

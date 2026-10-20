@@ -288,11 +288,19 @@ async function openAttachmentPrototype(page: Page, ids: Record<string, string>):
 async function openAttachmentPlugin(page: Page, ids: Record<string, string>, keyboard: boolean, columnIndex: number): Promise<void> {
   if (keyboard) {
     await focusCellPlugin(page, columnIndex);
-    return;
+  } else {
+    await page.click(which('.tablify__row .tablify__cell[data-field-id="{files}"]', ids));
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(120);
   }
-  await page.click(which('.tablify__row .tablify__cell[data-field-id="{files}"]', ids));
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(120);
+  // SAD-356: the cell is empty, so what opens is the menu ("Choose a file…" / "Enter a URL or file
+  // path…"). The crops compare the attachment panel itself, so take the path entry — the same screen
+  // the prototype shows.
+  const entry = page.locator('[data-testid="tablify-attachment-menu"] [role="menuitem"]').nth(1);
+  if (await entry.count()) {
+    await entry.click();
+    await page.waitForTimeout(120);
+  }
 }
 
 /** The path both sides type into the attachment panel for the `attachment-row` screen. */

@@ -10,10 +10,11 @@
  * screens are built from, the keyboard path, and that every change is exactly one undo step.
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { SelectDropdown } from '../../../src/views/grid/select/Dropdown.js';
 import { OptionManagerDialog } from '../../../src/views/grid/select/OptionManager.js';
 import { AttachmentPanel } from '../../../src/views/grid/AttachmentPanel.js';
+import { pickFileFromDevice } from '../../../src/views/grid/attachmentImport.js';
 import { createTableStore } from '../../../src/model/tableStore.js';
 import { optionChipHue } from '../../../src/ui/theme/tokens.js';
 import { newTableText } from '../../../src/menus/fileMenuModel.js';
@@ -40,6 +41,24 @@ function need<T>(value: T | null | undefined, what: string): T {
   if (value === null || value === undefined) throw new Error(`missing: ${what}`);
   return value;
 }
+
+/**
+ * SAD-356: the host asks the device for a file. The picker itself is unit-tested in
+ * `attachmentMenu.test.ts`; here it is replaced so the grid's copy-and-write path can be driven
+ * without a real file dialog. The default answer is "the user cancelled", so a test that forgets
+ * to arrange the picker can never hang or write by accident.
+ */
+vi.mock('../../../src/views/grid/attachmentImport.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/views/grid/attachmentImport.js')>();
+  return { ...actual, pickFileFromDevice: vi.fn() };
+});
+
+const pickMock = vi.mocked(pickFileFromDevice);
+
+beforeEach(() => {
+  pickMock.mockReset();
+  pickMock.mockResolvedValue({ kind: 'cancelled' });
+});
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -275,9 +294,48 @@ function enterAt(view: TableView, col: number): HTMLElement {
 
 function fileData(view: TableView): {
   fields: Array<{ id: string; name: string; options?: Array<{ id: string; name: string }> }>;
-  rows: Array<{ values: Record<string, CellValue> }>;
+  rows: Array<{ id: string; values: Record<string, CellValue> }>;
 } {
   return JSON.parse(view.getViewData());
+}
+
+/** The Attachments field and the first row in the file the view would save. */
+function attachmentTarget(view: TableView): { fieldId: string; rowId: string } {
+  const data = fileData(view);
+  const field = need(data.fields.find((f) => f.name === 'Attachments'), 'Attachments field');
+  return { fieldId: field.id, rowId: need(data.rows[0], 'first row').id };
+}
+
+/**
+ * SAD-356: click "Enter a URL or file path…" in an open empty-cell menu and hand back the panel it
+ * opens. Used by every test that reaches the attachment panel through the empty-cell flow.
+ */
+function enterPathEntry(): HTMLElement {
+  const menu = need(
+    document.body.querySelector<HTMLElement>('[data-testid="tablify-attachment-menu"]'),
+    'attachment menu',
+  );
+  const entries = Array.from(menu.querySelectorAll<HTMLButtonElement>('.tablify__attach-menu-item'));
+  need(entries[1], 'Enter a URL or file path entry').click();
+  return need(
+    document.body.querySelector<HTMLElement>('[data-testid="tablify-attachment-panel"]'),
+    'attachment panel',
+  );
+}
+
+/** Click an entry of the open empty-cell menu by its index. */
+function clickMenuEntry(index: number): void {
+  const menu = need(
+    document.body.querySelector<HTMLElement>('[data-testid="tablify-attachment-menu"]'),
+    'attachment menu',
+  );
+  const entries = Array.from(menu.querySelectorAll<HTMLButtonElement>('.tablify__attach-menu-item'));
+  need(entries[index], `menu entry ${index}`).click();
+}
+
+/** Let the picker → copy → write promise chain finish. */
+async function settle(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe('Step 11 — the grid opens the panels', () => {
@@ -366,6 +424,9 @@ describe('Step 11 — the grid opens the panels', () => {
     vault.getAbstractFileByPath = (p: string) => (p === 'Assets/photo.png' ? {} : null);
 
     enterAt(view, 4); // Name, Notes, Status, Due date, Attachments
+    // SAD-356: an empty cell asks how to fill it first; "Enter a URL or file path…" is the route
+    // to the panel this test has always exercised (every assertion below is unchanged).
+    enterPathEntry();
     const panel = need(
       document.body.querySelector<HTMLElement>('[data-testid="tablify-attachment-panel"]'),
       'attachment panel',
@@ -383,6 +444,141 @@ describe('Step 11 — the grid opens the panels', () => {
     );
     expect(data.rows[0].values[attachments.id]).toBe('Assets/photo.png');
     vault.getAbstractFileByPath = original;
+  });
+});
+
+describe('SAD-356 — an empty attachment cell asks how to add one', () => {
+  it('opens the menu, not the path panel, on an empty cell', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    enterAt(view, 4);
+
+    expect(document.body.querySelector('[data-testid="tablify-attachment-menu"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-testid="tablify-attachment-panel"]')).toBeNull();
+  });
+
+  it('opens the path panel with the new device picker on a cell that already has an attachment', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    const { fieldId, rowId } = attachmentTarget(view);
+    view.syncSession()?.setValue(rowId, fieldId, 'Files/brief.pdf');
+
+    enterAt(view, 4);
+
+    const panel = need(
+      document.body.querySelector<HTMLElement>('[data-testid="tablify-attachment-panel"]'),
+      'attachment panel',
+    );
+    expect(document.body.querySelector('[data-testid="tablify-attachment-menu"]')).toBeNull();
+    expect(panel.querySelector('.tablify__attach-path')?.textContent).toBe('Files/brief.pdf');
+    expect(panel.querySelector('[data-testid="tablify-attachment-pick"]')).not.toBeNull();
+  });
+
+  it('the menu hands over to the path panel with its field focused', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    enterAt(view, 4);
+    const panel = enterPathEntry();
+
+    expect(document.body.querySelector('[data-testid="tablify-attachment-menu"]')).toBeNull();
+    const input = need(panel.querySelector<HTMLInputElement>('.tablify__attach-input'), 'path field');
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('stores a URL as typed — no vault check, no "Save anyway"', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    // The mock vault has nothing, so a vault path would warn; a URL must not.
+    enterAt(view, 4);
+    const panel = enterPathEntry();
+    const input = need(panel.querySelector<HTMLInputElement>('.tablify__attach-input'), 'path field');
+    input.value = 'https://example.com/a.png';
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+    expect(panel.querySelector('.tablify__attach-warn')).toBeNull();
+    const { fieldId } = attachmentTarget(view);
+    expect(fileData(view).rows[0].values[fieldId]).toBe('https://example.com/a.png');
+  });
+
+  it('says so when the device opens no picker, and writes nothing', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    pickMock.mockResolvedValue({ kind: 'unavailable' });
+
+    enterAt(view, 4);
+    clickMenuEntry(0);
+    await settle();
+
+    const menu = need(
+      document.body.querySelector<HTMLElement>('[data-testid="tablify-attachment-menu"]'),
+      'menu stays open',
+    );
+    expect(menu.querySelector('.tablify__attach-msg')?.textContent).toMatch(/did not open a file picker/);
+    expect(menu.getAttribute('aria-busy')).toBe('false');
+    const { fieldId } = attachmentTarget(view);
+    expect(fileData(view).rows[0].values[fieldId] ?? null).toBeNull();
+  });
+
+  it('writes nothing when the user cancels the picker', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    pickMock.mockResolvedValue({ kind: 'cancelled' });
+
+    enterAt(view, 4);
+    clickMenuEntry(0);
+    await settle();
+
+    const menu = need(
+      document.body.querySelector<HTMLElement>('[data-testid="tablify-attachment-menu"]'),
+      'menu stays open',
+    );
+    expect(menu.querySelector<HTMLElement>('.tablify__attach-msg')?.hidden).toBe(true);
+    const { fieldId } = attachmentTarget(view);
+    expect(fileData(view).rows[0].values[fieldId] ?? null).toBeNull();
+  });
+
+  it('copies the picked file into the vault, stores its path, and undoes as one step', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    const write = vi.spyOn(view.app.vault, 'createBinary');
+    pickMock.mockResolvedValue({ kind: 'file', file: new File(['hello'], 'photo.png') });
+
+    enterAt(view, 4);
+    clickMenuEntry(0);
+    await settle();
+
+    const { fieldId } = attachmentTarget(view);
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(write.mock.calls[0][0]).toBe('Attachments/photo.png');
+    expect(fileData(view).rows[0].values[fieldId]).toBe('Attachments/photo.png');
+    expect(Notice.messages.some((m) => m.includes('Saved to Attachments/photo.png'))).toBe(true);
+    // The menu is done with once the cell holds a value.
+    expect(document.body.querySelector('[data-testid="tablify-attachment-menu"]')).toBeNull();
+
+    view.syncSession()?.undo();
+    expect(fileData(view).rows[0].values[fieldId] ?? null).toBeNull();
+  });
+
+  it('picks a device file from a filled cell too, replacing the path', async () => {
+    const view = await openView(newTableText('Untitled table'));
+    const { fieldId, rowId } = attachmentTarget(view);
+    view.syncSession()?.setValue(rowId, fieldId, 'Files/brief.pdf');
+    pickMock.mockResolvedValue({ kind: 'file', file: new File(['img'], 'diagram.png') });
+
+    enterAt(view, 4);
+    const pick = need(
+      document.body.querySelector<HTMLButtonElement>('[data-testid="tablify-attachment-pick"]'),
+      'choose-a-file button',
+    );
+    pick.click();
+    await settle();
+
+    expect(fileData(view).rows[0].values[fieldId]).toBe('Attachments/diagram.png');
+  });
+
+  it('styles.css carries the menu, the pick button and the message line', () => {
+    const css = fs.readFileSync(path.join(process.cwd(), 'styles.css'), 'utf8');
+    for (const selector of [
+      '.tablify__attach-menu',
+      '.tablify__attach-menu-item',
+      '.tablify__attach-pick',
+      '.tablify__attach-msg',
+    ]) {
+      expect(css.includes(selector), `styles.css is missing ${selector}`).toBe(true);
+    }
   });
 });
 

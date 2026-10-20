@@ -20,7 +20,7 @@
 
 import { faIcon } from '../../ui/faIcons.js';
 import { anchorPanel, createPanelCard, wirePanelDismiss } from './select/panel.js';
-import { attachmentFileName, isImageAttachmentPath, type AttachmentSaveResult } from './attachment.js';
+import { attachmentFileName, isImageAttachmentPath, isRemoteAttachmentPath, type AttachmentSaveResult } from './attachment.js';
 import type { CellValue, FieldDefinition } from '../../model/types.js';
 
 export interface AttachmentPanelOptions {
@@ -42,6 +42,11 @@ export interface AttachmentPanelOptions {
    * SAD-347: open the full-size image lightbox when the user clicks the panel preview.
    */
   onPreviewImage?: (path: string, url: string) => void;
+  /**
+   * SAD-356: open the device picker for a cell that already holds an attachment. Absent for every
+   * caller that only wants the path field, in which case the panel renders exactly as it always has.
+   */
+  onChooseFile?: () => void;
   onDismiss?: () => void;
   theme?: 'light' | 'dark';
 }
@@ -60,6 +65,8 @@ export class AttachmentPanel {
   private list: HTMLElement;
   private input: HTMLInputElement;
   private warn: HTMLElement | null = null;
+  /** SAD-356: the host's message line; only present when `onChooseFile` is wired. */
+  private msg: HTMLElement | null = null;
   private unwireDismiss: (() => void) | null = null;
 
   constructor(private opts: AttachmentPanelOptions) {
@@ -96,6 +103,30 @@ export class AttachmentPanel {
     this.body.appendChild(this.list);
     this.body.appendChild(this.input);
     this.body.appendChild(hint);
+    // SAD-356: a cell that already holds an attachment can still take a file from the device.
+    // Appended after the hint and only when the host wires it, so a panel built without the option
+    // keeps the exact DOM it has always had (SAD-347's preview banner is inserted above the list).
+    if (opts.onChooseFile) {
+      const pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'tablify__attach-pick';
+      pick.dataset.testid = 'tablify-attachment-pick';
+      const glyph = document.createElement('span');
+      glyph.className = 'tablify__attach-pick-icon';
+      glyph.innerHTML = faIcon('plus', 10);
+      pick.appendChild(glyph);
+      pick.appendChild(document.createTextNode('Choose a file…'));
+      pick.addEventListener('click', () => this.opts.onChooseFile?.());
+
+      const msg = document.createElement('div');
+      msg.className = 'tablify__attach-msg';
+      msg.setAttribute('role', 'status');
+      msg.hidden = true;
+
+      this.msg = msg;
+      this.body.appendChild(pick);
+      this.body.appendChild(msg);
+    }
     this.render();
   }
 
@@ -128,6 +159,22 @@ export class AttachmentPanel {
     this.container.remove();
   }
 
+  /** SAD-356: the host's message line (a refused picker, a failed copy). No-op without a picker. */
+  setMessage(text: string): void {
+    if (!this.msg) return;
+    this.msg.textContent = text;
+    this.msg.hidden = text === '';
+  }
+
+  /** SAD-356: disable the panel's controls while a picked file is copied into the vault. */
+  setBusy(label: string | null): void {
+    this.container.setAttribute('aria-busy', label ? 'true' : 'false');
+    const controls = this.body.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input');
+    for (const el of Array.from(controls)) el.disabled = label !== null;
+    // One message channel: the busy label shows while work runs, and clears when it ends.
+    this.setMessage(label ?? '');
+  }
+
   // ---- behaviour -------------------------------------------------------------------------
 
   private onKey(ev: KeyboardEvent): void {
@@ -136,7 +183,9 @@ export class AttachmentPanel {
     ev.preventDefault();
     const raw = this.input.value.trim();
     if (!raw) return;
-    const check = this.opts.checkPath?.(raw);
+    // SAD-356: a URL or data: URI is not a vault path — there is nothing to look up, so it saves as
+    // typed. Everything else keeps the P3-04 vault check and its "Save anyway" confirmation.
+    const check = isRemoteAttachmentPath(raw) ? undefined : this.opts.checkPath?.(raw);
     if (check && !check.ok) {
       this.showWarning(check);
       return;

@@ -336,7 +336,24 @@ async function runEditingMatrix(page: Page): Promise<void> {
         check('date_time: the panel closes on Done', (await surface(page)).kind === 'none', 'panel still open');
       }
     } else if (shown.kind === 'panel' && c.fieldId === 'fld_attach') {
-      check('attachment: panel renders an input', (await page.locator('.tablify__panel input').count()) > 0, 'no input');
+      // SAD-356: row 0's Attachment cell is empty, so the panel that opens is the two-entry menu.
+      // Both entries must be there, and "Enter a URL or file path…" must lead to the path panel
+      // (the surface this matrix has always checked).
+      const entries = page.locator('[data-testid="tablify-attachment-menu"] [role="menuitem"]');
+      const count = await entries.count();
+      check('attachment: empty cell opens the two-entry menu', count === 2, `got ${count}`);
+      const labels = count === 2 ? [await entries.nth(0).innerText(), await entries.nth(1).innerText()] : [];
+      check(
+        'attachment: the entries are Choose a file… / Enter a URL or file path…',
+        labels[0]?.startsWith('Choose a file') === true && labels[1]?.startsWith('Enter a URL or file path') === true,
+        `got ${JSON.stringify(labels)}`,
+      );
+      if (count === 2) {
+        await entries.nth(1).click();
+        await page.waitForTimeout(140);
+        const inputs = await page.locator('.tablify__panel input.tablify__attach-input').count();
+        check('attachment: the path entry opens the panel with its input', inputs === 1, `got ${inputs}`);
+      }
       await dismiss(page);
     }
 

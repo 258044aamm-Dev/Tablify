@@ -45,13 +45,21 @@ import { FilterBuilderModal } from './grid/FilterBuilderModal.js';
 import { SelectDropdown } from './grid/select/Dropdown.js';
 import { OptionManagerDialog } from './grid/select/OptionManager.js';
 import { AttachmentPanel } from './grid/AttachmentPanel.js';
+import { AttachmentMenu } from './grid/AttachmentMenu.js';
 import { ImagePreviewModal } from './grid/ImagePreviewModal.js';
 import { DatePicker } from './grid/date/DatePicker.js';
 import { PhonePanel } from './grid/phone/PhonePanel.js';
 import { RatingPanel } from './grid/rating/RatingPanel.js';
 import { readerLocale } from '../model/phone/phoneValue.js';
 import { equivalentStored } from './grid/date/draft.js';
-import { checkAttachmentPath, normalizeAttachmentPath, resolveAttachmentImageUrl } from './grid/attachment.js';
+import {
+  checkAttachmentPath,
+  isAttachmentValueEmpty,
+  isRemoteAttachmentPath,
+  normalizeAttachmentPath,
+  resolveAttachmentImageUrl,
+} from './grid/attachment.js';
+import { importPickedFile, pickFileFromDevice, type AttachmentVaultIo } from './grid/attachmentImport.js';
 import { createSetFieldOptionsCommand } from '../model/commands.js';
 import { planOptionAdd } from '../model/selectOptions.js';
 import type { SelectOption } from '../model/types.js';
@@ -1640,28 +1648,9 @@ export class TableView extends TextFileView {
     }
 
     if (field.type === 'attachment') {
-      const panel = new AttachmentPanel({
-        field,
-        value: value(),
-        theme: this.isDark() ? 'dark' : 'light',
-        checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
-        resolveImageUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
-        onPreviewImage: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
-        onAdd: (raw) => {
-          const path = normalizeAttachmentPath(raw);
-          if (!path) return;
-          s.setValue(rowId, field.id, path);
-          panel.setValue(path);
-          this.afterChange();
-        },
-        onRemove: () => {
-          s.setValue(rowId, field.id, null);
-          panel.setValue(null);
-          this.afterChange();
-        },
-        onDismiss: () => closePanel(),
-      });
-      panel.open(anchor);
+      // SAD-356: an empty cell asks how to fill it — a file from this device, or a URL / vault path.
+      if (isAttachmentValueEmpty(value())) this.openAttachmentMenu(rowId, field, anchor);
+      else this.openAttachmentPanelAt(rowId, field, anchor);
       return;
     }
 
@@ -1730,6 +1719,119 @@ export class TableView extends TextFileView {
       onDismiss: () => closePanel(),
     });
     panel.open(anchor);
+  }
+
+  // ---- SAD-356: attachment from the device ------------------------------------------------
+
+  /**
+   * The panel for a cell that already holds an attachment — exactly what `openCellPanel` used to
+   * build inline, plus the new device picker. Split out so the empty-cell menu can open it directly:
+   * going back through `openCellPanel` would land on the menu again while the cell is still empty.
+   */
+  private openAttachmentPanelAt(rowId: string, field: FieldDefinition, anchor: HTMLElement): void {
+    const s = this.session;
+    const grid = this.grid;
+    if (!s || !grid) return;
+    const value = (): CellValue => s.store.getRow(rowId)?.values[field.id] ?? null;
+    const closePanel = (focusGrid = true): void => {
+      panel.close();
+      if (focusGrid) grid.root.focus();
+    };
+    const panel = new AttachmentPanel({
+      field,
+      value: value(),
+      theme: this.isDark() ? 'dark' : 'light',
+      checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
+      resolveImageUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
+      onPreviewImage: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
+      // SAD-356: a filled cell can also take a file from the device.
+      onChooseFile: () => void this.chooseAttachmentFile(rowId, field, panel),
+      onAdd: (raw) => {
+        // SAD-356: a URL is stored exactly as typed. `normalizeAttachmentPath` collapses `//`
+        // (it is written for vault paths), which would turn `https://…` into `https:/…`.
+        const path = isRemoteAttachmentPath(raw) ? raw.trim() : normalizeAttachmentPath(raw);
+        if (!path) return;
+        s.setValue(rowId, field.id, path);
+        panel.setValue(path);
+        this.afterChange();
+      },
+      onRemove: () => {
+        s.setValue(rowId, field.id, null);
+        panel.setValue(null);
+        this.afterChange();
+      },
+      onDismiss: () => closePanel(),
+    });
+    panel.open(anchor);
+  }
+
+  /**
+   * SAD-356 — an empty Attachment cell: two ways in. The menu is the same `#floatPanel` card as
+   * every other cell panel, so placement and dismissal are the ones the grid already uses.
+   */
+  private openAttachmentMenu(rowId: string, field: FieldDefinition, anchor: HTMLElement): void {
+    const grid = this.grid;
+    if (!grid) return;
+    const menu = new AttachmentMenu({
+      field,
+      theme: this.isDark() ? 'dark' : 'light',
+      onChooseFile: () => void this.chooseAttachmentFile(rowId, field, menu),
+      onEnterPath: () => {
+        menu.close();
+        this.openAttachmentPanelAt(rowId, field, anchor);
+      },
+      onDismiss: () => grid.root.focus(),
+    });
+    menu.open(anchor);
+  }
+
+  /**
+   * SAD-356 — pick a file, copy it into the vault, store the vault-relative path.
+   *
+   * One `setValue` + `afterChange()`, so the write is exactly one undo step (the same contract the
+   * panel's path entry has). The copy itself is not undoable: the file is a vault artefact, not a
+   * cell value — the Notice says where it went.
+   */
+  private async chooseAttachmentFile(
+    rowId: string,
+    field: FieldDefinition,
+    ui: { setBusy(label: string | null): void; setMessage(text: string): void; close?(): void },
+  ): Promise<void> {
+    const s = this.session;
+    if (!s) return;
+    ui.setBusy('Opening your file picker…');
+    const picked = await pickFileFromDevice();
+    if (picked.kind === 'unavailable') {
+      ui.setBusy(null);
+      // Owner decision D4: say so, and leave the user on the path/URL entry rather than a dead end.
+      ui.setMessage('This device did not open a file picker. Enter the file path or a URL instead.');
+      return;
+    }
+    if (picked.kind === 'cancelled') {
+      ui.setBusy(null);
+      return;
+    }
+
+    const io: AttachmentVaultIo = {
+      getAvailablePathForAttachment: this.app.fileManager.getAvailablePathForAttachment?.bind(
+        this.app.fileManager,
+      ),
+      createBinary: (path, data) => this.app.vault.createBinary(path, data),
+      getAbstractFileByPath: (path) => this.app.vault.getAbstractFileByPath(path),
+    };
+    ui.setBusy('Copying into your vault…');
+    const result = await importPickedFile(picked.file, io, this.file?.path ?? '');
+    ui.setBusy(null);
+    if (!result.ok) {
+      ui.setMessage(result.message);
+      return;
+    }
+
+    s.setValue(rowId, field.id, result.path);
+    this.afterChange();
+    new Notice(`Saved to ${result.path}`);
+    ui.close?.();
+    this.grid?.root.focus();
   }
 
   /**

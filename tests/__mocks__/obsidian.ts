@@ -205,8 +205,13 @@ export class App {
     getFiles: (): TFile[] => [],
     getAbstractFileByPath: (): TAbstractFile | null => null,
     getResourcePath: (file: { path?: string } | null | undefined): string =>
-      file && typeof file.path === 'string' && file.path ? `app://local/${file.path}` : 'app://local/resource',
+      file && typeof file.path === 'string' && file.path ? `app://local/${file.path}` : `app://local/resource`,
     getName: () => 'vault',
+    /**
+     * SAD-356: the attachment copy writes the picked file here. The default records nothing on
+     * disk; tests observe the call (or replace it with a spy).
+     */
+    createBinary: async (path: string): Promise<TFile> => new TFile(path),
   };
   workspace = new Workspace();
   fileManager = {
@@ -215,6 +220,8 @@ export class App {
     renameFile: async (_file: TAbstractFile, _newPath: string): Promise<void> => {
       /* no-op */
     },
+    /** SAD-356: Obsidian's own attachment folder; the same shape the real API returns. */
+    getAvailablePathForAttachment: async (filename: string): Promise<string> => `Attachments/${filename}`,
   };
 }
 

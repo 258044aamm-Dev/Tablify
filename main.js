@@ -18655,6 +18655,15 @@ function checkAttachmentPath(raw, vault) {
     message: `File not found in vault: "${path}". Save anyway?`
   };
 }
+function isRemoteAttachmentPath(raw) {
+  const trimmed = raw.trim();
+  return /^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed);
+}
+function isAttachmentValueEmpty(value) {
+  if (Array.isArray(value))
+    return value.every((entry) => String(entry).trim() === "");
+  return typeof value !== "string" || value.trim() === "";
+}
 
 // src/views/grid/cellRender.ts
 function isFormattedCellType(field) {
@@ -23912,6 +23921,25 @@ var AttachmentPanel = class {
     this.body.appendChild(this.list);
     this.body.appendChild(this.input);
     this.body.appendChild(hint);
+    if (opts.onChooseFile) {
+      const pick = document.createElement("button");
+      pick.type = "button";
+      pick.className = "tablify__attach-pick";
+      pick.dataset.testid = "tablify-attachment-pick";
+      const glyph = document.createElement("span");
+      glyph.className = "tablify__attach-pick-icon";
+      glyph.innerHTML = faIcon("plus", 10);
+      pick.appendChild(glyph);
+      pick.appendChild(document.createTextNode("Choose a file\u2026"));
+      pick.addEventListener("click", () => this.opts.onChooseFile?.());
+      const msg = document.createElement("div");
+      msg.className = "tablify__attach-msg";
+      msg.setAttribute("role", "status");
+      msg.hidden = true;
+      this.msg = msg;
+      this.body.appendChild(pick);
+      this.body.appendChild(msg);
+    }
     this.render();
   }
   container;
@@ -23919,6 +23947,8 @@ var AttachmentPanel = class {
   list;
   input;
   warn = null;
+  /** SAD-356: the host's message line; only present when `onChooseFile` is wired. */
+  msg = null;
   unwireDismiss = null;
   get element() {
     return this.container;
@@ -23945,6 +23975,21 @@ var AttachmentPanel = class {
     this.unwireDismiss = null;
     this.container.remove();
   }
+  /** SAD-356: the host's message line (a refused picker, a failed copy). No-op without a picker. */
+  setMessage(text) {
+    if (!this.msg)
+      return;
+    this.msg.textContent = text;
+    this.msg.hidden = text === "";
+  }
+  /** SAD-356: disable the panel's controls while a picked file is copied into the vault. */
+  setBusy(label) {
+    this.container.setAttribute("aria-busy", label ? "true" : "false");
+    const controls = this.body.querySelectorAll("button, input");
+    for (const el4 of Array.from(controls))
+      el4.disabled = label !== null;
+    this.setMessage(label ?? "");
+  }
   // ---- behaviour -------------------------------------------------------------------------
   onKey(ev) {
     ev.stopPropagation();
@@ -23954,7 +23999,7 @@ var AttachmentPanel = class {
     const raw = this.input.value.trim();
     if (!raw)
       return;
-    const check = this.opts.checkPath?.(raw);
+    const check = isRemoteAttachmentPath(raw) ? void 0 : this.opts.checkPath?.(raw);
     if (check && !check.ok) {
       this.showWarning(check);
       return;
@@ -24065,6 +24110,92 @@ var AttachmentPanel = class {
     this.opts.onRemove(index);
     this.warn = null;
     this.render();
+  }
+};
+
+// src/views/grid/AttachmentMenu.ts
+var CHOOSE_FILE_LABEL = "Choose a file\u2026";
+var ENTER_PATH_LABEL = "Enter a URL or file path\u2026";
+var AttachmentMenu = class {
+  constructor(opts) {
+    this.opts = opts;
+    const theme = opts.theme ?? "light";
+    const { card, body } = createPanelCard("tablify-attachment-menu", theme, "tablify__attach");
+    card.classList.add("tablify__panel--attach");
+    card.setAttribute("aria-label", `Add an attachment to ${opts.field.name}`);
+    this.container = card;
+    this.body = body;
+    const head = document.createElement("div");
+    head.className = "tablify__attach-head";
+    const icon = document.createElement("span");
+    icon.className = "tablify__attach-icon";
+    icon.innerHTML = faIcon("paperclip", 11);
+    head.appendChild(icon);
+    head.appendChild(document.createTextNode("Add an attachment"));
+    const list = document.createElement("div");
+    list.className = "tablify__attach-menu";
+    list.setAttribute("role", "menu");
+    this.buttons.push(
+      this.item(list, "plus", CHOOSE_FILE_LABEL, () => opts.onChooseFile()),
+      this.item(list, "link", ENTER_PATH_LABEL, () => opts.onEnterPath())
+    );
+    this.status = document.createElement("div");
+    this.status.className = "tablify__attach-msg";
+    this.status.setAttribute("role", "status");
+    this.status.hidden = true;
+    this.body.appendChild(head);
+    this.body.appendChild(list);
+    this.body.appendChild(this.status);
+  }
+  container;
+  body;
+  status;
+  buttons = [];
+  unwireDismiss = null;
+  get element() {
+    return this.container;
+  }
+  /** Anchor under a cell and take over dismissal, like `AttachmentPanel.open()`. */
+  open(anchor) {
+    if (!this.container.isConnected)
+      document.body.appendChild(this.container);
+    anchorPanel(this.container, anchor);
+    this.buttons[0]?.focus();
+    this.unwireDismiss ??= wirePanelDismiss(this.container, () => {
+      this.close();
+      this.opts.onDismiss?.();
+    });
+  }
+  /** The fallback message — e.g. this device did not open a file picker (owner decision D4). */
+  setMessage(text) {
+    this.status.textContent = text;
+    this.status.hidden = text === "";
+  }
+  /** While the copy runs: one label, every entry disabled, `aria-busy` for screen readers. */
+  setBusy(label) {
+    this.container.setAttribute("aria-busy", label ? "true" : "false");
+    for (const button3 of this.buttons)
+      button3.disabled = label !== null;
+    this.setMessage(label ?? "");
+  }
+  close() {
+    this.unwireDismiss?.();
+    this.unwireDismiss = null;
+    this.container.remove();
+  }
+  item(list, icon, label, run2) {
+    const button3 = document.createElement("button");
+    button3.type = "button";
+    button3.className = "tablify__attach-menu-item";
+    button3.setAttribute("role", "menuitem");
+    const glyph = document.createElement("span");
+    glyph.className = "tablify__attach-menu-icon";
+    glyph.innerHTML = faIcon(icon, 11);
+    button3.appendChild(glyph);
+    button3.appendChild(document.createTextNode(label));
+    button3.addEventListener("click", () => run2());
+    list.appendChild(button3);
+    return button3;
   }
 };
 
@@ -25436,6 +25567,94 @@ var RatingPanel = class {
     this.opts.onCancel?.();
   }
 };
+
+// src/views/grid/attachmentImport.ts
+var NO_CHOOSER_MS = 1500;
+function pickFileFromDevice(options = {}) {
+  const doc = options.doc ?? document;
+  const timers = options.timers ?? {
+    setTimeout: (fn, ms) => setTimeout(fn, ms),
+    clearTimeout: (handle) => clearTimeout(handle)
+  };
+  const noChooserMs = options.noChooserMs ?? NO_CHOOSER_MS;
+  return new Promise((resolve) => {
+    const input = doc.createElement("input");
+    input.type = "file";
+    input.multiple = false;
+    if (options.accept)
+      input.accept = options.accept;
+    input.style.position = "fixed";
+    input.style.left = "-1000px";
+    input.style.width = "1px";
+    input.style.height = "1px";
+    input.tabIndex = -1;
+    input.setAttribute("aria-hidden", "true");
+    let settled = false;
+    let timer = null;
+    const win = doc.defaultView;
+    const cleanup = (outcome) => {
+      if (settled)
+        return;
+      settled = true;
+      if (timer !== null)
+        timers.clearTimeout(timer);
+      input.removeEventListener("change", onChange);
+      input.removeEventListener("cancel", onCancel);
+      win?.removeEventListener("blur", onBlur);
+      input.remove();
+      resolve(outcome);
+    };
+    const onChange = () => {
+      const file = input.files?.[0] ?? null;
+      cleanup(file ? { kind: "file", file } : { kind: "cancelled" });
+    };
+    const onCancel = () => cleanup({ kind: "cancelled" });
+    const onBlur = () => {
+      if (timer !== null)
+        timers.clearTimeout(timer);
+      timer = null;
+    };
+    input.addEventListener("change", onChange);
+    input.addEventListener("cancel", onCancel);
+    win?.addEventListener("blur", onBlur, { once: true });
+    doc.body.appendChild(input);
+    timer = timers.setTimeout(() => cleanup({ kind: "unavailable" }), noChooserMs);
+    input.click();
+  });
+}
+function sanitizeAttachmentFileName(name) {
+  const base = name.replace(/\\/g, "/").split("/").pop() ?? "";
+  const cleaned = base.replace(/[<>:"|?*\u0000-\u001F]/g, "").trim();
+  return cleaned === "" || cleaned === "." || cleaned === ".." ? "attachment" : cleaned;
+}
+function uniqueAttachmentPath(name, folder, exists) {
+  const dir = folder.replace(/^\/+|\/+$/g, "");
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  const join = (n) => dir ? `${dir}/${n}` : n;
+  let candidate = join(name);
+  for (let i = 1; exists(candidate); i += 1)
+    candidate = join(`${stem} ${i}${ext}`);
+  return candidate;
+}
+async function importPickedFile(file, io, sourcePath = "") {
+  const name = sanitizeAttachmentFileName(file.name);
+  try {
+    const target = io.getAvailablePathForAttachment ? normalizeAttachmentPath(await io.getAvailablePathForAttachment(name, sourcePath)) : uniqueAttachmentPath(name, "", (p) => io.getAbstractFileByPath(p) !== null);
+    if (!target) {
+      return { ok: false, reason: "failed", message: "Could not find a place in the vault for that file." };
+    }
+    await io.createBinary(target, await file.arrayBuffer());
+    return { ok: true, path: target };
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "failed",
+      message: `Could not copy that file into the vault: ${e.message}`
+    };
+  }
+}
 
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
@@ -26899,29 +27118,10 @@ var TableView = class extends import_obsidian10.TextFileView {
       return;
     }
     if (field.type === "attachment") {
-      const panel2 = new AttachmentPanel({
-        field,
-        value: value(),
-        theme: this.isDark() ? "dark" : "light",
-        checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
-        resolveImageUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
-        onPreviewImage: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
-        onAdd: (raw) => {
-          const path = normalizeAttachmentPath(raw);
-          if (!path)
-            return;
-          s.setValue(rowId, field.id, path);
-          panel2.setValue(path);
-          this.afterChange();
-        },
-        onRemove: () => {
-          s.setValue(rowId, field.id, null);
-          panel2.setValue(null);
-          this.afterChange();
-        },
-        onDismiss: () => closePanel()
-      });
-      panel2.open(anchor);
+      if (isAttachmentValueEmpty(value()))
+        this.openAttachmentMenu(rowId, field, anchor);
+      else
+        this.openAttachmentPanelAt(rowId, field, anchor);
       return;
     }
     const write = (next, close) => {
@@ -26984,6 +27184,111 @@ var TableView = class extends import_obsidian10.TextFileView {
       onDismiss: () => closePanel()
     });
     panel.open(anchor);
+  }
+  // ---- SAD-356: attachment from the device ------------------------------------------------
+  /**
+   * The panel for a cell that already holds an attachment — exactly what `openCellPanel` used to
+   * build inline, plus the new device picker. Split out so the empty-cell menu can open it directly:
+   * going back through `openCellPanel` would land on the menu again while the cell is still empty.
+   */
+  openAttachmentPanelAt(rowId, field, anchor) {
+    const s = this.session;
+    const grid = this.grid;
+    if (!s || !grid)
+      return;
+    const value = () => s.store.getRow(rowId)?.values[field.id] ?? null;
+    const closePanel = (focusGrid = true) => {
+      panel.close();
+      if (focusGrid)
+        grid.root.focus();
+    };
+    const panel = new AttachmentPanel({
+      field,
+      value: value(),
+      theme: this.isDark() ? "dark" : "light",
+      checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
+      resolveImageUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
+      onPreviewImage: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
+      // SAD-356: a filled cell can also take a file from the device.
+      onChooseFile: () => void this.chooseAttachmentFile(rowId, field, panel),
+      onAdd: (raw) => {
+        const path = isRemoteAttachmentPath(raw) ? raw.trim() : normalizeAttachmentPath(raw);
+        if (!path)
+          return;
+        s.setValue(rowId, field.id, path);
+        panel.setValue(path);
+        this.afterChange();
+      },
+      onRemove: () => {
+        s.setValue(rowId, field.id, null);
+        panel.setValue(null);
+        this.afterChange();
+      },
+      onDismiss: () => closePanel()
+    });
+    panel.open(anchor);
+  }
+  /**
+   * SAD-356 — an empty Attachment cell: two ways in. The menu is the same `#floatPanel` card as
+   * every other cell panel, so placement and dismissal are the ones the grid already uses.
+   */
+  openAttachmentMenu(rowId, field, anchor) {
+    const grid = this.grid;
+    if (!grid)
+      return;
+    const menu = new AttachmentMenu({
+      field,
+      theme: this.isDark() ? "dark" : "light",
+      onChooseFile: () => void this.chooseAttachmentFile(rowId, field, menu),
+      onEnterPath: () => {
+        menu.close();
+        this.openAttachmentPanelAt(rowId, field, anchor);
+      },
+      onDismiss: () => grid.root.focus()
+    });
+    menu.open(anchor);
+  }
+  /**
+   * SAD-356 — pick a file, copy it into the vault, store the vault-relative path.
+   *
+   * One `setValue` + `afterChange()`, so the write is exactly one undo step (the same contract the
+   * panel's path entry has). The copy itself is not undoable: the file is a vault artefact, not a
+   * cell value — the Notice says where it went.
+   */
+  async chooseAttachmentFile(rowId, field, ui) {
+    const s = this.session;
+    if (!s)
+      return;
+    ui.setBusy("Opening your file picker\u2026");
+    const picked = await pickFileFromDevice();
+    if (picked.kind === "unavailable") {
+      ui.setBusy(null);
+      ui.setMessage("This device did not open a file picker. Enter the file path or a URL instead.");
+      return;
+    }
+    if (picked.kind === "cancelled") {
+      ui.setBusy(null);
+      return;
+    }
+    const io = {
+      getAvailablePathForAttachment: this.app.fileManager.getAvailablePathForAttachment?.bind(
+        this.app.fileManager
+      ),
+      createBinary: (path, data) => this.app.vault.createBinary(path, data),
+      getAbstractFileByPath: (path) => this.app.vault.getAbstractFileByPath(path)
+    };
+    ui.setBusy("Copying into your vault\u2026");
+    const result2 = await importPickedFile(picked.file, io, this.file?.path ?? "");
+    ui.setBusy(null);
+    if (!result2.ok) {
+      ui.setMessage(result2.message);
+      return;
+    }
+    s.setValue(rowId, field.id, result2.path);
+    this.afterChange();
+    new import_obsidian10.Notice(`Saved to ${result2.path}`);
+    ui.close?.();
+    this.grid?.root.focus();
   }
   /**
    * Prototype `#optMgrModal`: rename / recolor / reorder / delete / add. Each change is one undo
