@@ -17329,6 +17329,8 @@ function errorMessage2(error) {
 // src/commands/export.ts
 var EXPORT_COMMAND_ID = "export-table";
 var EXPORT_COMMAND_NAME = "Export table (CSV, Excel, Markdown)";
+var EXPORT_DIAGNOSTICS_COMMAND_ID = "export-destination-diagnostics";
+var EXPORT_DIAGNOSTICS_COMMAND_NAME = "Export destination diagnostics";
 var EXPORT_VIEW_CSV_COMMAND_ID = "export-current-view-csv";
 var EXPORT_VIEW_CSV_COMMAND_NAME = "Export current view as CSV";
 var COPY_MARKDOWN_COMMAND_ID = "copy-current-view-markdown";
@@ -17369,6 +17371,51 @@ function registerCurrentViewExportCommands(plugin, getTable) {
 }
 function openExportModal(app, file) {
   new ExportModal(app, file).open();
+}
+function exportDiagnosticsReport() {
+  const platform = typeof import_obsidian2.Platform === "undefined" ? "unknown" : import_obsidian2.Platform.isIosApp ? "ios" : import_obsidian2.Platform.isAndroidApp ? "android" : import_obsidian2.Platform.isMobile ? "mobile (other)" : "desktop";
+  const win = window;
+  const nav = navigator;
+  let canShareFiles = "n/a (no canShare)";
+  if (typeof nav.canShare === "function" && typeof File !== "undefined") {
+    try {
+      canShareFiles = String(nav.canShare({ files: [new File([""], "probe.csv", { type: "text/csv" })] }));
+    } catch (error) {
+      canShareFiles = `threw (${error instanceof Error ? error.message : String(error)})`;
+    }
+  }
+  const plugins = win.Capacitor?.Plugins;
+  const fs = plugins?.Filesystem;
+  const runtime = browserExportSaveRuntime(typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile);
+  return [
+    "Tablify export diagnostics (SAD-350 \xA73.0 probe)",
+    `platform: ${platform}`,
+    `showSaveFilePicker: ${typeof win.showSaveFilePicker}`,
+    `navigator.share: ${typeof nav.share} / canShare: ${typeof nav.canShare} / canShare({files}): ${canShareFiles}`,
+    `window.Capacitor: ${win.Capacitor ? `present${win.Capacitor.getPlatform ? ` (${win.Capacitor.getPlatform()})` : ""}` : "absent"}`,
+    `Capacitor plugins: ${plugins ? Object.keys(plugins).sort().join(", ") || "(no enumerable keys)" : "absent"}`,
+    `Filesystem.writeFile: ${typeof fs?.writeFile} / Filesystem.stat: ${typeof fs?.stat}`,
+    `chosen delivery method: ${exportDeliveryMethod(runtime)}`
+  ].join("\n");
+}
+function registerExportDiagnosticsCommand(plugin) {
+  plugin.addCommand({
+    id: EXPORT_DIAGNOSTICS_COMMAND_ID,
+    name: EXPORT_DIAGNOSTICS_COMMAND_NAME,
+    callback: () => {
+      const report = exportDiagnosticsReport();
+      console.log(report);
+      const clipboard = navigator.clipboard;
+      if (clipboard?.writeText) {
+        void clipboard.writeText(report).then(
+          () => new import_obsidian2.Notice("Export diagnostics copied to the clipboard."),
+          () => new import_obsidian2.Notice("Export diagnostics written to the developer console.")
+        );
+        return;
+      }
+      new import_obsidian2.Notice("Export diagnostics written to the developer console.");
+    }
+  });
 }
 async function flushPendingExportEdits(app, source) {
   const active = app.workspace.activeLeaf?.view;
@@ -29376,6 +29423,7 @@ var TablifyPlugin = class extends import_obsidian17.Plugin {
     this.addSettingTab(new TablifySettingTab(this.app, this));
     registerImportCommand(this);
     registerExportCommand(this);
+    registerExportDiagnosticsCommand(this);
     registerCurrentViewExportCommands(this, () => this.app.workspace.getActiveViewOfType(TableView));
     linkIndexFor(this.app).start(this);
     installLinkLabelResolver(this.app);

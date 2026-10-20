@@ -17,6 +17,10 @@ import { exportFileName, exportMimeType, type ExportArtifact, type ExportFormat 
 export const EXPORT_COMMAND_ID = 'export-table';
 export const EXPORT_COMMAND_NAME = 'Export table (CSV, Excel, Markdown)';
 
+/** SAD-350 §3.0: read-only device probe for the export delivery capabilities. */
+export const EXPORT_DIAGNOSTICS_COMMAND_ID = 'export-destination-diagnostics';
+export const EXPORT_DIAGNOSTICS_COMMAND_NAME = 'Export destination diagnostics';
+
 /** SAD-98: the one-click current-view actions kept as commands after leaving the title row. */
 export const EXPORT_VIEW_CSV_COMMAND_ID = 'export-current-view-csv';
 export const EXPORT_VIEW_CSV_COMMAND_NAME = 'Export current view as CSV';
@@ -79,6 +83,75 @@ export function registerCurrentViewExportCommands(
 /** Open the export modal for a given table file (used by the file explorer menu, P5-01). */
 export function openExportModal(app: App, file: TFile): void {
   new ExportModal(app, file).open();
+}
+
+/**
+ * SAD-350 §3.0 device probe, as a report string. Strictly read-only: every check is a typeof
+ * or a `canShare` call, which opens no UI. It answers the one question documentation cannot —
+ * which delivery method this device's WebView/host combination actually takes — so the result
+ * belongs in docs/plans/sad-350-mobile-export-plan.md.
+ */
+export function exportDiagnosticsReport(): string {
+  const platform =
+    typeof Platform === 'undefined'
+      ? 'unknown'
+      : Platform.isIosApp
+        ? 'ios'
+        : Platform.isAndroidApp
+          ? 'android'
+          : Platform.isMobile
+            ? 'mobile (other)'
+            : 'desktop';
+  const win = window as Window & {
+    showSaveFilePicker?: unknown;
+    Capacitor?: { getPlatform?: () => string; Plugins?: Record<string, unknown> };
+  };
+  const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean; share?: unknown };
+
+  let canShareFiles = 'n/a (no canShare)';
+  if (typeof nav.canShare === 'function' && typeof File !== 'undefined') {
+    try {
+      canShareFiles = String(nav.canShare({ files: [new File([''], 'probe.csv', { type: 'text/csv' })] }));
+    } catch (error) {
+      canShareFiles = `threw (${error instanceof Error ? error.message : String(error)})`;
+    }
+  }
+
+  const plugins = win.Capacitor?.Plugins;
+  const fs = plugins?.Filesystem as { writeFile?: unknown; stat?: unknown } | undefined;
+  const runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
+
+  return [
+    'Tablify export diagnostics (SAD-350 \u00a73.0 probe)',
+    `platform: ${platform}`,
+    `showSaveFilePicker: ${typeof win.showSaveFilePicker}`,
+    `navigator.share: ${typeof nav.share} / canShare: ${typeof nav.canShare} / canShare({files}): ${canShareFiles}`,
+    `window.Capacitor: ${win.Capacitor ? `present${win.Capacitor.getPlatform ? ` (${win.Capacitor.getPlatform()})` : ''}` : 'absent'}`,
+    `Capacitor plugins: ${plugins ? Object.keys(plugins).sort().join(', ') || '(no enumerable keys)' : 'absent'}`,
+    `Filesystem.writeFile: ${typeof fs?.writeFile} / Filesystem.stat: ${typeof fs?.stat}`,
+    `chosen delivery method: ${exportDeliveryMethod(runtime)}`,
+  ].join('\n');
+}
+
+/** SAD-350 §3.0: palette command that copies the probe report (console fallback). */
+export function registerExportDiagnosticsCommand(plugin: Plugin): void {
+  plugin.addCommand({
+    id: EXPORT_DIAGNOSTICS_COMMAND_ID,
+    name: EXPORT_DIAGNOSTICS_COMMAND_NAME,
+    callback: () => {
+      const report = exportDiagnosticsReport();
+      console.log(report);
+      const clipboard = navigator.clipboard;
+      if (clipboard?.writeText) {
+        void clipboard.writeText(report).then(
+          () => new Notice('Export diagnostics copied to the clipboard.'),
+          () => new Notice('Export diagnostics written to the developer console.'),
+        );
+        return;
+      }
+      new Notice('Export diagnostics written to the developer console.');
+    },
+  });
 }
 
 /** Flush the matching open TableView before an export reads the file from the vault. */

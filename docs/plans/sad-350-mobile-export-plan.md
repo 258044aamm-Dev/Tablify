@@ -154,8 +154,15 @@ the clipboard Markdown command are untouched.
 The one fact that cannot be established from documentation is how Obsidian Android's WebView
 answers `showSaveFilePicker` **today** (evidence 8). Before finalizing the Android fallback
 tier, run a 5-minute probe on a real Android device (Obsidian ≥ the app version matching
-`minAppVersion` 1.14), from the developer console or a temporary debug command, and record
-the results in this file (orca-style, cf. evidence 1):
+`minAppVersion` 1.14) and record the results in this file (orca-style, cf. evidence 1).
+
+> **Implemented (2026-10-20):** the probe ships as the palette command **“Export destination
+> diagnostics”** (`src/commands/export.ts`, `exportDiagnosticsReport()`). It is strictly
+> read-only (typeof checks plus a no-UI `canShare` probe), prints the report to the console,
+> copies it to the clipboard, and ends with the delivery method the export flow would take on
+> that device. Run it on the phone and paste the output below. Item 2 (actually invoking the
+> SAF dialog) is simply the Export button itself — if the system “Save as” dialog appears,
+> the device is on the picker path.
 
 1. `typeof window.showSaveFilePicker` — present at all?
 2. If present: call it from a button tap with a `suggestedName` — does the SAF dialog appear?
