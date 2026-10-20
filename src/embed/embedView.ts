@@ -25,6 +25,10 @@ export interface EmbedViewOptions {
   viewportWidth?: number;
   /** P8-04: the vault link index. Link cells then show resolved names and broken-link markers. */
   links?: VaultLinkIndex;
+  /** SAD-347: resolve an attachment path to a browser-renderable image URL for inline thumbnails. */
+  resolveAttachmentUrl?: (path: string) => string | null;
+  /** SAD-347: open the image preview lightbox when an inline thumbnail in an embed is clicked. */
+  onPreviewAttachment?: (path: string, url: string) => void;
 }
 
 export class EmbedView {
@@ -192,6 +196,8 @@ export class EmbedView {
         this.sel = { row, col };
       },
       linkSummary: links ? (value) => summarizeLinks(value, links.index) : undefined,
+      resolveAttachmentUrl: this.opts.resolveAttachmentUrl,
+      onPreviewAttachment: this.opts.onPreviewAttachment,
       // COD-71: the checkbox box is clickable in an embed too; the write goes through the
       // shared document, so both embeds and the full view see it and it is saved once.
       onToggleCheckbox: (rowIndex, colIndex) => {

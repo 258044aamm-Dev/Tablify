@@ -13,11 +13,14 @@
  * Paths belong to the caller: it normalises them and checks the vault
  * (`checkAttachmentPath`), and a path that is not in the vault asks before it is saved
  * (`confirmAttachmentSave`). The panel only collects the path.
+ *
+ * SAD-347: when an attachment path resolves to a valid image URL (`resolveImageUrl`), the panel
+ * renders a clickable image preview banner above the row and an inline thumbnail inside the row.
  */
 
 import { faIcon } from '../../ui/faIcons.js';
 import { anchorPanel, createPanelCard, wirePanelDismiss } from './select/panel.js';
-import type { AttachmentSaveResult } from './attachment.js';
+import { attachmentFileName, isImageAttachmentPath, type AttachmentSaveResult } from './attachment.js';
 import type { CellValue, FieldDefinition } from '../../model/types.js';
 
 export interface AttachmentPanelOptions {
@@ -30,6 +33,15 @@ export interface AttachmentPanelOptions {
   onRemove: (index: number) => void;
   /** Vault check (P3-04): a path that is not in the vault needs an explicit "Save anyway". */
   checkPath?: (raw: string) => AttachmentSaveResult;
+  /**
+   * SAD-347: resolve a stored path to a browser-renderable image URL when it points to an image
+   * in the vault (or an image URL). Return null for non-images or missing vault files.
+   */
+  resolveImageUrl?: (path: string) => string | null;
+  /**
+   * SAD-347: open the full-size image lightbox when the user clicks the panel preview.
+   */
+  onPreviewImage?: (path: string, url: string) => void;
   onDismiss?: () => void;
   theme?: 'light' | 'dark';
 }
@@ -168,9 +180,50 @@ export class AttachmentPanel {
     this.list.textContent = '';
     const paths = this.paths();
     paths.forEach((path, index) => {
+      const imageUrl = isImageAttachmentPath(path) ? (this.opts.resolveImageUrl?.(path) ?? null) : null;
+      if (imageUrl) {
+        const onPreview = this.opts.onPreviewImage;
+        const previewEl = document.createElement(onPreview ? 'button' : 'div');
+        previewEl.className = 'tablify__attach-preview';
+        previewEl.dataset.testid = 'tablify-attachment-preview';
+        if (onPreview) {
+          const btn = previewEl as HTMLButtonElement;
+          btn.type = 'button';
+          btn.setAttribute('aria-label', `Preview ${path}`);
+          btn.title = 'Click to view full size';
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onPreview(path, imageUrl);
+          });
+        }
+        const previewImg = document.createElement('img');
+        previewImg.className = 'tablify__attach-preview-img';
+        previewImg.src = imageUrl;
+        previewImg.alt = attachmentFileName(path);
+        previewImg.decoding = 'async';
+        previewImg.addEventListener('error', () => {
+          previewEl.remove();
+        });
+        previewEl.appendChild(previewImg);
+        this.list.appendChild(previewEl);
+      }
+
       const row = document.createElement('div');
       row.className = 'tablify__attach-row';
       row.dataset.testid = 'tablify-attachment-row';
+
+      if (imageUrl) {
+        const rowThumb = document.createElement('img');
+        rowThumb.className = 'tablify__attach-row-thumb';
+        rowThumb.src = imageUrl;
+        rowThumb.alt = attachmentFileName(path);
+        rowThumb.decoding = 'async';
+        rowThumb.addEventListener('error', () => {
+          rowThumb.remove();
+        });
+        row.appendChild(rowThumb);
+      }
+
       const label = document.createElement('span');
       label.className = 'tablify__attach-path';
       label.textContent = path;

@@ -3035,6 +3035,104 @@ body.is-phone .view-content.tablify-view.tablify {
   appearance: none;
 }
 
+/* SAD-347: AttachmentPanel inline image preview banner and row thumbnail. */
+.tablify button.tablify__attach-preview,
+.tablify .tablify__attach-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: 150px;
+  margin: 0;
+  padding: 6px;
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: none;
+  appearance: none;
+}
+
+.tablify button.tablify__attach-preview {
+  cursor: zoom-in;
+}
+
+.tablify button.tablify__attach-preview:hover {
+  border-color: var(--tablify-border-capsule-hover, var(--tablify-accent-primary));
+}
+
+.tablify button.tablify__attach-preview:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+.tablify__attach-preview-img {
+  display: block;
+  max-width: 100%;
+  max-height: 136px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.tablify__attach-row-thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--tablify-border-subtle);
+  background: var(--tablify-bg-capsule);
+  flex: 0 0 auto;
+}
+
+/* SAD-347: ImagePreviewModal lightbox stage and caption. */
+.tablify .tablify__image-lightbox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tablify__image-lightbox-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  max-height: 68vh;
+  padding: 12px;
+  background: var(--tablify-bg-inner);
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.tablify__image-lightbox-img {
+  display: block;
+  max-width: 100%;
+  max-height: 62vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.tablify__image-lightbox-meta {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--tablify-text-muted);
+  text-align: center;
+  word-break: break-all;
+}
+
+.tablify__image-lightbox-error {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--tablify-text-danger);
+  text-align: center;
+}
+
 /* ---- date & time panel (COD-75) ------------------------------------------------------
    The third `#floatPanel` screen, after select and attachment: a 320 px card with the value
    field on top, the month grid, an optional time row and the footer. It replaces Chromium's

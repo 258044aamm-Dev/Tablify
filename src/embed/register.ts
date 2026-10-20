@@ -7,6 +7,8 @@ import { EmbedRegistry, type EmbedIO } from './embedDocument.js';
 import { EmbedView } from './embedView.js';
 import { parseEmbedSource } from './embedSource.js';
 import { linkIndexFor } from '../links/vaultLinkIndex.js';
+import { resolveAttachmentImageUrl } from '../views/grid/attachment.js';
+import { ImagePreviewModal } from '../views/grid/ImagePreviewModal.js';
 
 export const EMBED_FENCE_LANGUAGE = 'tablify';
 
@@ -67,6 +69,8 @@ export function registerEmbedProcessor(plugin: Plugin): EmbedRegistration {
           void app.workspace.openLinkText(p, '', false);
         },
         links: linkIndexFor(app),
+        resolveAttachmentUrl: (p) => resolveAttachmentImageUrl(p, app.vault),
+        onPreviewAttachment: (p, url) => new ImagePreviewModal(app, { path: p, url }).open(),
       });
       el.appendChild(view.root);
       ctx.addChild(

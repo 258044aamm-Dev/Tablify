@@ -39,12 +39,13 @@ import { FilterBuilderModal } from './grid/FilterBuilderModal.js';
 import { SelectDropdown } from './grid/select/Dropdown.js';
 import { OptionManagerDialog } from './grid/select/OptionManager.js';
 import { AttachmentPanel } from './grid/AttachmentPanel.js';
+import { ImagePreviewModal } from './grid/ImagePreviewModal.js';
 import { DatePicker } from './grid/date/DatePicker.js';
 import { PhonePanel } from './grid/phone/PhonePanel.js';
 import { RatingPanel } from './grid/rating/RatingPanel.js';
 import { readerLocale } from '../model/phone/phoneValue.js';
 import { equivalentStored } from './grid/date/draft.js';
-import { checkAttachmentPath, normalizeAttachmentPath } from './grid/attachment.js';
+import { checkAttachmentPath, normalizeAttachmentPath, resolveAttachmentImageUrl } from './grid/attachment.js';
 import { createSetFieldOptionsCommand } from '../model/commands.js';
 import { planOptionAdd } from '../model/selectOptions.js';
 import type { SelectOption } from '../model/types.js';
@@ -656,6 +657,9 @@ export class TableView extends TextFileView {
         // SAD-304: a star in a rating cell is a one-click edit; read-only ratings stay decoration.
         onRate: (row, col, value) => this.rateAt(row, col, value),
         canRate: (field) => !isReadOnly(field),
+        // SAD-347: inline image thumbnails in attachment cells and click-to-preview lightbox.
+        resolveAttachmentUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
+        onPreviewAttachment: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -1604,6 +1608,8 @@ export class TableView extends TextFileView {
         value: value(),
         theme: this.isDark() ? 'dark' : 'light',
         checkPath: (raw) => checkAttachmentPath(raw, this.app.vault),
+        resolveImageUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
+        onPreviewImage: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
         onAdd: (raw) => {
           const path = normalizeAttachmentPath(raw);
           if (!path) return;
