@@ -2,6 +2,36 @@
 
 ---
 
+# 2.0.0-beta.6 — 2026-10-20
+
+**Release:** v2.0.0-beta.6 (pre-release) · **Format version 2** · inline cell image rendering and lightbox preview (SAD-347), interactive fractional star ratings (SAD-304), phone country & E.164 storage + email/URL/phone import inference (SAD-303), and mobile keyboard/toolbar/placeholder/bottom-bar refinements (SAD-305, SAD-306, SAD-307, SAD-308); no file-format version change
+
+## Situation
+
+Beta.6 extends cell rendering, editing panels, and mobile layout ergonomics without changing
+`formatVersion`. Attachment cells pointing to vault images render inline thumbnails with a
+click-to-preview lightbox (`SAD-347`); Rating cells accept `0` and two-decimal fractions with
+click-to-rate stars and a slider panel (`SAD-304`); Phone fields accept an optional additive
+`defaultCountry` property and store canonical E.164 strings (`SAD-303`); and mobile viewports keep
+the table and active editor visible when the on-screen keyboard opens (`SAD-305`), truncate the
+search placeholder cleanly (`SAD-306`), reserve clearance above Obsidian's mobile bottom bar for
+**Insert Row** (`SAD-307`), and scroll the toolbar three tools at a time (`SAD-308`).
+
+## Rolling back
+
+| Situation | Action |
+|---|---|
+| Any of the beta.6 rendering, panel or mobile layout changes is not wanted | Reinstall 2.0.0-beta.5 using its `main.js`, `manifest.json`, and `styles.css` release assets. No table data is lost. |
+| A table with fractional ratings or `defaultCountry` on a phone field is opened in beta.5 | Beta.5 opens the file; phone values are plain strings (`+8801712345678`) that beta.5 reads as strings, and `defaultCountry` is ignored if unused. |
+| A table contains formula or link fields | Keep Tablify 2.x installed. Tablify 1.0.2 and earlier cannot open `formatVersion: 2` files. |
+
+## Release verification checklist (2.0.0-beta.6)
+
+- [x] `npm run check` on the release commit: 136 test files / 2,171 tests; lint 0 errors (119 existing warnings); guard, docs links (164 files), FA icon check and build pass.
+- [x] Production `main.js` built twice with an identical SHA-256; assets hashed and recorded in the [release notes](2.0.0-beta.6.md).
+- [ ] Owner: install on desktop and mobile; verify inline attachment image thumbnails, lightbox preview, star ratings, phone country picker, and mobile keyboard/toolbar/bottom-bar layout in light and dark themes.
+- [ ] Owner: revoke/rotate the temporary GitHub credential used for publication.
+
 # 2.0.0-beta.5 — 2026-10-18
 
 **Release:** v2.0.0-beta.5 (pre-release) · **Format version 2** · the two popups the plugin draws (date, field type), the cell-focusing fix, and the COD-69–COD-74 tranche (field window, edit-switch click, value rendering, freeze-the-primary, branded file menu); no file-format change

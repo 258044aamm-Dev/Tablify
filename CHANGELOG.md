@@ -4,6 +4,8 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+## [2.0.0-beta.6] — 2026-10-20
+
 ### Added
 
 - **Inline image thumbnails and lightbox preview in Attachment cells (SAD-347)** — when an
@@ -67,6 +69,24 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   negative control) and `Email` is now labelled email. Strict accuracy is **76.5 % (26/34)**,
   measured, up from 73.3 % (22/30) — still below the *proposed* 90 % threshold; the
   [accuracy report](docs/reports/p4-03-accuracy.md) says so.
+- **Toolbar button order and mobile 3-tool horizontal scrolling (SAD-308)** — toolbar controls are
+  ordered as **Undo**, **Redo**, **Add Field**, **Add Row**, **Filter**, **Sync**, **Options** across
+  desktop and mobile, and on mobile viewports (`<= 639px`) three tools are shown at a time with
+  smooth horizontal scrolling to reach the rest while keeping the desktop layout unchanged.
+
+### Fixed
+
+- **Mobile table layout no longer collapses when the on-screen keyboard opens (SAD-305)** —
+  `TableView` and `GridView` floor the card/grid height, re-render on height-only `ResizeObserver`
+  changes, and clamp `scrollToRow` / `visualViewport` insets so the active cell and inline editor
+  stay visible while editing on mobile.
+- **Search input placeholder adapts cleanly on narrow mobile viewports (SAD-306)** — the search box
+  uses a concise mobile placeholder on narrow screens with `text-overflow: ellipsis` and overflow
+  protection so placeholder text never overflows or crowds the input.
+- **Insert Row button remains accessible above Obsidian's mobile bottom bar (SAD-307)** —
+  `TableView` measures `.mobile-navbar` / `visualViewport` overlap (`--tablify-mobile-bottom-inset`)
+  and reserves bottom clearance plus `env(safe-area-inset-bottom)` across portrait and landscape
+  mobile screens so scrolling to the bottom always brings **Insert Row** into view.
 
 ## [2.0.0-beta.5] — 2026-10-18
 
