@@ -7,7 +7,7 @@
  *
  * Markup follows the surfaces the plugin already has: `.tablify__dropdown-input` for the search
  * field and `.tablify__dropdown-list` for the scroller (the select panel's own classes), with
- * `.tablify__country-*` for the badge row the select panel has no equivalent for.
+ * `.tablify__country-*` for the flag/monogram row the select panel has no equivalent for.
  *
  * A "suggested" group is drawn above the full list: the countries a person is most likely to
  * want (the value's own country, the field default, the reader's region), de-duplicated. They
@@ -16,6 +16,7 @@
 
 import { allCountries, countryRow, searchCountries, type CountryRow } from '../../../model/phone/countries.js';
 import { faIcon } from '../../../ui/faIcons.js';
+import { paintCountryMark } from './countryMark.js';
 
 export interface CountryListOptions {
   /** BCP-47 tag for country names. Defaults to English. */
@@ -141,10 +142,11 @@ export class CountryList {
     button.setAttribute('role', 'option');
     button.setAttribute('aria-selected', row.iso === this.selected ? 'true' : 'false');
 
-    const badge = document.createElement('span');
-    badge.className = 'tablify__country-badge';
-    badge.setAttribute('aria-hidden', 'true');
-    badge.textContent = row.iso;
+    // SAD-355: the country's flag (monogram only if a code ever lacks an asset). Decorative —
+    // the row's accessible name is the country name in the next cell.
+    const mark = document.createElement('span');
+    mark.setAttribute('aria-hidden', 'true');
+    paintCountryMark(mark, row.iso);
 
     const name = document.createElement('span');
     name.className = 'tablify__country-name';
@@ -154,7 +156,7 @@ export class CountryList {
     dial.className = 'tablify__country-dial';
     dial.textContent = `+${row.dial}`;
 
-    button.appendChild(badge);
+    button.appendChild(mark);
     button.appendChild(name);
     button.appendChild(dial);
 

@@ -12,6 +12,11 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { PhonePanel, type PhonePanelOptions } from '../../../src/views/grid/phone/PhonePanel.js';
 import type { CellValue, FieldDefinition } from '../../../src/model/types.js';
 
+/** SAD-355: the country a trigger is showing — the flag carries the ISO as data. */
+function iso(trigger: HTMLElement): string | null {
+  return trigger.querySelector<HTMLElement>('[data-iso]')?.dataset.iso ?? null;
+}
+
 function field(phoneCountry?: string): FieldDefinition {
   return { id: 'fld_p', name: 'Phone', type: 'phone', ...(phoneCountry ? { phoneCountry } : {}) } as FieldDefinition;
 }
@@ -76,11 +81,13 @@ describe('SAD-303 — the panel is the fourth #floatPanel screen', () => {
     expect(input.type).toBe('tel');
   });
 
-  it('starts in the field default country and shows its badge and dial code', () => {
+  it('starts in the field default country and shows its flag and dial code', () => {
     const { card, trigger } = mount();
-    expect(trigger.textContent).toContain('BD');
+    // SAD-355: the country's own flag replaces the two-letter monogram, so the ISO code is no
+    // longer in the trigger's text — the accessible name still carries the country (title).
     expect(trigger.textContent).toContain('+880');
-    expect(card.querySelector('.tablify__country-badge')?.textContent).toBe('BD');
+    expect(card.querySelector('.tablify__country-flag svg')).not.toBeNull();
+    expect(trigger.title).toContain('Bangladesh');
   });
 
   it('falls back to the reader region when the field has no default', () => {
@@ -120,11 +127,13 @@ describe('SAD-303 — typing, preview and countries', () => {
   it('moves to the country an international number names, and never guesses for a national one', () => {
     const { input, trigger } = mount();
     type(input, '+14155552671');
-    expect(trigger.textContent).toContain('US');
+    // SAD-355: the trigger shows the country's flag, so identity is read from `data-iso` rather
+    // than from text; the dial code is still visible.
+    expect(iso(trigger)).toBe('US');
     expect(trigger.textContent).toContain('+1');
 
     type(input, '01712345678');
-    expect(trigger.textContent).toContain('US');
+    expect(iso(trigger)).toBe('US');
   });
 
   it('the country view filters, and picking one re-reads the same digits', () => {
@@ -144,7 +153,7 @@ describe('SAD-303 — typing, preview and countries', () => {
     row?.click();
 
     expect(view(card, 'number').hidden).toBe(false);
-    expect(trigger.textContent).toContain('US');
+    expect(iso(trigger)).toBe('US');
     expect(input.value).toBe('(415) 555-2671');
   });
 
@@ -245,7 +254,7 @@ describe('SAD-303 — what leaves the panel', () => {
   it('reads a national value in the field default, and leaves it alone when untouched', () => {
     const { card, input, trigger, commits } = mount({ value: '01712345678', field: field('BD') });
     expect(input.value).toBe('01712-345678');
-    expect(trigger.textContent).toContain('BD');
+    expect(iso(trigger)).toBe('BD');
     (card.querySelector('button.tablify__phone-done') as HTMLButtonElement).click();
     // No edit, so the stored text goes back exactly as it came — the host writes nothing.
     expect(commits).toEqual(['01712345678']);

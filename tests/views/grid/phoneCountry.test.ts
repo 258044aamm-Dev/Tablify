@@ -186,6 +186,25 @@ describe('CountryList (SAD-303)', () => {
     list.destroy();
   });
 
+  it('leads every row with a flag, never the fallback monogram (SAD-355)', () => {
+    const { list, picked } = openList({ selected: 'BD' });
+
+    // The generator iterates `libphonenumber-js`'s own region list, so "a row with no flag" means
+    // the package and the parser have drifted apart — the build must fail here, not ship a blank.
+    expect(rows().length).toBeGreaterThan(200);
+    expect(rows().every((r) => r.querySelector('.tablify__country-flag svg') !== null)).toBe(true);
+    expect(document.querySelector('.tablify__country-row .tablify__country-badge')).toBeNull();
+
+    // Decorative: the row's accessible name is the country, and the flag adds no text.
+    const bd = rows().find((r) => r.dataset.iso === 'BD') as HTMLButtonElement;
+    const flag = bd.querySelector('.tablify__country-flag') as HTMLElement;
+    expect(flag.getAttribute('aria-hidden')).toBe('true');
+    expect(flag.textContent).toBe('');
+
+    picked.length = 0;
+    list.destroy();
+  });
+
   it('walks the list with the arrows and picks with Enter', () => {
     const { list, picked } = openList();
     const search = list.element.querySelector('input') as HTMLInputElement;

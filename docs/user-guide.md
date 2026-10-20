@@ -197,7 +197,7 @@ default, the country comes from your computer's own region (and, failing that, t
 **Editing a phone cell.** Double-click (or press **Enter**, or tap the cell again) and a panel
 opens under the cell:
 
-- the country on the left (its code and calling code) and the number field on the right;
+- the country on the left (its flag and calling code) and the number field on the right;
 - typing a national number formats it the way that country writes it — `01712345678` becomes
   `01712-345678` — while the line under it shows the form that will be saved, `+880 1712 345678`;
 - a number that is not valid for the country says so (*Not a valid number for Bangladesh*) and is

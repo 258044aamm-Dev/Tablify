@@ -12,6 +12,7 @@
  */
 
 import { CountryList } from './CountryList.js';
+import { paintCountryMark } from './countryMark.js';
 import { countryRow, type CountryRow } from '../../../model/phone/countries.js';
 import { applyTheme } from '../../../ui/theme/tokens.js';
 import { faIcon } from '../../../ui/faIcons.js';
@@ -34,6 +35,8 @@ export class CountrySelect {
   private readonly locale: string;
   private readonly trigger: HTMLButtonElement;
   private readonly triggerLabel: HTMLElement;
+  /** SAD-355: the flag/monogram in front of the label. */
+  private readonly triggerMark: HTMLElement;
   private panel: HTMLElement | null = null;
   private list: CountryList | null = null;
   private unwire: (() => void) | null = null;
@@ -51,10 +54,10 @@ export class CountrySelect {
     this.trigger.setAttribute('aria-haspopup', 'listbox');
     this.trigger.setAttribute('aria-expanded', 'false');
 
-    const badge = document.createElement('span');
-    badge.className = 'tablify__country-badge tablify__country-trigger-badge';
-    badge.setAttribute('aria-hidden', 'true');
-    this.trigger.appendChild(badge);
+    // SAD-355: the trigger leads with the country's flag too — one country, one mark.
+    this.triggerMark = document.createElement('span');
+    this.triggerMark.setAttribute('aria-hidden', 'true');
+    this.trigger.appendChild(this.triggerMark);
 
     this.triggerLabel = document.createElement('span');
     this.triggerLabel.className = 'tablify__country-trigger-label';
@@ -108,8 +111,7 @@ export class CountrySelect {
 
   private paint(): void {
     const row = this.value ? countryRow(this.value, this.locale) : undefined;
-    const badge = this.trigger.querySelector<HTMLElement>('.tablify__country-badge');
-    if (badge) badge.textContent = row ? row.iso : '—';
+    paintCountryMark(this.triggerMark, row ? row.iso : null);
     this.triggerLabel.textContent = row ? `${row.name}  +${row.dial}` : 'No default — use my region';
     this.trigger.classList.toggle('tablify__country-trigger--empty', !row);
   }
