@@ -140,6 +140,15 @@ export interface GridOptions {
   onRate?: (rowIndex: number, colIndex: number, value: number) => void;
   /** SAD-304: whether a field's cells may be edited in place (read-only ratings draw no targets). */
   canRate?: (field: FieldDefinition) => boolean;
+  /**
+   * SAD-347: resolve an attachment path to a browser-renderable image URL when it points to an
+   * image in the vault (or an image URL). Null for non-images or missing vault files.
+   */
+  resolveAttachmentUrl?: (path: string) => string | null;
+  /**
+   * SAD-347: called when an inline image thumbnail in an attachment cell is clicked.
+   */
+  onPreviewAttachment?: (path: string, url: string) => void;
 }
 
 /**
@@ -1448,8 +1457,13 @@ export class GridView {
             // COD-73: an address is a link (and owns its click, like the checkbox).
             renderContactLink(text, field, val);
           } else if (field.type === 'attachment') {
-            // COD-73: one paperclip chip per file, instead of a joined path string.
-            renderAttachmentChips(text, val);
+            // COD-73 / SAD-347: one paperclip chip per file, upgraded to an inline image thumbnail
+            // chip when the path resolves to a valid image.
+            cell.classList.add('tablify__cell--attachment');
+            renderAttachmentChips(text, val, {
+              resolveUrl: this.opts.resolveAttachmentUrl,
+              onPreview: this.opts.onPreviewAttachment,
+            });
           } else if (field.type === 'number') {
             // COD-73: grouping separators for the reader; the stored value and export stay raw.
             text.textContent = groupedNumberText(val);

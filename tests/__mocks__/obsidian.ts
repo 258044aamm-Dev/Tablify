@@ -204,6 +204,8 @@ export class App {
   vault = {
     getFiles: (): TFile[] => [],
     getAbstractFileByPath: (): TAbstractFile | null => null,
+    getResourcePath: (file: { path?: string } | null | undefined): string =>
+      file && typeof file.path === 'string' && file.path ? `app://local/${file.path}` : 'app://local/resource',
     getName: () => 'vault',
   };
   workspace = new Workspace();

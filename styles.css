@@ -4306,6 +4306,83 @@ body.is-phone .view-content.tablify-view.tablify {
   color: var(--tablify-accent-primary);
 }
 
+/* SAD-347: inline image attachment chip. Trades vertical capsule padding like select and
+   long-text cells so the rounded thumbnail fits cleanly inside Small (28px), Medium (34px), and
+   Large (40px) capsules without altering row pitch or virtual-row math. */
+.tablify__cell--attachment > .tablify__capsule {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.tablify--rh-small .tablify__cell--attachment > .tablify__capsule {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+
+.tablify--rh-large .tablify__cell--attachment > .tablify__capsule {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.tablify__chip--image {
+  gap: 5px;
+  padding: 2px 6px 2px 3px;
+}
+
+.tablify--rh-small .tablify__chip--image {
+  padding: 1px 5px 1px 2px;
+}
+
+.tablify button.tablify__chip-thumb-btn,
+.tablify__chip-thumb-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  box-shadow: none;
+  min-height: 0;
+  height: auto;
+  line-height: 1;
+  appearance: none;
+}
+
+.tablify button.tablify__chip-thumb-btn {
+  cursor: zoom-in;
+}
+
+.tablify button.tablify__chip-thumb-btn:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: 1px;
+}
+
+.tablify__chip-thumb {
+  display: block;
+  width: 20px;
+  height: 20px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--tablify-border-subtle);
+  background: var(--tablify-bg-capsule);
+  flex: 0 0 auto;
+}
+
+.tablify--rh-small .tablify__chip-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.tablify--rh-large .tablify__chip-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+}
+
 /* A long-text cell keeps the prototype's `line-clamp-2`. The capsule's padding leaves room for
    one line of the default 16px, so the two-line cells trade the vertical padding for a 14px
    line box — the same trade select cells make for their chip. A small row (28px) has room for

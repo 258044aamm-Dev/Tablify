@@ -577,6 +577,62 @@ describe('COD-73 — an attachment cell is one paperclip chip per file', () => {
     expect(textOf(grid, 'f_attach')).toBe('');
     grid.destroy();
   });
+
+  it('SAD-347: upgrades an existing image attachment to an inline thumbnail chip while keeping textContent intact', () => {
+    const previews: Array<{ path: string; url: string }> = [];
+    const grid = mount(
+      {
+        resolveAttachmentUrl: (p) => (p === 'Assets/photo.png' ? 'app://local/Assets/photo.png' : null),
+        onPreviewAttachment: (path, url) => previews.push({ path, url }),
+      },
+      [row({ ...VALUES, f_attach: ['Assets/photo.png', 'Files/brief.pdf'] })],
+    );
+    const cell = cellOf(grid, 'f_attach');
+    expect(cell.classList.contains('tablify__cell--attachment')).toBe(true);
+    const chips = Array.from(cell.querySelectorAll('.tablify__chip--file'));
+    expect(chips).toHaveLength(2);
+    // First chip is an image chip with a thumbnail button; second is a non-image paperclip chip.
+    expect(chips[0].classList.contains('tablify__chip--image')).toBe(true);
+    expect(chips[1].classList.contains('tablify__chip--image')).toBe(false);
+    const img = chips[0].querySelector<HTMLImageElement>('img.tablify__chip-thumb');
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute('src')).toBe('app://local/Assets/photo.png');
+    expect(img?.getAttribute('alt')).toBe('photo.png');
+    // Text contract is 100% preserved for both chips and the cell.
+    expect(chips.map((c) => c.textContent)).toEqual(['Assets/photo.png', 'Files/brief.pdf']);
+    expect(textOf(grid, 'f_attach')).toBe('Assets/photo.png Files/brief.pdf');
+
+    // Clicking the thumbnail button calls onPreviewAttachment and does not select the cell.
+    const btn = chips[0].querySelector<HTMLButtonElement>('button.tablify__chip-thumb-btn');
+    expect(btn).not.toBeNull();
+    btn?.click();
+    expect(previews).toEqual([{ path: 'Assets/photo.png', url: 'app://local/Assets/photo.png' }]);
+    expect(grid.getSelection()).toBeNull();
+    grid.destroy();
+  });
+
+  it('SAD-347: falls back to the paperclip chip when an image fails to load at runtime', () => {
+    const grid = mount(
+      {
+        resolveAttachmentUrl: (p) => `app://local/${p}`,
+      },
+      [row({ ...VALUES, f_attach: 'Assets/corrupt.png' })],
+    );
+    const chip = cellOf(grid, 'f_attach').querySelector<HTMLElement>('.tablify__chip--file');
+    expect(chip?.classList.contains('tablify__chip--image')).toBe(true);
+    const img = chip?.querySelector<HTMLImageElement>('img.tablify__chip-thumb');
+    const icon = chip?.querySelector<HTMLElement>('.tablify__chip-icon');
+    expect(img).not.toBeNull();
+    expect(icon?.hidden).toBe(true);
+
+    // Simulate runtime image decode failure: chip reverts to standard paperclip chip.
+    img?.dispatchEvent(new Event('error'));
+    expect(chip?.classList.contains('tablify__chip--image')).toBe(false);
+    expect(chip?.querySelector('img.tablify__chip-thumb')).toBeNull();
+    expect(icon?.hidden).toBe(false);
+    expect(chip?.textContent).toBe('Assets/corrupt.png');
+    grid.destroy();
+  });
 });
 
 describe('COD-73 — long text clamps to two lines', () => {

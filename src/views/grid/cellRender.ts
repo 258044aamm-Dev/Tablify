@@ -20,6 +20,7 @@ import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { CellValue, FieldDefinition } from '../../model/types.js';
 import { ratingNumber, starFills } from './rating/scale.js';
 import { formatPhoneDisplay, telHref } from '../../model/phone/phoneValue.js';
+import { attachmentFileName, isImageAttachmentPath } from './attachment.js';
 
 export type CellTheme = 'light' | 'dark';
 
@@ -332,8 +333,35 @@ export function attachmentPaths(value: CellValue | undefined): string[] {
   return typeof value === 'string' && value !== '' ? [value] : [];
 }
 
-/** One paperclip chip per file, the prototype's `FT.attachment.fmt`. */
-export function renderAttachmentChips(host: HTMLElement, value: CellValue | undefined): void {
+/** Options for {@link renderAttachmentChips}. */
+export interface AttachmentChipOptions {
+  /**
+   * SAD-347: resolve a stored path to a browser-renderable image URL when the path is an image
+   * that exists in the vault (or is a direct image URL). Return null for non-images or missing
+   * files so the chip renders the standard paperclip icon.
+   */
+  resolveUrl?: (path: string) => string | null;
+  /**
+   * SAD-347: called when the user clicks the inline image thumbnail in a chip. The thumbnail
+   * owns its click (`stopPropagation`), like the checkbox and contact link, so clicking the
+   * thumbnail opens the lightbox without moving cell selection or opening the cell editor.
+   */
+  onPreview?: (path: string, url: string) => void;
+}
+
+/**
+ * One paperclip chip per file, the prototype's `FT.attachment.fmt`.
+ *
+ * SAD-347: when a path is an image and `options.resolveUrl(path)` returns a usable resource URL,
+ * the chip renders an inline rounded thumbnail beside the path text (`.tablify__chip--image`). If
+ * the image is missing or fails to decode at runtime (`error` event), the chip falls back to the
+ * standard paperclip icon so the cell never shows a broken image or loses its text.
+ */
+export function renderAttachmentChips(
+  host: HTMLElement,
+  value: CellValue | undefined,
+  options: AttachmentChipOptions = {},
+): void {
   let first = true;
   for (const path of attachmentPaths(value)) {
     if (!first) host.appendChild(document.createTextNode(' '));
@@ -345,6 +373,47 @@ export function renderAttachmentChips(host: HTMLElement, value: CellValue | unde
     icon.className = 'tablify__chip-icon';
     // Generated glyph markup (src/ui/faIcons.ts), never user text.
     icon.innerHTML = faIcon('paperclip', 9);
+
+    const imageUrl = isImageAttachmentPath(path) ? (options.resolveUrl?.(path) ?? null) : null;
+    if (imageUrl) {
+      chip.classList.add('tablify__chip--image');
+      icon.hidden = true;
+      const onPreview = options.onPreview;
+      const thumbWrap = document.createElement(onPreview ? 'button' : 'span');
+      if (onPreview) {
+        const btn = thumbWrap as HTMLButtonElement;
+        btn.type = 'button';
+        btn.className = 'tablify__chip-thumb-btn';
+        btn.setAttribute('aria-label', `Preview ${path}`);
+        btn.title = `Preview ${path}`;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onPreview(path, imageUrl);
+        });
+        btn.addEventListener('dblclick', (e) => e.stopPropagation());
+        btn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') e.stopPropagation();
+        });
+      } else {
+        thumbWrap.className = 'tablify__chip-thumb-wrap';
+      }
+      const img = document.createElement('img');
+      img.className = 'tablify__chip-thumb';
+      img.src = imageUrl;
+      img.alt = attachmentFileName(path);
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.draggable = false;
+      img.addEventListener('error', () => {
+        chip.classList.remove('tablify__chip--image');
+        thumbWrap.remove();
+        icon.hidden = false;
+      });
+      thumbWrap.appendChild(img);
+      chip.appendChild(thumbWrap);
+    }
+
     chip.appendChild(icon);
     chip.appendChild(document.createTextNode(path));
     host.appendChild(chip);
