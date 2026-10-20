@@ -4590,9 +4590,14 @@ body.is-phone .view-content.tablify-view.tablify {
 /* ---- phone country (SAD-303) ------------------------------------------------------------ */
 /* The country row in Add / Modify Field, and the searchable list both it and the phone cell
    panel open. Every colour is an existing token, so no contrast rule and no theme test changes.
-   The badge is a two-letter monogram, not an emoji flag: Windows' Segoe UI Emoji ships no flag
-   glyphs, so an emoji would render as those same two letters there — and as a box on some
-   Linux fonts. The monogram looks the same everywhere and costs no asset. */
+
+   SAD-355: the row leads with the country's flag, an inlined SVG from `country-flag-icons`
+   (`src/ui/flags.ts`, generated — see `scripts/gen-flags.mjs` and docs/decisions/country-flags.md).
+   A flag is not an emoji here on purpose: Windows' Segoe UI Emoji ships no flag glyphs, so an
+   emoji renders as two regional-indicator letters there and as tofu on a Linux without Noto Color
+   Emoji — this plugin runs on all three desktops, and the harness blocks every remote request, so
+   a fetched sprite is not an option either. The monogram stays as the fallback path for a code
+   with no asset; `npm run check:flags` guarantees there is none. */
 
 .tablify__af-hint {
   margin: 2px 0 6px;
@@ -4619,6 +4624,27 @@ body.is-phone .view-content.tablify-view.tablify {
   letter-spacing: 0.04em;
   line-height: 1;
   flex: 0 0 auto;
+}
+
+/* SAD-355: the flag. 3:2 at 21 x 14, rounded, with a hairline ring so a mostly-white flag (JP, PL,
+   ID, BO) does not dissolve into a white card in the light theme. The ring is a `box-shadow`, not
+   a border, so the 21 px width and the 3:2 ratio stay exact. The monogram below remains as the
+   fallback for a code with no asset — none of the 245 today. */
+.tablify__country-flag {
+  display: inline-flex;
+  justify-self: start;
+  flex: 0 0 auto;
+  width: 21px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tablify-border) 60%, transparent);
+}
+
+.tablify__country-flag-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .tablify__country-heading {
@@ -4692,7 +4718,7 @@ body.is-phone .view-content.tablify-view.tablify {
    (`tabular-nums` makes +7 / +880 / +1 246 line up on the digit, not on the plus). */
 .tablify button.tablify__dropdown-item.tablify__country-row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto 14px;
+  grid-template-columns: 22px minmax(0, 1fr) auto 14px;
   align-items: center;
   gap: 10px;
   min-height: 32px;

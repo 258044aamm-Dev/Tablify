@@ -17,6 +17,7 @@
 import { faIcon } from '../../../ui/faIcons.js';
 import type { CellValue, FieldDefinition } from '../../../model/types.js';
 import { anchorPanel, createPanelCard } from '../select/panel.js';
+import { paintCountryMark } from './countryMark.js';
 import { CountryList } from './CountryList.js';
 import { countryRow, type CountryRow } from '../../../model/phone/countries.js';
 import {
@@ -282,7 +283,7 @@ export class PhonePanel {
 
   private paintCountry(): void {
     const row = countryRow(this.country, this.locale);
-    this.triggerBadge.textContent = row ? row.iso : '—';
+    paintCountryMark(this.triggerBadge, row ? row.iso : null);
     this.triggerText.textContent = row ? `+${row.dial}` : '';
     this.trigger.title = row ? `${row.name} (+${row.dial})` : 'Choose a country';
   }

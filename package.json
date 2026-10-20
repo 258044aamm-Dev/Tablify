@@ -12,7 +12,8 @@
     "check:guard": "bash scripts/check-tabula-guard.sh",
     "check:docs": "node scripts/check-docs-links.mjs",
     "check:icons": "node scripts/gen-fa-icons.mjs --check",
-    "check": "npm run lint && npm run test && npm run check:guard && npm run check:docs && npm run check:icons && npm run build",
+    "check:flags": "node scripts/gen-flags.mjs --check",
+    "check": "npm run lint && npm run test && npm run check:guard && npm run check:docs && npm run check:icons && npm run check:flags && npm run build",
     "visual:compare": "tsx tests/visual/capture-compare.ts"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "axe-core": "^4.14.0",
+    "country-flag-icons": "^1.6.20",
     "csv-parse": "^5.6.0",
     "esbuild": "^0.20.0",
     "eslint": "^10.12.0",
