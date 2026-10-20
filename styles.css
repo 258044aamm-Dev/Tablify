@@ -2814,6 +2814,15 @@ body.is-phone .view-content.tablify-view.tablify {
   color: var(--tablify-text-muted);
 }
 
+/* SAD-355: inside the wide popover a left-aligned 11 px line reads as a broken row. The picker's
+   empty state is a centred block (`styles.css`, `.tablify__tp-empty`); this is the same call. */
+.tablify__country-popover .tablify__dropdown-empty {
+  padding: 26px 16px;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
 .tablify__dropdown-create {
   justify-content: flex-start;
   font-size: 12px;
@@ -4818,23 +4827,33 @@ body.is-phone .view-content.tablify-view.tablify {
   max-height: min(348px, 45vh);
 }
 
+/* SAD-355: the action is the card's footer band, not a bare button floating under the list.
+   `.tablify__dropdown-foot` and `.tablify__phone-foot` both close a panel with a hairline above
+   an `bg-inner` row; this is the country popover's version of that, and it gives the card a
+   bottom edge instead of cutting the last scrolled row in half. The hover ink is the danger red
+   every other clear action in the app uses (`dropdown-clear:hover`) — clearing a default is
+   destructive, and a neutral hover said it was not. */
 .tablify.tablify__panel button.tablify__country-clear {
   flex: 0 0 auto;
-  margin-top: 6px;
-  padding: 6px 8px;
-  background: transparent;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 7px 12px;
+  background: var(--tablify-bg-inner);
   color: var(--tablify-text-muted);
   border: 0;
-  border-radius: 8px;
+  border-top: 1px solid var(--tablify-border-subtle);
+  border-radius: 0;
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 11px;
+  line-height: 16px;
   text-align: left;
   cursor: pointer;
 }
 
 .tablify.tablify__panel button.tablify__country-clear:hover:not(:disabled) {
-  background: var(--tablify-bg-pill-hover);
-  color: var(--tablify-text);
+  background: var(--tablify-bg-inner);
+  color: var(--tablify-text-danger);
 }
 
 .tablify.tablify__panel button.tablify__country-clear:disabled {
