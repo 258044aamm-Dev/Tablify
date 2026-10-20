@@ -232,15 +232,13 @@ write is visible before you commit; hovering the cell itself says `4.5 out of 5`
 that already holds the value writes nothing. The stars in the cell are a mouse and trackpad
 shortcut; they are not in the tab order, because the arrow keys belong to the grid.
 
-**The panel.** Double-click the cell (or press **Enter**, or tap it again) for the full editor:
+**The panel.** Double-click the cell (or press **Enter**, or tap it again) for the full editor — a 300 px card with a clear hierarchy like the date and phone panels:
 
-- one big star per point of the Max (five by default); click the **left half** of a star for
-  `x.5` and the **right half** for `x`, or drag across them to scrub;
-- a numeric field for any value the stars cannot point at — type `3.7`, `4,5` or `0`, two decimals
-  at most; empty means no rating;
-- a caption that always reads the current draft (`4.5 out of 5 stars`);
-- **Done** or **Enter** saves (one undo step), **Clear** empties the cell, **Escape** throws the
-  draft away, and closing the panel without changing anything writes nothing.
+- a header row shows the field name and the live value (`Quality · 4.5 out of 5 stars`);
+- a pill-shaped track holds one big star per point of the Max (five by default, up to ten) — click the **left half** for `x.5` and the **right half** for `x`, or drag to scrub; the track highlights on hover;
+- a capsule field holds the numeric input (`3.7`, `4,5`, `0`, two decimals at most; empty means no rating) with `/ 5` as a suffix, the same chrome as the date/phone panels;
+- the caption always reads the current draft (`4.5 out of 5 stars`) and is announced as it changes;
+- **Done** or **Enter** saves (one undo step), **Clear** empties the cell, **Escape** throws the draft away, and closing the panel without changing anything writes nothing.
 
 The star row is a slider for keyboard and screen readers: **← →** move by half a star, **PageUp /
 PageDown** by a whole one, **Home** and **End** jump to 0 and the Max, **Delete** clears, and a

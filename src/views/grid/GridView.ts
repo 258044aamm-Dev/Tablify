@@ -1491,6 +1491,9 @@ export class GridView {
             Number.isFinite(val)
           ) {
             cell.title = `${val} out of ${ratingScale(field)}`;
+            if (this.opts.canRate && !this.opts.canRate(field)) {
+              cell.title += ' · read-only';
+            }
           }
           // COD-73: numeric cells sit right, like the prototype's `align: 'right'` types.
           if (isNumericCellType(field)) cell.classList.add('tablify__cell--numeric');

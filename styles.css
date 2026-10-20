@@ -4565,6 +4565,42 @@ body.is-phone .view-content.tablify-view.tablify {
   font-size: 11.5px;
 }
 
+/* SAD-354 — empty rating shows fainter stars (intentional empty, not disabled) */
+.tablify__stars--empty .tablify__star-base {
+  color: var(--tablify-text-faint);
+}
+
+/* SAD-354 — touch (pointer: coarse) grows targets like date panel (36→44px) */
+@media (pointer: coarse) {
+  .tablify__rating-panel {
+    width: min(340px, calc(100vw - 24px));
+  }
+
+  .tablify__rating-stars .tablify__star-box {
+    width: 24px;
+    height: 24px;
+  }
+
+  .tablify__rating-stars[data-scale="10"] .tablify__star-box {
+    width: 20px;
+    height: 20px;
+  }
+
+  .tablify__rating-slider-wrap {
+    min-height: 42px;
+    padding: 10px 12px;
+  }
+
+  .tablify__rating-field {
+    height: 38px;
+  }
+
+  .tablify__stars--interactive .tablify__star {
+    padding: 6px 2px;
+    margin: -6px -2px;
+  }
+}
+
 /* A URL / email / phone cell is a link. It keeps the cell's ink so the grid does not turn into
    a page of blue, and shows it is a link on hover — the prototype's `text-sky-600` reads as a
    browser, not as a table. */

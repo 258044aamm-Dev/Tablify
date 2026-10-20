@@ -18796,8 +18796,11 @@ function wireStarPreview(stars) {
 function renderRatingStars(host, field, value, options = {}) {
   const scale = ratingScale(field);
   const fills = starFills(value, scale);
+  const rating = ratingNumber(value);
   const stars = document.createElement("span");
   stars.className = options.interactive ? "tablify__stars tablify__stars--interactive" : "tablify__stars";
+  if (rating === null)
+    stars.classList.add("tablify__stars--empty");
   stars.setAttribute("aria-hidden", "true");
   for (let i = 0; i < scale; i += 1) {
     const fill = fills[i] ?? 0;
@@ -18822,7 +18825,6 @@ function renderRatingStars(host, field, value, options = {}) {
   if (options.interactive)
     wireStarPreview(stars);
   host.appendChild(stars);
-  const rating = ratingNumber(value);
   if (rating !== null) {
     const label = document.createElement("span");
     label.className = "tablify__rating-text";
@@ -20049,6 +20051,9 @@ var GridView = class {
             applyValidationState(cell2, field, row, this.rows);
           if (field.type === "rating" && !cell2.classList.contains("tablify__cell--invalid") && typeof val === "number" && Number.isFinite(val)) {
             cell2.title = `${val} out of ${ratingScale(field)}`;
+            if (this.opts.canRate && !this.opts.canRate(field)) {
+              cell2.title += " \xB7 read-only";
+            }
           }
           if (isNumericCellType(field))
             cell2.classList.add("tablify__cell--numeric");

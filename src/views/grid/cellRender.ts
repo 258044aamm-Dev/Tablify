@@ -247,8 +247,10 @@ export function renderRatingStars(
 ): void {
   const scale = ratingScale(field);
   const fills = starFills(value, scale);
+  const rating = ratingNumber(value);
   const stars = document.createElement('span');
   stars.className = options.interactive ? 'tablify__stars tablify__stars--interactive' : 'tablify__stars';
+  if (rating === null) stars.classList.add('tablify__stars--empty');
   stars.setAttribute('aria-hidden', 'true');
   for (let i = 0; i < scale; i += 1) {
     const fill = fills[i] ?? 0;
@@ -277,7 +279,6 @@ export function renderRatingStars(
   }
   if (options.interactive) wireStarPreview(stars);
   host.appendChild(stars);
-  const rating = ratingNumber(value);
   if (rating !== null) {
     const label = document.createElement('span');
     label.className = 'tablify__rating-text';
