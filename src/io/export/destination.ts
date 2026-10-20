@@ -30,8 +30,16 @@ export interface SaveFilePickerOptions {
   }>;
 }
 
+/**
+ * SAD-350 round 2: which mobile host this runtime runs in. `null` (the default) keeps the
+ * desktop policy — see the AbortError note in beginExportSave().
+ */
+export type MobilePlatform = 'ios' | 'android' | null;
+
 export interface ExportSaveRuntime {
   isMobile: boolean;
+  /** SAD-350 round 2: selects the AbortError policy in beginExportSave(). */
+  mobilePlatform?: MobilePlatform;
   showSaveFilePicker?: (options: SaveFilePickerOptions) => Promise<SaveFileHandle>;
   createFile?: (artifact: ExportArtifact) => File;
   canShareFile?: (file: File) => boolean;
@@ -45,6 +53,12 @@ export interface ExportSaveRuntime {
    * support depends on the WebView/host-app combination).
    */
   saveToFallbackFolder?: (artifact: ExportArtifact) => Promise<FolderSave>;
+  /**
+   * SAD-350 round 2 (opt-in): the last resort when no native destination works — write the
+   * export next to the table. Absent unless the user turned on the Export setting, so the
+   * default behaviour ("exports never write into the vault") is unchanged.
+   */
+  saveToVault?: (artifact: ExportArtifact) => Promise<FolderSave>;
 }
 
 export type FolderSave =
@@ -53,12 +67,13 @@ export type FolderSave =
 
 export type ExportPickerStart =
   | { kind: 'handle'; handle: SaveFileHandle }
-  | { kind: 'unavailable' }
+  /** SAD-350 round 2: no dialog was presented — `reason` names why when one is known. */
+  | { kind: 'unavailable'; reason?: string }
   | { kind: 'cancelled' }
   | { kind: 'failed'; error: string };
 
 export type ExportSaveResult =
-  | { ok: true; method: 'picker' | 'share' | 'download' | 'folder'; fileName: string; displayPath?: string }
+  | { ok: true; method: 'picker' | 'share' | 'download' | 'folder' | 'vault'; fileName: string; displayPath?: string }
   | { ok: false; cancelled: true }
   | { ok: false; cancelled?: false; error: string };
 
@@ -110,6 +125,66 @@ export async function shareExportArtifact(artifact: ExportArtifact, runtime: Exp
 }
 
 /**
+ * SAD-350 round 2: how long an AbortError may take and still count as "the app never presented a
+ * dialog". A person needs longer than this to open and dismiss a system dialog, and a WebView
+ * that cancels at once answers in single-digit milliseconds.
+ */
+export const PICKER_SILENT_ABORT_MS = 1000;
+
+/** What the last picker attempt actually looked like — read by the diagnostics probe. */
+export interface PickerAttemptRecord {
+  elapsedMs: number;
+  /** True when the app lost focus or went hidden: the signal that a real dialog was shown. */
+  presented: boolean;
+  errorName: string;
+  outcome: ExportPickerStart['kind'];
+}
+
+let lastPickerAttempt: PickerAttemptRecord | null = null;
+
+/** The most recent picker attempt, for the read-only diagnostics command. `null` before any. */
+export function lastExportPickerAttempt(): PickerAttemptRecord | null {
+  return lastPickerAttempt;
+}
+
+/**
+ * Watch for the app losing focus, which is what a native chooser does. Same signal, same
+ * reasoning as `pickFileFromDevice()` for `<input type="file">`
+ * (src/views/grid/attachmentImport.ts): a WebView that cannot open a chooser answers with
+ * nothing at all, so "no focus change" means "no dialog was shown".
+ *
+ * Enabled for Android only. Elsewhere the result is never consulted, because a silent abort is
+ * only ever inferred on Android (beginExportSave).
+ */
+function watchPickerPresentation(enabled: boolean): { presented(): boolean; stop(): void } {
+  const noSignal = { presented: () => false, stop: () => undefined };
+  if (!enabled || typeof window === 'undefined') return noSignal;
+  let focusedAway = false;
+  const mark = (): void => {
+    focusedAway = true;
+  };
+  const onVisibility = (): void => {
+    if (document.visibilityState === 'hidden') focusedAway = true;
+  };
+  window.addEventListener('blur', mark);
+  document.addEventListener('visibilitychange', onVisibility);
+  return {
+    presented: () => focusedAway,
+    stop: () => {
+      window.removeEventListener('blur', mark);
+      document.removeEventListener('visibilitychange', onVisibility);
+    },
+  };
+}
+
+function errorNameOf(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'name' in error) {
+    return String((error as { name?: unknown }).name);
+  }
+  return 'Error';
+}
+
+/**
  * Start the native picker immediately from the Export button's click handler, before file reads
  * and XLSX generation can consume the browser's transient user activation.
  */
@@ -128,16 +203,43 @@ export function beginExportSave(
     types: [{ description: descriptionFor(mimeType), accept: { [mimeType]: [extension] } }],
   };
 
+  const startedAt = Date.now();
+  const watch = watchPickerPresentation(runtime.mobilePlatform === 'android');
+
+  /**
+   * SAD-350 round 2: on Android, `showSaveFilePicker` exists in the WebView (M132+) but the
+   * host app must implement the save-mode chooser. When it does not, Chromium rejects at once
+   * with AbortError and no dialog. Treating that as "cancelled" ended the export before the
+   * share/folder tiers that do work — the reported bug. A dialog that was dismissed by the
+   * user is still a cancellation, because the app lost focus when it appeared.
+   */
+  const settle = (error: unknown): ExportPickerStart => {
+    const elapsedMs = Date.now() - startedAt;
+    const presented = watch.presented();
+    watch.stop();
+    const errorName = errorNameOf(error);
+    if (!isAbortError(error)) {
+      lastPickerAttempt = { elapsedMs, presented, errorName, outcome: 'failed' };
+      return { kind: 'failed', error: errorMessage(error) };
+    }
+    const silentAbort =
+      runtime.mobilePlatform === 'android' && !presented && elapsedMs <= PICKER_SILENT_ABORT_MS;
+    lastPickerAttempt = { elapsedMs, presented, errorName, outcome: silentAbort ? 'unavailable' : 'cancelled' };
+    return silentAbort
+      ? { kind: 'unavailable', reason: 'The system save dialog did not open on this device.' }
+      : { kind: 'cancelled' };
+  };
+
   try {
-    return runtime.showSaveFilePicker(options).then(
-      (handle) => ({ kind: 'handle', handle }),
-      (error: unknown) =>
-        isAbortError(error) ? { kind: 'cancelled' } : { kind: 'failed', error: errorMessage(error) },
+    return runtime.showSaveFilePicker(options).then<ExportPickerStart, ExportPickerStart>(
+      (handle) => {
+        watch.stop();
+        return { kind: 'handle', handle };
+      },
+      settle,
     );
   } catch (error) {
-    return Promise.resolve(
-      isAbortError(error) ? { kind: 'cancelled' } : { kind: 'failed', error: errorMessage(error) },
-    );
+    return Promise.resolve(settle(error));
   }
 }
 
@@ -174,6 +276,7 @@ export async function saveExportArtifact(
   // instead of pretending an unavailable destination worked.
   const reasons: string[] = [];
   if (picker.kind === 'failed') reasons.push(`Save picker failed: ${picker.error}.`);
+  else if (picker.kind === 'unavailable' && picker.reason) reasons.push(picker.reason);
 
   if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile) {
     const shared = await shareExportArtifact(artifact, runtime);
@@ -201,6 +304,18 @@ export async function saveExportArtifact(
     } catch (error) {
       return { ok: false, error: `Could not start the download: ${errorMessage(error)}` };
     }
+  }
+
+  // SAD-350 round 2 (opt-in): every destination above was unavailable or failed. With the
+  // Export setting on, write the file next to the table rather than ending with nothing.
+  // Deliberately last — after the desktop download — so enabling it can never change a
+  // desktop export.
+  if (runtime.saveToVault) {
+    const saved = await runtime.saveToVault(artifact);
+    if (saved.ok) {
+      return { ok: true, method: 'vault', fileName: saved.fileName, displayPath: saved.displayPath };
+    }
+    reasons.push(saved.error);
   }
 
   const detail = reasons.length > 0 ? ` ${reasons.join(' ')}` : '';
@@ -318,7 +433,10 @@ export function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 /** Build platform capabilities lazily so tests can supply deterministic implementations. */
-export function browserExportSaveRuntime(isMobile: boolean): ExportSaveRuntime {
+export function browserExportSaveRuntime(
+  isMobile: boolean,
+  mobilePlatform: MobilePlatform = null,
+): ExportSaveRuntime {
   const win = window as Window & { showSaveFilePicker?: ExportSaveRuntime['showSaveFilePicker'] };
   const nav = navigator as Navigator & {
     canShare?: (data: { files: File[] }) => boolean;
@@ -327,6 +445,7 @@ export function browserExportSaveRuntime(isMobile: boolean): ExportSaveRuntime {
 
   const runtime: ExportSaveRuntime = {
     isMobile,
+    mobilePlatform,
     downloadFile(blob, fileName) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');

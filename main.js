@@ -11817,6 +11817,36 @@ async function shareExportArtifact(artifact, runtime) {
     return { ok: false, kind: "failed", error: errorMessage(error) };
   }
 }
+var PICKER_SILENT_ABORT_MS = 1e3;
+var lastPickerAttempt = null;
+function watchPickerPresentation(enabled) {
+  const noSignal = { presented: () => false, stop: () => void 0 };
+  if (!enabled || typeof window === "undefined")
+    return noSignal;
+  let focusedAway = false;
+  const mark = () => {
+    focusedAway = true;
+  };
+  const onVisibility = () => {
+    if (document.visibilityState === "hidden")
+      focusedAway = true;
+  };
+  window.addEventListener("blur", mark);
+  document.addEventListener("visibilitychange", onVisibility);
+  return {
+    presented: () => focusedAway,
+    stop: () => {
+      window.removeEventListener("blur", mark);
+      document.removeEventListener("visibilitychange", onVisibility);
+    }
+  };
+}
+function errorNameOf(error) {
+  if (typeof error === "object" && error !== null && "name" in error) {
+    return String(error.name);
+  }
+  return "Error";
+}
 function beginExportSave(fileName, mimeType, runtime) {
   if (!runtime.showSaveFilePicker)
     return Promise.resolve({ kind: "unavailable" });
@@ -11827,15 +11857,31 @@ function beginExportSave(fileName, mimeType, runtime) {
     excludeAcceptAllOption: true,
     types: [{ description: descriptionFor(mimeType), accept: { [mimeType]: [extension] } }]
   };
+  const startedAt = Date.now();
+  const watch = watchPickerPresentation(runtime.mobilePlatform === "android");
+  const settle = (error) => {
+    const elapsedMs = Date.now() - startedAt;
+    const presented = watch.presented();
+    watch.stop();
+    const errorName = errorNameOf(error);
+    if (!isAbortError(error)) {
+      lastPickerAttempt = { elapsedMs, presented, errorName, outcome: "failed" };
+      return { kind: "failed", error: errorMessage(error) };
+    }
+    const silentAbort = runtime.mobilePlatform === "android" && !presented && elapsedMs <= PICKER_SILENT_ABORT_MS;
+    lastPickerAttempt = { elapsedMs, presented, errorName, outcome: silentAbort ? "unavailable" : "cancelled" };
+    return silentAbort ? { kind: "unavailable", reason: "The system save dialog did not open on this device." } : { kind: "cancelled" };
+  };
   try {
     return runtime.showSaveFilePicker(options).then(
-      (handle) => ({ kind: "handle", handle }),
-      (error) => isAbortError(error) ? { kind: "cancelled" } : { kind: "failed", error: errorMessage(error) }
+      (handle) => {
+        watch.stop();
+        return { kind: "handle", handle };
+      },
+      settle
     );
   } catch (error) {
-    return Promise.resolve(
-      isAbortError(error) ? { kind: "cancelled" } : { kind: "failed", error: errorMessage(error) }
-    );
+    return Promise.resolve(settle(error));
   }
 }
 async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resolve({ kind: "unavailable" })) {
@@ -11863,6 +11909,8 @@ async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resol
   const reasons = [];
   if (picker.kind === "failed")
     reasons.push(`Save picker failed: ${picker.error}.`);
+  else if (picker.kind === "unavailable" && picker.reason)
+    reasons.push(picker.reason);
   if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile) {
     const shared = await shareExportArtifact(artifact, runtime);
     if (shared.ok)
@@ -11885,6 +11933,13 @@ async function saveExportArtifact(artifact, runtime, pickerStart = Promise.resol
     } catch (error) {
       return { ok: false, error: `Could not start the download: ${errorMessage(error)}` };
     }
+  }
+  if (runtime.saveToVault) {
+    const saved = await runtime.saveToVault(artifact);
+    if (saved.ok) {
+      return { ok: true, method: "vault", fileName: saved.fileName, displayPath: saved.displayPath };
+    }
+    reasons.push(saved.error);
   }
   const detail = reasons.length > 0 ? ` ${reasons.join(" ")}` : "";
   return { ok: false, error: `No supported save or download method is available.${detail}` };
@@ -11957,11 +12012,12 @@ function arrayBufferToBase64(buffer) {
   }
   return btoa(binary2);
 }
-function browserExportSaveRuntime(isMobile) {
+function browserExportSaveRuntime(isMobile, mobilePlatform2 = null) {
   const win = window;
   const nav = navigator;
   const runtime = {
     isMobile,
+    mobilePlatform: mobilePlatform2,
     downloadFile(blob, fileName) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -17329,6 +17385,21 @@ function errorMessage2(error) {
 // src/commands/export.ts
 var EXPORT_COMMAND_ID = "export-table";
 var EXPORT_COMMAND_NAME = "Export table (CSV, Excel, Markdown)";
+function mobilePlatform() {
+  if (typeof import_obsidian2.Platform === "undefined")
+    return null;
+  if (import_obsidian2.Platform.isIosApp)
+    return "ios";
+  if (import_obsidian2.Platform.isAndroidApp)
+    return "android";
+  return null;
+}
+function deviceExportRuntime() {
+  return browserExportSaveRuntime(
+    typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile,
+    mobilePlatform()
+  );
+}
 var EXPORT_DIAGNOSTICS_COMMAND_ID = "export-destination-diagnostics";
 var EXPORT_DIAGNOSTICS_COMMAND_NAME = "Export destination diagnostics";
 var EXPORT_VIEW_CSV_COMMAND_ID = "export-current-view-csv";
@@ -17386,7 +17457,7 @@ function exportDiagnosticsReport() {
   }
   const plugins = win.Capacitor?.Plugins;
   const fs = plugins?.Filesystem;
-  const runtime = browserExportSaveRuntime(typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile);
+  const runtime = deviceExportRuntime();
   return [
     "Tablify export diagnostics (SAD-350 \xA73.0 probe)",
     `platform: ${platform}`,
@@ -17434,6 +17505,8 @@ function exportSuccessMessage(method, fileName, rowCount, columnCount, displayPa
     return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
   if (method === "folder")
     return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? "a shared folder"}.`;
+  if (method === "vault")
+    return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to the vault at ${displayPath ?? fileName}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 function shareWithFeedback(app, payload, runtime, stale) {
@@ -17473,7 +17546,7 @@ var ExportModal = class extends import_obsidian2.Modal {
   constructor(app, source) {
     super(app);
     this.source = source;
-    this.runtime = browserExportSaveRuntime(typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile);
+    this.runtime = deviceExportRuntime();
   }
   format = "csv";
   fullTable = false;
@@ -26181,7 +26254,7 @@ var TableView = class extends import_obsidian10.TextFileView {
     const file = this.file;
     if (!file || !this.session)
       return;
-    const runtime = browserExportSaveRuntime(typeof import_obsidian10.Platform === "undefined" ? false : import_obsidian10.Platform.isMobile);
+    const runtime = deviceExportRuntime();
     if (exportDeliveryMethod(runtime) === "share") {
       const table2 = this.currentViewTable();
       if (!table2)
@@ -27618,6 +27691,8 @@ function exportSuccessMessage2(method, fileName, rowCount, columnCount, displayP
     return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
   if (method === "folder")
     return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? "a shared folder"}.`;
+  if (method === "vault")
+    return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to the vault at ${displayPath ?? fileName}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 function formatValue(value, field) {

@@ -329,3 +329,97 @@ describe('arrayBufferToBase64 (SAD-350)', () => {
     }
   });
 });
+
+/**
+ * SAD-350 round 2 — the reported bug, pinned.
+ *
+ * On Android, `showSaveFilePicker` exists in the WebView but the host app must implement the
+ * save-mode chooser; when it does not, Chromium rejects at once with AbortError and no dialog.
+ * Treating that as "cancelled" ended the export before the folder tier that does work.
+ */
+describe('SAD-350 round 2 — a picker that never opened is not a cancel', () => {
+  const instantAbort = async (): Promise<never> => {
+    throw abortError();
+  };
+
+  it('falls through to the Android shared folder when the picker aborts with no dialog (the reported bug)', async () => {
+    const runtime: ExportSaveRuntime = {
+      isMobile: true,
+      mobilePlatform: 'android',
+      showSaveFilePicker: vi.fn(instantAbort),
+      saveToFallbackFolder: vi.fn(async () => ({
+        ok: true as const,
+        fileName: 'Budget.csv',
+        displayPath: 'Download/Tablify/Budget.csv',
+      })),
+    };
+
+    const picker = await beginExportSave(artifact.fileName, artifact.mimeType, runtime);
+    expect(picker).toEqual({ kind: 'unavailable', reason: 'The system save dialog did not open on this device.' });
+
+    const saved = await saveExportArtifact(artifact, runtime, Promise.resolve(picker));
+    expect(runtime.saveToFallbackFolder).toHaveBeenCalledWith(artifact);
+    expect(saved).toEqual({
+      ok: true,
+      method: 'folder',
+      fileName: 'Budget.csv',
+      displayPath: 'Download/Tablify/Budget.csv',
+    });
+  });
+
+  it('keeps the desktop policy: an abort is still a cancellation and never downloads', async () => {
+    const downloadFile = vi.fn();
+    const runtime: ExportSaveRuntime = {
+      isMobile: false,
+      showSaveFilePicker: vi.fn(instantAbort),
+      downloadFile,
+    };
+
+    const picker = await beginExportSave(artifact.fileName, artifact.mimeType, runtime);
+    expect(picker).toEqual({ kind: 'cancelled' });
+    const result = await saveExportArtifact(artifact, runtime, Promise.resolve(picker));
+    expect(result).toEqual({ ok: false, cancelled: true });
+    expect(downloadFile).not.toHaveBeenCalled();
+  });
+
+  it('keeps the iOS policy: a runtime without the Android tag never infers a silent abort', async () => {
+    const runtime: ExportSaveRuntime = { isMobile: true, mobilePlatform: 'ios', showSaveFilePicker: vi.fn(instantAbort) };
+    expect(await beginExportSave(artifact.fileName, artifact.mimeType, runtime)).toEqual({ kind: 'cancelled' });
+  });
+
+  it('names the real reason when nothing can deliver the file', async () => {
+    const runtime: ExportSaveRuntime = {
+      isMobile: true,
+      mobilePlatform: 'android',
+      showSaveFilePicker: vi.fn(instantAbort),
+    };
+    const picker = await beginExportSave(artifact.fileName, artifact.mimeType, runtime);
+    const result = await saveExportArtifact(artifact, runtime, Promise.resolve(picker));
+    expect(result).toEqual({
+      ok: false,
+      error:
+        'No supported save or download method is available. The system save dialog did not open on this device.',
+    });
+  });
+
+  it('still calls a slow abort a cancellation, so a real dismissal is never re-saved elsewhere', async () => {
+    let clock = 1_000;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      const folder = vi.fn(async () => ({ ok: true as const, fileName: 'Budget.csv', displayPath: 'x' }));
+      const runtime: ExportSaveRuntime = {
+        isMobile: true,
+        mobilePlatform: 'android',
+        showSaveFilePicker: vi.fn(async () => {
+          clock += 5_000; // far longer than a human needs to dismiss a dialog
+          throw abortError();
+        }),
+        saveToFallbackFolder: folder,
+      };
+      expect(await beginExportSave(artifact.fileName, artifact.mimeType, runtime)).toEqual({ kind: 'cancelled' });
+      expect(folder).not.toHaveBeenCalled();
+    } finally {
+      now.mockRestore();
+    }
+  });
+});

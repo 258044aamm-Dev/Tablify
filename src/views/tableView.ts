@@ -30,10 +30,9 @@ import { snapshotTable, summarizeLinks } from '../model/link.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 import { TitleRow, type TitleRowCallbacks, type TitleRowState } from './titleRow.js';
-import { ExportShareRetryModal, openExportModal } from '../commands/export.js';
+import { ExportShareRetryModal, deviceExportRuntime, openExportModal } from '../commands/export.js';
 import {
   beginExportSave,
-  browserExportSaveRuntime,
   exportDeliveryMethod,
   saveExportArtifact,
   shareExportArtifact,
@@ -338,7 +337,7 @@ export class TableView extends TextFileView {
     const file = this.file;
     if (!file || !this.session) return;
 
-    const runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
+    const runtime = deviceExportRuntime();
 
     // SAD-350: on a share-destination device (iOS), build the CSV from the in-memory view —
     // synchronous work, so the command's tap still holds user activation for the share call.
@@ -1865,7 +1864,7 @@ export class TableView extends TextFileView {
 }
 
 function exportSuccessMessage(
-  method: 'picker' | 'share' | 'download' | 'folder',
+  method: 'picker' | 'share' | 'download' | 'folder' | 'vault',
   fileName: string,
   rowCount: number,
   columnCount: number,
@@ -1874,6 +1873,7 @@ function exportSuccessMessage(
   if (method === 'picker') return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
   if (method === 'share') return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
   if (method === 'folder') return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? 'a shared folder'}.`;
+  if (method === 'vault') return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to the vault at ${displayPath ?? fileName}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 

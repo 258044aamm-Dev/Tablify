@@ -252,3 +252,87 @@ describe('Export modal on a share-destination device (SAD-350)', () => {
     );
   });
 });
+
+/**
+ * SAD-350 round 2 — the reported bug, end to end. Android's WebView exposes
+ * `window.showSaveFilePicker` (M132+), but the host app must implement the save-mode chooser.
+ * Obsidian does not, so the call rejects instantly with AbortError and no dialog: the export
+ * used to stop there with "Export cancelled. No file was saved." and write nothing.
+ */
+describe('Export modal on Android where the save dialog never opens (SAD-350 round 2)', () => {
+  function installAbortingPicker(onCall?: () => void): ReturnType<typeof vi.fn> {
+    const picker = vi.fn(async () => {
+      onCall?.();
+      const error = new Error('The user aborted a request.');
+      error.name = 'AbortError';
+      throw error;
+    });
+    Object.defineProperty(window, 'showSaveFilePicker', { value: picker, configurable: true });
+    return picker;
+  }
+
+  function installFilesystem(writes: Array<{ path: string; directory: string; encoding?: string }>): void {
+    Object.defineProperty(window, 'Capacitor', {
+      value: {
+        Plugins: {
+          Filesystem: {
+            writeFile: vi.fn(async (opts: { path: string; directory: string; encoding?: string }) => {
+              writes.push(opts);
+              return { uri: `file:///storage/emulated/0/${opts.path}` };
+            }),
+            stat: vi.fn(async () => {
+              throw new Error('File does not exist');
+            }),
+          },
+        },
+      },
+      configurable: true,
+    });
+  }
+
+  function android(): void {
+    Platform.isIosApp = false;
+    Platform.isAndroidApp = true;
+  }
+
+  it('saves to the shared folder instead of reporting a cancellation', async () => {
+    android();
+    const writes: Array<{ path: string; directory: string; encoding?: string }> = [];
+    installFilesystem(writes);
+    const picker = installAbortingPicker();
+
+    const app = createApp(async () => serialize(makeFile(2)));
+    openExportModal(app, tableFile());
+    await flush();
+
+    const modal = Modal.opened.at(-1);
+    modal?.contentEl.querySelector('button')?.click();
+    await flush();
+
+    expect(picker).toHaveBeenCalledOnce();
+    expect(writes).toEqual([
+      expect.objectContaining({ path: 'Download/Tablify/Budget.csv', directory: 'EXTERNAL_STORAGE', encoding: 'utf8' }),
+    ]);
+    expect(Notice.messages.at(-1)).toBe('Saved Budget.csv (2 rows, 11 columns) to Download/Tablify/Budget.csv.');
+    expect(Notice.messages).not.toContain('Export cancelled. No file was saved.');
+    expect(modal?.isOpen).toBe(false);
+  });
+
+  it('still reports a real dismissal, and writes nothing', async () => {
+    android();
+    const writes: Array<{ path: string; directory: string; encoding?: string }> = [];
+    installFilesystem(writes);
+    installAbortingPicker(() => window.dispatchEvent(new Event('blur')));
+
+    const app = createApp(async () => serialize(makeFile(2)));
+    openExportModal(app, tableFile());
+    await flush();
+
+    const modal = Modal.opened.at(-1);
+    modal?.contentEl.querySelector('button')?.click();
+    await flush();
+
+    expect(writes).toHaveLength(0);
+    expect(Notice.messages.at(-1)).toBe('Export cancelled. No file was saved.');
+  });
+});

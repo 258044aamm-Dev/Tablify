@@ -10,12 +10,33 @@ import {
   saveExportArtifact,
   shareExportArtifact,
   type ExportSaveRuntime,
+  type MobilePlatform,
 } from '../io/export/destination.js';
 import { prepareExportFile, type PreparedExportResult } from '../io/export/prepare.js';
 import { exportFileName, exportMimeType, type ExportArtifact, type ExportFormat } from '../io/export/exporter.js';
 
 export const EXPORT_COMMAND_ID = 'export-table';
 export const EXPORT_COMMAND_NAME = 'Export table (CSV, Excel, Markdown)';
+
+/** SAD-350 round 2: the mobile host, in the shape the delivery layer expects. */
+export function mobilePlatform(): MobilePlatform {
+  if (typeof Platform === 'undefined') return null;
+  if (Platform.isIosApp) return 'ios';
+  if (Platform.isAndroidApp) return 'android';
+  return null;
+}
+
+/**
+ * SAD-350 round 2: the one runtime both export entry points build. The platform tag lets the
+ * delivery layer tell an Android WebView that never opened the save dialog (AbortError, no
+ * focus change) from a user cancellation — see beginExportSave().
+ */
+export function deviceExportRuntime(): ExportSaveRuntime {
+  return browserExportSaveRuntime(
+    typeof Platform === 'undefined' ? false : Platform.isMobile,
+    mobilePlatform(),
+  );
+}
 
 /** SAD-350 §3.0: read-only device probe for the export delivery capabilities. */
 export const EXPORT_DIAGNOSTICS_COMMAND_ID = 'export-destination-diagnostics';
@@ -119,7 +140,7 @@ export function exportDiagnosticsReport(): string {
 
   const plugins = win.Capacitor?.Plugins;
   const fs = plugins?.Filesystem as { writeFile?: unknown; stat?: unknown } | undefined;
-  const runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
+  const runtime = deviceExportRuntime();
 
   return [
     'Tablify export diagnostics (SAD-350 \u00a73.0 probe)',
@@ -166,7 +187,7 @@ export async function flushPendingExportEdits(app: App, source: TFile): Promise<
 }
 
 function exportSuccessMessage(
-  method: 'picker' | 'share' | 'download' | 'folder',
+  method: 'picker' | 'share' | 'download' | 'folder' | 'vault',
   fileName: string,
   rowCount: number,
   columnCount: number,
@@ -175,6 +196,7 @@ function exportSuccessMessage(
   if (method === 'picker') return `Exported ${rowCount} rows and ${columnCount} columns to ${fileName} in the selected location.`;
   if (method === 'share') return `Shared ${rowCount} rows and ${columnCount} columns as ${fileName}.`;
   if (method === 'folder') return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to ${displayPath ?? 'a shared folder'}.`;
+  if (method === 'vault') return `Saved ${fileName} (${rowCount} rows, ${columnCount} columns) to the vault at ${displayPath ?? fileName}.`;
   return `Download started: ${fileName} (${rowCount} rows, ${columnCount} columns).`;
 }
 
@@ -255,7 +277,7 @@ class ExportModal extends Modal {
 
   constructor(app: App, private readonly source: TFile) {
     super(app);
-    this.runtime = browserExportSaveRuntime(typeof Platform === 'undefined' ? false : Platform.isMobile);
+    this.runtime = deviceExportRuntime();
   }
 
   onOpen(): void {
