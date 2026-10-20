@@ -1,10 +1,12 @@
 /**
  * Test support for the COD-76 field type picker.
  *
- * The picker's panel lives on `document.body` — not inside the modal — because the Add / Modify
- * Field window is an `overflow: auto` Obsidian modal that would clip it. So every test that picks a
- * type has to go through the same three steps: open the trigger, find the panel on `body`, click
- * the row. This module is that one place, so the tests read as behaviour rather than as DOM digging.
+ * The picker's panel lives inside the Add / Modify Field window's own element since SAD-353
+ * (Obsidian's newer modal only lets focus hold inside the window's subtree, so the COD-76
+ * `document.body` placement left the search box un-typeable). Every test that picks a type has to
+ * go through the same three steps: mount the window like Obsidian does, open the trigger, find
+ * the panel, click the row. This module is that one place, so the tests read as behaviour rather
+ * than as DOM digging.
  */
 
 import type { FieldTypeName } from '../../../src/model/types.js';
@@ -54,7 +56,19 @@ export function searchTypes(text: string): void {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-/** Remove any panel left on `body` — a modal that never closed would otherwise leak into the next test. */
+/**
+ * Place a mock-opened window in the document the way Obsidian does — `titleEl` and `contentEl`
+ * inside `modalEl`, `modalEl` on `document.body`. SAD-353: the picker mounts its panel inside the
+ * window, so no window interaction can be observed while the window is detached.
+ */
+export function mountWindow(modal: { modalEl: HTMLElement; titleEl: HTMLElement; contentEl: HTMLElement }): void {
+  modal.modalEl.appendChild(modal.titleEl);
+  modal.modalEl.appendChild(modal.contentEl);
+  document.body.appendChild(modal.modalEl);
+}
+
+/** Remove any panel or mounted window — a modal that never closed would otherwise leak into the next test. */
 export function cleanupPickers(): void {
   document.querySelectorAll('[data-testid="tablify-field-type-panel"]').forEach((n) => n.remove());
+  document.querySelectorAll('.tablify__af-modal').forEach((n) => n.remove());
 }

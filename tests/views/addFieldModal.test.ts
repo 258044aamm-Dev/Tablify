@@ -9,13 +9,15 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { AddFieldModal, DEFAULT_NEW_FIELD_TYPE, TYPE_GROUPS } from '../../src/views/grid/AddFieldModal.js';
 import { App, Modal, Notice } from 'obsidian';
 import { CHANGE_TARGET_TYPES, TYPE_LABELS } from '../../src/menus/tableMenuModel.js';
-import { cleanupPickers, openPicker, pickType, typeRows } from './grid/typePickerSupport.js';
+import { cleanupPickers, mountWindow, openPicker, openTypePanel, pickType, searchTypes, typeRows } from './grid/typePickerSupport.js';
 
 function open() {
   const app = new App();
   const confirmed: Array<{ name: string; type: string; formula?: string }> = [];
   const modal = new AddFieldModal(app, (name, type, formula) => confirmed.push({ name, type, formula }));
   modal.open();
+  // SAD-353: the picker mounts its panel inside the window, so mount the window like Obsidian does.
+  mountWindow(modal);
   return { modal, confirmed };
 }
 
@@ -33,8 +35,8 @@ function addButton(modal: Modal): HTMLButtonElement {
   return modal.contentEl.querySelector('button.tablify__pmodal-btn--primary') as unknown as HTMLButtonElement;
 }
 
-// The picker's panel lives on `document.body`; a test that leaves one open must not leak into the
-// next (every panel would answer to the same selector).
+// The picker's panel lives inside the window's own element (SAD-353); a test that leaves one open
+// must not leak into the next (every panel would answer to the same selector).
 beforeEach(() => cleanupPickers());
 
 describe('AddFieldModal', () => {
@@ -153,6 +155,7 @@ describe('AddFieldModal link type (P8-04)', () => {
       },
     );
     modal.open();
+    mountWindow(modal);
     textInput(modal).value = 'Customer';
     textInput(modal).dispatchEvent(new Event('input'));
     pickType('link', modal.contentEl);
@@ -170,6 +173,7 @@ describe('AddFieldModal link type (P8-04)', () => {
     const got: unknown[][] = [];
     const modal = new AddFieldModal(app, (...args) => got.push(args), { linkTargets: [] });
     modal.open();
+    mountWindow(modal);
     textInput(modal).value = 'Customer';
     textInput(modal).dispatchEvent(new Event('input'));
     pickType('link', modal.contentEl);
@@ -191,6 +195,7 @@ function openRaw(options: ConstructorParameters<typeof AddFieldModal>[2] = {}) {
   const calls: unknown[][] = [];
   const modal = new AddFieldModal(new App(), (...args: unknown[]) => calls.push(args), options);
   modal.open();
+  mountWindow(modal);
   const q = <T,>(sel: string): T => modal.contentEl.querySelector(sel) as unknown as T;
   const set = (sel: string, value: string, event = 'input') => {
     const el = q<HTMLInputElement>(sel);
@@ -340,5 +345,46 @@ describe('AddFieldModal — prototype layout (SAD-86)', () => {
     pickType('formula', modal.contentEl);
     set('#tablify__af-formula', '1 + 2');
     expect(q<HTMLElement>('.tablify__af-preview').textContent).toBe('Preview (row 1): —');
+  });
+});
+
+describe('SAD-353 — the type search box works inside the window', () => {
+  beforeEach(() => {
+    mockNotice.reset();
+    mockModal.reset();
+    cleanupPickers();
+  });
+
+  it('the panel mounts inside the window’s own element, not on document.body', () => {
+    const { modal } = open();
+    const panel = openPicker(modal.contentEl);
+    // Obsidian's newer modal only lets focus hold inside the window's subtree (the SAD-353
+    // report: the search box was visible but could never be typed into).
+    expect(modal.modalEl.contains(panel)).toBe(true);
+    expect(panel.parentElement).not.toBe(document.body);
+    expect(document.body.contains(panel)).toBe(true);
+  });
+
+  it('typing filters the type list, and clearing restores the full list', () => {
+    const { modal } = open();
+    openPicker(modal.contentEl);
+    expect(typeRows(openTypePanel()).length).toBe(CHANGE_TARGET_TYPES.length);
+    searchTypes('num');
+    expect(typeRows(openTypePanel()).map((r) => r.dataset.type)).toEqual(['number', 'phone']);
+    searchTypes('');
+    expect(typeRows(openTypePanel()).length).toBe(CHANGE_TARGET_TYPES.length);
+  });
+
+  it('no match shows the empty state, and its Clear search button restores the list', () => {
+    const { modal } = open();
+    openPicker(modal.contentEl);
+    searchTypes('zzzzq');
+    const panel = openTypePanel();
+    expect(panel.querySelector('.tablify__tp-empty')?.textContent).toContain('No field type matches');
+    const clear = panel.querySelector('.tablify__tp-empty-btn') as HTMLButtonElement;
+    clear.click();
+    const search = panel.querySelector('.tablify__tp-input') as HTMLInputElement;
+    expect(search.value).toBe('');
+    expect(typeRows(openTypePanel()).length).toBe(CHANGE_TARGET_TYPES.length);
   });
 });

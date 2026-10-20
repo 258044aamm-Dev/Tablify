@@ -16,7 +16,7 @@ import { WorkspaceLeaf, Modal, Notice } from 'obsidian';
 import { FilterBuilderModal } from '../../src/views/grid/FilterBuilderModal.js';
 import { DEBOUNCE_MS } from '../../src/views/grid/toolbar.js';
 import { newTableText } from '../../src/menus/fileMenuModel.js';
-import { cleanupPickers, pickType } from './grid/typePickerSupport.js';
+import { cleanupPickers, mountWindow, pickType } from './grid/typePickerSupport.js';
 
 function sampleFile(): string {
   return JSON.stringify({
@@ -361,6 +361,8 @@ describe('TableView — toolbar actions', () => {
     const view = await openView(sampleFile());
     need(action(view, 'add-field') as unknown as HTMLElement | null, 'add field button').click();
     const modal = (Modal as unknown as { opened: AddFieldModal[] }).opened[0];
+    // SAD-353: the picker's panel mounts inside the window, so mount the window like Obsidian does.
+    mountWindow(modal);
     const set = (sel: string, value: string, event = 'input') => {
       const el = modal.contentEl.querySelector(sel) as unknown as HTMLInputElement;
       el.value = value;

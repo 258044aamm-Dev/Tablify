@@ -184,6 +184,21 @@ describe('COD-76 — opening and closing', () => {
     expect(h.trigger().getAttribute('aria-controls')).toBe('tablify__tp-list');
   });
 
+  it('SAD-353: mounts the panel inside the given host instead of document.body', () => {
+    const hostWindow = document.createElement('div');
+    document.body.appendChild(hostWindow);
+    const h = mount({ host: hostWindow });
+    h.trigger().click();
+    expect(hostWindow.contains(h.panel())).toBe(true);
+    expect(h.panel().parentElement).not.toBe(document.body);
+  });
+
+  it('SAD-353: still defaults to document.body when no host is given (COD-76 placement)', () => {
+    const h = mount();
+    h.trigger().click();
+    expect(h.panel().parentElement).toBe(document.body);
+  });
+
   it.each(['Enter', ' ', 'ArrowDown', 'ArrowUp'])('opens on %s from the trigger', (key) => {
     const h = mount();
     h.trigger().dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));

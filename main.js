@@ -21450,7 +21450,7 @@ var FieldTypePicker = class {
     this.query = seed;
     this.trigger.setAttribute("aria-expanded", "true");
     this.trigger.setAttribute("aria-controls", `tablify__tp-list`);
-    document.body.appendChild(panel);
+    (this.opts.host ?? document.body).appendChild(panel);
     this.render();
     this.position();
     this.focusOnOpen();
@@ -22282,6 +22282,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
       edit: this.isEdit,
       typeBlockReason: (type) => this.blockReasonFor(type),
       canPickType: this.options.canPickType,
+      host: this.modalEl,
       onChange: (type) => {
         this.type = type;
         showTypeRows();
@@ -22437,7 +22438,7 @@ var AddFieldModal = class extends import_obsidian5.Modal {
     });
     nameInput.focus();
   }
-  /** COD-76: the picker's panel is on `document.body`, so it must not outlive the window. */
+  /** COD-76/SAD-353: the picker's panel lives inside the window's own element; close it with the window. */
   onClose() {
     this.typePicker?.close();
     this.typePicker = null;

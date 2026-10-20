@@ -20,6 +20,15 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
   a success notice now always means a real destination accepted the file. Desktop behavior is
   unchanged. No new dependency, no `formatVersion` change.
 
+- **The Field type picker's search box can be typed into again (SAD-353)** — on the newest
+  Obsidian, whose modal keeps focus inside the window's own element, the picker's panel (mounted
+  on `document.body` since COD-76) displayed its search box but it could never take focus, so
+  searching for a field type did nothing. The panel now mounts inside the Add / Modify Field
+  window's own element with unchanged fixed positioning, z-index and styling — searching
+  (`desk` → *Date*, `money` → *Currency*), the live count, the no-match empty state and
+  *Clear search* all work again, while standalone callers without a window element keep the
+  original `document.body` placement.
+
 ## [2.0.0-beta.6] — 2026-10-20
 
 ### Added

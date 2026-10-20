@@ -17,7 +17,7 @@ import { App, Modal, Notice } from 'obsidian';
 import { CHANGE_TARGET_TYPES } from '../../../src/menus/tableMenuModel.js';
 import type { FieldDefinition, FieldTypeName } from '../../../src/model/types.js';
 import type { FieldEdit } from '../../../src/model/tableSession.js';
-import { cleanupPickers, openPicker, pickType, typeRow, typeRows } from './typePickerSupport.js';
+import { cleanupPickers, mountWindow, openPicker, pickType, typeRow, typeRows } from './typePickerSupport.js';
 
 function field(overrides: Partial<FieldDefinition> = {}): FieldDefinition {
   return { id: 'fld_1', name: 'Price', type: 'text', ...overrides };
@@ -35,6 +35,8 @@ function openEdit(initial: FieldDefinition, extra: Record<string, unknown> = {})
     ...extra,
   } as never);
   modal.open();
+  // SAD-353: the picker mounts its panel inside the window, so mount the window like Obsidian does.
+  mountWindow(modal);
   return { modal, edited };
 }
 
@@ -280,6 +282,7 @@ describe('AddFieldModal (create mode, unchanged)', () => {
   it('still offers every change-target type, an empty name and Save Field', () => {
     const modal = new AddFieldModal(new App(), () => {});
     modal.open();
+    mountWindow(modal);
     // Create mode offers every change-target type, and blocks none of them.
     const rows = typeRows(openPicker(modal.contentEl));
     expect(rows.map((r) => r.dataset.type)).toEqual([...CHANGE_TARGET_TYPES]);

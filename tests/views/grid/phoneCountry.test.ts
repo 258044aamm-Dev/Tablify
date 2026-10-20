@@ -12,7 +12,7 @@ import { CountryList } from '../../../src/views/grid/phone/CountryList.js';
 import { CountrySelect } from '../../../src/views/grid/phone/CountrySelect.js';
 import { AddFieldModal } from '../../../src/views/grid/AddFieldModal.js';
 import { App, Modal } from 'obsidian';
-import { cleanupPickers, pickType } from './typePickerSupport.js';
+import { cleanupPickers, mountWindow, pickType } from './typePickerSupport.js';
 import { createSession } from '../../../src/model/tableSession.js';
 import { applyNewFieldExtras } from '../../../src/model/tableSession.js';
 import { planTypeChange } from '../../../src/model/fieldChange.js';
@@ -370,6 +370,8 @@ function openModal(
       : {}),
   });
   modal.open();
+  // SAD-353: the picker's panel mounts inside the window, so mount the window like Obsidian does.
+  mountWindow(modal);
   return { modal, calls, edits };
 }
 

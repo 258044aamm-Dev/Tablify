@@ -174,6 +174,9 @@ export class AddFieldModal extends Modal {
 
     // Field type (COD-76: the plugin's own picker, not the platform's popup). The rows below the
     // picker are built after it, so `showTypeRows` is filled in later and called on every pick.
+    // SAD-353: the panel mounts inside this window's own element (`modalEl`) — Obsidian's newer
+    // modal keeps focus inside the window, so a body-attached panel's search box could never be
+    // typed into.
     let showTypeRows = (): void => {};
     const typeWrap = body.createDiv({ cls: 'tablify__typepicker' });
     this.label(typeWrap, 'Field type', 'tablify__af-type');
@@ -183,6 +186,7 @@ export class AddFieldModal extends Modal {
       edit: this.isEdit,
       typeBlockReason: (type) => this.blockReasonFor(type),
       canPickType: this.options.canPickType,
+      host: this.modalEl,
       onChange: (type) => {
         this.type = type;
         showTypeRows();
@@ -358,7 +362,7 @@ export class AddFieldModal extends Modal {
     nameInput.focus();
   }
 
-  /** COD-76: the picker's panel is on `document.body`, so it must not outlive the window. */
+  /** COD-76/SAD-353: the picker's panel lives inside the window's own element; close it with the window. */
   onClose(): void {
     this.typePicker?.close();
     this.typePicker = null;

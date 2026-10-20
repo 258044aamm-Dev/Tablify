@@ -7,10 +7,15 @@
  * that would drop values. This module is that list, drawn by the plugin.
  *
  * Where it lives: the trigger is an ordinary element in the Add / Modify Field window; the PANEL is
- * appended to `document.body` and positioned against the trigger's rect, exactly like the select,
- * attachment and date panels (`src/views/grid/select/panel.ts`) and for the same two reasons — the
- * window is an `overflow: auto` Obsidian modal that would clip it, and the panel has to sit above
- * the host modal's own layer (z-index 1000, the value the option manager already uses, COD-69).
+ * appended inside the window's own element (`modalEl`, through the new `host` option since
+ * SAD-353) and positioned against the trigger's rect with `position: fixed`. COD-76 put it on
+ * `document.body` so the modal's `overflow: auto` could not clip it; that still holds (a fixed
+ * panel is laid out against the viewport, not the scroll region). What changed: Obsidian's newer
+ * modal keeps focus inside the window's own subtree, so a body-attached panel could show its
+ * search box but never hold focus in it — typing did nothing, the SAD-353 report. Mounting the
+ * panel inside the host keeps it above the modal layer (z-index 1000, COD-69) AND inside the
+ * focus boundary. With no `host` (standalone tests, any future non-modal use) it falls back to
+ * `document.body`, exactly as COD-76 shipped.
  *
  * What it may change: `this.type` in the window, through `onChange`. It never touches the model, the
  * save path or the type-change rules — `typeBlockReason` only REPORTS the verdict `planTypeChange`
@@ -103,6 +108,13 @@ export interface FieldTypePickerOptions {
   theme?: 'light' | 'dark';
   /** The trigger's id — `tablify__af-type` keeps the element findable by tests and capture scripts. */
   id?: string;
+  /**
+   * SAD-353: the element the panel is appended to. The Add / Modify Field window passes its own
+   * `modalEl`, because Obsidian's newer modal only lets focus hold inside the window's own
+   * subtree — a `document.body`-attached panel showed the search box but it could never be typed
+   * into. Defaults to `document.body` (COD-76's placement) for standalone callers.
+   */
+  host?: HTMLElement;
 }
 
 function el(tag: string, className?: string): HTMLElement {
@@ -247,7 +259,9 @@ export class FieldTypePicker {
     this.trigger.setAttribute('aria-expanded', 'true');
     this.trigger.setAttribute('aria-controls', `tablify__tp-list`);
 
-    document.body.appendChild(panel);
+    // SAD-353: mount inside the window's own element when the caller gives one (the Modal keeps
+    // focus in its subtree); the standalone default is COD-76's `document.body`.
+    (this.opts.host ?? document.body).appendChild(panel);
     this.render();
     this.position();
     this.focusOnOpen();
