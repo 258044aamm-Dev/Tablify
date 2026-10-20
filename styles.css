@@ -4651,8 +4651,29 @@ body.is-phone .view-content.tablify-view.tablify {
   color: var(--tablify-text-muted);
 }
 
+/* SAD-355: a chosen country now reads as chosen — the same three cues the Field-type picker gives
+   its current row (styles.css, `.tablify__tp-row--current`): a 9 % accent tint, a 600 name, and
+   the accent ink on the tick. Before this, a 12 px tick was the only difference, which at 11 px
+   mono on a 320 px card was easy to miss. Scoped with the element and both classes so it outranks
+   the shared `:hover` rule instead of fighting it on source order. */
+.tablify button.tablify__dropdown-item.tablify__country-row[aria-selected='true'] {
+  background: color-mix(in srgb, var(--tablify-accent-primary) 9%, transparent);
+}
+
+.tablify__country-row[aria-selected='true'] .tablify__country-name {
+  font-weight: 600;
+}
+
 .tablify__country-row[aria-selected='true'] .tablify__country-dial {
   color: var(--tablify-text);
+}
+
+/* SAD-355: the tick on a country row takes the AA terracotta the picker uses for its current
+   row's glyph and check (`--tablify-text-today`) rather than the raw accent, which measures
+   3.28:1 on the light panel. */
+.tablify__country-row .tablify__dropdown-check {
+  justify-self: end;
+  color: var(--tablify-text-today);
 }
 
 /* SAD-355: four fixed tracks instead of `space-between`. The old flex row appended the tick only
