@@ -4715,7 +4715,45 @@ body.is-phone .view-content.tablify-view.tablify {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  padding: 0;
   max-height: min(420px, calc(100vh - 24px));
+}
+
+/* SAD-355: the search is the card's header band, not a box inside a box. The generic dropdown
+   input paints `bg-pill` with a 1 px border on a card that is also `bg-pill`, so on this card the
+   border reads as a stray outline; the Field-type picker in the same window (styles.css, the
+   `tp-search` block) already solved it with a borderless field on a hairline band, and the two
+   popovers must look like siblings. The compound `.tablify.tablify__country-popover` is
+   deliberate: `applyTheme()` puts `tablify` on the card itself (tokens.ts), so this beats the
+   generic `:focus` rule (0,3,1) on weight rather than source order. */
+.tablify.tablify__country-popover input.tablify__dropdown-input {
+  box-sizing: border-box;
+  height: 37px;
+  margin: 0;
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--tablify-text);
+  border: 0;
+  border-bottom: 1px solid var(--tablify-border-subtle);
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* The placeholder is the only line that says what the box does; `--tablify-field-placeholder`
+   measures 2.5:1 on this surface, so the muted ink ships instead (the same call the picker's
+   search row records at its own rule). */
+.tablify.tablify__country-popover input.tablify__dropdown-input::placeholder {
+  color: var(--tablify-text-muted);
+  opacity: 1;
+}
+
+/* A header band draws no focus ring: the caret is the cursor. */
+.tablify.tablify__country-popover input.tablify__dropdown-input:focus {
+  border-color: transparent;
+  border-bottom-color: var(--tablify-border-subtle);
+  box-shadow: none;
 }
 
 .tablify__country-popover .tablify__country-list {
