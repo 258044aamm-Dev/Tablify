@@ -4771,6 +4771,15 @@ body.is-phone .view-content.tablify-view.tablify {
 .tablify__country-popover {
   max-width: none;
   overflow: hidden;
+  /* SAD-355: the Field-type picker slides in over 130 ms; two popovers in one window should not
+     disagree about whether a popover animates. Same keyframes, same duration, same curve. */
+  animation: tablify-tp-in 0.13s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tablify__country-popover {
+    animation: none;
+  }
 }
 
 .tablify__country-popover-body {
