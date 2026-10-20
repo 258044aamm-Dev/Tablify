@@ -2,6 +2,8 @@
  * Attachment cell — vault-relative path normalization, existence check, and image resolution.
  */
 
+import type { CellValue } from '../../model/types.js';
+
 export function normalizeAttachmentPath(input: string): string {
   let p = input.trim().replace(/\\/g, '/');
   p = p.replace(/^\/+/, '');
@@ -119,4 +121,23 @@ export function checkAttachmentPath(
 
 export function confirmAttachmentSave(path: string): AttachmentSaveResult {
   return { ok: true, path };
+}
+
+/**
+ * SAD-356: true when a cell value is a remote resource rather than a vault path — an `http(s)://`
+ * URL or an inline `data:image/*` URI. That is the same family `resolveAttachmentImageUrl` resolves,
+ * and the family that must skip the vault existence check (`checkAttachmentPath`).
+ */
+export function isRemoteAttachmentPath(raw: string): boolean {
+  const trimmed = raw.trim();
+  return /^https?:\/\//i.test(trimmed) || /^data:image\//i.test(trimmed);
+}
+
+/**
+ * SAD-356: true when an attachment cell holds no path at all. Mirrors `attachmentPaths()`
+ * (`views/grid/cellRender.ts`) so the cell, the panel and the new selection menu agree on "empty".
+ */
+export function isAttachmentValueEmpty(value: CellValue | undefined | null): boolean {
+  if (Array.isArray(value)) return value.every((entry) => String(entry).trim() === '');
+  return typeof value !== 'string' || value.trim() === '';
 }
