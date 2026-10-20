@@ -107,6 +107,50 @@ describe('export destination', () => {
     expect(cancelledPicker).toEqual({ kind: 'cancelled' });
   });
 
+  it('never claims a download on mobile: the anchor fallback is a silent no-op in mobile WebViews (SAD-350)', async () => {
+    const downloadFile = vi.fn();
+    const runtime: ExportSaveRuntime = { isMobile: true, downloadFile };
+    const result = await saveExportArtifact(artifact, runtime);
+    expect(downloadFile).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, error: 'No supported save or download method is available.' });
+  });
+
+  it('reports why each mobile method failed instead of a false download success (SAD-350)', async () => {
+    const downloadFile = vi.fn();
+    const runtime: ExportSaveRuntime = {
+      isMobile: true,
+      createFile: vi.fn(() => ({ name: artifact.fileName }) as File),
+      canShareFile: vi.fn(() => true),
+      shareFile: vi.fn(async () => {
+        const error = new Error('User activation is required');
+        error.name = 'NotAllowedError';
+        throw error;
+      }),
+      downloadFile,
+    };
+    const result = await saveExportArtifact(artifact, runtime, Promise.resolve({ kind: 'failed', error: 'no picker UI' }));
+    expect(downloadFile).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      error: 'No supported save or download method is available. Save picker failed: no picker UI. Share failed: User activation is required.',
+    });
+  });
+
+  it('still treats a mobile share abort as cancellation, not an error (SAD-350)', async () => {
+    const runtime: ExportSaveRuntime = {
+      isMobile: true,
+      createFile: vi.fn(() => ({ name: artifact.fileName }) as File),
+      canShareFile: vi.fn(() => true),
+      shareFile: vi.fn(async () => {
+        throw abortError();
+      }),
+      downloadFile: vi.fn(),
+    };
+    const result = await saveExportArtifact(artifact, runtime);
+    expect(result).toEqual({ ok: false, cancelled: true });
+    expect(runtime.downloadFile).not.toHaveBeenCalled();
+  });
+
   it('aborts a failed write and returns a visible error instead of silently using another destination', async () => {
     const writer: SaveFileWriter = {
       write: vi.fn(async () => {

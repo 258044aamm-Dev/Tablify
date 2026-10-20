@@ -111,6 +111,11 @@ export async function saveExportArtifact(
     }
   }
 
+  // SAD-350: collect every skipped/failed method so a final failure names its real causes
+  // instead of pretending an unavailable destination worked.
+  const reasons: string[] = [];
+  if (picker.kind === 'failed') reasons.push(`Save picker failed: ${picker.error}.`);
+
   if (runtime.isMobile && runtime.createFile && runtime.canShareFile && runtime.shareFile) {
     try {
       const file = runtime.createFile(artifact);
@@ -118,13 +123,17 @@ export async function saveExportArtifact(
         await runtime.shareFile(file);
         return { ok: true, method: 'share', fileName: file.name || artifact.fileName };
       }
+      reasons.push('The system cannot share this file type.');
     } catch (error) {
       if (isAbortError(error)) return { ok: false, cancelled: true };
-      // Fall through to the download path if file sharing is unavailable or rejected.
+      reasons.push(`Share failed: ${errorMessage(error)}.`);
     }
   }
 
-  if (runtime.downloadFile) {
+  // SAD-350: desktop only. The anchor-click blob download is a silent no-op in mobile WebViews
+  // (iOS WKWebView and Android System WebView ignore it without throwing), so running it there
+  // reported "Download started" while writing nothing — the root cause of the mobile bug.
+  if (!runtime.isMobile && runtime.downloadFile) {
     try {
       const blob = new Blob([artifact.data], { type: artifact.mimeType });
       runtime.downloadFile(blob, artifact.fileName);
@@ -134,8 +143,8 @@ export async function saveExportArtifact(
     }
   }
 
-  const pickerError = picker.kind === 'failed' ? ` Save picker failed: ${picker.error}.` : '';
-  return { ok: false, error: `No supported save or download method is available.${pickerError}` };
+  const detail = reasons.length > 0 ? ` ${reasons.join(' ')}` : '';
+  return { ok: false, error: `No supported save or download method is available.${detail}` };
 }
 
 /** Build platform capabilities lazily so tests can supply deterministic implementations. */
