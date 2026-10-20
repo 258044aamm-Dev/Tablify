@@ -4613,11 +4613,17 @@ body.is-phone .view-content.tablify-view.tablify {
 }
 
 .tablify__country-heading {
-  padding: 6px 8px 2px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 10px 8px 5px;
+  background: var(--tablify-bg-pill);
   font-family: 'Poppins', sans-serif;
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  line-height: 12px;
+  letter-spacing: 0.085em;
   text-transform: uppercase;
   color: var(--tablify-text-muted);
 }
@@ -4643,10 +4649,14 @@ body.is-phone .view-content.tablify-view.tablify {
   color: var(--tablify-text);
 }
 
+/* SAD-355: the list carries its own inset (the body is unpadded now) and the headings stick, so
+   scrolling 245 rows never loses the Suggested / All countries boundary. The 2 px step between
+   rows matches `.tablify__dropdown-list` and the picker's row rhythm. */
 .tablify__country-list {
   max-height: 260px;
   overflow-y: auto;
-  margin-top: 8px;
+  margin: 0;
+  padding: 4px 6px 8px;
 }
 
 /* The trigger in the field window: a button drawn as the window's own input. */
@@ -4759,6 +4769,10 @@ body.is-phone .view-content.tablify-view.tablify {
 .tablify__country-popover .tablify__country-list {
   flex: 1 1 auto;
   min-height: 120px;
+  /* SAD-355: the popover spends the height it has (the picker's `LIST_MIN…LIST_MAX` arithmetic at
+     `fieldTypePicker.ts:547-549`), capped at 45vh so a short window still shows the footer. Scoped
+     to the popover: the phone cell panel keeps its own 260 px budget. */
+  max-height: min(348px, 45vh);
 }
 
 .tablify.tablify__panel button.tablify__country-clear {
