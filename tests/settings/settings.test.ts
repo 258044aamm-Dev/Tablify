@@ -52,22 +52,43 @@ describe('normalizeSettings', () => {
   });
 
   it('trims whitespace from the token', () => {
-    expect(normalizeSettings({ airtableToken: `  ${TOKEN}\n` })).toEqual({ airtableToken: TOKEN });
+    expect(normalizeSettings({ airtableToken: `  ${TOKEN}\n` })).toEqual({
+      airtableToken: TOKEN,
+      exportVaultFallback: false,
+    });
   });
 
   it('treats an over-long token as empty', () => {
     expect(normalizeSettings({ airtableToken: 'x'.repeat(MAX_TOKEN_LENGTH + 1) })).toEqual(DEFAULT_SETTINGS);
   });
 
+  it('keeps the opt-in export fallback only when it is explicitly true (SAD-350 round 2)', () => {
+    expect(normalizeSettings({}).exportVaultFallback).toBe(false);
+    expect(normalizeSettings({ airtableToken: TOKEN }).exportVaultFallback).toBe(false);
+    expect(normalizeSettings({ airtableToken: TOKEN, exportVaultFallback: 'yes' }).exportVaultFallback).toBe(false);
+    expect(normalizeSettings({ airtableToken: TOKEN, exportVaultFallback: 1 }).exportVaultFallback).toBe(false);
+    expect(normalizeSettings({ airtableToken: TOKEN, exportVaultFallback: true }).exportVaultFallback).toBe(true);
+  });
+
+  it('round-trips the export fallback through plugin data', async () => {
+    const store = makeStore({ airtableToken: TOKEN, exportVaultFallback: true });
+    expect(await loadSettings(store)).toEqual({ airtableToken: TOKEN, exportVaultFallback: true });
+    await saveSettings(store, { airtableToken: TOKEN, exportVaultFallback: true });
+    expect(store.saveData).toHaveBeenCalledWith({ airtableToken: TOKEN, exportVaultFallback: true });
+  });
+
   it('drops unknown keys', () => {
-    expect(normalizeSettings({ airtableToken: TOKEN, other: 1 })).toEqual({ airtableToken: TOKEN });
+    expect(normalizeSettings({ airtableToken: TOKEN, other: 1 })).toEqual({
+      airtableToken: TOKEN,
+      exportVaultFallback: false,
+    });
   });
 });
 
 describe('load and save (T-S: plugin data only)', () => {
   it('loads a saved token', async () => {
     const store = makeStore({ airtableToken: TOKEN });
-    expect(await loadSettings(store)).toEqual({ airtableToken: TOKEN });
+    expect(await loadSettings(store)).toEqual({ airtableToken: TOKEN, exportVaultFallback: false });
   });
 
   it('falls back to defaults when reading plugin data fails', async () => {
@@ -85,7 +106,7 @@ describe('load and save (T-S: plugin data only)', () => {
     const dirty = { airtableToken: TOKEN, leak: 'do not save' } as unknown as TablifySettings;
     await saveSettings(store, dirty);
     expect(store.saveData).toHaveBeenCalledTimes(1);
-    expect(store.saveData).toHaveBeenCalledWith({ airtableToken: TOKEN });
+    expect(store.saveData).toHaveBeenCalledWith({ airtableToken: TOKEN, exportVaultFallback: false });
   });
 });
 
@@ -125,7 +146,44 @@ describe('settings tab (masked input)', () => {
     input.dispatchEvent(new Event('input'));
     await new Promise((r) => setTimeout(r, 0));
     expect(host.settings.airtableToken).toBe(TOKEN);
-    expect(store.saveData).toHaveBeenCalledWith({ airtableToken: TOKEN });
+    expect(store.saveData).toHaveBeenCalledWith({ airtableToken: TOKEN, exportVaultFallback: false });
+  });
+
+  it('keeps the export fallback enabled when the token is edited (SAD-350 round 2)', async () => {
+    const app = new App();
+    const store = makeStore({ airtableToken: '', exportVaultFallback: true });
+    const host = {
+      settings: { airtableToken: '', exportVaultFallback: true } as TablifySettings,
+      loadData: store.loadData,
+      saveData: store.saveData,
+    } as unknown as SettingsHost;
+    const tab = new TablifySettingTab(app, host);
+    tab.display();
+
+    const input = tab.containerEl.querySelector('input') as HTMLInputElement;
+    input.value = TOKEN;
+    input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(host.settings.exportVaultFallback).toBe(true);
+    expect(store.saveData).toHaveBeenCalledWith({ airtableToken: TOKEN, exportVaultFallback: true });
+  });
+
+  it('renders the opt-in export fallback as a toggle that reflects the setting (SAD-350 round 2)', () => {
+    const app = new App();
+    const store = makeStore({ airtableToken: '', exportVaultFallback: true });
+    const host = {
+      settings: { airtableToken: '', exportVaultFallback: true } as TablifySettings,
+      loadData: store.loadData,
+      saveData: store.saveData,
+    } as unknown as SettingsHost;
+    const tab = new TablifySettingTab(app, host);
+    tab.display();
+
+    const toggle = tab.containerEl.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    expect(toggle).not.toBeNull();
+    expect(toggle?.checked).toBe(true);
+    expect(tab.containerEl.textContent).toContain('Export');
   });
 
   it('does not log the token while saving', async () => {

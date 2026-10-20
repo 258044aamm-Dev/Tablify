@@ -337,7 +337,7 @@ export class TableView extends TextFileView {
     const file = this.file;
     if (!file || !this.session) return;
 
-    const runtime = deviceExportRuntime();
+    const runtime = deviceExportRuntime(this.app, file);
 
     // SAD-350: on a share-destination device (iOS), build the CSV from the in-memory view —
     // synchronous work, so the command's tap still holds user activation for the share call.

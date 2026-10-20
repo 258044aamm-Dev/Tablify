@@ -1,6 +1,6 @@
 import { Notice, Plugin } from 'obsidian';
 import { registerImportCommand } from './commands/import.js';
-import { registerExportCommand, registerCurrentViewExportCommands, registerExportDiagnosticsCommand } from './commands/export.js';
+import { registerExportCommand, registerCurrentViewExportCommands, registerExportDiagnosticsCommand, setExportPreferences } from './commands/export.js';
 import { registerLinkIntegrityCommand } from './commands/linkIntegrity.js';
 import { installLinkLabelResolver, linkIndexFor } from './links/vaultLinkIndex.js';
 import { TableView, TABLIFY_VIEW_TYPE } from './views/tableView.js';
@@ -18,6 +18,8 @@ export default class TablifyPlugin extends Plugin {
 		this.addSettingTab(new TablifySettingTab(this.app, this));
 		registerImportCommand(this);
 		registerExportCommand(this);
+		// SAD-350 round 2: the opt-in vault last resort, off unless the Export setting is on.
+		setExportPreferences(() => ({ vaultFallback: this.settings.exportVaultFallback }));
 		// SAD-350 §3.0: read-only device probe for the export delivery capabilities.
 		registerExportDiagnosticsCommand(this);
 		// SAD-98: the one-click current-view actions, kept as commands after leaving the title row.

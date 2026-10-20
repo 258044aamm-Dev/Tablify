@@ -212,6 +212,8 @@ export class App {
      * disk; tests observe the call (or replace it with a spy).
      */
     createBinary: async (path: string): Promise<TFile> => new TFile(path),
+    /** SAD-350 round 2: the opt-in vault fallback writes text through this. */
+    create: async (path: string, _data: string): Promise<TFile> => new TFile(path),
   };
   workspace = new Workspace();
   fileManager = {

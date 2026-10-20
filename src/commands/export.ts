@@ -10,9 +10,11 @@ import {
   saveExportArtifact,
   shareExportArtifact,
   type ExportSaveRuntime,
+  type FolderSave,
   type MobilePlatform,
 } from '../io/export/destination.js';
 import { prepareExportFile, type PreparedExportResult } from '../io/export/prepare.js';
+import { pickFreePath } from '../io/import/importer.js';
 import { exportFileName, exportMimeType, type ExportArtifact, type ExportFormat } from '../io/export/exporter.js';
 
 export const EXPORT_COMMAND_ID = 'export-table';
@@ -31,11 +33,55 @@ export function mobilePlatform(): MobilePlatform {
  * delivery layer tell an Android WebView that never opened the save dialog (AbortError, no
  * focus change) from a user cancellation — see beginExportSave().
  */
-export function deviceExportRuntime(): ExportSaveRuntime {
-  return browserExportSaveRuntime(
+export function deviceExportRuntime(app?: App, source?: TFile): ExportSaveRuntime {
+  const runtime = browserExportSaveRuntime(
     typeof Platform === 'undefined' ? false : Platform.isMobile,
     mobilePlatform(),
   );
+  if (app && source) {
+    const fallback = vaultDestination(app, source);
+    if (fallback) runtime.saveToVault = fallback;
+  }
+  return runtime;
+}
+
+/** SAD-350 round 2: the Export settings the plugin injects; off until main.ts wires them. */
+let exportPreferences: () => { vaultFallback: boolean } = () => ({ vaultFallback: false });
+
+export function setExportPreferences(get: () => { vaultFallback: boolean }): void {
+  exportPreferences = get;
+}
+
+/** The opt-in vault destination, or undefined while the setting is off (runtime unchanged). */
+function vaultDestination(app: App, source: TFile): ExportSaveRuntime['saveToVault'] {
+  if (!exportPreferences().vaultFallback) return undefined;
+  return (artifact) => writeExportToVault(app, source, artifact);
+}
+
+/**
+ * SAD-350 round 2 (opt-in last resort): write the export next to the table it came from.
+ * Never overwrites — it reuses the naming rule import/export already share
+ * (`pickFreePath`, src/io/import/importer.ts). Returns the vault path so the notice can name it.
+ */
+export async function writeExportToVault(
+  app: App,
+  source: TFile,
+  artifact: ExportArtifact,
+): Promise<FolderSave> {
+  const folder = source.parent?.path ?? '';
+  const dot = artifact.fileName.lastIndexOf('.');
+  const base = dot === -1 ? artifact.fileName : artifact.fileName.slice(0, dot);
+  const extension = dot === -1 ? 'txt' : artifact.fileName.slice(dot + 1);
+  const path = pickFreePath(folder, base, (candidate) => app.vault.getAbstractFileByPath(candidate) !== null, extension);
+  if (path === null) return { ok: false, error: 'No free file name found in the vault.' };
+  try {
+    if (typeof artifact.data === 'string') await app.vault.create(path, artifact.data);
+    else await app.vault.createBinary(path, artifact.data);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `Could not write into the vault: ${reason}` };
+  }
+  return { ok: true, fileName: path.split('/').pop() ?? artifact.fileName, displayPath: path };
 }
 
 /** SAD-350 §3.0: read-only device probe for the export delivery capabilities. */
@@ -277,7 +323,7 @@ class ExportModal extends Modal {
 
   constructor(app: App, private readonly source: TFile) {
     super(app);
-    this.runtime = deviceExportRuntime();
+    this.runtime = deviceExportRuntime(app, source);
   }
 
   onOpen(): void {

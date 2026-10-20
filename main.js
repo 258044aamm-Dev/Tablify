@@ -17394,11 +17394,45 @@ function mobilePlatform() {
     return "android";
   return null;
 }
-function deviceExportRuntime() {
-  return browserExportSaveRuntime(
+function deviceExportRuntime(app, source) {
+  const runtime = browserExportSaveRuntime(
     typeof import_obsidian2.Platform === "undefined" ? false : import_obsidian2.Platform.isMobile,
     mobilePlatform()
   );
+  if (app && source) {
+    const fallback = vaultDestination(app, source);
+    if (fallback)
+      runtime.saveToVault = fallback;
+  }
+  return runtime;
+}
+var exportPreferences = () => ({ vaultFallback: false });
+function setExportPreferences(get) {
+  exportPreferences = get;
+}
+function vaultDestination(app, source) {
+  if (!exportPreferences().vaultFallback)
+    return void 0;
+  return (artifact) => writeExportToVault(app, source, artifact);
+}
+async function writeExportToVault(app, source, artifact) {
+  const folder = source.parent?.path ?? "";
+  const dot = artifact.fileName.lastIndexOf(".");
+  const base = dot === -1 ? artifact.fileName : artifact.fileName.slice(0, dot);
+  const extension = dot === -1 ? "txt" : artifact.fileName.slice(dot + 1);
+  const path = pickFreePath(folder, base, (candidate) => app.vault.getAbstractFileByPath(candidate) !== null, extension);
+  if (path === null)
+    return { ok: false, error: "No free file name found in the vault." };
+  try {
+    if (typeof artifact.data === "string")
+      await app.vault.create(path, artifact.data);
+    else
+      await app.vault.createBinary(path, artifact.data);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return { ok: false, error: `Could not write into the vault: ${reason}` };
+  }
+  return { ok: true, fileName: path.split("/").pop() ?? artifact.fileName, displayPath: path };
 }
 var EXPORT_DIAGNOSTICS_COMMAND_ID = "export-destination-diagnostics";
 var EXPORT_DIAGNOSTICS_COMMAND_NAME = "Export destination diagnostics";
@@ -17546,7 +17580,7 @@ var ExportModal = class extends import_obsidian2.Modal {
   constructor(app, source) {
     super(app);
     this.source = source;
-    this.runtime = deviceExportRuntime();
+    this.runtime = deviceExportRuntime(app, source);
   }
   format = "csv";
   fullTable = false;
@@ -26254,7 +26288,7 @@ var TableView = class extends import_obsidian10.TextFileView {
     const file = this.file;
     if (!file || !this.session)
       return;
-    const runtime = deviceExportRuntime();
+    const runtime = deviceExportRuntime(this.app, file);
     if (exportDeliveryMethod(runtime) === "share") {
       const table2 = this.currentViewTable();
       if (!table2)
@@ -27908,19 +27942,24 @@ async function createNewTable(app, folder) {
 
 // src/settings.ts
 var import_obsidian12 = require("obsidian");
-var DEFAULT_SETTINGS = Object.freeze({ airtableToken: "" });
+var DEFAULT_SETTINGS = Object.freeze({
+  airtableToken: "",
+  exportVaultFallback: false
+});
 var MAX_TOKEN_LENGTH = 512;
 function normalizeSettings(raw) {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     return { ...DEFAULT_SETTINGS };
   }
-  const token = raw.airtableToken;
+  const record = raw;
+  const token = record.airtableToken;
+  const exportVaultFallback = record.exportVaultFallback === true;
   if (typeof token !== "string")
     return { ...DEFAULT_SETTINGS };
   const trimmed = token.trim();
   if (trimmed.length > MAX_TOKEN_LENGTH)
     return { ...DEFAULT_SETTINGS };
-  return { airtableToken: trimmed };
+  return { airtableToken: trimmed, exportVaultFallback };
 }
 async function loadSettings(store) {
   try {
@@ -27931,7 +27970,10 @@ async function loadSettings(store) {
 }
 async function saveSettings(store, settings) {
   const clean = normalizeSettings(settings);
-  await store.saveData({ airtableToken: clean.airtableToken });
+  await store.saveData({
+    airtableToken: clean.airtableToken,
+    exportVaultFallback: clean.exportVaultFallback
+  });
 }
 var TablifySettingTab = class extends import_obsidian12.PluginSettingTab {
   host;
@@ -27950,13 +27992,25 @@ var TablifySettingTab = class extends import_obsidian12.PluginSettingTab {
       text.inputEl.autocomplete = "off";
       text.inputEl.spellcheck = false;
       text.setPlaceholder("Paste your Airtable token").setValue(this.host.settings.airtableToken).onChange(async (value) => {
-        this.host.settings = normalizeSettings({ airtableToken: value });
+        this.host.settings = normalizeSettings({ ...this.host.settings, airtableToken: value });
         try {
           await saveSettings(this.host, this.host.settings);
         } catch {
         }
       });
     });
+    new import_obsidian12.Setting(containerEl).setName("Export").setHeading();
+    new import_obsidian12.Setting(containerEl).setName("Save into the vault when no save destination works").setDesc(
+      "Last resort only: if the system save dialog, the share sheet and the shared folder are all unavailable, write the export next to the table (never overwriting). Off by default \u2014 exports otherwise never write into the vault."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.host.settings.exportVaultFallback).onChange(async (value) => {
+        this.host.settings = normalizeSettings({ ...this.host.settings, exportVaultFallback: value });
+        try {
+          await saveSettings(this.host, this.host.settings);
+        } catch {
+        }
+      })
+    );
   }
 };
 
@@ -30095,6 +30149,7 @@ var TablifyPlugin = class extends import_obsidian17.Plugin {
     this.addSettingTab(new TablifySettingTab(this.app, this));
     registerImportCommand(this);
     registerExportCommand(this);
+    setExportPreferences(() => ({ vaultFallback: this.settings.exportVaultFallback }));
     registerExportDiagnosticsCommand(this);
     registerCurrentViewExportCommands(this, () => this.app.workspace.getActiveViewOfType(TableView));
     linkIndexFor(this.app).start(this);
