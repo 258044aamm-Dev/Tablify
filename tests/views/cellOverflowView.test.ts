@@ -185,6 +185,33 @@ describe('SAD-376 — TableView reads the plugin settings', () => {
     expect(titles(shown[0])).not.toContain('Expand cell');
   });
 
+  it('is reachable from the keyboard: Shift+F10 on a long cell offers Expand cell', async () => {
+    const { view } = await openView(settings());
+    const cell = view.contentEl.querySelector<HTMLElement>(
+      '.tablify__row[data-row-index="0"] .tablify__cell[data-col-index="0"]',
+    );
+    const grid = view.contentEl.querySelector<HTMLElement>('.tablify--grid');
+    expect(cell).not.toBeNull();
+    expect(grid).not.toBeNull();
+
+    // The grid consumes Tab for cell navigation (measured in the visual harness), so the keyboard
+    // way in is the cell menu — Menu key / Shift+F10 (P5-02) — which the overflow flag rides on.
+    // `shouldHandleForGrid` requires the focus to be inside the grid. In the real app a
+    // scrollable grid root takes focus natively (measured in the visual harness); jsdom needs the
+    // cell's own control focused instead, which is also the case the test title describes.
+    const inner = cell.querySelector<HTMLElement>('.tablify__cell-expand');
+    expect(inner).not.toBeNull();
+    (inner as HTMLElement).focus();
+    (cell as HTMLElement).dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
+    );
+    (grid as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true, cancelable: true }),
+    );
+    expect(shown).toHaveLength(1);
+    expect(titles(shown[0])).toContain('Expand cell');
+  });
+
   it('picks the card and touch switches up on the next render', async () => {
     const { view, current } = await openView(settings());
     const grid = view.contentEl.querySelector('.tablify--overflow') as HTMLElement;

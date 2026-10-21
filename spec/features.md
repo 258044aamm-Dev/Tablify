@@ -74,6 +74,18 @@ Supported types: text, long text, number, currency, percent, duration, rating, c
 > The edit gestures, the commit rules (Enter/Done/blur commit, Escape cancels, one undo step per
 > commit) and the stored formats (`YYYY-MM-DD`, ISO 8601 UTC) are unchanged.
 
+> **SAD-376 (2026-10-21):** a cell whose **displayed** text is longer than the plugin setting
+> (80 characters by default, counted after formatting and chips) offers the rest of its value
+> without changing anything about the grid: the ellipsis, the column widths, the row heights and
+> the cell's own click are exactly as they were. Hovering the cell reveals a 20 px ⤢ control
+> (invisible **and** inert until revealed, so it cannot intercept a press); clicking it opens the
+> full text in the anchored float panel (`role="dialog"`, Copy content, Escape / outside press /
+> scroll to close); resting on it for 200 ms opens a pointer-only preview card instead
+> (`role="group"`, no tabbable element, its expand opens the same panel). Touch has no hover, so
+> under `@media (hover: none)` with the plugin setting the control stays visible at rest, and the
+> cell menu gains **Expand cell**. The feature only *reads* text already on screen: no value, undo
+> step, save or `.tablify` byte is affected, and `formatVersion` is unchanged.
+
 > **COD-77 (2026-10-18):** a press anywhere outside the table surface drops the focused cell
 > (`outsideTapClear`, ported from the prototype's `Prototype/script.js:866`). Keep-zones, where
 > the highlight survives: the table surface itself (header and body — a press there is a normal
@@ -145,7 +157,7 @@ Export the current view or full table to **CSV**, **Excel (.xlsx)**, or **Markdo
 
 | Target | Menu items |
 |--------|------------|
-| Cell | Copy, Paste, Clear |
+| Cell | Edit cell, **Expand cell** (SAD-376: only when the cell's displayed text is longer than the limit and the touch-reveal setting is on), Copy, Paste, Clear |
 | Row | Insert row above, Insert row below, Duplicate row, Copy row, Delete row |
 | Column header | Change field type, Hide field, Sort ascending, Sort descending, Freeze column |
 

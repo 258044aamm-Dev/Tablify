@@ -54,6 +54,18 @@ The panel takes the keys while it is open. Nothing here reaches the Add / Modify
 | Double-click / tap a read-only cell | Nothing | System and formula fields cannot be edited (the menu says why) |
 | Tap outside the table | Clear the focused cell | Anywhere but the table surface, a picker panel, a menu or a dialog; an open editor commits first (COD-77) |
 
+## Reading a long cell (SAD-376)
+
+| Gesture | Action | Notes |
+|----------|--------|-------|
+| Hover a cell longer than the limit | Reveal the ⤢ in its top-right corner | Hover only where a pointer can hover; the control is inert until it is revealed, so the cell's own click is unchanged |
+| Click the ⤢ | Open the full text in the anchored panel | The panel is `role="dialog"`; Escape, an outside press or a scroll closes it |
+| Rest on the ⤢ (200 ms) | Open the preview card | Copy and expand live in its corner; moving into the card keeps it open, and its expand opens the panel |
+| **Menu key** / **Shift+F10** on a long cell | **Expand cell** in the cell menu | The keyboard way in. Tab inside the grid moves the cell selection (unchanged, P5-02), so the menu is the route that does not depend on the pointer |
+| Right-click / long-press a long cell | **Expand cell** | Offered only when that cell's text is over the limit |
+| Focus the ⤢ itself | It shows its focus ring and stays visible | It is a real `<button>`; the preview card never takes focus, so no dialog is entered by accident |
+| **Copy content** (in the panel) | Copy the value to the system clipboard | Not a range copy: it never touches the grid clipboard |
+
 ## Overlap with Obsidian defaults
 
 Checked against Obsidian 1.5 hotkeys (desktop):

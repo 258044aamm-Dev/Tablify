@@ -66,6 +66,22 @@ interface Capture {
   nums: Numbers;
 }
 
+/** WCAG contrast helper, injected into each page evaluate (string: it runs in the browser). */
+const CONTRAST = `
+  const rgb = (c) => (c.match(/[\\d.]+/g) || [0, 0, 0]).slice(0, 3).map(Number);
+  const lum = (c) => {
+    const [r, g, b] = rgb(c).map((v) => {
+      const x = v / 255;
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+    return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100;
+  };
+`;
+
 const CELL = (row: number, col: number) =>
   `.tablify__row[data-row-index="${row}"] .tablify__cell[data-col-index="${col}"]`;
 
@@ -89,6 +105,7 @@ async function main(): Promise<void> {
 
           // ---- 1. hover: the control appears, and nothing else moves -----------------
           const nums = (await page.evaluate(`(async () => {
+            ${CONTRAST}
             const $ = (sel) => { const el = document.querySelector(sel); if (!el) throw new Error('missing ' + sel); return el; };
             const long = ${JSON.stringify(CELL(0, 1))};
             const short = ${JSON.stringify(CELL(1, 1))};
@@ -134,6 +151,9 @@ async function main(): Promise<void> {
             out.control_border = bcs.borderTopWidth;
             out.control_radius = bcs.borderTopLeftRadius;
             out.control_ink = bcs.color;
+            // WCAG 1.4.11 (non-text): the glyph is the control's whole label, so it is measured
+            // against the capsule it sits on rather than waved through as decoration.
+            out.icon_contrast = contrast(bcs.color, getComputedStyle(longCell.querySelector('.tablify__capsule')).backgroundColor);
             out.control_bottom = Math.round(before.getBoundingClientRect().bottom);
             return out;
           })()`)) as Numbers;
@@ -172,6 +192,7 @@ async function main(): Promise<void> {
           await page.waitForSelector('[data-testid="tablify-cell-overflow-card"]', { timeout: 2000 });
           await page.waitForTimeout(120);
           const card = (await page.evaluate(`(() => {
+            ${CONTRAST}
             const card = document.querySelector('[data-testid="tablify-cell-overflow-card"]');
             if (!card) throw new Error('no card');
             const body = card.querySelector('.tablify__cellcard-body');
@@ -199,6 +220,7 @@ async function main(): Promise<void> {
               body_wrap: getComputedStyle(body).whiteSpace,
               body_break: getComputedStyle(body).overflowWrap,
               body_text_len: (body.textContent || '').length,
+              card_text_contrast: contrast(getComputedStyle(body).color, getComputedStyle(card).backgroundColor),
               body_full: (body.textContent || '') === ${JSON.stringify(LONG)},
               tools: tools.join('+'),
               tabbable: card.querySelectorAll('a[href],button,input,select,textarea,[tabindex]:not([tabindex="-1"])').length,
@@ -213,6 +235,7 @@ async function main(): Promise<void> {
           await page.waitForSelector('[data-testid="tablify-cell-overflow-panel"]', { timeout: 2000 });
           await page.waitForTimeout(120);
           const panel = (await page.evaluate(`(() => {
+            ${CONTRAST}
             const panel = document.querySelector('[data-testid="tablify-cell-overflow-panel"]');
             if (!panel) throw new Error('no panel');
             const box = panel.getBoundingClientRect();
@@ -226,6 +249,7 @@ async function main(): Promise<void> {
               panel_inside_x: box.left >= 0 && box.right <= vw,
               panel_inside_y: box.top >= 0 && box.bottom <= vh,
               panel_full: (body ? body.textContent : '') === ${JSON.stringify(LONG)},
+              panel_text_contrast: contrast(getComputedStyle(body).color, getComputedStyle(panel).backgroundColor),
               card_closed: document.querySelector('[data-testid="tablify-cell-overflow-card"]') === null,
             };
           })()`)) as Numbers;

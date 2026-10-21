@@ -6,6 +6,19 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ### Added
 
+- **A long cell can be read in full, without losing its ellipsis (SAD-376)** — a cell whose text is
+  longer than the limit (80 characters by default, counted after formatting and chips) now offers
+  the rest of its value. Hovering the cell reveals a small ⤢ in its top-right corner: clicking it
+  opens the whole text in the same floating panel every other cell panel uses, with **Copy
+  content**; resting on it for a moment opens a compact preview card with copy and expand in its
+  corner instead. Touch has no hover, so the control sits in the corner of a long cell on a touch
+  screen and **Expand cell** joins the cell menu (long-press there, **Menu key** / **Shift+F10** on
+  a keyboard). Everything about the grid itself is unchanged by design: the ellipsis, the column
+  widths, the row heights and the cell's own click stay exactly as they were, the control is
+  invisible *and* inert until it is revealed, and the grid only ever *reads* the text that is
+  already on screen — no value, undo step or file is touched. Four settings under **Settings →
+  Tablify → Cells** (on by default, limit 20–2000) switch the control, the card and the touch
+  reveal independently or off entirely.
 - **The mobile toolbar now says it can be swiped (SAD-375)** — on phones (`≤ 639px`) the tool row
   scrolls horizontally three tools at a time (SAD-308), but nothing told new users the gesture was
   there. A soft card-coloured gradient fade now sits over the row's scroll edges: while more tools

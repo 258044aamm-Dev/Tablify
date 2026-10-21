@@ -2440,8 +2440,9 @@ body.is-phone .view-content.tablify-view.tablify {
   }
 
   /* SAD-376: reveal follows the same rule as the grips — hover only, and the control becomes
-     clickable at the same moment it becomes visible. A keyboard focus reveals it in every mode
-     (rule above), so the affordance is never mouse-only. */
+     clickable at the same moment it becomes visible. A focused control reveals itself in every
+     mode (rule above). The keyboard route does not depend on this rule: the cell menu carries
+     Expand cell (Menu key / Shift+F10), because Tab inside the grid moves the cell selection. */
   .tablify .tablify__cell--overflow:hover > .tablify__capsule > button.tablify__cell-expand {
     opacity: 1;
     pointer-events: auto;

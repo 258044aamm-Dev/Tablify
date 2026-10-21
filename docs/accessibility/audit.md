@@ -123,3 +123,45 @@ Per P6-03 acceptance: open findings are S3 or lower; F-1 (S3) and F-2/F-3/F-4 (S
 - **Group headers:** each is a grid row holding one `gridcell` that spans every column (`aria-colspan`), containing a real `<button>` with `aria-expanded`. Enter and Space press it and are kept from the grid's editor shortcut. `aria-rowcount` counts the header rows. Headers carry no `data-row-id`, so selection and row drag never treat them as rows. Collapsed rows leave the grid entirely (not merely hidden).
 - **Contrast:** active pills, **Show** and the switch use the prototype's terracotta fill (#CC785C, both themes). Their text uses the on-accent ink (#1E1B18 light, 5.23:1 / #181715 dark, 5.47:1) instead of the prototype's white, which is 3.28:1. The switch track when on is 3.28:1 (light) / 4.85:1 (dark) against the panel; the off track is finding F-7. Option chips: in light theme the emerald, amber and pink inks are the Tailwind 800 shade (5.91 / 5.62 / 5.80:1 on their tint) because the prototype's 700 measures 4.22 / 3.98 / 4.44:1; every other chip ink is the prototype's (light ≥ 4.52:1, dark ≥ 7.81:1).
 - **axe:** `tests/views/grid/grouping.test.ts` runs axe on a grouped grid with one group collapsed: 0 critical, 0 serious.
+
+## 9. SAD-376 additions (reading a long cell)
+
+- **The quiet requirement is the accessibility requirement.** A long cell keeps its ellipsis and its
+  geometry: on hover only the 20 px control appears, and it is `opacity: 0` + `pointer-events: none`
+  at rest, so the cell's click, its ARIA gridcell semantics and its text node are exactly what they
+  were. Measured in the visual harness on all six theme × viewport combos: the long cell and the
+  short cell in the same column are the same width (292 / 257 / 180 px), the 2-line clamp and
+  `text-overflow` are unchanged on hover, and no control exists at all on a cell that fits.
+- **Names, not tooltips.** The control is a `<button>` with `aria-label="Show full content of
+  <field>"` and `aria-haspopup="dialog"`, and deliberately no `title` (a `title` beside an
+  `aria-label` produces two tooltips — SAD-109).
+- **Keyboard.** The cell menu carries **Expand cell** (Menu key / Shift+F10), which opens the same
+  `role="dialog"` panel; that is the keyboard route that does not depend on pointer position.
+
+  > **Correction recorded here rather than quietly assumed:** Tab inside the grid moves the cell
+  > selection (P5-02), so it never lands on the in-cell control. The control is a real button and
+  > shows its focus ring if it is focused, but it is *not* the keyboard path — the menu is. The
+  > `tests/views/cellOverflowView.test.ts` case for Shift+F10 pins the route that exists.
+- **The preview card is pointer-only on purpose.** It is `role="group"`, never `role="dialog"`,
+  and it holds **no tabbable element**, so it cannot trap or steal focus the way a second dialog
+  above a grid would. Opening it is not a focus change; the panel is the announced surface.
+- **Touch.** The control stays visible at rest only under `@media (hover: none)` *and* the plugin's
+  own `tablify--overflow-touch` class (the plugin setting), so a coarse pointer gets a target
+  without a pointer ever hovering.
+- **Contrast (measured, WCAG 1.4.11 non-text / 1.4.3 text):**
+
+  | Element | Light | Dark | Requirement |
+  |---|---|---|---|
+  | ⤢ glyph on the capsule | 5.71:1 | 6.10:1 | ≥ 3:1 |
+  | Preview-card body text on the card | 17.14:1 | 12.92:1 | ≥ 4.5:1 |
+  | Panel body text on the panel | 17.14:1 | 12.92:1 | ≥ 4.5:1 |
+
+  Every colour is an existing plugin token; the stylesheet test rejects any non-`--tablify` variable
+  inside the feature's blocks.
+- **Host-button specificity.** The stylesheet declares the control as `.tablify button.…` (0,2,1)
+  because Obsidian's own `button:not(.clickable-icon)` (0,1,1) otherwise repaints it as a 30 px host
+  pill — measured, see the SAD-376 evidence. The same convention the toolbar buttons follow
+  (SAD-76 / RC-B).
+- **No motion beyond a 120 ms opacity fade**, which `prefers-reduced-motion` removes; the card and
+  panel are positioned, not animated.
+

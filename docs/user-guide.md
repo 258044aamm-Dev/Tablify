@@ -11,6 +11,7 @@ Everything in this guide covers the 1.0.0 (MVP) feature set, on desktop and mobi
    - [Picking a date or a time](#4a-picking-a-date-or-a-time)
    - [Phone numbers and countries](#4b-phone-numbers-and-countries)
    - [Rating a row](#4c-rating-a-row)
+   - [Reading a long cell](#4d-reading-a-long-cell)
 5. [Keyboard use](#5-keyboard-use)
 6. [Select options](#6-select-options)
 7. [Attachments](#7-attachments)
@@ -252,6 +253,35 @@ number) until you change it; the panel offers `0` to `Max` for new values.
 how many ratings were rounded (*1 rating(s) rounded for Airtable*); the `.tablify` file keeps
 `4.5` until you edit it. Nothing is refused and nothing is silently rewritten locally.
 
+## 4d. Reading a long cell
+
+A cell that has more text than fits keeps its ellipsis — nothing about the grid changes until you
+ask for the rest.
+
+- **Hover the cell** and a small ⤢ glyph appears in its top-right corner. Hovering changes only the
+  glyph: the text, the ellipsis, the column widths and the row heights stay exactly as they were,
+  and a click on the cell still just selects it.
+- **Click the glyph** to open the value in a floating panel: the whole text, wrapped and readable,
+  with **Copy content** and a close button. Press **Escape**, click outside it, or scroll to close.
+- **Rest on the glyph** for a moment and a small preview card opens instead — the value over a few
+  lines with copy and expand in its corner. Moving into the card keeps it open; its expand button
+  opens the same full panel.
+- **On a touch screen** there is no hover, so the glyph sits in the corner of the cell permanently
+  and **Expand cell** is in the cell's long-press menu.
+- The panel never edits anything: it reads the text that is already on screen, so opening it cannot
+  change a value or add an undo step.
+
+Which cells offer it: any cell whose displayed text is longer than the limit — **80 characters** by
+default — counted after formatting and chips, so a date, a number or a status option is measured as
+it appears. Everything is in **Settings → Tablify**:
+
+| Setting (under the **Cells** heading) | Default | Meaning |
+|---|---|---|
+| **Expand long cells** | on | the glyph, the preview card and **Expand cell** at all |
+| **Expand above this many characters** | 80 | characters of displayed text before a cell offers Expand (20–2000) |
+| **Preview the full text on hover** | on | open the preview card when resting on the glyph; off makes the glyph open the panel straight away |
+| **Show the expand control on touch screens** | on | keep the glyph visible in a long cell's corner on a touch screen, and offer **Expand cell** in the menu |
+
 ## 5. Keyboard use
 
 The grid handles keys only when the grid has focus. Full table in [docs/shortcuts.md](shortcuts.md):
@@ -463,7 +493,7 @@ Right-click (or **Menu key** / **Shift+F10**) in the grid:
 
 | Target | Items |
 |---|---|
-| Cell | Copy, Paste, Clear |
+| Cell | Edit cell, Expand cell (only when the cell is longer than the limit), Copy, Paste, Clear |
 | Row | Insert row above, Insert row below, Duplicate row, Copy row, Delete row |
 | Header | Modify field…, Hide field, Sort ascending, Sort descending |
 
@@ -478,6 +508,7 @@ On iOS and Android, **press and hold (~0.5 s)** a row to open the same menu as a
 - **"Broken table" file**: if a `.tablify` file contains invalid JSON, Tablify shows an error and **leaves the file unchanged on disk**. Fix the JSON (or restore from backup) and reopen.
 - **Imported column came out as text**: type inference is deliberately strict; mixed or ambiguous columns stay text. Change the type from the **Modify Field** window (header click, or **⋮ → Modify field…**) — it converts only when every value converts cleanly.
 - **Table did not reload after I edited the JSON by hand**: close and reopen the view; Tablify re-reads and re-validates the file (schema-validated, `formatVersion: 1`).
+- **The expand glyph does not appear on a cell**: the cell's displayed text is at or under the limit — 80 characters by default, and the count is of what the cell *shows* (a formatted date, number or status option). Change it in **Settings → Tablify → Cells → Expand above this many characters**, and check that **Expand long cells** is on. On a touch screen the glyph only sits in the corner while **Show the expand control on touch screens** is on; with it off, **Expand cell** is not in the menu either.
 - **`.tabula` files**: not supported, on purpose. Tablify ignores them.
 
 ---

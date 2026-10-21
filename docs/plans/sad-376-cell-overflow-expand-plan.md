@@ -4,6 +4,14 @@
 > Nothing is committed, pushed or built. Every statement about the codebase below was read out of
 > the working tree at `019abd6` (`main`), not remembered or assumed; where something could only be
 > checked at implementation time it is marked **VERIFY** with the exact command.
+>
+> **Delivered (2026-10-21):** every phase below shipped to `main` in six commits — `5b003e3`
+> (settings), `d24fbd2` (predicate + icon), `ebc4239` (control, panel, CSS, threading), `54d4030`
+> (hover card), `d20af69` (menu + touch), `ff43af1` (browser-found fixes + evidence). Two plan
+> assumptions did not survive contact with a real browser — the control's selector lost to
+> Obsidian's own button rule, and a 360 px panel hung off a 390 px phone — both are corrected and
+> pinned by tests; see `docs/decisions/cell-overflow.md` §4. As-built record:
+> [`docs/evidence/SAD-376.md`](../evidence/SAD-376.md).
 
 **Date:** 2026-10-20 · **Repo:** `MakeTheNewHistory/Tablify` @ `019abd6` · **Mode:** plan only
 **Ticket:** [SAD-376 — Improve the table cell overflow behavior](https://linear.app/sad-mod/issue/SAD-376/improve-the-table-cell-overflow-behavior)
