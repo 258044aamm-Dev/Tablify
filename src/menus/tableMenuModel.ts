@@ -74,6 +74,11 @@ export interface CellContext {
   isLink?: boolean;
   /** P8-04 follow-up (R-5): links in this cell that point at a table other than the field's target. */
   foreignLinks?: number;
+  /**
+   * SAD-376: this cell's display text is longer than the configured limit, so it has more to read.
+   * The item is offered only then — like `cell.links`, it appears when it applies and not before.
+   */
+  overflowText?: boolean;
 }
 
 export function cellEntries(ctx: CellContext): MenuEntry[] {
@@ -85,6 +90,9 @@ export function cellEntries(ctx: CellContext): MenuEntry[] {
       enabled: !ctx.readOnly,
       reason: ctx.readOnly ? 'Read-only field' : undefined,
     },
+    // SAD-376: the way in for touch (and for keyboard), where there is no hover to reveal the
+    // in-cell control. Reading is read-only, so it is available on a read-only field too.
+    ...(ctx.overflowText ? [{ id: 'cell.expand', label: 'Expand cell', enabled: true }] : []),
     { id: 'cell.copy', label: 'Copy', enabled: true },
   ];
   if (ctx.isLink) {

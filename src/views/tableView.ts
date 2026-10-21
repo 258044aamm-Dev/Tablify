@@ -31,7 +31,7 @@ import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 import { TitleRow, type TitleRowCallbacks, type TitleRowState } from './titleRow.js';
 import { cellOverflowConfig, type TablifySettings } from '../settings.js';
-import { DEFAULT_OVERFLOW_CONFIG, type CellOverflowConfig } from './grid/cellOverflow.js';
+import { DEFAULT_OVERFLOW_CONFIG, offersOverflow, type CellOverflowConfig } from './grid/cellOverflow.js';
 import { ExportShareRetryModal, deviceExportRuntime, openExportModal } from '../commands/export.js';
 import {
   beginExportSave,
@@ -981,6 +981,18 @@ export class TableView extends TextFileView {
     ) as HTMLElement | null;
   }
 
+  /** SAD-376: one cell's rendered display text, exactly as the grid drew it. */
+  private cellTextAt(row: number, col: number): string {
+    const cell = this.cellElement({ row, col });
+    return cell?.querySelector('.tablify__cell-text')?.textContent ?? '';
+  }
+
+  /** SAD-376: open the expanded view for a cell from the menu — the same panel, same anchor. */
+  private openOverflowPanelAt(row: number, col: number): void {
+    const cell = this.cellElement({ row, col });
+    if (cell) this.grid?.openCellOverflow(cell);
+  }
+
   // ---- context menus (P5-02) ----
 
   private onContextMenu(e: MouseEvent): void {
@@ -1235,6 +1247,12 @@ export class TableView extends TextFileView {
     const field = this.session.getVisibleFields()[col];
     if (!rowData || !field) return;
     const value = rowData.values[field.id];
+    // SAD-376: the cell's rendered text is the one source of truth for "is there more to read" —
+    // re-deriving it here would be a second formatting path that could drift from the grid's.
+    // The item belongs to the same switch as the touch-revealed control (one setting covers both
+    // ways a touch reader can reach the content) and is offered on a read-only field too, because
+    // reading is not editing.
+    const overflow = this.overflowConfig();
     const entries = cellMenu(
       {
         readOnly: isReadOnly(field),
@@ -1242,6 +1260,7 @@ export class TableView extends TextFileView {
         hasClipboard: this.clipboardText !== null,
         isLink: field.type === 'link',
         foreignLinks: field.type === 'link' ? countForeignRefs(value, field.linkTableId) : 0,
+        overflowText: overflow.touchReveal && offersOverflow(overflow, this.cellTextAt(row, col)),
       },
       this.rowSelection.has(rowData.id),
     );
@@ -1293,6 +1312,10 @@ export class TableView extends TextFileView {
         case 'cell.edit':
           // SAD-96: opens the editor / panel / picker for this cell's type.
           this.startEdit({ row: t.row, col: t.col });
+          return;
+        case 'cell.expand':
+          // SAD-376: the same panel the in-cell control opens, anchored the same way.
+          this.openOverflowPanelAt(t.row, t.col);
           return;
         case 'cell.copy':
           this.copyText(formatValue(row.values[field.id], field));

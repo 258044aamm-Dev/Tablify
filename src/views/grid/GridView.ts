@@ -334,6 +334,12 @@ export class GridView {
     this.overflowPanel.open(anchor);
   }
 
+  /** SAD-376: open the expanded view for a rendered cell — the cell menu's way in, where there is
+   *  no hover to reveal the control (touch, keyboard). */
+  openCellOverflow(cell: HTMLElement): void {
+    this.openOverflowPanel(cell);
+  }
+
   /**
    * SAD-376: show the hover preview card for one cell, anchored to its control.
    *

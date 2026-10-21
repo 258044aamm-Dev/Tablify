@@ -19571,6 +19571,11 @@ var GridView = class {
     });
     this.overflowPanel.open(anchor);
   }
+  /** SAD-376: open the expanded view for a rendered cell — the cell menu's way in, where there is
+   *  no hover to reveal the control (touch, keyboard). */
+  openCellOverflow(cell2) {
+    this.openOverflowPanel(cell2);
+  }
   /**
    * SAD-376: show the hover preview card for one cell, anchored to its control.
    *
@@ -20860,6 +20865,9 @@ function cellEntries(ctx) {
       enabled: !ctx.readOnly,
       reason: ctx.readOnly ? "Read-only field" : void 0
     },
+    // SAD-376: the way in for touch (and for keyboard), where there is no hover to reveal the
+    // in-cell control. Reading is read-only, so it is available on a read-only field too.
+    ...ctx.overflowText ? [{ id: "cell.expand", label: "Expand cell", enabled: true }] : [],
     { id: "cell.copy", label: "Copy", enabled: true }
   ];
   if (ctx.isLink) {
@@ -27464,6 +27472,17 @@ var TableView = class extends import_obsidian11.TextFileView {
       `.tablify__row[data-row-index="${sel.row}"] .tablify__cell[data-col-index="${sel.col}"]`
     );
   }
+  /** SAD-376: one cell's rendered display text, exactly as the grid drew it. */
+  cellTextAt(row, col) {
+    const cell2 = this.cellElement({ row, col });
+    return cell2?.querySelector(".tablify__cell-text")?.textContent ?? "";
+  }
+  /** SAD-376: open the expanded view for a cell from the menu — the same panel, same anchor. */
+  openOverflowPanelAt(row, col) {
+    const cell2 = this.cellElement({ row, col });
+    if (cell2)
+      this.grid?.openCellOverflow(cell2);
+  }
   // ---- context menus (P5-02) ----
   onContextMenu(e) {
     const caps = e.sourceCapabilities;
@@ -27691,13 +27710,15 @@ var TableView = class extends import_obsidian11.TextFileView {
     if (!rowData || !field)
       return;
     const value = rowData.values[field.id];
+    const overflow = this.overflowConfig();
     const entries = cellMenu(
       {
         readOnly: isReadOnly(field),
         cellEmpty: isEmptyValue(value),
         hasClipboard: this.clipboardText !== null,
         isLink: field.type === "link",
-        foreignLinks: field.type === "link" ? countForeignRefs(value, field.linkTableId) : 0
+        foreignLinks: field.type === "link" ? countForeignRefs(value, field.linkTableId) : 0,
+        overflowText: overflow.touchReveal && offersOverflow(overflow, this.cellTextAt(row, col))
       },
       this.rowSelection.has(rowData.id)
     );
@@ -27751,6 +27772,9 @@ var TableView = class extends import_obsidian11.TextFileView {
       switch (id) {
         case "cell.edit":
           this.startEdit({ row: t.row, col: t.col });
+          return;
+        case "cell.expand":
+          this.openOverflowPanelAt(t.row, t.col);
           return;
         case "cell.copy":
           this.copyText(formatValue(row.values[field2.id], field2));

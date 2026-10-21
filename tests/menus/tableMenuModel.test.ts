@@ -44,6 +44,38 @@ describe('cell menu (P5-02)', () => {
   });
 });
 
+describe('SAD-376 — Expand cell in the cell menu', () => {
+  it('is absent unless the cell has more text than the limit', () => {
+    const plain = cellEntries({ readOnly: false, cellEmpty: false, hasClipboard: false });
+    expect(plain.some((e) => e.id === 'cell.expand')).toBe(false);
+    // The list is exactly what it was before this feature.
+    expect(plain.map((e) => e.label)).toEqual(['Edit cell', 'Copy', 'Paste', 'Clear']);
+  });
+
+  it('sits directly after Edit cell when the cell overflows', () => {
+    const entries = cellEntries({ readOnly: false, cellEmpty: false, hasClipboard: false, overflowText: true });
+    expect(entries.map((e) => e.label)).toEqual(['Edit cell', 'Expand cell', 'Copy', 'Paste', 'Clear']);
+    expect(byId(entries, 'cell.expand')).toMatchObject({ label: 'Expand cell', enabled: true });
+  });
+
+  it('is offered on a read-only field — reading is not editing', () => {
+    const entries = cellEntries({ readOnly: true, cellEmpty: false, hasClipboard: false, overflowText: true });
+    expect(byId(entries, 'cell.expand').enabled).toBe(true);
+    // ...while the write items stay disabled with their reasons.
+    expect(byId(entries, 'cell.edit').enabled).toBe(false);
+    expect(byId(entries, 'cell.clear').enabled).toBe(false);
+  });
+
+  it('keeps the separator and the row items in place', () => {
+    const entries = cellMenu({ readOnly: false, cellEmpty: false, hasClipboard: false, overflowText: true });
+    expect(entries.map((e) => e.label)).toEqual([
+      'Edit cell', 'Expand cell', 'Copy', 'Paste', 'Clear', '', 'Select row', 'Insert row above',
+      'Insert row below', 'Duplicate row', 'Copy row', 'Delete row',
+    ]);
+    expect(entries[5].separator).toBe(true);
+  });
+});
+
 describe('row menu (P5-02)', () => {
   it('has Select row, Insert above, Insert below, Duplicate, Copy, Delete, all enabled', () => {
     const r = rowEntries();
