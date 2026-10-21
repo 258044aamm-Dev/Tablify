@@ -18350,7 +18350,8 @@ var GLYPHS = {
   "palette": { w: 512, d: "M512 256c0 .9 0 1.8 0 2.7c-.4 36.5-33.6 61.3-70.1 61.3H344c-26.5 0-48 21.5-48 48c0 3.4 .4 6.7 1 9.9c2.1 10.2 6.5 20 10.8 29.9c6.1 13.8 12.1 27.5 12.1 42c0 31.8-21.6 60.7-53.4 62c-3.5 .1-7 .2-10.6 .2C114.6 512 0 397.4 0 256S114.6 0 256 0S512 114.6 512 256zM128 288a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm0-96a32 32 0 1 0 0-64 32 32 0 1 0 0 64zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zm96 96a32 32 0 1 0 0-64 32 32 0 1 0 0 64z" },
   "arrow-up": { w: 384, d: "M214.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-160 160c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L160 141.2V448c0 17.7 14.3 32 32 32s32-14.3 32-32V141.2L329.4 246.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3l-160-160z" },
   "arrow-down": { w: 384, d: "M169.4 470.6c12.5 12.5 32.8 12.5 45.3 0l160-160c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L224 370.8 224 64c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 306.7L54.6 265.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l160 160z" },
-  "square": { w: 448, d: "M384 80c8.8 0 16 7.2 16 16V416c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V96c0-8.8 7.2-16 16-16H384zM64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64z" }
+  "square": { w: 448, d: "M384 80c8.8 0 16 7.2 16 16V416c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V96c0-8.8 7.2-16 16-16H384zM64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64z" },
+  "up-right-and-down-left-from-center": { w: 512, d: "M344 0H488c13.3 0 24 10.7 24 24V168c0 9.7-5.8 18.5-14.8 22.2s-19.3 1.7-26.2-5.2l-39-39-87 87c-9.4 9.4-24.6 9.4-33.9 0l-32-32c-9.4-9.4-9.4-24.6 0-33.9l87-87L327 41c-6.9-6.9-8.9-17.2-5.2-26.2S334.3 0 344 0zM168 512H24c-13.3 0-24-10.7-24-24V344c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2l39 39 87-87c9.4-9.4 24.6-9.4 33.9 0l32 32c9.4 9.4 9.4 24.6 0 33.9l-87 87 39 39c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8z" }
 };
 function faIcon(name, sizePx) {
   const g = GLYPHS[name];
@@ -18417,7 +18418,7 @@ var LinkIntegrityModal = class extends import_obsidian3.Modal {
 };
 
 // src/views/tableView.ts
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 
 // src/views/grid/editors/index.ts
 var READONLY_TYPES = /* @__PURE__ */ new Set(["auto_number", "created_time", "modified_time", "formula"]);
@@ -18625,6 +18626,179 @@ var RowPool = class {
   clear() {
     this.pool.push(...this.active.values());
     this.active.clear();
+  }
+};
+
+// src/views/grid/cellOverflow.ts
+var DEFAULT_OVERFLOW_CONFIG = Object.freeze({
+  enabled: true,
+  maxChars: 80,
+  hoverCard: true,
+  touchReveal: true
+});
+function isOverflowing(displayText, maxChars) {
+  if (displayText === "" || !Number.isFinite(maxChars) || maxChars < 0)
+    return false;
+  if (displayText.length <= maxChars)
+    return false;
+  const iterator = displayText[Symbol.iterator]();
+  let counted = 0;
+  while (counted <= maxChars) {
+    if (iterator.next().done === true)
+      return false;
+    counted += 1;
+  }
+  return true;
+}
+function offersOverflow(config, displayText) {
+  return config.enabled && isOverflowing(displayText, config.maxChars);
+}
+
+// src/views/grid/select/panel.ts
+var PANEL_WIDTH = 320;
+function createPanelCard(testid, theme = "light", bodyClass = "tablify__dropdown-body") {
+  const card = document.createElement("div");
+  card.className = "tablify__panel";
+  card.dataset.testid = testid;
+  card.setAttribute("role", "dialog");
+  applyTheme(card, theme);
+  const body = document.createElement("div");
+  body.className = bodyClass;
+  card.appendChild(body);
+  return { card, body };
+}
+function anchorPanel(card, anchor) {
+  const r = anchor.getBoundingClientRect();
+  const vw = typeof window === "undefined" ? PANEL_WIDTH + 24 : window.innerWidth;
+  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
+  const pw = Math.min(PANEL_WIDTH, vw - 24);
+  const x = Math.min(r.left, vw - pw - 12);
+  const y = r.bottom + 6;
+  card.style.position = "fixed";
+  card.style.left = `${Math.max(8, x)}px`;
+  card.style.top = `${y}px`;
+  card.style.zIndex = "70";
+  const height = card.getBoundingClientRect().height;
+  if (y + height > vh - 8)
+    card.style.top = `${Math.max(8, r.top - height - 6)}px`;
+}
+function wirePanelDismiss(card, onDismiss) {
+  const onPress = (ev) => {
+    if (!card.contains(ev.target))
+      onDismiss();
+  };
+  const onKey = (ev) => {
+    if (ev.key === "Escape")
+      onDismiss();
+  };
+  document.addEventListener("mousedown", onPress);
+  document.addEventListener("touchstart", onPress, { passive: true });
+  document.addEventListener("keydown", onKey);
+  return () => {
+    document.removeEventListener("mousedown", onPress);
+    document.removeEventListener("touchstart", onPress);
+    document.removeEventListener("keydown", onKey);
+  };
+}
+
+// src/views/grid/cellOverflowUi.ts
+var COPY_CONFIRM_MS = 1200;
+var EXPAND_CONTROL_ATTRIBUTE = "data-overflow-expand";
+function createExpandControl(fieldName) {
+  const button3 = document.createElement("button");
+  button3.type = "button";
+  button3.className = "tablify__cell-expand";
+  button3.setAttribute(EXPAND_CONTROL_ATTRIBUTE, "1");
+  button3.setAttribute("aria-label", `Show full content of ${fieldName}`);
+  button3.setAttribute("aria-haspopup", "dialog");
+  button3.innerHTML = faIcon("up-right-and-down-left-from-center");
+  return button3;
+}
+function copyToClipboard(text) {
+  void navigator.clipboard?.writeText(text).catch(() => void 0);
+}
+var CellOverflowPanel = class {
+  constructor(opts) {
+    this.opts = opts;
+  }
+  card = null;
+  unwireDismiss = null;
+  copyTimer = null;
+  get isOpen() {
+    return this.card !== null;
+  }
+  /** Anchor the panel under the cell's capsule and take over dismissal. */
+  open(anchor) {
+    if (this.card)
+      return;
+    const { card, body } = createPanelCard("tablify-cell-overflow-panel", this.opts.theme, "tablify__overflow-body");
+    card.classList.add("tablify__panel--overflow");
+    const head = document.createElement("div");
+    head.className = "tablify__overflow-head";
+    const title = document.createElement("span");
+    title.className = "tablify__overflow-title";
+    title.textContent = this.opts.fieldName;
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "tablify__overflow-close";
+    close.setAttribute("aria-label", "Close");
+    close.innerHTML = faIcon("xmark");
+    close.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.close();
+    });
+    head.append(title, close);
+    const text = document.createElement("div");
+    text.className = "tablify__overflow-text";
+    text.setAttribute("tabindex", "-1");
+    text.textContent = this.opts.text;
+    const foot = document.createElement("div");
+    foot.className = "tablify__overflow-foot";
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "tablify__overflow-copy";
+    copy.dataset.testid = "tablify-cell-overflow-copy";
+    const copyLabel = document.createElement("span");
+    copyLabel.className = "tablify__overflow-copy-label";
+    copyLabel.textContent = "Copy content";
+    copy.appendChild(copyLabel);
+    copy.insertAdjacentHTML("afterbegin", faIcon("copy"));
+    copy.addEventListener("click", (e) => {
+      e.stopPropagation();
+      copyToClipboard(this.opts.text);
+      this.confirmCopied(copyLabel);
+    });
+    foot.appendChild(copy);
+    body.append(head, text, foot);
+    document.body.appendChild(card);
+    anchorPanel(card, anchor);
+    text.focus({ preventScroll: true });
+    this.unwireDismiss = wirePanelDismiss(card, () => this.close());
+    this.card = card;
+  }
+  close() {
+    if (!this.card)
+      return;
+    this.unwireDismiss?.();
+    this.unwireDismiss = null;
+    if (this.copyTimer !== null) {
+      clearTimeout(this.copyTimer);
+      this.copyTimer = null;
+    }
+    const hadFocus = this.card.contains(document.activeElement);
+    this.card.remove();
+    this.card = null;
+    this.opts.onClosed?.(hadFocus);
+  }
+  /** Swap the button's label for a moment so the copy is visible without a Notice. */
+  confirmCopied(label) {
+    if (this.copyTimer !== null)
+      clearTimeout(this.copyTimer);
+    label.textContent = "Copied";
+    this.copyTimer = setTimeout(() => {
+      label.textContent = "Copy content";
+      this.copyTimer = null;
+    }, COPY_CONFIRM_MS);
   }
 };
 
@@ -19084,6 +19258,7 @@ var GridView = class {
     this.totalRows = opts.rows.length;
     this.rowHeight = rowHeightPx(opts.view.rowHeight);
     this.groups = opts.groups ?? null;
+    this.overflow = opts.overflow ?? DEFAULT_OVERFLOW_CONFIG;
     this.layout = this.buildLayout();
     this.root = document.createElement("div");
     this.root.className = "tablify tablify--grid";
@@ -19097,6 +19272,7 @@ var GridView = class {
     this.root.style.webkitOverflowScrolling = "touch";
     this.root.style.position = "relative";
     applyTheme(this.root, opts.theme);
+    this.applyOverflowClasses();
     this.header = document.createElement("div");
     this.header.className = "tablify__header";
     this.header.setAttribute("role", "row");
@@ -19120,6 +19296,17 @@ var GridView = class {
     this.content.style.right = "0";
     this.viewport.appendChild(this.content);
     this.root.appendChild(this.viewport);
+    this.content.addEventListener("click", (e) => {
+      const control = e.target?.closest?.(`[${EXPAND_CONTROL_ATTRIBUTE}]`);
+      if (!control)
+        return;
+      e.preventDefault();
+      e.stopPropagation();
+      const cell2 = control.closest(".tablify__cell");
+      if (cell2)
+        this.openOverflowPanel(cell2);
+    });
+    this.content.addEventListener("keydown", stopButtonKeys);
     if (opts.onRowMove) {
       this.content.addEventListener("pointerdown", (e) => {
         const lead = e.target?.closest?.(".tablify__lead--num");
@@ -19139,6 +19326,7 @@ var GridView = class {
     });
     this.root.addEventListener("scroll", () => {
       this.scrollTop = this.root.scrollTop;
+      this.overflowPanel?.close();
       if (this.renderedRange && this.rangeFor(this.scrollTop) === this.renderedRange)
         return;
       this.render();
@@ -19234,6 +19422,53 @@ var GridView = class {
   cellTheme() {
     return this.root.classList.contains("tablify--dark") ? "dark" : "light";
   }
+  /** SAD-376: the two root classes the stylesheet branches on, so no cell has to be measured. */
+  applyOverflowClasses() {
+    this.root.classList.toggle("tablify--overflow", this.overflow.enabled);
+    this.root.classList.toggle(
+      "tablify--overflow-touch",
+      this.overflow.enabled && this.overflow.touchReveal
+    );
+  }
+  /**
+   * SAD-376: open the expanded view for one cell.
+   *
+   * Everything comes back out of the DOM — the display text the reader can already see, the field
+   * of that column, and the capsule as the anchor — so nothing has to be remembered per cell and a
+   * re-render cannot leave stale state behind. Read-only by construction: the panel never writes.
+   */
+  openOverflowPanel(cell2) {
+    const text = cell2.querySelector(".tablify__cell-text")?.textContent ?? "";
+    if (!offersOverflow(this.overflow, text))
+      return;
+    const field = this.fields[Number(cell2.dataset.colIndex)];
+    const anchor = cell2.querySelector(".tablify__capsule") ?? cell2;
+    this.overflowPanel?.close();
+    this.overflowPanel = new CellOverflowPanel({
+      text,
+      fieldName: field?.name ?? "Cell",
+      theme: this.cellTheme(),
+      // Focus goes back to the grid only when the panel actually had it, so a re-render that
+      // closes the panel does not pull the caret out of wherever the user is.
+      onClosed: (hadFocus) => {
+        this.overflowPanel = null;
+        if (hadFocus)
+          this.root.focus();
+      }
+    });
+    this.overflowPanel.open(anchor);
+  }
+  /**
+   * SAD-376: a new configuration (the plugin settings changed). Repaints only on a real change, so
+   * a settings save that touched something else cannot cause a re-render.
+   */
+  setOverflow(next) {
+    const changed = next.enabled !== this.overflow.enabled || next.maxChars !== this.overflow.maxChars || next.hoverCard !== this.overflow.hoverCard || next.touchReveal !== this.overflow.touchReveal;
+    this.overflow = next;
+    this.applyOverflowClasses();
+    if (changed)
+      this.render();
+  }
   /** SAD-80: selected row ids (UI state owned by the table view). */
   rowSelection = /* @__PURE__ */ new Set();
   /** SAD-80: the row being dragged by its `#` cell, re-applied on every render. */
@@ -19245,6 +19480,10 @@ var GridView = class {
   groups = null;
   /** SAD-81: virtual layout of the grouped grid (headers + rows), null when flat. */
   layout = null;
+  /** SAD-376: the overflow configuration this grid renders with (plugin settings). */
+  overflow = DEFAULT_OVERFLOW_CONFIG;
+  /** SAD-376: the open expanded-cell panel, if any. Owned here so an embed gets it too. */
+  overflowPanel = null;
   /**
    * Replace rows, fields, and view settings, then re-render. Scroll position is kept.
    * SAD-81: `groups` switches the grouped layout on (rows are then the grouped rows); omitted or
@@ -19955,6 +20194,7 @@ var GridView = class {
     return `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
   }
   render() {
+    this.overflowPanel?.close();
     if (this.layout) {
       this.renderGrouped(this.layout);
       return;
@@ -20167,6 +20407,10 @@ var GridView = class {
             text.textContent = val === void 0 || val === null ? "" : String(Array.isArray(val) ? val.join(", ") : val);
           }
           capsule.appendChild(text);
+          if (offersOverflow(this.overflow, text.textContent ?? "")) {
+            cell2.classList.add("tablify__cell--overflow");
+            capsule.appendChild(createExpandControl(field.name));
+          }
           cell2.appendChild(capsule);
           if (!ownTitle)
             applyValidationState(cell2, field, row, this.rows);
@@ -20194,6 +20438,7 @@ var GridView = class {
     }
   }
   destroy() {
+    this.overflowPanel?.close();
     this.cancelRowDrag?.();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -23322,8 +23567,168 @@ var TitleRow = class {
   }
 };
 
-// src/views/grid/FilterBuilderModal.ts
+// src/settings.ts
 var import_obsidian8 = require("obsidian");
+var CELL_OVERFLOW_MIN_CHARS = 20;
+var CELL_OVERFLOW_MAX_CHARS = 2e3;
+var DEFAULT_SETTINGS = Object.freeze({
+  airtableToken: "",
+  exportVaultFallback: false,
+  cellOverflowEnabled: DEFAULT_OVERFLOW_CONFIG.enabled,
+  cellOverflowMaxChars: DEFAULT_OVERFLOW_CONFIG.maxChars,
+  cellOverflowHoverCard: DEFAULT_OVERFLOW_CONFIG.hoverCard,
+  cellOverflowTouchReveal: DEFAULT_OVERFLOW_CONFIG.touchReveal
+});
+var DEFAULT_CELL_OVERFLOW = DEFAULT_OVERFLOW_CONFIG;
+function cellOverflowConfig(settings) {
+  return {
+    enabled: settings.cellOverflowEnabled,
+    maxChars: settings.cellOverflowMaxChars,
+    hoverCard: settings.cellOverflowHoverCard,
+    touchReveal: settings.cellOverflowTouchReveal
+  };
+}
+function clampCellOverflowChars(raw) {
+  if (typeof raw !== "number" || !Number.isFinite(raw))
+    return DEFAULT_CELL_OVERFLOW.maxChars;
+  return Math.min(CELL_OVERFLOW_MAX_CHARS, Math.max(CELL_OVERFLOW_MIN_CHARS, Math.round(raw)));
+}
+function normalizeCellOverflowSettings(raw) {
+  const record = raw !== null && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  const bool = (value, fallback) => typeof value === "boolean" ? value : fallback;
+  return {
+    cellOverflowEnabled: bool(record.cellOverflowEnabled, DEFAULT_SETTINGS.cellOverflowEnabled),
+    cellOverflowMaxChars: clampCellOverflowChars(record.cellOverflowMaxChars),
+    cellOverflowHoverCard: bool(record.cellOverflowHoverCard, DEFAULT_SETTINGS.cellOverflowHoverCard),
+    cellOverflowTouchReveal: bool(record.cellOverflowTouchReveal, DEFAULT_SETTINGS.cellOverflowTouchReveal)
+  };
+}
+var MAX_TOKEN_LENGTH = 512;
+function normalizeSettings(raw) {
+  const overflow = normalizeCellOverflowSettings(raw);
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ...DEFAULT_SETTINGS, ...overflow };
+  }
+  const record = raw;
+  const token = record.airtableToken;
+  const exportVaultFallback = record.exportVaultFallback === true;
+  if (typeof token !== "string")
+    return { ...DEFAULT_SETTINGS, ...overflow };
+  const trimmed = token.trim();
+  if (trimmed.length > MAX_TOKEN_LENGTH)
+    return { ...DEFAULT_SETTINGS, ...overflow };
+  return { airtableToken: trimmed, exportVaultFallback, ...overflow };
+}
+async function loadSettings(store) {
+  try {
+    return normalizeSettings(await store.loadData());
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+}
+async function saveSettings(store, settings) {
+  const clean = normalizeSettings(settings);
+  await store.saveData({
+    airtableToken: clean.airtableToken,
+    exportVaultFallback: clean.exportVaultFallback,
+    cellOverflowEnabled: clean.cellOverflowEnabled,
+    cellOverflowMaxChars: clean.cellOverflowMaxChars,
+    cellOverflowHoverCard: clean.cellOverflowHoverCard,
+    cellOverflowTouchReveal: clean.cellOverflowTouchReveal
+  });
+}
+var TablifySettingTab = class extends import_obsidian8.PluginSettingTab {
+  host;
+  constructor(app, host) {
+    super(app, host);
+    this.host = host;
+  }
+  /**
+   * SAD-376: one commit path for the overflow controls — normalise, store in memory, save, and ask
+   * open tables to repaint. A failed save leaves the value the UI shows alone, the same rule the
+   * token uses.
+   */
+  async persistOverflow(patch) {
+    this.host.settings = normalizeSettings({ ...this.host.settings, ...patch });
+    try {
+      await saveSettings(this.host, this.host.settings);
+      this.host.refreshOpenTables?.();
+    } catch {
+    }
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    new import_obsidian8.Setting(containerEl).setName("Airtable").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("Personal access token").setDesc(
+      "Used only for Airtable sync. Stored in this plugin\u2019s settings. It is never written to .tablify files or exports."
+    ).addText((text) => {
+      text.inputEl.type = "password";
+      text.inputEl.autocomplete = "off";
+      text.inputEl.spellcheck = false;
+      text.setPlaceholder("Paste your Airtable token").setValue(this.host.settings.airtableToken).onChange(async (value) => {
+        this.host.settings = normalizeSettings({ ...this.host.settings, airtableToken: value });
+        try {
+          await saveSettings(this.host, this.host.settings);
+        } catch {
+        }
+      });
+    });
+    new import_obsidian8.Setting(containerEl).setName("Export").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("Save into the vault when no save destination works").setDesc(
+      "Last resort only: if the system save dialog, the share sheet and the shared folder are all unavailable, write the export next to the table (never overwriting). Off by default \u2014 exports otherwise never write into the vault."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.host.settings.exportVaultFallback).onChange(async (value) => {
+        this.host.settings = normalizeSettings({ ...this.host.settings, exportVaultFallback: value });
+        try {
+          await saveSettings(this.host, this.host.settings);
+        } catch {
+        }
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName("Cells").setHeading();
+    new import_obsidian8.Setting(containerEl).setName("Expand long cells").setDesc(
+      "Show an expand control on a cell whose text is longer than the limit below. It opens the full text; the cell itself never changes and the table keeps its ellipsis."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.host.settings.cellOverflowEnabled).onChange(async (value) => {
+        await this.persistOverflow({ cellOverflowEnabled: value });
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName("Expand above this many characters").setDesc(`Between ${CELL_OVERFLOW_MIN_CHARS} and ${CELL_OVERFLOW_MAX_CHARS}.`).addText((text) => {
+      text.inputEl.type = "number";
+      text.inputEl.min = String(CELL_OVERFLOW_MIN_CHARS);
+      text.inputEl.max = String(CELL_OVERFLOW_MAX_CHARS);
+      text.inputEl.step = "10";
+      text.setValue(String(this.host.settings.cellOverflowMaxChars));
+      text.onChange((value) => {
+        const typed = Number.parseInt(value, 10);
+        if (!Number.isFinite(typed))
+          return;
+        void this.persistOverflow({ cellOverflowMaxChars: clampCellOverflowChars(typed) });
+      });
+      text.inputEl.addEventListener("blur", () => {
+        text.setValue(String(this.host.settings.cellOverflowMaxChars));
+      });
+    });
+    new import_obsidian8.Setting(containerEl).setName("Preview the full text on hover").setDesc(
+      "Resting on the expand control shows the whole value in a small card. Off: the control opens the panel straight away."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.host.settings.cellOverflowHoverCard).onChange(async (value) => {
+        await this.persistOverflow({ cellOverflowHoverCard: value });
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName("Show the expand control on touch screens").setDesc(
+      "A touch screen has no hover, so the control stays visible on a long cell and the cell menu gains Expand cell."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.host.settings.cellOverflowTouchReveal).onChange(async (value) => {
+        await this.persistOverflow({ cellOverflowTouchReveal: value });
+      })
+    );
+  }
+};
+
+// src/views/grid/FilterBuilderModal.ts
+var import_obsidian9 = require("obsidian");
 
 // src/views/grid/filterBuilder.ts
 var NUMBER_TYPES = ["number", "currency", "percent", "duration", "rating", "auto_number"];
@@ -23663,7 +24068,7 @@ var FilterBuilder = class {
 };
 
 // src/views/grid/FilterBuilderModal.ts
-var FilterBuilderModal = class extends import_obsidian8.Modal {
+var FilterBuilderModal = class extends import_obsidian9.Modal {
   constructor(app, fields, input, onApply) {
     super(app);
     this.fields = fields;
@@ -23695,53 +24100,6 @@ var FilterBuilderModal = class extends import_obsidian8.Modal {
     this.builder = null;
   }
 };
-
-// src/views/grid/select/panel.ts
-var PANEL_WIDTH = 320;
-function createPanelCard(testid, theme = "light", bodyClass = "tablify__dropdown-body") {
-  const card = document.createElement("div");
-  card.className = "tablify__panel";
-  card.dataset.testid = testid;
-  card.setAttribute("role", "dialog");
-  applyTheme(card, theme);
-  const body = document.createElement("div");
-  body.className = bodyClass;
-  card.appendChild(body);
-  return { card, body };
-}
-function anchorPanel(card, anchor) {
-  const r = anchor.getBoundingClientRect();
-  const vw = typeof window === "undefined" ? PANEL_WIDTH + 24 : window.innerWidth;
-  const vh = typeof window === "undefined" ? 800 : window.innerHeight;
-  const pw = Math.min(PANEL_WIDTH, vw - 24);
-  const x = Math.min(r.left, vw - pw - 12);
-  const y = r.bottom + 6;
-  card.style.position = "fixed";
-  card.style.left = `${Math.max(8, x)}px`;
-  card.style.top = `${y}px`;
-  card.style.zIndex = "70";
-  const height = card.getBoundingClientRect().height;
-  if (y + height > vh - 8)
-    card.style.top = `${Math.max(8, r.top - height - 6)}px`;
-}
-function wirePanelDismiss(card, onDismiss) {
-  const onPress = (ev) => {
-    if (!card.contains(ev.target))
-      onDismiss();
-  };
-  const onKey = (ev) => {
-    if (ev.key === "Escape")
-      onDismiss();
-  };
-  document.addEventListener("mousedown", onPress);
-  document.addEventListener("touchstart", onPress, { passive: true });
-  document.addEventListener("keydown", onKey);
-  return () => {
-    document.removeEventListener("mousedown", onPress);
-    document.removeEventListener("touchstart", onPress);
-    document.removeEventListener("keydown", onKey);
-  };
-}
 
 // src/views/grid/select/Dropdown.ts
 var SEARCH_PLACEHOLDER2 = "Search or create\u2026";
@@ -24618,8 +24976,8 @@ var AttachmentMenu = class {
 };
 
 // src/views/grid/ImagePreviewModal.ts
-var import_obsidian9 = require("obsidian");
-var ImagePreviewModal = class extends import_obsidian9.Modal {
+var import_obsidian10 = require("obsidian");
+var ImagePreviewModal = class extends import_obsidian10.Modal {
   opts;
   constructor(app, opts) {
     super(app);
@@ -26093,7 +26451,7 @@ async function importPickedFile(file, io, sourcePath = "") {
 
 // src/views/tableView.ts
 var TABLIFY_VIEW_TYPE = "tablify";
-var TableView = class extends import_obsidian10.TextFileView {
+var TableView = class extends import_obsidian11.TextFileView {
   constructor(leaf, hooks = {}) {
     super(leaf);
     this.hooks = hooks;
@@ -26276,7 +26634,7 @@ var TableView = class extends import_obsidian10.TextFileView {
   titleCallbacks() {
     return {
       onRename: (name) => this.renameTable(name),
-      onInvalidName: (message) => new import_obsidian10.Notice(message),
+      onInvalidName: (message) => new import_obsidian11.Notice(message),
       onExport: () => void this.openExport()
     };
   }
@@ -26290,14 +26648,14 @@ var TableView = class extends import_obsidian10.TextFileView {
     if (newPath === file.path)
       return true;
     if (this.app.vault.getAbstractFileByPath(newPath)) {
-      new import_obsidian10.Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
+      new import_obsidian11.Notice(`A file named "${name}.${file.extension}" already exists in this folder.`);
       return false;
     }
     try {
       await this.app.fileManager.renameFile(file, newPath);
       return true;
     } catch (e) {
-      new import_obsidian10.Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
+      new import_obsidian11.Notice(`Could not rename the table: ${e instanceof Error ? e.message : String(e)}`);
       return false;
     }
   }
@@ -26334,29 +26692,29 @@ var TableView = class extends import_obsidian10.TextFileView {
       try {
         artifact2 = await buildExportArtifact(table2, "csv", file.basename);
       } catch (error) {
-        new import_obsidian10.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
+        new import_obsidian11.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
         return;
       }
       const shared = await shareExportArtifact(artifact2, runtime);
       if (shared.ok) {
-        new import_obsidian10.Notice(exportSuccessMessage2("share", shared.fileName, table2.rows.length, table2.fields.length));
+        new import_obsidian11.Notice(exportSuccessMessage2("share", shared.fileName, table2.rows.length, table2.fields.length));
         return;
       }
       if (shared.kind === "cancelled") {
-        new import_obsidian10.Notice("Export cancelled. No file was saved.");
+        new import_obsidian11.Notice("Export cancelled. No file was saved.");
         return;
       }
       if (shared.kind === "activation") {
         new ExportShareRetryModal(this.app, { artifact: artifact2, rowCount: table2.rows.length, columnCount: table2.fields.length }, runtime).open();
         return;
       }
-      new import_obsidian10.Notice(`Export failed. No file was saved. ${shared.error}`);
+      new import_obsidian11.Notice(`Export failed. No file was saved. ${shared.error}`);
       return;
     }
     const pickerStart = beginExportSave(exportFileName(file.basename, "csv"), exportMimeType("csv"), runtime);
     const picker = await pickerStart;
     if (picker.kind === "cancelled") {
-      new import_obsidian10.Notice("Export cancelled. No file was saved.");
+      new import_obsidian11.Notice("Export cancelled. No file was saved.");
       return;
     }
     const table = this.currentViewTable();
@@ -26366,18 +26724,18 @@ var TableView = class extends import_obsidian10.TextFileView {
     try {
       artifact = await buildExportArtifact(table, "csv", file.basename);
     } catch (error) {
-      new import_obsidian10.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
+      new import_obsidian11.Notice(`Export failed. No file was saved. ${error instanceof Error ? error.message : String(error)}`);
       return;
     }
     const saved = await saveExportArtifact(artifact, runtime, Promise.resolve(picker));
     if (!saved.ok) {
       if (!saved.cancelled)
-        new import_obsidian10.Notice(`Export failed. No file was saved. ${saved.error}`);
+        new import_obsidian11.Notice(`Export failed. No file was saved. ${saved.error}`);
       else
-        new import_obsidian10.Notice("Export cancelled. No file was saved.");
+        new import_obsidian11.Notice("Export cancelled. No file was saved.");
       return;
     }
-    new import_obsidian10.Notice(exportSuccessMessage2(saved.method, saved.fileName, table.rows.length, table.fields.length, saved.displayPath));
+    new import_obsidian11.Notice(exportSuccessMessage2(saved.method, saved.fileName, table.rows.length, table.fields.length, saved.displayPath));
   }
   /**
    * Copy current view as Markdown (SAD-98 command target; was the title-row Copy Markdown
@@ -26392,9 +26750,9 @@ var TableView = class extends import_obsidian10.TextFileView {
       if (!navigator.clipboard)
         throw new Error("clipboard unavailable");
       await navigator.clipboard.writeText(markdown);
-      new import_obsidian10.Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"} as a Markdown table.`);
+      new import_obsidian11.Notice(`Copied ${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"} as a Markdown table.`);
     } catch {
-      new import_obsidian10.Notice("Could not copy to the clipboard.");
+      new import_obsidian11.Notice("Could not copy to the clipboard.");
     }
   }
   syncToolbar() {
@@ -26423,7 +26781,7 @@ var TableView = class extends import_obsidian10.TextFileView {
       onSortChange: (sort) => this.applyViewChange((view, fields) => setSort(view, sort, fields)),
       onClearFilters: () => {
         this.applyFilter({ search: "", query: "" });
-        new import_obsidian10.Notice("Search & filters cleared");
+        new import_obsidian11.Notice("Search & filters cleared");
       },
       onUndo: () => this.mutate((s) => s.undo()),
       onRedo: () => this.mutate((s) => s.redo()),
@@ -26439,7 +26797,7 @@ var TableView = class extends import_obsidian10.TextFileView {
     const deleted = s.deleteRows([...this.rowSelection]);
     this.rowSelection = /* @__PURE__ */ new Set();
     if (deleted > 0)
-      new import_obsidian10.Notice(`Deleted ${deleted} ${deleted === 1 ? "row" : "rows"}`);
+      new import_obsidian11.Notice(`Deleted ${deleted} ${deleted === 1 ? "row" : "rows"}`);
     this.afterChange();
   }
   /**
@@ -26480,7 +26838,7 @@ var TableView = class extends import_obsidian10.TextFileView {
   /** Toolbar Sync: the plugin's sync entry point, same as the command. */
   openSync() {
     if (!this.hooks.openSync) {
-      new import_obsidian10.Notice("Airtable sync is not available here.");
+      new import_obsidian11.Notice("Airtable sync is not available here.");
       return;
     }
     this.hooks.openSync(this);
@@ -26592,7 +26950,7 @@ var TableView = class extends import_obsidian10.TextFileView {
         onEdit: (edit) => {
           const result2 = s.editField(field.id, edit);
           if (!result2.ok)
-            new import_obsidian10.Notice(result2.reason);
+            new import_obsidian11.Notice(result2.reason);
           this.afterChange();
         }
       }
@@ -26629,6 +26987,17 @@ var TableView = class extends import_obsidian10.TextFileView {
   }
   afterSyncChange() {
     this.afterChange();
+  }
+  /** SAD-376: the overflow configuration the grid renders with, from the plugin settings. */
+  overflowConfig() {
+    return this.hooks.readSettings ? cellOverflowConfig(this.hooks.readSettings()) : DEFAULT_OVERFLOW_CONFIG;
+  }
+  /**
+   * SAD-376: repaint after the overflow settings changed. Nothing is written, nothing is
+   * saved and no model is touched — the grid simply re-reads which cells offer Expand.
+   */
+  refreshGrid() {
+    this.renderGrid();
   }
   renderGrid() {
     if (this.session) {
@@ -26676,6 +27045,8 @@ var TableView = class extends import_obsidian10.TextFileView {
         // SAD-347: inline image thumbnails in attachment cells and click-to-preview lightbox.
         resolveAttachmentUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
         onPreviewAttachment: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
+        // SAD-376: which cells offer Expand, straight from the plugin settings.
+        overflow: this.overflowConfig(),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -26704,12 +27075,12 @@ var TableView = class extends import_obsidian10.TextFileView {
         // SAD-80: `#`-cell drag to reorder.
         onRowMove: (rowId, beforeRowId) => {
           if (this.session?.moveRowBefore(rowId, beforeRowId)) {
-            new import_obsidian10.Notice("Row moved");
+            new import_obsidian11.Notice("Row moved");
             this.afterChange();
           }
         },
         rowMoveBlocked: () => this.rowMoveBlocked(),
-        onRowMoveBlocked: (reason) => new import_obsidian10.Notice(reason),
+        onRowMoveBlocked: (reason) => new import_obsidian11.Notice(reason),
         // SAD-81: Options → Group by headers; a click collapses or expands one group.
         groups,
         onToggleGroup: (key) => this.toggleGroup(key)
@@ -26724,6 +27095,7 @@ var TableView = class extends import_obsidian10.TextFileView {
       this.wireOutsideTapClear();
     } else {
       this.grid.setTheme(theme);
+      this.grid.setOverflow(this.overflowConfig());
       this.grid.setModel(rows, fields, s.getView(), groups);
       this.grid.setRowSelection(this.rowSelection);
     }
@@ -26735,7 +27107,7 @@ var TableView = class extends import_obsidian10.TextFileView {
    * narrow pane/viewport ≤ 639px, or coarse-pointer mobile landscape).
    */
   isMobileContext() {
-    if (typeof import_obsidian10.Platform !== "undefined" && import_obsidian10.Platform.isMobile)
+    if (typeof import_obsidian11.Platform !== "undefined" && import_obsidian11.Platform.isMobile)
       return true;
     if (typeof document !== "undefined") {
       if (document.body.classList.contains("is-mobile") || document.body.classList.contains("is-phone")) {
@@ -27262,7 +27634,7 @@ var TableView = class extends import_obsidian10.TextFileView {
         new FormulaEditModal(this.app, current, (expression) => {
           const result2 = s.setFormula(field.id, expression);
           if (!result2.ok)
-            new import_obsidian10.Notice(result2.reason);
+            new import_obsidian11.Notice(result2.reason);
           this.afterChange();
         }).open();
         return;
@@ -27283,16 +27655,16 @@ var TableView = class extends import_obsidian10.TextFileView {
   }
   pasteInto(row, field) {
     if (field.type === "link") {
-      new import_obsidian10.Notice("Use Choose linked rows to change links.");
+      new import_obsidian11.Notice("Use Choose linked rows to change links.");
       return;
     }
     if (this.clipboardText === null) {
-      new import_obsidian10.Notice("Nothing copied yet.");
+      new import_obsidian11.Notice("Nothing copied yet.");
       return;
     }
     const res = parseInput2(field, this.clipboardText);
     if (!res.ok) {
-      new import_obsidian10.Notice(`Cannot paste here: ${res.error}`);
+      new import_obsidian11.Notice(`Cannot paste here: ${res.error}`);
       return;
     }
     this.session?.setValue(row.id, field.id, res.value);
@@ -27602,7 +27974,7 @@ var TableView = class extends import_obsidian10.TextFileView {
         this.afterChange();
         panel.setField(s.getField(field.id) ?? live);
         if (plan.created)
-          new import_obsidian10.Notice(`Created option "${plan.option.name}"`);
+          new import_obsidian11.Notice(`Created option "${plan.option.name}"`);
         return plan.option;
       },
       // `createOption` already wrote the cell, so only the panel's own state is left to settle.
@@ -27721,7 +28093,7 @@ var TableView = class extends import_obsidian10.TextFileView {
     }
     s.setValue(rowId, field.id, result2.path);
     this.afterChange();
-    new import_obsidian10.Notice(`Saved to ${result2.path}`);
+    new import_obsidian11.Notice(`Saved to ${result2.path}`);
     ui.close?.();
     this.grid?.root.focus();
   }
@@ -27774,7 +28146,7 @@ function isEmptyValue(v) {
 }
 
 // src/menus/fileMenu.ts
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 
 // src/menus/fileMenuModel.ts
 var NEW_TABLE_ROW_COUNT = 3;
@@ -27887,7 +28259,7 @@ function registerFileMenu(plugin) {
         const added = menu.items.splice(before);
         menu.items.unshift(...added);
       }
-      if (file instanceof import_obsidian11.TFile && file.extension === "tablify") {
+      if (file instanceof import_obsidian12.TFile && file.extension === "tablify") {
         const cached = decideReissue(linkIndexFor(app).index.duplicates(), file.path, []);
         if (cached.kind === "reissue") {
           menu.addItem(
@@ -27905,52 +28277,52 @@ async function reissueFile(app, file) {
   const decision = decideReissue(idx.index.duplicates(), file.path, openPaths);
   switch (decision.kind) {
     case "not-duplicated":
-      new import_obsidian11.Notice("This table ID is not shared. Nothing to change.");
+      new import_obsidian12.Notice("This table ID is not shared. Nothing to change.");
       return;
     case "keeps-id":
-      new import_obsidian11.Notice("This file keeps the table ID. Give the other copy a new ID instead.");
+      new import_obsidian12.Notice("This file keeps the table ID. Give the other copy a new ID instead.");
       return;
     case "open":
-      new import_obsidian11.Notice("Close this table tab first, then try again.");
+      new import_obsidian12.Notice("Close this table tab first, then try again.");
       return;
     case "reissue":
       break;
   }
   const result2 = reissueTableIdText(await app.vault.read(file));
   if (!result2.ok) {
-    new import_obsidian11.Notice(`Could not give a new ID: ${result2.error}`);
+    new import_obsidian12.Notice(`Could not give a new ID: ${result2.error}`);
     return;
   }
   await app.vault.modify(file, result2.text);
-  new import_obsidian11.Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
+  new import_obsidian12.Notice(`${file.basename}: new table ID. Links to the original are unchanged.`);
 }
 function targetOf(file) {
-  if (file instanceof import_obsidian11.TFile)
+  if (file instanceof import_obsidian12.TFile)
     return { kind: "file", extension: file.extension };
-  if (file instanceof import_obsidian11.TFolder)
+  if (file instanceof import_obsidian12.TFolder)
     return { kind: "folder", path: file.isRoot() ? "" : file.path };
   return { kind: "other" };
 }
 async function run(app, file, action) {
   switch (action) {
     case "open":
-      if (file instanceof import_obsidian11.TFile)
+      if (file instanceof import_obsidian12.TFile)
         await app.workspace.getLeaf(false).openFile(file);
       return;
     case "export":
-      if (file instanceof import_obsidian11.TFile)
+      if (file instanceof import_obsidian12.TFile)
         openExportModal(app, file);
       return;
     case "duplicate":
-      if (file instanceof import_obsidian11.TFile)
+      if (file instanceof import_obsidian12.TFile)
         await duplicateFile(app, file);
       return;
     case "newTable":
-      if (file instanceof import_obsidian11.TFolder)
+      if (file instanceof import_obsidian12.TFolder)
         await createNewTable(app, file.path);
       return;
     case "importTable":
-      if (file instanceof import_obsidian11.TFolder)
+      if (file instanceof import_obsidian12.TFolder)
         startImport(app, file.path);
       return;
   }
@@ -27962,12 +28334,12 @@ async function duplicateFile(app, source) {
   const text = await app.vault.read(source);
   const result2 = duplicateTableText(text, name);
   if (!result2.ok) {
-    new import_obsidian11.Notice(`Duplicate failed. The table file could not be read: ${result2.error}`);
+    new import_obsidian12.Notice(`Duplicate failed. The table file could not be read: ${result2.error}`);
     return;
   }
   const path = joinPath(folder, `${name}.tablify`);
   await app.vault.create(path, result2.text);
-  new import_obsidian11.Notice(`Created ${path}.`);
+  new import_obsidian12.Notice(`Created ${path}.`);
 }
 async function createNewTable(app, folder) {
   const exists = (name2) => app.vault.getAbstractFileByPath(joinPath(folder, `${name2}.tablify`)) !== null;
@@ -27976,80 +28348,6 @@ async function createNewTable(app, folder) {
   const created = await app.vault.create(path, newTableText(name));
   await app.workspace.getLeaf(true).openFile(created);
 }
-
-// src/settings.ts
-var import_obsidian12 = require("obsidian");
-var DEFAULT_SETTINGS = Object.freeze({
-  airtableToken: "",
-  exportVaultFallback: false
-});
-var MAX_TOKEN_LENGTH = 512;
-function normalizeSettings(raw) {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    return { ...DEFAULT_SETTINGS };
-  }
-  const record = raw;
-  const token = record.airtableToken;
-  const exportVaultFallback = record.exportVaultFallback === true;
-  if (typeof token !== "string")
-    return { ...DEFAULT_SETTINGS };
-  const trimmed = token.trim();
-  if (trimmed.length > MAX_TOKEN_LENGTH)
-    return { ...DEFAULT_SETTINGS };
-  return { airtableToken: trimmed, exportVaultFallback };
-}
-async function loadSettings(store) {
-  try {
-    return normalizeSettings(await store.loadData());
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-async function saveSettings(store, settings) {
-  const clean = normalizeSettings(settings);
-  await store.saveData({
-    airtableToken: clean.airtableToken,
-    exportVaultFallback: clean.exportVaultFallback
-  });
-}
-var TablifySettingTab = class extends import_obsidian12.PluginSettingTab {
-  host;
-  constructor(app, host) {
-    super(app, host);
-    this.host = host;
-  }
-  display() {
-    const { containerEl } = this;
-    containerEl.empty();
-    new import_obsidian12.Setting(containerEl).setName("Airtable").setHeading();
-    new import_obsidian12.Setting(containerEl).setName("Personal access token").setDesc(
-      "Used only for Airtable sync. Stored in this plugin\u2019s settings. It is never written to .tablify files or exports."
-    ).addText((text) => {
-      text.inputEl.type = "password";
-      text.inputEl.autocomplete = "off";
-      text.inputEl.spellcheck = false;
-      text.setPlaceholder("Paste your Airtable token").setValue(this.host.settings.airtableToken).onChange(async (value) => {
-        this.host.settings = normalizeSettings({ ...this.host.settings, airtableToken: value });
-        try {
-          await saveSettings(this.host, this.host.settings);
-        } catch {
-        }
-      });
-    });
-    new import_obsidian12.Setting(containerEl).setName("Export").setHeading();
-    new import_obsidian12.Setting(containerEl).setName("Save into the vault when no save destination works").setDesc(
-      "Last resort only: if the system save dialog, the share sheet and the shared folder are all unavailable, write the export next to the table (never overwriting). Off by default \u2014 exports otherwise never write into the vault."
-    ).addToggle(
-      (toggle) => toggle.setValue(this.host.settings.exportVaultFallback).onChange(async (value) => {
-        this.host.settings = normalizeSettings({ ...this.host.settings, exportVaultFallback: value });
-        try {
-          await saveSettings(this.host, this.host.settings);
-        } catch {
-        }
-      })
-    );
-  }
-};
 
 // src/embed/register.ts
 var import_obsidian14 = require("obsidian");
@@ -28367,6 +28665,8 @@ var EmbedView = class {
       linkSummary: links ? (value) => summarizeLinks(value, links.index) : void 0,
       resolveAttachmentUrl: this.opts.resolveAttachmentUrl,
       onPreviewAttachment: this.opts.onPreviewAttachment,
+      // SAD-376: an embed reads a long cell the same way the full view does.
+      overflow: this.opts.overflow,
       // COD-71: the checkbox box is clickable in an embed too; the write goes through the
       // shared document, so both embeds and the full view see it and it is saved once.
       onToggleCheckbox: (rowIndex, colIndex) => {
@@ -28543,8 +28843,10 @@ function registerEmbedProcessor(plugin) {
       const path = parsed.path;
       const io = vaultEmbedIO(app);
       const doc = await registry2.acquire(path, io);
+      const settings = plugin.settings;
       const view = new EmbedView({
         doc,
+        overflow: settings ? cellOverflowConfig(settings) : void 0,
         onOpenFull: (p) => {
           void app.workspace.openLinkText(p, "", false);
         },
@@ -30192,7 +30494,14 @@ var TablifyPlugin = class extends import_obsidian17.Plugin {
     linkIndexFor(this.app).start(this);
     installLinkLabelResolver(this.app);
     registerLinkIntegrityCommand(this);
-    this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf, { openSync: (view) => this.openSyncFor(view) }));
+    this.registerView(
+      TABLIFY_VIEW_TYPE,
+      (leaf) => new TableView(leaf, {
+        openSync: (view) => this.openSyncFor(view),
+        // SAD-376: the cell overflow settings live in plugin data; the view reads them here.
+        readSettings: () => this.settings
+      })
+    );
     this.registerExtensions(["tablify"], TABLIFY_VIEW_TYPE);
     registerFileMenu(this);
     registerEmbedProcessor(this);
@@ -30204,6 +30513,18 @@ var TablifyPlugin = class extends import_obsidian17.Plugin {
   }
   openSync() {
     this.openSyncFor(this.app.workspace.getActiveViewOfType(TableView));
+  }
+  /**
+   * SAD-376: repaint every open table after a settings change, so a switch takes effect without
+   * closing and reopening the file. Embeds pick the change up on their next render — they can sit
+   * in another pane mid-edit, and re-rendering one from a settings save is not this feature's job.
+   */
+  refreshOpenTables() {
+    for (const leaf of this.app.workspace.getLeavesOfType(TABLIFY_VIEW_TYPE)) {
+      const view = leaf.view;
+      if (view instanceof TableView)
+        view.refreshGrid();
+    }
   }
   /** Shared by the command (active view) and the table toolbar's Sync button (its own view). */
   openSyncFor(view) {

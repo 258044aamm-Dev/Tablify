@@ -8,6 +8,7 @@ import type { CellValue, FieldDefinition, Row } from '../model/types.js';
 import type { TableSession } from '../model/tableSession.js';
 import { createEditor } from '../views/grid/editors/index.js';
 import { GridView, type GridSelection } from '../views/grid/GridView.js';
+import type { CellOverflowConfig } from '../views/grid/cellOverflow.js';
 import { getGridAction } from '../views/grid/keyboard.js';
 import { moveSelection } from '../views/tableController.js';
 import type { EmbedDocument } from './embedDocument.js';
@@ -29,6 +30,8 @@ export interface EmbedViewOptions {
   resolveAttachmentUrl?: (path: string) => string | null;
   /** SAD-347: open the image preview lightbox when an inline thumbnail in an embed is clicked. */
   onPreviewAttachment?: (path: string, url: string) => void;
+  /** SAD-376: the same overflow configuration the full view uses (plugin settings). */
+  overflow?: CellOverflowConfig;
 }
 
 export class EmbedView {
@@ -198,6 +201,8 @@ export class EmbedView {
       linkSummary: links ? (value) => summarizeLinks(value, links.index) : undefined,
       resolveAttachmentUrl: this.opts.resolveAttachmentUrl,
       onPreviewAttachment: this.opts.onPreviewAttachment,
+      // SAD-376: an embed reads a long cell the same way the full view does.
+      overflow: this.opts.overflow,
       // COD-71: the checkbox box is clickable in an embed too; the write goes through the
       // shared document, so both embeds and the full view see it and it is saved once.
       onToggleCheckbox: (rowIndex, colIndex) => {

@@ -35,6 +35,8 @@ import type { ViewDefinition } from '../../model/types.js';
 import { effectiveFrozenColumns } from '../../model/view.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { GridGroup } from './grouping.js';
+import { DEFAULT_OVERFLOW_CONFIG, offersOverflow, type CellOverflowConfig } from './cellOverflow.js';
+import { CellOverflowPanel, createExpandControl, EXPAND_CONTROL_ATTRIBUTE } from './cellOverflowUi.js';
 import { applyValidationState } from './validationDisplay.js';
 import {
   createCheckboxControl,
@@ -149,6 +151,11 @@ export interface GridOptions {
    * SAD-347: called when an inline image thumbnail in an attachment cell is clicked.
    */
   onPreviewAttachment?: (path: string, url: string) => void;
+  /**
+   * SAD-376: when a cell offers Expand and where a preview card sits. Absent keeps the defaults
+   * from the plugin settings (on, 80 characters).
+   */
+  overflow?: CellOverflowConfig;
 }
 
 /**
@@ -279,6 +286,57 @@ export class GridView {
     return this.root.classList.contains('tablify--dark') ? 'dark' : 'light';
   }
 
+  /** SAD-376: the two root classes the stylesheet branches on, so no cell has to be measured. */
+  private applyOverflowClasses(): void {
+    this.root.classList.toggle('tablify--overflow', this.overflow.enabled);
+    this.root.classList.toggle(
+      'tablify--overflow-touch',
+      this.overflow.enabled && this.overflow.touchReveal,
+    );
+  }
+
+  /**
+   * SAD-376: open the expanded view for one cell.
+   *
+   * Everything comes back out of the DOM — the display text the reader can already see, the field
+   * of that column, and the capsule as the anchor — so nothing has to be remembered per cell and a
+   * re-render cannot leave stale state behind. Read-only by construction: the panel never writes.
+   */
+  private openOverflowPanel(cell: HTMLElement): void {
+    const text = cell.querySelector<HTMLElement>('.tablify__cell-text')?.textContent ?? '';
+    if (!offersOverflow(this.overflow, text)) return;
+    const field = this.fields[Number(cell.dataset.colIndex)];
+    const anchor = cell.querySelector<HTMLElement>('.tablify__capsule') ?? cell;
+    this.overflowPanel?.close();
+    this.overflowPanel = new CellOverflowPanel({
+      text,
+      fieldName: field?.name ?? 'Cell',
+      theme: this.cellTheme(),
+      // Focus goes back to the grid only when the panel actually had it, so a re-render that
+      // closes the panel does not pull the caret out of wherever the user is.
+      onClosed: (hadFocus) => {
+        this.overflowPanel = null;
+        if (hadFocus) this.root.focus();
+      },
+    });
+    this.overflowPanel.open(anchor);
+  }
+
+  /**
+   * SAD-376: a new configuration (the plugin settings changed). Repaints only on a real change, so
+   * a settings save that touched something else cannot cause a re-render.
+   */
+  setOverflow(next: CellOverflowConfig): void {
+    const changed =
+      next.enabled !== this.overflow.enabled ||
+      next.maxChars !== this.overflow.maxChars ||
+      next.hoverCard !== this.overflow.hoverCard ||
+      next.touchReveal !== this.overflow.touchReveal;
+    this.overflow = next;
+    this.applyOverflowClasses();
+    if (changed) this.render();
+  }
+
   /** SAD-80: selected row ids (UI state owned by the table view). */
   private rowSelection: ReadonlySet<string> = new Set();
   /** SAD-80: the row being dragged by its `#` cell, re-applied on every render. */
@@ -290,6 +348,10 @@ export class GridView {
   private groups: GridGroup[] | null = null;
   /** SAD-81: virtual layout of the grouped grid (headers + rows), null when flat. */
   private layout: GroupedLayout | null = null;
+  /** SAD-376: the overflow configuration this grid renders with (plugin settings). */
+  private overflow: CellOverflowConfig = DEFAULT_OVERFLOW_CONFIG;
+  /** SAD-376: the open expanded-cell panel, if any. Owned here so an embed gets it too. */
+  private overflowPanel: CellOverflowPanel | null = null;
 
   constructor(private opts: GridOptions) {
     this.fields = opts.fields;
@@ -298,6 +360,7 @@ export class GridView {
     this.totalRows = opts.rows.length;
     this.rowHeight = rowHeightPx(opts.view.rowHeight);
     this.groups = opts.groups ?? null;
+    this.overflow = opts.overflow ?? DEFAULT_OVERFLOW_CONFIG;
     this.layout = this.buildLayout();
 
     this.root = document.createElement('div');
@@ -321,6 +384,9 @@ export class GridView {
     // clientHeight is 0.
     this.root.style.position = 'relative';
     applyTheme(this.root, opts.theme);
+    // SAD-376: the CSS needs two facts — is the feature on, and may a coarse pointer see the
+    // control without hovering — so the rules stay declarative and no cell is measured.
+    this.applyOverflowClasses();
 
     this.header = document.createElement('div');
     this.header.className = 'tablify__header';
@@ -359,6 +425,21 @@ export class GridView {
     this.viewport.appendChild(this.content);
     this.root.appendChild(this.viewport);
 
+    // SAD-376: one delegated listener for every expand control. Rows are pooled and rebuilt on
+    // every render, so a listener per cell would be created and thrown away continuously; this is
+    // also the reason the control carries no behaviour of its own.
+    this.content.addEventListener('click', (e) => {
+      const control = (e.target as HTMLElement | null)?.closest?.(`[${EXPAND_CONTROL_ATTRIBUTE}]`) as HTMLElement | null;
+      if (!control) return;
+      // The cell owns this click: selection, reselect and the editor must not also run.
+      e.preventDefault();
+      e.stopPropagation();
+      const cell = control.closest('.tablify__cell') as HTMLElement | null;
+      if (cell) this.openOverflowPanel(cell);
+    });
+    // Enter/Space on the control must press it, not reach the grid's editor shortcut.
+    this.content.addEventListener('keydown', stopButtonKeys);
+
     // SAD-80: one delegated listener for the `#` drag handle — rows are rebuilt as they scroll,
     // so per-row listeners would be re-created every frame.
     if (opts.onRowMove) {
@@ -383,6 +464,9 @@ export class GridView {
     // scroll handler
     this.root.addEventListener('scroll', () => {
       this.scrollTop = this.root.scrollTop;
+      // SAD-376: the panel is anchored to a cell that is about to move (and may be recycled by
+      // the virtualizer), so it closes rather than float over the wrong row.
+      this.overflowPanel?.close();
       // A scroll that keeps the same rows in range needs no rebuild: the browser has already
       // moved them. Smooth scrolling fires several events per row, and rebuilding each time
       // was the bulk of the per-frame cost. Every other caller still forces render().
@@ -1232,6 +1316,8 @@ export class GridView {
   }
 
   private render(): void {
+    // SAD-376: a panel is anchored to a cell that this render replaces or recycles.
+    this.overflowPanel?.close();
     if (this.layout) {
       this.renderGrouped(this.layout);
       return;
@@ -1478,6 +1564,14 @@ export class GridView {
           // An empty value shows the prototype's em dash through CSS (:empty::before), so
           // textContent stays '' for every consumer.
           capsule.appendChild(text);
+          // SAD-376: a cell whose display text is over the configured limit offers Expand. The
+          // control is absolutely positioned, holds no text node and is inert at rest, so the
+          // ellipsis, the em dash and cell.textContent are exactly what they were — and every
+          // field type is covered here, because `text` is final at this point for all of them.
+          if (offersOverflow(this.overflow, text.textContent ?? '')) {
+            cell.classList.add('tablify__cell--overflow');
+            capsule.appendChild(createExpandControl(field.name));
+          }
           cell.appendChild(capsule);
           // SAD-109: the invalid-cell marker and rule message (P3-05), for cells whose tooltip is
           // not already owned by a formula error or broken link.
@@ -1518,6 +1612,8 @@ export class GridView {
   }
 
   destroy(): void {
+    // SAD-376: the panel lives on document.body, so it outlives this element unless it is closed.
+    this.overflowPanel?.close();
     this.cancelRowDrag?.();
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;

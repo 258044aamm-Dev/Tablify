@@ -179,12 +179,23 @@ export class Events {
 
 /** The workspace surface the plugin uses, plus the event bus (`on` / `trigger`). */
 export class Workspace extends Events {
+  /** SAD-376: leaves a test can seed, so `getLeavesOfType` has something to walk. */
+  leaves: WorkspaceLeaf[] = [];
+
   getActiveFile(): TFile | null {
     return null;
   }
 
   getActiveViewOfType(): null {
     return null;
+  }
+
+  /** SAD-376: the plugin walks the open tablify leaves to repaint them after a settings change. */
+  getLeavesOfType(type: string): WorkspaceLeaf[] {
+    return this.leaves.filter((leaf) => {
+      const view = leaf.view as { getViewType?: () => string } | null;
+      return typeof view?.getViewType === 'function' && view.getViewType() === type;
+    });
   }
 
   getLeaf(): null {

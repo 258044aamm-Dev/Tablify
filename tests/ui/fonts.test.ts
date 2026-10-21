@@ -141,7 +141,12 @@ describe('P3-10 — Bundle and load fonts', () => {
     // about 1.89 MB. Production (minified) assets are far smaller. See docs/evidence/P7-01.md.
     // Owner decision, 2026-10-10: the dev sourcemap is written to main.js.map (git-ignored), not inlined.
     // The committed main.js is about 0.53 MB, so the total is far below this cap.
-    expect(total).toBeLessThan(1_900_000);
+    // Raised in SAD-376 from 1,900,000 to 1,950,000 (measured, not estimated): the overflow control,
+    // the expanded-cell panel and their tests grew the committed dev main.js from 1,364,359 B to
+    // 1,378,180 B and styles.css from 351,167 B to 355,898 B, so the recorded total reached
+    // 1,900,520 B against the old cap. Production stays minified without the sourcemap; no font or
+    // asset was added (the expand glyph is 1 KB of path data in the existing icon table).
+    expect(total).toBeLessThan(1_950_000);
   });
 
   it('build output lists fonts and license (manifest check)', () => {

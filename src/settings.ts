@@ -6,6 +6,11 @@
 //  - The settings input is masked (type="password").
 
 import { PluginSettingTab, Setting, type App, type Plugin } from 'obsidian';
+// SAD-376: the overflow config and its defaults live in the leaf grid module, so the grid itself
+// never has to import this file (which pulls in Obsidian). This is the one direction of the edge.
+import { DEFAULT_OVERFLOW_CONFIG, type CellOverflowConfig } from './views/grid/cellOverflow.js';
+
+export type { CellOverflowConfig };
 
 export interface TablifySettings {
   /** Airtable personal access token. Plugin data only. */
@@ -38,19 +43,11 @@ export const CELL_OVERFLOW_MAX_CHARS = 2000;
 export const DEFAULT_SETTINGS: Readonly<TablifySettings> = Object.freeze({
   airtableToken: '',
   exportVaultFallback: false,
-  cellOverflowEnabled: true,
-  cellOverflowMaxChars: 80,
-  cellOverflowHoverCard: true,
-  cellOverflowTouchReveal: true,
+  cellOverflowEnabled: DEFAULT_OVERFLOW_CONFIG.enabled,
+  cellOverflowMaxChars: DEFAULT_OVERFLOW_CONFIG.maxChars,
+  cellOverflowHoverCard: DEFAULT_OVERFLOW_CONFIG.hoverCard,
+  cellOverflowTouchReveal: DEFAULT_OVERFLOW_CONFIG.touchReveal,
 });
-
-/** SAD-376: the overflow configuration the grid renders with. */
-export interface CellOverflowConfig {
-  enabled: boolean;
-  maxChars: number;
-  hoverCard: boolean;
-  touchReveal: boolean;
-}
 
 /** The four SAD-376 keys, as the settings object stores them. */
 export type CellOverflowSettings = Pick<
@@ -58,12 +55,8 @@ export type CellOverflowSettings = Pick<
   'cellOverflowEnabled' | 'cellOverflowMaxChars' | 'cellOverflowHoverCard' | 'cellOverflowTouchReveal'
 >;
 
-export const DEFAULT_CELL_OVERFLOW: Readonly<CellOverflowConfig> = Object.freeze({
-  enabled: DEFAULT_SETTINGS.cellOverflowEnabled,
-  maxChars: DEFAULT_SETTINGS.cellOverflowMaxChars,
-  hoverCard: DEFAULT_SETTINGS.cellOverflowHoverCard,
-  touchReveal: DEFAULT_SETTINGS.cellOverflowTouchReveal,
-});
+/** SAD-376: the defaults, as the grid wants them (the same numbers `DEFAULT_SETTINGS` holds). */
+export const DEFAULT_CELL_OVERFLOW: Readonly<CellOverflowConfig> = DEFAULT_OVERFLOW_CONFIG;
 
 /**
  * SAD-376: plugin settings → the config a `GridView` takes. A fresh object every call, so a

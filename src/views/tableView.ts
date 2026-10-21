@@ -30,6 +30,8 @@ import { snapshotTable, summarizeLinks } from '../model/link.js';
 import { FormulaEditModal } from './grid/FormulaEditModal.js';
 import { applyTheme } from '../ui/theme/tokens.js';
 import { TitleRow, type TitleRowCallbacks, type TitleRowState } from './titleRow.js';
+import { cellOverflowConfig, type TablifySettings } from '../settings.js';
+import { DEFAULT_OVERFLOW_CONFIG, type CellOverflowConfig } from './grid/cellOverflow.js';
 import { ExportShareRetryModal, deviceExportRuntime, openExportModal } from '../commands/export.js';
 import {
   beginExportSave,
@@ -67,6 +69,11 @@ import type { SelectOption } from '../model/types.js';
 export interface TableViewHooks {
   /** Open the Airtable sync modal for this view — the "Airtable sync for this table" command. */
   openSync?(view: TableView): void;
+  /**
+   * SAD-376: the plugin settings, read when the grid is (re)rendered. This view has no handle on
+   * the plugin, so the hook is the channel — the same reason `openSync` exists.
+   */
+  readSettings?(): TablifySettings;
 }
 
 export const TABLIFY_VIEW_TYPE = 'tablify';
@@ -654,6 +661,19 @@ export class TableView extends TextFileView {
     this.afterChange();
   }
 
+  /** SAD-376: the overflow configuration the grid renders with, from the plugin settings. */
+  private overflowConfig(): CellOverflowConfig {
+    return this.hooks.readSettings ? cellOverflowConfig(this.hooks.readSettings()) : DEFAULT_OVERFLOW_CONFIG;
+  }
+
+  /**
+   * SAD-376: repaint after the overflow settings changed. Nothing is written, nothing is
+   * saved and no model is touched — the grid simply re-reads which cells offer Expand.
+   */
+  refreshGrid(): void {
+    this.renderGrid();
+  }
+
   private renderGrid(): void {
     // SAD-80: a deleted (or undone) row leaves the selection before anything shows it.
     if (this.session) {
@@ -704,6 +724,8 @@ export class TableView extends TextFileView {
         // SAD-347: inline image thumbnails in attachment cells and click-to-preview lightbox.
         resolveAttachmentUrl: (path) => resolveAttachmentImageUrl(path, this.app.vault),
         onPreviewAttachment: (path, url) => new ImagePreviewModal(this.app, { path, url }).open(),
+        // SAD-376: which cells offer Expand, straight from the plugin settings.
+        overflow: this.overflowConfig(),
         // P8-03: formula cells show their error code, with the reason in the tooltip.
         formulaError: (rowId, fieldId) => this.session?.getFormulaError(rowId, fieldId) ?? null,
         // P8-04: resolved row names for link cells; broken links are counted for the marker.
@@ -752,6 +774,9 @@ export class TableView extends TextFileView {
       this.wireOutsideTapClear();
     } else {
       this.grid.setTheme(theme);
+      // SAD-376: a settings change reaches an already-open table through here; setOverflow only
+      // repaints when something actually changed.
+      this.grid.setOverflow(this.overflowConfig());
       this.grid.setModel(rows, fields, s.getView(), groups);
       this.grid.setRowSelection(this.rowSelection);
     }

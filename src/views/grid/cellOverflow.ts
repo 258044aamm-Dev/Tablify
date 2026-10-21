@@ -13,7 +13,24 @@
  * suite. `GridView` measures nothing and the ellipsis stays pure CSS.
  */
 
-import type { CellOverflowConfig } from '../../settings.js';
+/**
+ * SAD-376: the overflow configuration a `GridView` renders with. Declared here, in the leaf
+ * module, so the grid and this file never import `settings.ts` at runtime (that module pulls in
+ * Obsidian); `settings.ts` imports these instead and stays the single place the values are stored.
+ */
+export interface CellOverflowConfig {
+  enabled: boolean;
+  maxChars: number;
+  hoverCard: boolean;
+  touchReveal: boolean;
+}
+
+export const DEFAULT_OVERFLOW_CONFIG: Readonly<CellOverflowConfig> = Object.freeze({
+  enabled: true,
+  maxChars: 80,
+  hoverCard: true,
+  touchReveal: true,
+});
 
 /**
  * How long the pointer must rest on the expand control before the preview card opens. A table is

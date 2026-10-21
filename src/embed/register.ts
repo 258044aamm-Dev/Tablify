@@ -9,6 +9,7 @@ import { parseEmbedSource } from './embedSource.js';
 import { linkIndexFor } from '../links/vaultLinkIndex.js';
 import { resolveAttachmentImageUrl } from '../views/grid/attachment.js';
 import { ImagePreviewModal } from '../views/grid/ImagePreviewModal.js';
+import { cellOverflowConfig, type TablifySettings } from '../settings.js';
 
 export const EMBED_FENCE_LANGUAGE = 'tablify';
 
@@ -63,8 +64,11 @@ export function registerEmbedProcessor(plugin: Plugin): EmbedRegistration {
       const path = parsed.path;
       const io = vaultEmbedIO(app);
       const doc = await registry.acquire(path, io);
+      // SAD-376: the plugin settings drive the embed as well.
+      const settings = (plugin as { settings?: TablifySettings }).settings;
       const view = new EmbedView({
         doc,
+        overflow: settings ? cellOverflowConfig(settings) : undefined,
         onOpenFull: (p) => {
           void app.workspace.openLinkText(p, '', false);
         },

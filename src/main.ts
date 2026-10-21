@@ -30,7 +30,15 @@ export default class TablifyPlugin extends Plugin {
 		registerLinkIntegrityCommand(this);
 		// P5-00: open .tablify files in the table view (undoable grid, save through TextFileView).
 		// SAD-78: the toolbar's Sync button reuses the command's entry point (openSyncFor).
-		this.registerView(TABLIFY_VIEW_TYPE, (leaf) => new TableView(leaf, { openSync: (view) => this.openSyncFor(view) }));
+		this.registerView(
+			TABLIFY_VIEW_TYPE,
+			(leaf) =>
+				new TableView(leaf, {
+					openSync: (view) => this.openSyncFor(view),
+					// SAD-376: the cell overflow settings live in plugin data; the view reads them here.
+					readSettings: () => this.settings,
+				}),
+		);
 		this.registerExtensions(['tablify'], TABLIFY_VIEW_TYPE);
 		// P5-01: file explorer right-click items for .tablify files and folders.
 		registerFileMenu(this);
@@ -46,6 +54,18 @@ export default class TablifyPlugin extends Plugin {
 
 	private openSync(): void {
 		this.openSyncFor(this.app.workspace.getActiveViewOfType(TableView));
+	}
+
+	/**
+	 * SAD-376: repaint every open table after a settings change, so a switch takes effect without
+	 * closing and reopening the file. Embeds pick the change up on their next render — they can sit
+	 * in another pane mid-edit, and re-rendering one from a settings save is not this feature's job.
+	 */
+	refreshOpenTables(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType(TABLIFY_VIEW_TYPE)) {
+			const view = leaf.view;
+			if (view instanceof TableView) view.refreshGrid();
+		}
 	}
 
 	/** Shared by the command (active view) and the table toolbar's Sync button (its own view). */

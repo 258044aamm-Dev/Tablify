@@ -2113,6 +2113,51 @@ body.is-phone .view-content.tablify-view.tablify {
   font-size: 12px;
 }
 
+/* ---- SAD-376: the expand affordance on a cell over the character limit ------------------ */
+/* The control is absolutely positioned, so it takes no space in the capsule and no text can
+   shift; it holds no text node, so the ellipsis, the empty-cell em dash and `cell.textContent`
+   are exactly what they were. At rest it is invisible AND inert (`pointer-events: none`), which
+   is what keeps a click on the cell doing only what it did before. */
+.tablify__cell--overflow > .tablify__capsule {
+  position: relative;
+}
+
+.tablify__cell-expand {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 8px;
+  /* Fade the text out from under the icon instead of clipping it with a hard edge. */
+  background: linear-gradient(to right, transparent, var(--tablify-bg-capsule) 40%);
+  box-shadow: none;
+  color: var(--tablify-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+
+.tablify__cell-expand:hover {
+  color: var(--tablify-text);
+}
+
+/* The capsule clips at `overflow: hidden`, so the ring has to sit inside it. */
+.tablify__cell-expand:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: -2px;
+  opacity: 1;
+}
+
 /* Prototype empty cell: a muted em dash. CSS content, so textContent stays ''. */
 .tablify__capsule > .tablify__cell-text:empty::before {
   content: '\2014';
@@ -2373,6 +2418,30 @@ body.is-phone .view-content.tablify-view.tablify {
   .tablify__row:hover > .tablify__lead--drag .tablify__lead-grip,
   .tablify__header-cell:hover .tablify__hc-grip {
     opacity: 1;
+  }
+
+  /* SAD-376: reveal follows the same rule as the grips — hover only, and the control becomes
+     clickable at the same moment it becomes visible. A keyboard focus reveals it in every mode
+     (rule above), so the affordance is never mouse-only. */
+  .tablify__cell--overflow:hover > .tablify__capsule > .tablify__cell-expand {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* SAD-376: a touch screen has no hover, so the plugin setting keeps the control visible at rest
+   (and the cell menu carries Expand cell as well). Off = the control is only reachable by
+   keyboard, which is what "no hover" means today. */
+@media (hover: none) {
+  .tablify--overflow-touch .tablify__cell-expand {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tablify__cell-expand {
+    transition: none;
   }
 }
 
@@ -2947,6 +3016,108 @@ body.is-phone .view-content.tablify-view.tablify {
 .tablify__panel--attach {
   width: 320px;
   max-width: min(320px, calc(100vw - 16px));
+}
+
+/* ---- SAD-376: the expanded cell -------------------------------------------------------- */
+/* The same float-panel card every other cell panel uses (radius, shadow, z-index 70, themed by
+   applyTheme), a little wider so a paragraph is readable. Every colour is an existing token. */
+.tablify__panel--overflow {
+  width: 360px;
+  max-width: min(360px, calc(100vw - 16px));
+}
+
+.tablify__overflow-body {
+  box-sizing: border-box;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+}
+
+.tablify__overflow-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.tablify__overflow-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.55px;
+  text-transform: uppercase;
+  color: var(--tablify-text-muted);
+}
+
+.tablify button.tablify__overflow-close {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--tablify-text-muted);
+  font-size: 10px;
+}
+
+.tablify button.tablify__overflow-close:hover,
+.tablify button.tablify__overflow-copy:hover {
+  background: var(--tablify-bg-pill-hover);
+  color: var(--tablify-text);
+}
+
+/* The full value: wrapped, and scrollable so a very long one cannot run past the viewport.
+   `overflow-wrap: anywhere` keeps a pasted URL from forcing a horizontal scrollbar. */
+.tablify__overflow-text {
+  max-height: 50vh;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 10px;
+  background: var(--tablify-bg-inner);
+  font-family: 'Lora', Georgia, serif;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.tablify__overflow-text:focus-visible {
+  outline: 2px solid var(--tablify-focus);
+  outline-offset: -1px;
+}
+
+.tablify__overflow-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.tablify button.tablify__overflow-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--tablify-text);
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  line-height: 16px;
 }
 
 .tablify__attach {
