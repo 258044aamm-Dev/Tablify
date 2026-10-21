@@ -16,6 +16,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { PANEL_WIDTH } from '../../src/views/grid/select/panel.js';
 
 interface CssRule {
   selectors: string[];
@@ -71,7 +72,16 @@ function decl(selector: string, property: string, media: string | null = null): 
   return match.length > 0 ? (match[match.length - 1] as string) : null;
 }
 
-const CONTROL = '.tablify__cell-expand';
+/**
+ * The control is a `<button>`, so its rules have to out-rank Obsidian's own
+ * `button:not(.clickable-icon)` (0,1,1) — the SAD-76 (RC-B) convention this stylesheet already
+ * uses for the toolbar: element-qualified inside `.tablify`. A bare class selector loses, and the
+ * measured result in the visual harness was a host pill (26x30 px, bordered, accent ink) instead
+ * of the 20 px ghost button. Every selector below is therefore the qualified one.
+ */
+const CONTROL = '.tablify button.tablify__cell-expand';
+const REVEAL = '.tablify .tablify__cell--overflow:hover > .tablify__capsule > button.tablify__cell-expand';
+const TOUCH = '.tablify--overflow-touch button.tablify__cell-expand';
 
 describe('SAD-376 — the control is inert at rest', () => {
   it('is invisible and cannot take a press', () => {
@@ -85,6 +95,25 @@ describe('SAD-376 — the control is inert at rest', () => {
     expect(decl('.tablify__cell--overflow > .tablify__capsule', 'position')).toBe('relative');
   });
 
+  // The host's base button rule is (0,1,1); a bare `.tablify__cell-expand` (0,1,0) loses to it and
+  // the control comes out as Obsidian's 30 px pill. Pinned as a specificity contract, not a style
+  // preference: the selector must carry the element and the plugin scope.
+  it('out-ranks Obsidian\'s own button rule, and resets every property it sets', () => {
+    expect(CONTROL).toMatch(/^\.tablify button\./);
+    expect(decl(CONTROL, 'height')).toBe('20px');
+    expect(decl(CONTROL, 'width')).toBe('20px');
+    expect(decl(CONTROL, 'padding')).toBe('0');
+    expect(decl(CONTROL, 'margin')).toBe('0');
+    expect(decl(CONTROL, 'border')).toBe('0');
+    expect(decl(CONTROL, 'box-shadow')).toBe('none');
+    expect(decl(CONTROL, 'font-size')).toBe('10px');
+    expect(decl(CONTROL, 'font-weight')).toBe('400');
+    expect(decl(CONTROL, 'line-height')).toBe('1');
+    expect(decl(CONTROL, 'appearance')).toBe('none');
+    // A hover rule of its own, or the host's `:hover` repaints the fill.
+    expect(decl(`${CONTROL}:hover`, 'background')).toContain('linear-gradient');
+  });
+
   it('fits every row height (28 / 34 / 40 px capsules)', () => {
     const height = Number.parseInt(decl(CONTROL, 'height') ?? '0', 10);
     expect(height).toBeGreaterThan(0);
@@ -95,11 +124,10 @@ describe('SAD-376 — the control is inert at rest', () => {
 
 describe('SAD-376 — reveal follows the grips', () => {
   it('is revealed on hover only where a pointer can hover', () => {
-    expect(decl('.tablify__cell--overflow:hover > .tablify__capsule > .tablify__cell-expand', 'opacity', '(hover: hover)')).toBe('1');
-    expect(
-      decl('.tablify__cell--overflow:hover > .tablify__capsule > .tablify__cell-expand', 'pointer-events', '(hover: hover)'),
-    ).toBe('auto');
+    expect(decl(REVEAL, 'opacity', '(hover: hover)')).toBe('1');
+    expect(decl(REVEAL, 'pointer-events', '(hover: hover)')).toBe('auto');
     // No unqualified :hover rule outside that block.
+    expect(decl(REVEAL, 'opacity')).toBeNull();
     expect(decl('.tablify__cell--overflow:hover > .tablify__capsule > .tablify__cell-expand', 'opacity')).toBeNull();
   });
 
@@ -112,7 +140,7 @@ describe('SAD-376 — reveal follows the grips', () => {
     const selectors = rules
       .filter((r) => r.media === '(hover: none)')
       .flatMap((r) => r.selectors);
-    expect(selectors).toContain('.tablify--overflow-touch .tablify__cell-expand');
+    expect(selectors).toContain(TOUCH);
     // Nothing is revealed on touch without that class.
     expect(selectors).not.toContain(CONTROL);
   });
@@ -173,9 +201,15 @@ describe('SAD-376 — the hover preview card', () => {
 });
 
 describe('SAD-376 — the panel', () => {
-  it('is the shared float-panel layer, wider but still viewport-bound', () => {
-    expect(decl('.tablify__panel--overflow', 'width')).toBe('360px');
-    expect(decl('.tablify__panel--overflow', 'max-width')).toContain('100vw');
+  // `anchorPanel()` clamps the card's left edge as `vw - PANEL_WIDTH - 12`, so a card wider than
+  // PANEL_WIDTH is clamped as if it were narrower and hangs off the right edge. Measured before the
+  // fix (SAD-376 evidence, 390 px viewport): a 360 px panel at x = 58 ended at 418 px — 28 px off
+  // screen. Pinning against the constant ties the stylesheet to that arithmetic.
+  it('is the shared float-panel layer, never wider than the anchor clamp assumes', () => {
+    expect(decl('.tablify__panel--overflow', 'width')).toBe(`${PANEL_WIDTH}px`);
+    expect(decl('.tablify__panel--overflow', 'max-width')).toBe(
+      `min(${PANEL_WIDTH}px, calc(100vw - 16px))`,
+    );
   });
 
   it('wraps the full value and caps its height with a scroll', () => {

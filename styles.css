@@ -2122,7 +2122,13 @@ body.is-phone .view-content.tablify-view.tablify {
   position: relative;
 }
 
-.tablify__cell-expand {
+/* SAD-76 (RC-B) convention, and it matters here: Obsidian's `button:not(.clickable-icon)` is
+   (0,1,1) and would otherwise win over a bare `.tablify__cell-expand` (0,1,0) — measured in the
+   visual harness, that painted the control as a 26x30 px host pill with a 30px height, a border
+   and the accent ink, which is not the 20 px ghost button this ticket asks for. So the rule is
+   element-qualified inside `.tablify` (0,2,1, hover 0,3,1) and resets every property that base
+   rule sets: fill, ink, weight, height, line-height, padding, border, radius, shadow. */
+.tablify button.tablify__cell-expand {
   position: absolute;
   right: 3px;
   top: 50%;
@@ -2131,28 +2137,41 @@ body.is-phone .view-content.tablify-view.tablify {
   place-items: center;
   width: 20px;
   height: 20px;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
   margin: 0;
   border: 0;
   border-radius: 8px;
   /* Fade the text out from under the icon instead of clipping it with a hard edge. */
   background: linear-gradient(to right, transparent, var(--tablify-bg-capsule) 40%);
+  background-color: transparent;
   box-shadow: none;
   color: var(--tablify-text-muted);
+  font-family: inherit;
   font-size: 10px;
+  font-weight: 400;
   line-height: 1;
+  appearance: none;
   opacity: 0;
   pointer-events: none;
   cursor: pointer;
   transition: opacity 120ms ease, color 120ms ease;
 }
 
-.tablify__cell-expand:hover {
+/* The glyph is the whole control: no `<svg>` baseline gap, no inherited host icon size. */
+.tablify button.tablify__cell-expand svg.tablify__fa {
+  display: block;
+  height: 10px;
+}
+
+.tablify button.tablify__cell-expand:hover {
+  background: linear-gradient(to right, transparent, var(--tablify-bg-capsule) 40%);
   color: var(--tablify-text);
 }
 
 /* The capsule clips at `overflow: hidden`, so the ring has to sit inside it. */
-.tablify__cell-expand:focus-visible {
+.tablify button.tablify__cell-expand:focus-visible {
   outline: 2px solid var(--tablify-focus);
   outline-offset: -2px;
   opacity: 1;
@@ -2423,7 +2442,7 @@ body.is-phone .view-content.tablify-view.tablify {
   /* SAD-376: reveal follows the same rule as the grips — hover only, and the control becomes
      clickable at the same moment it becomes visible. A keyboard focus reveals it in every mode
      (rule above), so the affordance is never mouse-only. */
-  .tablify__cell--overflow:hover > .tablify__capsule > .tablify__cell-expand {
+  .tablify .tablify__cell--overflow:hover > .tablify__capsule > button.tablify__cell-expand {
     opacity: 1;
     pointer-events: auto;
   }
@@ -2433,14 +2452,14 @@ body.is-phone .view-content.tablify-view.tablify {
    (and the cell menu carries Expand cell as well). Off = the control is only reachable by
    keyboard, which is what "no hover" means today. */
 @media (hover: none) {
-  .tablify--overflow-touch .tablify__cell-expand {
+  .tablify--overflow-touch button.tablify__cell-expand {
     opacity: 1;
     pointer-events: auto;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tablify__cell-expand {
+  .tablify button.tablify__cell-expand {
     transition: none;
   }
 }
@@ -3020,10 +3039,12 @@ body.is-phone .view-content.tablify-view.tablify {
 
 /* ---- SAD-376: the expanded cell -------------------------------------------------------- */
 /* The same float-panel card every other cell panel uses (radius, shadow, z-index 70, themed by
-   applyTheme), a little wider so a paragraph is readable. Every colour is an existing token. */
+   applyTheme). The width is the shared `PANEL_WIDTH` on purpose: `anchorPanel()` clamps the card's
+   left edge with that number, so anything wider would hang off the right edge of a phone — the
+   measured 390 px case (SAD-376 evidence) is exactly that. Every colour is an existing token. */
 .tablify__panel--overflow {
-  width: 360px;
-  max-width: min(360px, calc(100vw - 16px));
+  width: 320px;
+  max-width: min(320px, calc(100vw - 16px));
 }
 
 /* The hover preview card (SAD-376): a read-only peek at a long cell, pointer-only. Same layer and
