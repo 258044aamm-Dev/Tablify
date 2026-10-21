@@ -148,6 +148,30 @@ describe('SAD-376 — the ellipsis and the row geometry are untouched', () => {
   });
 });
 
+describe('SAD-376 — the hover preview card', () => {
+  it('is the same layer as the panels, and never wider than the viewport', () => {
+    expect(decl('.tablify__cellcard', 'position')).toBe('fixed');
+    expect(decl('.tablify__cellcard', 'z-index')).toBe('70');
+    expect(decl('.tablify__cellcard', 'width')).toContain('100vw');
+  });
+
+  it('wraps the peek and caps it below the panel height', () => {
+    expect(decl('.tablify__cellcard-body', 'white-space')).toBe('pre-wrap');
+    expect(decl('.tablify__cellcard-body', 'overflow-wrap')).toBe('anywhere');
+    expect(decl('.tablify__cellcard-body', 'overflow')).toBe('auto');
+    expect(decl('.tablify__cellcard-body', 'max-height')).toContain('vh');
+  });
+
+  it('paints only with plugin tokens', () => {
+    const bodies = rules
+      .filter((r) => r.selectors.some((s) => s.includes('tablify__cellcard')))
+      .map((r) => r.body)
+      .join('\n');
+    expect(bodies.length).toBeGreaterThan(0);
+    expect(bodies).not.toMatch(/var\(--(?!tablify-)/);
+  });
+});
+
 describe('SAD-376 — the panel', () => {
   it('is the shared float-panel layer, wider but still viewport-bound', () => {
     expect(decl('.tablify__panel--overflow', 'width')).toBe('360px');

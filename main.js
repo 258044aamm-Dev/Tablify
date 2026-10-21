@@ -18636,6 +18636,8 @@ var DEFAULT_OVERFLOW_CONFIG = Object.freeze({
   hoverCard: true,
   touchReveal: true
 });
+var CARD_OPEN_DELAY_MS = 200;
+var CARD_EXIT_GRACE_MS = 150;
 function isOverflowing(displayText, maxChars) {
   if (displayText === "" || !Number.isFinite(maxChars) || maxChars < 0)
     return false;
@@ -18704,6 +18706,7 @@ function wirePanelDismiss(card, onDismiss) {
 // src/views/grid/cellOverflowUi.ts
 var COPY_CONFIRM_MS = 1200;
 var EXPAND_CONTROL_ATTRIBUTE = "data-overflow-expand";
+var CARD_CLASS = "tablify__cellcard";
 function createExpandControl(fieldName) {
   const button3 = document.createElement("button");
   button3.type = "button";
@@ -18717,6 +18720,84 @@ function createExpandControl(fieldName) {
 function copyToClipboard(text) {
   void navigator.clipboard?.writeText(text).catch(() => void 0);
 }
+var CellOverflowCard = class {
+  constructor(opts) {
+    this.opts = opts;
+  }
+  card = null;
+  copyTimer = null;
+  get isOpen() {
+    return this.card !== null;
+  }
+  /** The card element while it is open, so the owner can attach its own hover listeners. */
+  get element() {
+    return this.card;
+  }
+  /** True when `node` is inside the card — the grid asks this before closing it on a pointer-out. */
+  contains(node) {
+    return !!node && !!this.card && this.card.contains(node);
+  }
+  open(anchor) {
+    if (this.card)
+      return;
+    const card = document.createElement("div");
+    card.className = `${CARD_CLASS} tablify__panel`;
+    card.setAttribute("role", "group");
+    card.setAttribute("aria-label", "Cell content preview");
+    card.dataset.testid = "tablify-cell-overflow-card";
+    applyTheme(card, this.opts.theme);
+    const tools = document.createElement("div");
+    tools.className = "tablify__cellcard-tools";
+    const copy = this.tool("Copy content", "copy");
+    copy.dataset.testid = "tablify-cell-overflow-card-copy";
+    copy.addEventListener("click", (e) => {
+      e.stopPropagation();
+      copyToClipboard(this.opts.text);
+      this.confirmCopied(copy);
+    });
+    const expand = this.tool("Expand cell", "up-right-and-down-left-from-center");
+    expand.dataset.testid = "tablify-cell-overflow-card-expand";
+    expand.setAttribute("aria-haspopup", "dialog");
+    expand.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.opts.onExpand();
+    });
+    tools.append(copy, expand);
+    const body = document.createElement("div");
+    body.className = "tablify__cellcard-body";
+    body.textContent = this.opts.text;
+    card.append(tools, body);
+    document.body.appendChild(card);
+    anchorPanel(card, anchor);
+    this.card = card;
+  }
+  close() {
+    if (this.copyTimer !== null) {
+      clearTimeout(this.copyTimer);
+      this.copyTimer = null;
+    }
+    this.card?.remove();
+    this.card = null;
+  }
+  tool(label, glyph) {
+    const button3 = document.createElement("button");
+    button3.type = "button";
+    button3.className = "tablify__cellcard-tool";
+    button3.setAttribute("aria-label", label);
+    button3.innerHTML = faIcon(glyph);
+    return button3;
+  }
+  /** Tick the copy button for a moment; the card is too small for a notice. */
+  confirmCopied(button3) {
+    if (this.copyTimer !== null)
+      clearTimeout(this.copyTimer);
+    button3.innerHTML = faIcon("check");
+    this.copyTimer = setTimeout(() => {
+      button3.innerHTML = faIcon("copy");
+      this.copyTimer = null;
+    }, COPY_CONFIRM_MS);
+  }
+};
 var CellOverflowPanel = class {
   constructor(opts) {
     this.opts = opts;
@@ -19307,6 +19388,36 @@ var GridView = class {
         this.openOverflowPanel(cell2);
     });
     this.content.addEventListener("keydown", stopButtonKeys);
+    this.content.addEventListener("pointerover", (e) => {
+      const event = e;
+      if (event.pointerType !== "mouse")
+        return;
+      const control = event.target?.closest?.(`[${EXPAND_CONTROL_ATTRIBUTE}]`);
+      if (!control)
+        return;
+      if (this.cardOpenTimer !== null)
+        return;
+      if (this.overflowCard && this.overflowCard.contains(control))
+        return;
+      this.cancelCardClose();
+      const cell2 = control.closest(".tablify__cell");
+      if (!cell2)
+        return;
+      this.cardOpenTimer = setTimeout(() => {
+        this.cardOpenTimer = null;
+        this.openOverflowCard(cell2, control);
+      }, CARD_OPEN_DELAY_MS);
+    });
+    this.content.addEventListener("pointerout", (e) => {
+      const event = e;
+      const control = event.target?.closest?.(`[${EXPAND_CONTROL_ATTRIBUTE}]`);
+      if (!control)
+        return;
+      if (this.overflowCard?.contains(event.relatedTarget))
+        return;
+      this.cancelCardOpen();
+      this.scheduleCardClose();
+    });
     if (opts.onRowMove) {
       this.content.addEventListener("pointerdown", (e) => {
         const lead = e.target?.closest?.(".tablify__lead--num");
@@ -19326,6 +19437,7 @@ var GridView = class {
     });
     this.root.addEventListener("scroll", () => {
       this.scrollTop = this.root.scrollTop;
+      this.closeOverflowCard();
       this.overflowPanel?.close();
       if (this.renderedRange && this.rangeFor(this.scrollTop) === this.renderedRange)
         return;
@@ -19443,6 +19555,7 @@ var GridView = class {
       return;
     const field = this.fields[Number(cell2.dataset.colIndex)];
     const anchor = cell2.querySelector(".tablify__capsule") ?? cell2;
+    this.closeOverflowCard();
     this.overflowPanel?.close();
     this.overflowPanel = new CellOverflowPanel({
       text,
@@ -19457,6 +19570,62 @@ var GridView = class {
       }
     });
     this.overflowPanel.open(anchor);
+  }
+  /**
+   * SAD-376: show the hover preview card for one cell, anchored to its control.
+   *
+   * Refused when the setting is off or the text no longer overflows — the card is transient UI, so
+   * it may only ever show content the grid is already rendering.
+   */
+  openOverflowCard(cell2, control) {
+    if (!this.overflow.enabled || !this.overflow.hoverCard)
+      return;
+    const text = cell2.querySelector(".tablify__cell-text")?.textContent ?? "";
+    if (!offersOverflow(this.overflow, text))
+      return;
+    this.cancelCardClose();
+    this.overflowCard?.close();
+    const card = new CellOverflowCard({
+      text,
+      theme: this.cellTheme(),
+      // The card's ⤢ hands over to the panel, from the same cell.
+      onExpand: () => {
+        this.closeOverflowCard();
+        this.openOverflowPanel(cell2);
+      }
+    });
+    card.open(control);
+    card.element?.addEventListener("pointerenter", () => this.cancelCardClose());
+    card.element?.addEventListener("pointerleave", () => this.scheduleCardClose());
+    this.overflowCard = card;
+  }
+  /** Close the card now, and drop any pending timers that would reopen or re-close it. */
+  closeOverflowCard() {
+    this.cancelCardOpen();
+    this.cancelCardClose();
+    this.overflowCard?.close();
+    this.overflowCard = null;
+  }
+  cancelCardOpen() {
+    if (this.cardOpenTimer !== null) {
+      clearTimeout(this.cardOpenTimer);
+      this.cardOpenTimer = null;
+    }
+  }
+  cancelCardClose() {
+    if (this.cardCloseTimer !== null) {
+      clearTimeout(this.cardCloseTimer);
+      this.cardCloseTimer = null;
+    }
+  }
+  /** Close the card after the grace period, so the pointer can cross the gap into it. */
+  scheduleCardClose() {
+    this.cancelCardClose();
+    this.cardCloseTimer = setTimeout(() => {
+      this.cardCloseTimer = null;
+      this.overflowCard?.close();
+      this.overflowCard = null;
+    }, CARD_EXIT_GRACE_MS);
   }
   /**
    * SAD-376: a new configuration (the plugin settings changed). Repaints only on a real change, so
@@ -19484,6 +19653,10 @@ var GridView = class {
   overflow = DEFAULT_OVERFLOW_CONFIG;
   /** SAD-376: the open expanded-cell panel, if any. Owned here so an embed gets it too. */
   overflowPanel = null;
+  /** SAD-376: the hover preview card, and the two timers that pace it. */
+  overflowCard = null;
+  cardOpenTimer = null;
+  cardCloseTimer = null;
   /**
    * Replace rows, fields, and view settings, then re-render. Scroll position is kept.
    * SAD-81: `groups` switches the grouped layout on (rows are then the grouped rows); omitted or
@@ -20194,6 +20367,7 @@ var GridView = class {
     return `${start}:${end}:${this.rowHeight}:${this.totalRows}`;
   }
   render() {
+    this.closeOverflowCard();
     this.overflowPanel?.close();
     if (this.layout) {
       this.renderGrouped(this.layout);
@@ -20438,6 +20612,7 @@ var GridView = class {
     }
   }
   destroy() {
+    this.closeOverflowCard();
     this.overflowPanel?.close();
     this.cancelRowDrag?.();
     this.resizeObserver?.disconnect();

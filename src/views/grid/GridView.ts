@@ -35,8 +35,19 @@ import type { ViewDefinition } from '../../model/types.js';
 import { effectiveFrozenColumns } from '../../model/view.js';
 import { getFieldType } from '../../model/fieldTypes/registry.js';
 import type { GridGroup } from './grouping.js';
-import { DEFAULT_OVERFLOW_CONFIG, offersOverflow, type CellOverflowConfig } from './cellOverflow.js';
-import { CellOverflowPanel, createExpandControl, EXPAND_CONTROL_ATTRIBUTE } from './cellOverflowUi.js';
+import {
+  CARD_EXIT_GRACE_MS,
+  CARD_OPEN_DELAY_MS,
+  DEFAULT_OVERFLOW_CONFIG,
+  offersOverflow,
+  type CellOverflowConfig,
+} from './cellOverflow.js';
+import {
+  CellOverflowCard,
+  CellOverflowPanel,
+  createExpandControl,
+  EXPAND_CONTROL_ATTRIBUTE,
+} from './cellOverflowUi.js';
 import { applyValidationState } from './validationDisplay.js';
 import {
   createCheckboxControl,
@@ -307,6 +318,7 @@ export class GridView {
     if (!offersOverflow(this.overflow, text)) return;
     const field = this.fields[Number(cell.dataset.colIndex)];
     const anchor = cell.querySelector<HTMLElement>('.tablify__capsule') ?? cell;
+    this.closeOverflowCard();
     this.overflowPanel?.close();
     this.overflowPanel = new CellOverflowPanel({
       text,
@@ -320,6 +332,67 @@ export class GridView {
       },
     });
     this.overflowPanel.open(anchor);
+  }
+
+  /**
+   * SAD-376: show the hover preview card for one cell, anchored to its control.
+   *
+   * Refused when the setting is off or the text no longer overflows — the card is transient UI, so
+   * it may only ever show content the grid is already rendering.
+   */
+  private openOverflowCard(cell: HTMLElement, control: HTMLElement): void {
+    if (!this.overflow.enabled || !this.overflow.hoverCard) return;
+    const text = cell.querySelector<HTMLElement>('.tablify__cell-text')?.textContent ?? '';
+    if (!offersOverflow(this.overflow, text)) return;
+    this.cancelCardClose();
+    this.overflowCard?.close();
+    const card = new CellOverflowCard({
+      text,
+      theme: this.cellTheme(),
+      // The card's ⤢ hands over to the panel, from the same cell.
+      onExpand: () => {
+        this.closeOverflowCard();
+        this.openOverflowPanel(cell);
+      },
+    });
+    card.open(control);
+    // Keep the card alive while the pointer is inside it, and close it when it leaves. The listeners
+    // travel with the element, so they disappear when the card does.
+    card.element?.addEventListener('pointerenter', () => this.cancelCardClose());
+    card.element?.addEventListener('pointerleave', () => this.scheduleCardClose());
+    this.overflowCard = card;
+  }
+
+  /** Close the card now, and drop any pending timers that would reopen or re-close it. */
+  private closeOverflowCard(): void {
+    this.cancelCardOpen();
+    this.cancelCardClose();
+    this.overflowCard?.close();
+    this.overflowCard = null;
+  }
+
+  private cancelCardOpen(): void {
+    if (this.cardOpenTimer !== null) {
+      clearTimeout(this.cardOpenTimer);
+      this.cardOpenTimer = null;
+    }
+  }
+
+  private cancelCardClose(): void {
+    if (this.cardCloseTimer !== null) {
+      clearTimeout(this.cardCloseTimer);
+      this.cardCloseTimer = null;
+    }
+  }
+
+  /** Close the card after the grace period, so the pointer can cross the gap into it. */
+  private scheduleCardClose(): void {
+    this.cancelCardClose();
+    this.cardCloseTimer = setTimeout(() => {
+      this.cardCloseTimer = null;
+      this.overflowCard?.close();
+      this.overflowCard = null;
+    }, CARD_EXIT_GRACE_MS);
   }
 
   /**
@@ -352,6 +425,10 @@ export class GridView {
   private overflow: CellOverflowConfig = DEFAULT_OVERFLOW_CONFIG;
   /** SAD-376: the open expanded-cell panel, if any. Owned here so an embed gets it too. */
   private overflowPanel: CellOverflowPanel | null = null;
+  /** SAD-376: the hover preview card, and the two timers that pace it. */
+  private overflowCard: CellOverflowCard | null = null;
+  private cardOpenTimer: ReturnType<typeof setTimeout> | null = null;
+  private cardCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private opts: GridOptions) {
     this.fields = opts.fields;
@@ -440,6 +517,36 @@ export class GridView {
     // Enter/Space on the control must press it, not reach the grid's editor shortcut.
     this.content.addEventListener('keydown', stopButtonKeys);
 
+    // SAD-376: the hover preview card. Pointer-only (touch has no hover and gets the control plus
+    // the cell menu instead), and paced: the pointer has to rest on the control before a card
+    // opens, because a table is mostly pointer travel. One delegated pair covers every cell.
+    this.content.addEventListener('pointerover', (e) => {
+      const event = e as PointerEvent;
+      if (event.pointerType !== 'mouse') return;
+      const control = (event.target as HTMLElement | null)?.closest?.(`[${EXPAND_CONTROL_ATTRIBUTE}]`) as HTMLElement | null;
+      if (!control) return;
+      // Already pacing, or already showing this cell's card: nothing to do.
+      if (this.cardOpenTimer !== null) return;
+      if (this.overflowCard && this.overflowCard.contains(control)) return;
+      // Re-entering the control cancels a pending close.
+      this.cancelCardClose();
+      const cell = control.closest('.tablify__cell') as HTMLElement | null;
+      if (!cell) return;
+      this.cardOpenTimer = setTimeout(() => {
+        this.cardOpenTimer = null;
+        this.openOverflowCard(cell, control);
+      }, CARD_OPEN_DELAY_MS);
+    });
+    this.content.addEventListener('pointerout', (e) => {
+      const event = e as PointerEvent;
+      const control = (event.target as HTMLElement | null)?.closest?.(`[${EXPAND_CONTROL_ATTRIBUTE}]`) as HTMLElement | null;
+      if (!control) return;
+      // Moving onto the card itself is not leaving it.
+      if (this.overflowCard?.contains(event.relatedTarget as Node | null)) return;
+      this.cancelCardOpen();
+      this.scheduleCardClose();
+    });
+
     // SAD-80: one delegated listener for the `#` drag handle — rows are rebuilt as they scroll,
     // so per-row listeners would be re-created every frame.
     if (opts.onRowMove) {
@@ -464,8 +571,9 @@ export class GridView {
     // scroll handler
     this.root.addEventListener('scroll', () => {
       this.scrollTop = this.root.scrollTop;
-      // SAD-376: the panel is anchored to a cell that is about to move (and may be recycled by
-      // the virtualizer), so it closes rather than float over the wrong row.
+      // SAD-376: the panel and the card are anchored to a cell that is about to move (and may be
+      // recycled by the virtualizer), so they close rather than float over the wrong row.
+      this.closeOverflowCard();
       this.overflowPanel?.close();
       // A scroll that keeps the same rows in range needs no rebuild: the browser has already
       // moved them. Smooth scrolling fires several events per row, and rebuilding each time
@@ -1316,7 +1424,8 @@ export class GridView {
   }
 
   private render(): void {
-    // SAD-376: a panel is anchored to a cell that this render replaces or recycles.
+    // SAD-376: the panel and the card are anchored to a cell that this render replaces.
+    this.closeOverflowCard();
     this.overflowPanel?.close();
     if (this.layout) {
       this.renderGrouped(this.layout);
@@ -1612,7 +1721,9 @@ export class GridView {
   }
 
   destroy(): void {
-    // SAD-376: the panel lives on document.body, so it outlives this element unless it is closed.
+    // SAD-376: the panel and the card live on document.body, so they outlive this element unless
+    // they are closed — and their timers would fire against a destroyed grid.
+    this.closeOverflowCard();
     this.overflowPanel?.close();
     this.cancelRowDrag?.();
     this.resizeObserver?.disconnect();

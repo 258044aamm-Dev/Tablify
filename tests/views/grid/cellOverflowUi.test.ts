@@ -14,8 +14,18 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GridView } from '../../../src/views/grid/GridView.js';
-import { CellOverflowPanel, COPY_CONFIRM_MS, createExpandControl } from '../../../src/views/grid/cellOverflowUi.js';
-import { DEFAULT_OVERFLOW_CONFIG, type CellOverflowConfig } from '../../../src/views/grid/cellOverflow.js';
+import {
+  CellOverflowCard,
+  CellOverflowPanel,
+  COPY_CONFIRM_MS,
+  createExpandControl,
+} from '../../../src/views/grid/cellOverflowUi.js';
+import {
+  CARD_EXIT_GRACE_MS,
+  CARD_OPEN_DELAY_MS,
+  DEFAULT_OVERFLOW_CONFIG,
+  type CellOverflowConfig,
+} from '../../../src/views/grid/cellOverflow.js';
 import { createDefaultView } from '../../../src/model/view.js';
 import type { FieldDefinition, Row } from '../../../src/model/types.js';
 
@@ -96,6 +106,18 @@ function click(el: Element): void {
 
 function panel(): HTMLElement | null {
   return document.body.querySelector<HTMLElement>('[data-testid="tablify-cell-overflow-panel"]');
+}
+
+function card(): HTMLElement | null {
+  return document.body.querySelector<HTMLElement>('[data-testid="tablify-cell-overflow-card"]');
+}
+
+/** A mouse pointer event of the kind the grid's hover wiring listens for. */
+function pointer(type: 'pointerover' | 'pointerout', on: Element, related: Element | null = null): void {
+  const event = new MouseEvent(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'pointerType', { value: 'mouse' });
+  Object.defineProperty(event, 'relatedTarget', { value: related });
+  on.dispatchEvent(event);
 }
 
 beforeEach(() => {
@@ -306,6 +328,156 @@ describe('SAD-376 — reading and copying the content', () => {
   });
 });
 
+describe('SAD-376 — the hover preview card', () => {
+  it('opens only after the pointer has rested on the control', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    const control = controlAt(grid, 0, 0) as HTMLElement;
+
+    pointer('pointerover', control);
+    expect(card()).toBeNull();
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS - 1);
+    expect(card()).toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(card()).not.toBeNull();
+  });
+
+  it('shows the copy and expand tools from the reference screenshot and the full text', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    pointer('pointerover', controlAt(grid, 0, 0) as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+
+    const el = card() as HTMLElement;
+    expect(el.querySelector('[data-testid="tablify-cell-overflow-card-copy"]')).not.toBeNull();
+    expect(el.querySelector('[data-testid="tablify-cell-overflow-card-expand"]')).not.toBeNull();
+    expect(el.querySelector('.tablify__cellcard-body')?.textContent).toBe(LONG);
+    // Pointer-only furniture: no tooltip, and it is not a dialog.
+    expect(el.getAttribute('role')).toBe('group');
+    expect(el.hasAttribute('title')).toBe(false);
+  });
+
+  it('is never shown when the setting is off', () => {
+    vi.useFakeTimers();
+    const { grid } = mount({ ...DEFAULT_OVERFLOW_CONFIG, hoverCard: false });
+    pointer('pointerover', controlAt(grid, 0, 0) as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS * 4);
+    expect(card()).toBeNull();
+  });
+
+  it('ignores a touch press, which has no hover', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    const control = controlAt(grid, 0, 0) as HTMLElement;
+    const event = new MouseEvent('pointerover', { bubbles: true });
+    Object.defineProperty(event, 'pointerType', { value: 'touch' });
+    control.dispatchEvent(event);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS * 4);
+    expect(card()).toBeNull();
+  });
+
+  it('survives the gap between the cell and the card, then closes', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    const control = controlAt(grid, 0, 0) as HTMLElement;
+    pointer('pointerover', control);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+    const el = card() as HTMLElement;
+
+    // Leaving the control towards the card starts the grace period...
+    pointer('pointerout', control, el);
+    vi.advanceTimersByTime(CARD_EXIT_GRACE_MS - 1);
+    expect(card()).not.toBeNull();
+
+    // ...and reaching the card cancels it.
+    el.dispatchEvent(new MouseEvent('pointerenter'));
+    vi.advanceTimersByTime(CARD_EXIT_GRACE_MS * 4);
+    expect(card()).not.toBeNull();
+
+    // Walking away from the card closes it after the same grace.
+    el.dispatchEvent(new MouseEvent('pointerleave'));
+    vi.advanceTimersByTime(CARD_EXIT_GRACE_MS);
+    expect(card()).toBeNull();
+  });
+
+  it('closes when the pointer leaves the control and never reaches the card', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    const control = controlAt(grid, 0, 0) as HTMLElement;
+    pointer('pointerover', control);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+    pointer('pointerout', control);
+    vi.advanceTimersByTime(CARD_EXIT_GRACE_MS);
+    expect(card()).toBeNull();
+  });
+
+  it('hands over to the panel from its expand button', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    pointer('pointerover', controlAt(grid, 0, 1) as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+    click(card()?.querySelector('[data-testid="tablify-cell-overflow-card-expand"]') as HTMLElement);
+
+    expect(card()).toBeNull();
+    expect(panel()).not.toBeNull();
+    expect(panel()?.querySelector('.tablify__overflow-title')?.textContent).toBe('Notes');
+  });
+
+  it('copies from the card without opening the panel', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    vi.useFakeTimers();
+    mount();
+    pointer('pointerover', document.querySelector('.tablify__cell-expand') as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+    click(card()?.querySelector('[data-testid="tablify-cell-overflow-card-copy"]') as HTMLElement);
+
+    expect(writeText).toHaveBeenCalledWith(LONG);
+    expect(panel()).toBeNull();
+    expect(card()).not.toBeNull();
+  });
+
+  it('disappears when the grid re-renders or is destroyed', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    pointer('pointerover', controlAt(grid, 0, 0) as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+    expect(card()).not.toBeNull();
+    grid.setModel(rows(), fields(), createDefaultView(fields()));
+    expect(card()).toBeNull();
+
+    pointer('pointerover', controlAt(grid, 0, 0) as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+    expect(card()).not.toBeNull();
+    grid.destroy();
+    expect(card()).toBeNull();
+  });
+
+  it('cannot fire a card after the grid is gone (no timer outlives it)', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    pointer('pointerover', controlAt(grid, 0, 0) as HTMLElement);
+    grid.destroy();
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS * 4);
+    expect(card()).toBeNull();
+  });
+
+  it('opens a card for the cell under the pointer, one at a time', () => {
+    vi.useFakeTimers();
+    const { grid } = mount();
+    pointer('pointerover', controlAt(grid, 0, 0) as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+    const first = card();
+    pointer('pointerout', controlAt(grid, 0, 0) as HTMLElement);
+    pointer('pointerover', controlAt(grid, 0, 1) as HTMLElement);
+    vi.advanceTimersByTime(CARD_OPEN_DELAY_MS);
+
+    expect(document.body.querySelectorAll('[data-testid="tablify-cell-overflow-card"]').length).toBe(1);
+    expect(card()).not.toBe(first);
+    expect(card()?.querySelector('.tablify__cellcard-body')?.textContent).toBe(LONG);
+  });
+});
+
 describe('SAD-376 — the panel on its own', () => {
   it('leaves the document clean after close, however often it is called', () => {
     const anchor = document.createElement('div');
@@ -326,6 +498,20 @@ describe('SAD-376 — the panel on its own', () => {
     panelInstance.open(anchor);
     expect(panel()?.classList.contains('tablify--dark')).toBe(true);
     panelInstance.close();
+  });
+
+  it('the card closes idempotently and holds the theme it was built with', () => {
+    const anchorEl = document.createElement('div');
+    document.body.appendChild(anchorEl);
+    const preview = new CellOverflowCard({ text: 'hello', theme: 'dark', onExpand: () => undefined });
+    preview.open(anchorEl);
+    expect(preview.isOpen).toBe(true);
+    expect(preview.contains(document.body.querySelector('.tablify__cellcard'))).toBe(true);
+    expect(document.body.querySelector('.tablify__cellcard')?.classList.contains('tablify--dark')).toBe(true);
+    preview.close();
+    preview.close();
+    expect(preview.isOpen).toBe(false);
+    expect(document.body.querySelector('.tablify__cellcard')).toBeNull();
   });
 
   it('builds a control with no text node and no tooltip', () => {

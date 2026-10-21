@@ -3026,6 +3026,64 @@ body.is-phone .view-content.tablify-view.tablify {
   max-width: min(360px, calc(100vw - 16px));
 }
 
+/* The hover preview card (SAD-376): a read-only peek at a long cell, pointer-only. Same layer and
+   paint as the panels, sized to the reference screenshot — copy and expand in the top-right
+   corner, the value wrapped underneath. */
+.tablify__cellcard {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 24px));
+  padding: 8px;
+  border: 1px solid var(--tablify-border-subtle);
+  border-radius: 16px;
+  background: var(--tablify-bg-pill);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  color: var(--tablify-text);
+  font-family: 'Lora', Georgia, serif;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.tablify__cellcard-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.tablify button.tablify__cellcard-tool {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--tablify-text-muted);
+  font-size: 10px;
+}
+
+.tablify button.tablify__cellcard-tool:hover {
+  background: var(--tablify-bg-pill-hover);
+  color: var(--tablify-text);
+}
+
+/* A peek, not the full read: it never grows past a third of the viewport and scrolls instead. */
+.tablify__cellcard-body {
+  max-height: 32vh;
+  overflow: auto;
+  padding: 0 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
 .tablify__overflow-body {
   box-sizing: border-box;
   padding: 10px;

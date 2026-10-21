@@ -15,6 +15,7 @@
  */
 
 import { faIcon } from '../../ui/faIcons.js';
+import { applyTheme } from '../../ui/theme/tokens.js';
 import { anchorPanel, createPanelCard, wirePanelDismiss } from './select/panel.js';
 
 /** How long the "Copied" confirmation stays on the button. */
@@ -22,6 +23,9 @@ export const COPY_CONFIRM_MS = 1200;
 
 /** Marker the grid's delegated click handler looks for. */
 export const EXPAND_CONTROL_ATTRIBUTE = 'data-overflow-expand';
+
+/** Marker for the preview card, so the grid's own hover wiring can recognise it. */
+export const CARD_CLASS = 'tablify__cellcard';
 
 /**
  * The expand affordance for one cell. `fieldName` is the only thing read out to assistive tech, so
@@ -44,6 +48,110 @@ export function createExpandControl(fieldName: string): HTMLButtonElement {
  *  every other copy in this plugin (`TableView.copyText`). */
 export function copyToClipboard(text: string): void {
   void navigator.clipboard?.writeText(text).catch(() => undefined);
+}
+
+export interface CellOverflowCardOptions {
+  /** The cell's full display text. */
+  text: string;
+  theme: 'light' | 'dark';
+  /** The card's ⤢ button: hand over to the expanded panel. */
+  onExpand: () => void;
+}
+
+/**
+ * SAD-376 — the hover preview card (the reference screenshot): the value wrapped over a few lines
+ * with `copy` and `expand` in its top-right corner.
+ *
+ * Pointer-only and never in the tab order — the panel is the keyboard path. It is anchored and
+ * clamped by the same `anchorPanel()` the panels use, so it cannot end up off-screen. The grid owns
+ * its lifetime (open delay, exit grace, closing on scroll/render); this class owns its markup.
+ */
+export class CellOverflowCard {
+  private card: HTMLElement | null = null;
+  private copyTimer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(private readonly opts: CellOverflowCardOptions) {}
+
+  get isOpen(): boolean {
+    return this.card !== null;
+  }
+
+  /** The card element while it is open, so the owner can attach its own hover listeners. */
+  get element(): HTMLElement | null {
+    return this.card;
+  }
+
+  /** True when `node` is inside the card — the grid asks this before closing it on a pointer-out. */
+  contains(node: Node | null): boolean {
+    return !!node && !!this.card && this.card.contains(node);
+  }
+
+  open(anchor: HTMLElement): void {
+    if (this.card) return;
+    const card = document.createElement('div');
+    card.className = `${CARD_CLASS} tablify__panel`;
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', 'Cell content preview');
+    card.dataset.testid = 'tablify-cell-overflow-card';
+    // The panel's theme variables, because the card lives on document.body like every panel.
+    applyTheme(card, this.opts.theme);
+
+    const tools = document.createElement('div');
+    tools.className = 'tablify__cellcard-tools';
+    const copy = this.tool('Copy content', 'copy');
+    copy.dataset.testid = 'tablify-cell-overflow-card-copy';
+    copy.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyToClipboard(this.opts.text);
+      this.confirmCopied(copy);
+    });
+    const expand = this.tool('Expand cell', 'up-right-and-down-left-from-center');
+    expand.dataset.testid = 'tablify-cell-overflow-card-expand';
+    expand.setAttribute('aria-haspopup', 'dialog');
+    expand.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.opts.onExpand();
+    });
+    tools.append(copy, expand);
+
+    const body = document.createElement('div');
+    body.className = 'tablify__cellcard-body';
+    body.textContent = this.opts.text;
+
+    card.append(tools, body);
+    document.body.appendChild(card);
+    anchorPanel(card, anchor);
+    this.card = card;
+  }
+
+  close(): void {
+    if (this.copyTimer !== null) {
+      clearTimeout(this.copyTimer);
+      this.copyTimer = null;
+    }
+    this.card?.remove();
+    this.card = null;
+  }
+
+  private tool(label: string, glyph: 'copy' | 'check' | 'up-right-and-down-left-from-center'): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tablify__cellcard-tool';
+    // aria-label only, never with title (SAD-109: two tooltips).
+    button.setAttribute('aria-label', label);
+    button.innerHTML = faIcon(glyph);
+    return button;
+  }
+
+  /** Tick the copy button for a moment; the card is too small for a notice. */
+  private confirmCopied(button: HTMLButtonElement): void {
+    if (this.copyTimer !== null) clearTimeout(this.copyTimer);
+    button.innerHTML = faIcon('check');
+    this.copyTimer = setTimeout(() => {
+      button.innerHTML = faIcon('copy');
+      this.copyTimer = null;
+    }, COPY_CONFIRM_MS);
+  }
 }
 
 export interface CellOverflowPanelOptions {
