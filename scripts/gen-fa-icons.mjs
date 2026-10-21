@@ -79,6 +79,8 @@ const GLYPHS = [
   // COD-71: the unchecked checkbox cell. The prototype draws `fa-regular fa-square`, so this is
   // the one glyph from the regular set (solid `square` is a filled box and reads as checked).
   { set: 'regular', name: 'square' },
+  // SAD-376: the expand affordance — the reference screenshot's diagonal two-arrow glyph.
+  'up-right-and-down-left-from-center',
 ];
 
 /** A GLYPHS entry as { set, name }; a bare string is solid-set. */
