@@ -4,6 +4,8 @@ All notable changes to Tablify are documented here. Format based on [Keep a Chan
 
 ## [Unreleased]
 
+## [2.0.0-beta.7] — 2026-10-24
+
 ### Added
 
 - **A long cell can be read in full, without losing its ellipsis (SAD-376)** — a cell whose text is

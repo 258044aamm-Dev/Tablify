@@ -2,6 +2,28 @@
 
 ---
 
+# 2.0.0-beta.7 — 2026-10-24
+
+**Release:** v2.0.0-beta.7 (pre-release) · **Format version 2** · full cell text expansion & preview card (SAD-376), mobile toolbar swipe indicator (SAD-375), mobile export SAF / Capacitor fallback (SAD-350), rating UI refresh (SAD-354), country popover redesign & flag SVGs (SAD-355), device file picker in Attachment cells (SAD-356), and field type search focus fix (SAD-353); no file-format version change
+
+## Situation
+
+Beta.7 extends cell reading and mobile ergonomics without changing `formatVersion`. A long cell can be read in full with an expand glyph, preview card, and modal panel (`SAD-376`); the mobile toolbar provides swipe indicators with soft scroll edge fades (`SAD-375`); export works on mobile via SAF dialogs, Capacitor shared `Download/Tablify` folder, and iOS Files sheet (`SAD-350`); rating cells feature a 12px refreshed visual design (`SAD-354`); Phone country selection is redesigned with an aligned grid and 245 country flag SVGs (`SAD-355`); Attachment cells allow importing files directly from the device into the vault (`SAD-356`); and the field type picker search box focus is restored (`SAD-353`).
+
+## Rolling back
+
+| Situation | Action |
+|---|---|
+| Any of the beta.7 rendering, export or mobile changes is not wanted | Reinstall 2.0.0-beta.6 using its `main.js`, `manifest.json`, and `styles.css` release assets. No table data is lost. |
+| A table contains formula or link fields | Keep Tablify 2.x installed. Tablify 1.0.2 and earlier cannot open `formatVersion: 2` files. |
+
+## Release verification checklist (2.0.0-beta.7)
+
+- [x] `npm run check` on the release commit: 148 test files / 2,361 tests; lint 0 errors (119 existing warnings); guard, docs links, FA icon check and build pass.
+- [x] Production `main.js` built twice with an identical SHA-256; assets hashed and recorded in the [release notes](2.0.0-beta.7.md).
+- [ ] Owner: install on desktop and mobile; verify cell expansion, toolbar swipe cues, mobile exports, and attachment file picker.
+- [ ] Owner: revoke/rotate the temporary GitHub credential used for publication.
+
 # 2.0.0-beta.6 — 2026-10-20
 
 **Release:** v2.0.0-beta.6 (pre-release) · **Format version 2** · inline cell image rendering and lightbox preview (SAD-347), interactive fractional star ratings (SAD-304), phone country & E.164 storage + email/URL/phone import inference (SAD-303), and mobile keyboard/toolbar/placeholder/bottom-bar refinements (SAD-305, SAD-306, SAD-307, SAD-308); no file-format version change

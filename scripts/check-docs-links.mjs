@@ -6,8 +6,9 @@
 // network-free so CI results never flap.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(join(dirname(new URL(import.meta.url).pathname), '..'));
+const ROOT = resolve(join(dirname(fileURLToPath(import.meta.url)), '..'));
 const errors = [];
 
 function collectMarkdown(dir) {
